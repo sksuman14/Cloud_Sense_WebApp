@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Row 1: Title + Status -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Cloud Icon + Title -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="☁"
+                android:textSize="16sp"
+                android:textColor="#38BDF8" />
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Cloud Sense"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#F8FAFC" />
+        </LinearLayout>
+
+        <!-- Status Dot + Text -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:id="@+id/widget_status_container">
+
+            <ImageView
+                android:id="@+id/widget_status_dot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:src="@drawable/widget_dot_online" />
+
+            <TextView
+                android:id="@+id/widget_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Online"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#4ADE80" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Spacer -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Row 2: Device ID + Temperature -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Device Info + Location -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Device: "
+                    android:textSize="12sp"
+                    android:textColor="#94A3B8" />
+
+                <TextView
+                    android:id="@+id/widget_device"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ANNAM001"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#CBD5E1" />
+            </LinearLayout>
+
+            <!-- Location -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="1dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📍 "
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/widget_location"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="" 
+                    android:textSize="10sp"
+                    android:textColor="#94A3B8" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Temperature -->
+        <TextView
+            android:id="@+id/widget_temperature"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="N/A"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#F8FAFC" />
+    </LinearLayout>
+
+    <!-- Row 3: Wind Speed + Rainfall -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="6dp">
+
+        <!-- Wind Speed -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💨"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/widget_wind_speed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="0.0 m/s"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#38BDF8" />
+        </LinearLayout>
+
+        <!-- Rainfall -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🌧"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/widget_rainfall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="0.0 mm"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#38BDF8" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Spacer -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Row 4: Updated time -->
+    <TextView
+        android:id="@+id/widget_updated"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Updated: 12:26 PM"
+        android:textSize="11sp"
+        android:textColor="#94A3B8" />
+
+</LinearLayout>

@@ -1,0 +1,57 @@
+{
+  "project_info": {
+    "project_number": "209940213885",
+    "project_id": "cloudsense-cba8a",
+    "storage_bucket": "cloudsense-cba8a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:209940213885:android:644c0bd5faefaadc0fc114",
+        "android_client_info": {
+          "package_name": "com.CloudSenseUnique"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "209940213885-3ugruklgoajj94nic67ps3o5o6co8ca0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.CloudSenseUnique",
+            "certificate_hash": "ad9d0a5a2ae5d6828b3ac1c093de41c8c38deacd"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoa9Y1-YvL85Q_1Br580SsrgDjRRO_kYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:209940213885:android:f009e0a99836a2c00fc114",
+        "android_client_info": {
+          "package_name": "com.CloudSenseVis"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoa9Y1-YvL85Q_1Br580SsrgDjRRO_kYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

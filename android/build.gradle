@@ -1,0 +1,38 @@
+buildscript {
+    ext.kotlin_version = '2.0.20'
+
+    repositories {
+        google()  // Google's Maven repository for Firebase and Android dependencies
+        mavenCentral()
+    }
+
+    dependencies {
+        // Specify the plugin version in the dependencies block
+        classpath 'com.google.gms:google-services:4.3.15'  // Use the version that was already on the classpath (4.3.15)
+    }
+}
+
+plugins {
+    // Remove the version here to avoid conflict
+    id 'com.google.gms.google-services' apply false  // The Firebase plugin for Cloud Messaging (FCM) and other services
+}
+
+allprojects {
+    repositories {
+        google()  // Google's Maven repository
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
