@@ -2736,7 +2736,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         (d) {
           final int? dId = int.tryParse(d.deviceId);
           
-          if (prefix == 'SH' && d.activityType == 'SH') {
+          if ((prefix == 'SH' && d.activityType == 'SH') ||
+              (prefix == 'KR' && d.activityType == 'KR')) {
             final String dIdStr = d.deviceId.replaceAll(RegExp(r'\D'), '');
             return dIdStr == targetIdNum?.toString() || d.deviceId == idStr;
           }

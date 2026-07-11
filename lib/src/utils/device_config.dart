@@ -797,7 +797,7 @@ class DeviceConfig {
     'KR': DeviceTypeConfig(
       prefix: 'KR',
       apiTemplate:
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID={deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}',
+          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}',
       hasWind: true,
       hasRainfall: true,
       parameters: [

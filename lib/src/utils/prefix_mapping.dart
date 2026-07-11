@@ -75,7 +75,8 @@ class DevicePrefixUtils {
     // NEW: KR sensors (Kerala) -> ANNAM/Kerala/WS_
     if (upper.startsWith('KR')) {
       final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
-      return 'ANNAM/Kerala/WS_$cleanDigits';
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'ANNAM/Kerala/WS_$num' : 'ANNAM/Kerala/WS_$cleanDigits';
     }
 
     // NEW: AW sensors (AWS) -> AWS_
