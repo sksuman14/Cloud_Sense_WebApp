@@ -578,14 +578,6 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=$deviceId&startdate=$krStartDate&enddate=$krEndDate&mode=download';
     } 
     
-    else if (widget.deviceName.startsWith('SH')) {
-      final krDateFmt = DateFormat('yyyy-MM-dd');
-      final krStartDate = krDateFmt.format(_startDate!);
-      final krEndDate = krDateFmt.format(_endDate!);
-      apiUrl =
-          'https://bne596pwxi.execute-api.us-east-1.amazonaws.com/default/WS_Shobha_Api?ANNAM_ID=$deviceId&startdate=$krStartDate&enddate=$krEndDate&mode=download';
-    } 
-    
     else if (widget.deviceName.startsWith('AW')) {
       final krDateFmt = DateFormat('yyyy-MM-dd');
       final krStartDate = krDateFmt.format(_startDate!);
@@ -636,8 +628,15 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           widget.deviceName.startsWith('WJ') ||
           widget.deviceName.startsWith('WA') ||
           widget.deviceName.startsWith('KR') ||
-          widget.deviceName.startsWith('SW')) {
-        final downloadUrl = data['download_url'] as String;
+          widget.deviceName.startsWith('SW') ||
+          widget.deviceName.startsWith('AW') ||
+          widget.deviceName.startsWith('SH')) {
+        final downloadUrl = data['download_url'] as String?;
+        if (downloadUrl == null) {
+          _showSnack(data['message']?.toString() ?? 'No data available for download');
+          _finishDownload(success: false);
+          return;
+        }
         final fileName = '${deviceId}_${startdate}_${enddate}_RAW.csv';
 
         if (kIsWeb) {
