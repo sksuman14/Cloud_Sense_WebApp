@@ -467,7 +467,10 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     } else if (RegExp(r'^[A-Za-z]{2}').hasMatch(widget.deviceName)) {
       extractedId = widget.deviceName.substring(2);
     }
-    if (RegExp(r'^\d+$').hasMatch(extractedId)) {
+    if (widget.deviceName.startsWith('KR')) {
+      final numericId = int.tryParse(extractedId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      extractedId = numericId.toString();
+    } else if (RegExp(r'^\d+$').hasMatch(extractedId)) {
       extractedId = int.parse(extractedId).toString();
     }
     final parsedDeviceIdStr = extractedId;

@@ -978,6 +978,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     int deviceIdNumeric =
         int.tryParse(deviceIdStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
+    if (widget.deviceName.startsWith('KR')) {
+      deviceIdStr = deviceIdNumeric.toString();
+    }
+
     if (widget.deviceName.startsWith('JW')) {
       try {
         final jwDevice = _deviceStatuses.firstWhere(
