@@ -109,11 +109,20 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
     super.initState();
     String numericId = widget.deviceId.replaceAll(RegExp(r'[^0-9]'), '');
     _deviceIdController = TextEditingController(text: numericId);
-    
-    // For KR/AW/SH devices, strip the prefix but keep the rest (e.g. 'WS_1' or numeric)
-    String krDisplayId = (_isKRDevice || _isAWDevice || _isSHDevice) && widget.deviceId.length > 2
-        ? widget.deviceId.substring(2)
-        : numericId;
+
+    // Build the correct ANNAM_ID format for each device family.
+    // Parse numeric portion and drop leading zeros (e.g. "001" → 1).
+    final int numericInt = int.tryParse(numericId) ?? 0;
+    String krDisplayId;
+    if (_isSHDevice) {
+      // Shobha API expects  WS_Shobha_N
+      krDisplayId = 'WS_Shobha_$numericInt';
+    } else if (_isKRDevice || _isAWDevice) {
+      // Kerala / AWS API expects  WS_N
+      krDisplayId = 'WS_$numericInt';
+    } else {
+      krDisplayId = numericId;
+    }
     _krDeviceIdController = TextEditingController(text: krDisplayId);
   }
 
@@ -716,6 +725,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
 
       if (_krDeviceIdController.text.isNotEmpty) {
         dataPayload["deviceId"] = _krDeviceIdController.text;
+        dataPayload["ANNAM_ID"] = _krDeviceIdController.text;
       }
 
       if (_krFixLatController.text.isNotEmpty) dataPayload["fixLat"] = _krFixLatController.text;
