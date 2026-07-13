@@ -47239,8 +47239,7 @@ case"KR":r=""+p
 return"WS_"+r+"#WS/Kerala/"+r
 case"SH":r=""+p
 return"WS_Shobha_"+r+"#WS/Shobha/"+r
-case"AT":r=""+p
-return r+"#AWS/Testing/"+r
+case"AT":return""+p+"#Testing/nRF52840"
 default:r=""+p
 return r+"#WS/Unknown/"+r}},
 vd(a){var s,r,q,p,o
@@ -47278,7 +47277,7 @@ if(B.b.G(q,"WS/GP/"))return"GP"+p
 if(B.b.G(q,"WS/Kerala/")){o=A.aU("[^0-9]",!0,!1,!1)
 return"KRWS_"+A.cL(r,o,"")}if(B.b.G(q,"WS/AWS/")||B.b.G(q,"AWS/")){o=A.aU("[^0-9]",!0,!1,!1)
 return"AW"+B.b.bG(A.cL(r,o,""),3,"0")}if(B.b.G(q,"Weather/sensor/"))return"WT"+p
-if(B.b.G(q,"AWS/Testing/"))return"AT"+p
+if(B.b.G(q,"Testing/nRF52840")||B.b.G(q,"AWS/Testing/"))return"AT"+p
 return null},
 Ez(a){var s
 if(a==="WS/Campus/2")return B.aqD
@@ -47300,7 +47299,7 @@ if(B.b.G(a,"7#")||B.b.p(a,"/7"))return B.aqO
 else return B.aqT}if(B.b.p(a,"SSMet/custom/1225/C0"))return B.aqJ
 if(B.b.p(a,"WS/SVPU"))return B.aqG
 if(B.b.p(a,"Demo/Device"))return B.aqZ
-if(B.b.p(a,"AWS/Testing"))return B.aqW
+if(B.b.p(a,"Testing/nRF52840")||B.b.p(a,"AWS/Testing"))return B.aqW
 if(B.b.p(a,"Awadh/IIT_B"))return B.aqE
 if(B.b.p(a,"WS/Mysuru"))return B.ar8
 if(B.b.p(a,"WS/KARGIL"))return B.ar7

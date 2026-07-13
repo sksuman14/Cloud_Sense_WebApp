@@ -276,7 +276,7 @@ class DevicePrefixUtils {
       case "SH":
         return "WS_Shobha_$id#WS/Shobha/$id";
       case "AT":
-        return "$id#AWS/Testing/$id";
+        return "$id#Testing/nRF52840";
       default:
         return "$id#WS/Unknown/$id";
     }
@@ -338,7 +338,7 @@ class DevicePrefixUtils {
       return 'AW${cleanId.padLeft(3, '0')}';
     }
     if (topicPath.startsWith('Weather/sensor/')) return 'WT$paddedId';
-    if (topicPath.startsWith('AWS/Testing/')) return 'AT$paddedId';
+    if (topicPath.startsWith('Testing/nRF52840') || topicPath.startsWith('AWS/Testing/')) return 'AT$paddedId';
 
     return null;
   }
@@ -412,7 +412,7 @@ class DevicePrefixUtils {
     if (topic.contains('Demo/Device')) {
       return (category: 'Testing Devices', prefix: 'DM');
     }
-    if (topic.contains('AWS/Testing')) {
+    if (topic.contains('Testing/nRF52840') || topic.contains('AWS/Testing')) {
       return (category: 'Testing Devices', prefix: 'AT');
     }
     if (topic.contains('Awadh/IIT_B')) {
