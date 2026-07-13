@@ -7,6 +7,7 @@ import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:cloud_sense_webapp/src/utils/device_config.dart';
+import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 
 /// ---------------------------------------------------------------
 ///  CALL THIS FROM ANYWHERE
@@ -578,7 +579,7 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final krStartDate = krDateFmt.format(_startDate!);
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&mode=download';
+          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&key=${ApiKeys.keralaApiKey}&mode=download';
     } 
     
     else if (widget.deviceName.startsWith('AW')) {

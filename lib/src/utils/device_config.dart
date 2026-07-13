@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 
 class DeviceParameter {
   final String key;
@@ -797,7 +798,7 @@ class DeviceConfig {
     'KR': DeviceTypeConfig(
       prefix: 'KR',
       apiTemplate:
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}',
+          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.keralaApiKey}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
