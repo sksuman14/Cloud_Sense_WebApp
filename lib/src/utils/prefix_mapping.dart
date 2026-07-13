@@ -105,6 +105,11 @@ class DevicePrefixUtils {
       return 'DM_$digits';
     }
 
+    // NEW: AT sensors (AWS Testing) under Testing with AWS_Testing_ prefix
+    if (upper.startsWith('AT')) {
+      return 'AWS_Testing_$digits';
+    }
+
     // 6. Other ANNAM group (CF, CP001, SW007, SW013)
     if (isAnnamCoreSensor(upper)) {
       return 'ANNAM$digits';
@@ -171,6 +176,7 @@ class DevicePrefixUtils {
         upper.startsWith('WT') ||
         upper.startsWith('DM') ||
         upper.startsWith('WM') ||
+        upper.startsWith('AT') ||
         upper.startsWith('WN');
   }
 
@@ -269,6 +275,8 @@ class DevicePrefixUtils {
         return "WS_$id#WS/Kerala/$id";
       case "SH":
         return "WS_Shobha_$id#WS/Shobha/$id";
+      case "AT":
+        return "$id#AWS/Testing/$id";
       default:
         return "$id#WS/Unknown/$id";
     }
@@ -330,6 +338,7 @@ class DevicePrefixUtils {
       return 'AW${cleanId.padLeft(3, '0')}';
     }
     if (topicPath.startsWith('Weather/sensor/')) return 'WT$paddedId';
+    if (topicPath.startsWith('AWS/Testing/')) return 'AT$paddedId';
 
     return null;
   }
@@ -402,6 +411,9 @@ class DevicePrefixUtils {
     }
     if (topic.contains('Demo/Device')) {
       return (category: 'Testing Devices', prefix: 'DM');
+    }
+    if (topic.contains('AWS/Testing')) {
+      return (category: 'Testing Devices', prefix: 'AT');
     }
     if (topic.contains('Awadh/IIT_B')) {
       return (category: 'IIT Bombay Sensor', prefix: 'IT');

@@ -226,8 +226,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
         name.startsWith('WN') ||
         name.startsWith('JW') ||
         name.startsWith('SH') ||
-        name.startsWith('KR');
-        
+        name.startsWith('KR') ||
+        name.startsWith('AT');
   }
 
   // Download status
@@ -469,7 +469,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       extractedId = widget.deviceName.substring(2);
     }
     if (widget.deviceName.startsWith('KR')) {
-      final numericId = int.tryParse(extractedId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      final numericId =
+          int.tryParse(extractedId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
       extractedId = numericId.toString();
     } else if (RegExp(r'^\d+$').hasMatch(extractedId)) {
       extractedId = int.parse(extractedId).toString();
@@ -580,14 +581,18 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
           'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&key=${ApiKeys.annamApiKey}&mode=download';
-    } 
-    
-    else if (widget.deviceName.startsWith('AW')) {
+    } else if (widget.deviceName.startsWith('AW')) {
       final krDateFmt = DateFormat('yyyy-MM-dd');
       final krStartDate = krDateFmt.format(_startDate!);
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
           'https://ag25teqhvi.execute-api.us-east-1.amazonaws.com/default/AWS_Api_Function?ANNAM_ID=AWS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&mode=download';
+    } else if (widget.deviceName.startsWith('AT')) {
+      final atDateFmt = DateFormat('yyyy-MM-dd');
+      final atStartDate = atDateFmt.format(_startDate!);
+      final atEndDate = atDateFmt.format(_endDate!);
+      apiUrl =
+          'https://2xdgr2sgud.execute-api.us-east-1.amazonaws.com/default/AWS_Testing_API?ANNAM_ID=$deviceId&startdate=$atStartDate&enddate=$atEndDate&mode=download';
     }
 
     if (_supportsFieldSelection && _selectedFields.isNotEmpty) {
@@ -634,10 +639,12 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           widget.deviceName.startsWith('KR') ||
           widget.deviceName.startsWith('SW') ||
           widget.deviceName.startsWith('AW') ||
-          widget.deviceName.startsWith('SH')) {
+          widget.deviceName.startsWith('SH') ||
+          widget.deviceName.startsWith('AT')) {
         final downloadUrl = data['download_url'] as String?;
         if (downloadUrl == null) {
-          _showSnack(data['message']?.toString() ?? 'No data available for download');
+          _showSnack(
+              data['message']?.toString() ?? 'No data available for download');
           _finishDownload(success: false);
           return;
         }
@@ -849,8 +856,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
   void _parseSVData(List<dynamic> items) => _parseGeneric(items, 'TimeStamp',
       exclude: ['TimeStamp', 'Topic', 'IMEINumber', 'DeviceId']);
 
-  void _parseSHData(List<dynamic> items) => _parseGeneric(items, 'TimeStamp',
-      exclude: [
+  void _parseSHData(List<dynamic> items) =>
+      _parseGeneric(items, 'TimeStamp', exclude: [
         'TimeStamp',
         'ANNAM_ID',
         'Device_ID',

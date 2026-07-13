@@ -178,6 +178,7 @@ class DeviceUtils {
     if (deviceId.startsWith('WN')) return 'Winds Weather Sensor';
     if (deviceId.startsWith('JW')) return 'Partnership Sensors';
     if (deviceId.startsWith('SH')) return 'Shobha Sensor';
+    if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
     return 'Rain Sensor';
   }
 
@@ -208,6 +209,7 @@ class DeviceUtils {
         deviceId.startsWith('JIO_WINDS_') ||
         deviceId.startsWith('JW_') ||
         deviceId.startsWith('WS_SHOBHA_') ||
+        deviceId.startsWith('AWS_TESTING_') ||
         RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId)) {
       return true;
     }
@@ -304,6 +306,17 @@ class DeviceUtils {
     // ── Handle DM_NNN format (Demo sensors display name) ─────────────────────
     if (input.startsWith('DM_')) {
       return ['DM$paddedDigits'];
+    }
+
+    // ── Handle AWS_TESTING_NNN format (AWS Testing sensors display name) ─────
+    if (input.startsWith('AWS_TESTING_')) {
+      final suffix = input.substring('AWS_TESTING_'.length);
+      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
+      if (digitsOnly != null) {
+        final pd = digitsOnly.group(0)!.padLeft(3, '0');
+        return ['AT$pd'];
+      }
+      return [];
     }
 
     // ── Handle Winds_NNN format (Winds sensors display name) ───────────────────
@@ -532,5 +545,6 @@ class DeviceUtils {
     'WN',
     'JW',
     'SH',
+    'AT',
   ];
 }

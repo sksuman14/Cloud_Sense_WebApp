@@ -1065,6 +1065,88 @@ class DeviceConfig {
             unit: 'dBm'),
       ],
     ),
+    // ── AT: AWS Testing Devices ──
+    'AT': DeviceTypeConfig(
+      prefix: 'AT',
+      apiTemplate:
+          'https://2xdgr2sgud.execute-api.us-east-1.amazonaws.com/default/AWS_Testing_API?ANNAM_ID={deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}',
+      hasWind: true,
+      hasRainfall: true,
+      parameters: [
+        DeviceParameter(
+            key: 'now_temperature', displayName: 'Temperature', unit: '°C'),
+        DeviceParameter(
+            key: 'now_relative_humidity', displayName: 'Humidity', unit: '%'),
+        DeviceParameter(key: 'rainfall', displayName: 'Rainfall', unit: 'mm'),
+        DeviceParameter(
+            key: 'Rainfall_Cumulative',
+            displayName: 'Rainfall Cumulative',
+            unit: 'mm'),
+        DeviceParameter(
+            key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s'),
+        DeviceParameter(
+            key: 'now_wind_direction',
+            displayName: 'Wind Direction',
+            unit: '°'),
+        DeviceParameter(
+            key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s'),
+        DeviceParameter(
+            key: 'max_wind_direction_gust',
+            displayName: 'Max Wind Direction Gust',
+            unit: '°',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'average_wind_speed',
+            displayName: 'Avg Wind Speed',
+            unit: 'm/s',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'average_wind_direction',
+            displayName: 'Avg Wind Direction',
+            unit: '°',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'now_light', displayName: 'Light Intensity', unit: 'Lux'),
+        DeviceParameter(
+            key: 'now_pressure', displayName: 'Atm Pressure', unit: 'hPa'),
+        DeviceParameter(
+            key: 'Maximum_Temperature',
+            displayName: 'Max Temperature',
+            unit: '°C',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Minimum_Temperature',
+            displayName: 'Min Temperature',
+            unit: '°C',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Maximum_Relative_Humidity',
+            displayName: 'Max Humidity',
+            unit: '%',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Minimum_Relative_Humidity',
+            displayName: 'Min Humidity',
+            unit: '%',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'max_wind_gust_time',
+            displayName: 'Max Gust Time',
+            unit: '',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Panel_Voltage',
+            displayName: 'Panel Voltage',
+            unit: 'V',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Battery_Voltage', displayName: 'Battery Voltage', unit: 'V'),
+        DeviceParameter(
+            key: 'Signal_Strength',
+            displayName: 'Signal Strength',
+            unit: 'dBm'),
+      ],
+    ),
   };
 
   static DeviceTypeConfig? getConfig(String deviceName) {
