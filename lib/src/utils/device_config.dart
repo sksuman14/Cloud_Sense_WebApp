@@ -1079,10 +1079,6 @@ class DeviceConfig {
             key: 'now_relative_humidity', displayName: 'Humidity', unit: '%'),
         DeviceParameter(key: 'rainfall', displayName: 'Rainfall', unit: 'mm'),
         DeviceParameter(
-            key: 'Rainfall_Cumulative',
-            displayName: 'Rainfall Cumulative',
-            unit: 'mm'),
-        DeviceParameter(
             key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s'),
         DeviceParameter(
             key: 'now_wind_direction',

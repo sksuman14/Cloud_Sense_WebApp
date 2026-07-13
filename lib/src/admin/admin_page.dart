@@ -89,6 +89,7 @@ class _AdminPageState extends State<AdminPage> {
   String? _currentUserEmail;
   List<Map<String, dynamic>> _erroneousDevices = [];
   List<Map<String, dynamic>> _suspectDevices = [];
+  List<Map<String, dynamic>> _correctedDevices = [];
   List<Map<String, dynamic>> _offlineDevices = [];
   List<Map<String, dynamic>> _criticalDevices = [];
   bool _isQualityLoading = false;
@@ -133,6 +134,8 @@ class _AdminPageState extends State<AdminPage> {
       Color strong, Color subtle, Color cardColor, bool isDark) {
     List<Map<String, dynamic>> allQualityAlerts = [
       ..._erroneousDevices,
+      ..._suspectDevices,
+      ..._correctedDevices,
     ];
     List<Map<String, dynamic>> allHealthAlerts = [
       ..._offlineDevices,
@@ -214,7 +217,9 @@ class _AdminPageState extends State<AdminPage> {
 
     return LayoutBuilder(builder: (context, constraints) {
       final bool isLargeScreen = constraints.maxWidth > 900;
-      final bool hasQualityAlerts = _erroneousDevices.isNotEmpty;
+      final bool hasQualityAlerts = _erroneousDevices.isNotEmpty ||
+          _suspectDevices.isNotEmpty ||
+          _correctedDevices.isNotEmpty;
       final bool hasHealthAlerts =
           _offlineDevices.isNotEmpty || _criticalDevices.isNotEmpty;
 
@@ -589,8 +594,11 @@ class _AdminPageState extends State<AdminPage> {
                     '';
             final status =
                 (device['latest_flag']?.toString() ?? 'SUSPECT').toUpperCase();
-            final color =
-                status == 'ERRONEOUS' ? Colors.redAccent : Colors.orangeAccent;
+            final color = status == 'ERRONEOUS'
+                ? Colors.redAccent
+                : status == 'CORRECTED'
+                    ? Colors.blueAccent
+                    : Colors.orangeAccent;
 
             final flaggedFields =
                 Map<String, dynamic>.from(device['flagged_fields'] ?? {});
@@ -788,7 +796,8 @@ class _AdminPageState extends State<AdminPage> {
       int _flagPriority(String flag) {
         if (flag == 'ERRONEOUS') return 2;
         if (flag == 'SUSPECT') return 1;
-        return 0;
+        if (flag == 'CORRECTED') return 0;
+        return -1;
       }
 
       // Step 2: Batch processing to avoid UI jank and API timeouts
@@ -823,7 +832,9 @@ class _AdminPageState extends State<AdminPage> {
             for (final record in records) {
               final flag =
                   record['overall_flag']?.toString().toUpperCase() ?? '';
-              if (flag != 'ERRONEOUS' && flag != 'SUSPECT') continue;
+              if (flag != 'ERRONEOUS' &&
+                  flag != 'SUSPECT' &&
+                  flag != 'CORRECTED') continue;
 
               final existing = alertMap[deviceId];
               final existingPriority = existing != null
@@ -855,9 +866,13 @@ class _AdminPageState extends State<AdminPage> {
           final suspect = alertMap.values
               .where((d) => d['latest_flag'] == 'SUSPECT')
               .toList();
+          final corrected = alertMap.values
+              .where((d) => d['latest_flag'] == 'CORRECTED')
+              .toList();
           setState(() {
             _erroneousDevices = erroneous;
             _suspectDevices = suspect;
+            _correctedDevices = corrected;
           });
         }
       }
@@ -869,6 +884,9 @@ class _AdminPageState extends State<AdminPage> {
               .toList();
           _suspectDevices = alertMap.values
               .where((d) => d['latest_flag'] == 'SUSPECT')
+              .toList();
+          _correctedDevices = alertMap.values
+              .where((d) => d['latest_flag'] == 'CORRECTED')
               .toList();
           _isQualityLoading = false;
         });
