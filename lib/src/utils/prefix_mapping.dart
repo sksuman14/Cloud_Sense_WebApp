@@ -537,6 +537,8 @@ class DevicePrefixUtils {
         return 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API';
       case 'AW':
         return 'https://ag25teqhvi.execute-api.us-east-1.amazonaws.com/default/AWS_Api_Function';
+      case 'SH':
+        return 'https://915gy7u30a.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Shobha';
       default:
         return null;
     }

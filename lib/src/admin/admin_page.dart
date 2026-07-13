@@ -1430,7 +1430,8 @@ class _AdminPageState extends State<AdminPage> {
         final deviceId = d['DeviceId']?.toString() ?? "";
         final topic = d['Topic']?.toString() ?? "";
         final group = d['group']?.toString() ?? "";
-        final internalName = DevicePrefixUtils.resolveSensorName(deviceId, topic);
+        final internalName =
+            DevicePrefixUtils.resolveSensorName(deviceId, topic);
         final displayName = _toAnnamDisplayName(internalName);
         final location =
             _getLocationForSensor(internalName)?.toLowerCase() ?? "";
@@ -2697,13 +2698,16 @@ class _AdminPageState extends State<AdminPage> {
                                           final idx = entry.key;
                                           final d = entry.value;
                                           final deviceId =
-                                              (d['DeviceId'] ?? "Unknown").toString();
+                                              (d['DeviceId'] ?? "Unknown")
+                                                  .toString();
                                           final topic =
-                                              (d['Topic'] ?? "Unknown").toString();
+                                              (d['Topic'] ?? "Unknown")
+                                                  .toString();
                                           final mapped = DevicePrefixUtils
                                               .mapCategoryAndPrefix(topic);
-                                          final sensorName =
-                                              DevicePrefixUtils.resolveSensorName(deviceId, topic);
+                                          final sensorName = DevicePrefixUtils
+                                              .resolveSensorName(
+                                                  deviceId, topic);
                                           final displaySensorName =
                                               _toAnnamDisplayName(sensorName);
                                           final updateInterval =
@@ -2825,7 +2829,8 @@ class _AdminPageState extends State<AdminPage> {
                                                             "WA",
                                                             'WT',
                                                             'JW',
-                                                            'KR'
+                                                            'KR',
+                                                            'SH'
                                                           ].contains(
                                                               mapped.prefix))
                                                         IconButton(

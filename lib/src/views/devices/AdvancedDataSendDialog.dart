@@ -71,13 +71,15 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
   final TextEditingController _httpUploadApiController = TextEditingController();
   bool _jwRestart = true;
 
-  // KR device specific controllers
+  // KR / SH device specific controllers
   late TextEditingController _krDeviceIdController;
   final TextEditingController _krFixLatController = TextEditingController();
   final TextEditingController _krFixLongController = TextEditingController();
   final TextEditingController _krUploadIntervalController = TextEditingController();
   final TextEditingController _krRainGuageSizeController = TextEditingController();
   final TextEditingController _krFileUploadCounterController = TextEditingController();
+  final TextEditingController _krBacklogFileCounterController = TextEditingController();
+  final TextEditingController _krSimCardApnController = TextEditingController();
   bool _krResetSystemTime = true;
   bool _krRestart = true;
 
@@ -99,14 +101,17 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
   bool get _isKRDevice => widget.deviceId.toUpperCase().startsWith('KR');
   bool get _isAWDevice => widget.deviceId.toUpperCase().startsWith('AW');
 
+  /// Returns true when the device is a SH (Shobha) sensor.
+  bool get _isSHDevice => widget.deviceId.toUpperCase().startsWith('SH');
+
   @override
   void initState() {
     super.initState();
     String numericId = widget.deviceId.replaceAll(RegExp(r'[^0-9]'), '');
     _deviceIdController = TextEditingController(text: numericId);
     
-    // For KR devices, strip the 'KR' prefix but keep the rest (e.g. 'WS_1')
-    String krDisplayId = (_isKRDevice || _isAWDevice) && widget.deviceId.length > 2
+    // For KR/AW/SH devices, strip the prefix but keep the rest (e.g. 'WS_1' or numeric)
+    String krDisplayId = (_isKRDevice || _isAWDevice || _isSHDevice) && widget.deviceId.length > 2
         ? widget.deviceId.substring(2)
         : numericId;
     _krDeviceIdController = TextEditingController(text: krDisplayId);
@@ -131,6 +136,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
     _krUploadIntervalController.dispose();
     _krRainGuageSizeController.dispose();
     _krFileUploadCounterController.dispose();
+    _krBacklogFileCounterController.dispose();
+    _krSimCardApnController.dispose();
     super.dispose();
   }
 
@@ -172,9 +179,11 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                           ? "Kerala Device Configuration"
                           : _isAWDevice
                               ? "AWS Device Configuration"
-                              : _isWTDevice
-                                  ? "WT Device Configuration"
-                                  : "Device Configuration",
+                              : _isSHDevice
+                                  ? "Shobha Device Configuration"
+                                  : _isWTDevice
+                                      ? "WT Device Configuration"
+                                      : "Device Configuration",
                   style: TextStyle(
                   color: textColor,
                   fontSize: isMobile ? 22 : 24,
@@ -237,8 +246,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                 _buildTextField("HTTP Upload API", _httpUploadApiController, Icons.cloud_upload),
                 const SizedBox(height: 12),
                 _buildSwitch("Restart Device", _jwRestart, (v) => setState(() => _jwRestart = v)),
-              ] else if (_isKRDevice || _isAWDevice) ...[
-                // KR devices specific fields
+              ] else if (_isKRDevice || _isAWDevice || _isSHDevice) ...[
+                // KR / AW / SH devices specific fields
                 _buildTextField("Device ID", _krDeviceIdController, Icons.device_hub),
                 const SizedBox(height: 12),
                 _buildTextField("Fix Latitude", _krFixLatController, Icons.location_on),
@@ -251,6 +260,12 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                 const SizedBox(height: 12),
                 _buildTextField("File Upload Counter", _krFileUploadCounterController, Icons.upload_file, isNumber: true),
                 const SizedBox(height: 12),
+                if (_isSHDevice) ...[
+                  _buildTextField("Backlog File Counter", _krBacklogFileCounterController, Icons.folder_copy, isNumber: true),
+                  const SizedBox(height: 12),
+                  _buildTextField("SIM Card APN", _krSimCardApnController, Icons.sim_card),
+                  const SizedBox(height: 12),
+                ],
                 _buildSwitch("Reset System Time", _krResetSystemTime, (v) => setState(() => _krResetSystemTime = v)),
                 const SizedBox(height: 12),
                 _buildSwitch("Restart Device", _krRestart, (v) => setState(() => _krRestart = v)),
@@ -388,7 +403,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
               const SizedBox(height: 24),
 
               // ── Sensors, Calibration, Resets — hidden for WT/JW/KR devices ──
-              if (!_isWTDevice && !_isJWDevice && !_isKRDevice && !_isAWDevice) ...[
+              if (!_isWTDevice && !_isJWDevice && !_isKRDevice && !_isAWDevice && !_isSHDevice) ...[
                 // Sensors
                 _buildSectionTitle("Select Sensor"),
                 _buildSwitch("BME(Temp + Humidity + Pressure)", bme,
@@ -689,6 +704,27 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
       if (_krUploadIntervalController.text.isNotEmpty) dataPayload["UploadInterval"] = num.tryParse(_krUploadIntervalController.text) ?? 10;
       if (_krRainGuageSizeController.text.isNotEmpty) dataPayload["RainGuageSize"] = num.tryParse(_krRainGuageSizeController.text) ?? 0.5;
       if (_krFileUploadCounterController.text.isNotEmpty) dataPayload["FileUploadCounter"] = num.tryParse(_krFileUploadCounterController.text) ?? 10;
+      dataPayload["ResetSystemTime"] = _krResetSystemTime;
+      dataPayload["restart"] = _krRestart;
+
+      payload = {
+        "config": true,
+        "data": dataPayload
+      };
+    } else if (_isSHDevice) {
+      final Map<String, dynamic> dataPayload = {};
+
+      if (_krDeviceIdController.text.isNotEmpty) {
+        dataPayload["deviceId"] = _krDeviceIdController.text;
+      }
+
+      if (_krFixLatController.text.isNotEmpty) dataPayload["fixLat"] = _krFixLatController.text;
+      if (_krFixLongController.text.isNotEmpty) dataPayload["fixLong"] = _krFixLongController.text;
+      if (_krUploadIntervalController.text.isNotEmpty) dataPayload["UploadInterval"] = num.tryParse(_krUploadIntervalController.text) ?? 10;
+      if (_krRainGuageSizeController.text.isNotEmpty) dataPayload["RainGuageSize"] = num.tryParse(_krRainGuageSizeController.text) ?? 0.5;
+      if (_krFileUploadCounterController.text.isNotEmpty) dataPayload["BacklogFileCounter"] = num.tryParse(_krFileUploadCounterController.text) ?? 10;
+      if (_krBacklogFileCounterController.text.isNotEmpty) dataPayload["BacklogFileCounter"] = num.tryParse(_krBacklogFileCounterController.text) ?? 10;
+      if (_krSimCardApnController.text.isNotEmpty) dataPayload["SetSimCardAPN"] = _krSimCardApnController.text;
       dataPayload["ResetSystemTime"] = _krResetSystemTime;
       dataPayload["restart"] = _krRestart;
 
