@@ -225,7 +225,7 @@ class DeviceConfig {
     'NA': DeviceTypeConfig(
       prefix: 'NA',
       apiTemplate:
-          'https://d3g5fo66jwc4iw.cloudfront.net/ssmetnarldata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://d3g5fo66jwc4iw.cloudfront.net/ssmetnarldata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_NARL/{deviceId}/{year}/{monthAbbr}.json',
       hasWind: true,
@@ -254,7 +254,7 @@ class DeviceConfig {
     'PC': DeviceTypeConfig(
       prefix: 'PC',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/polytechnicdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/polytechnicdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Polytechnic/{deviceId}/{year}/{monthAbbr}.json',
       hasWind: true,
@@ -284,7 +284,7 @@ class DeviceConfig {
     'GP': DeviceTypeConfig(
       prefix: 'GP',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/gcpdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/gcpdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -338,7 +338,7 @@ class DeviceConfig {
     'VD': DeviceTypeConfig(
       prefix: 'VD',
       apiTemplate:
-          'https://d3g5fo66jwc4iw.cloudfront.net/vanixdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://d3g5fo66jwc4iw.cloudfront.net/vanixdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -365,7 +365,7 @@ class DeviceConfig {
     'CP': DeviceTypeConfig(
       prefix: 'CP',
       apiTemplate:
-          'https://d3g5fo66jwc4iw.cloudfront.net/campusdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://d3g5fo66jwc4iw.cloudfront.net/campusdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Campus&DeviceId={deviceId}',
       monthHistoryApiTemplate:
@@ -404,7 +404,7 @@ class DeviceConfig {
     'SV': DeviceTypeConfig(
       prefix: 'SV',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/svpudata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/svpudata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -491,7 +491,7 @@ class DeviceConfig {
     'CF': DeviceTypeConfig(
       prefix: 'CF',
       apiTemplate:
-          'https://d3g5fo66jwc4iw.cloudfront.net/colonelfarmdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://d3g5fo66jwc4iw.cloudfront.net/colonelfarmdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Campus&DeviceId={deviceId}',
       monthHistoryApiTemplate:
@@ -522,7 +522,7 @@ class DeviceConfig {
     'SW': DeviceTypeConfig(
       prefix: 'SW',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMET_1225&DeviceId={deviceId}',
       monthHistoryApiTemplate:
@@ -554,7 +554,7 @@ class DeviceConfig {
     'WJ': DeviceTypeConfig(
       prefix: 'WJ',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMet_0126&DeviceId={deviceId}',
       monthHistoryApiTemplate:
@@ -585,7 +585,7 @@ class DeviceConfig {
     'WF': DeviceTypeConfig(
       prefix: 'WF',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0226data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0226data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMet_0226&DeviceId={deviceId}',
       monthHistoryApiTemplate:
@@ -616,7 +616,7 @@ class DeviceConfig {
     'WA': DeviceTypeConfig(
       prefix: 'WA',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Annam_0426&DeviceId={deviceId}',
       hasWind: true,
@@ -654,7 +654,7 @@ class DeviceConfig {
     'WM': DeviceTypeConfig(
       prefix: 'WM',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Annam_0526&DeviceId={deviceId}',
       hasWind: true,
@@ -798,7 +798,7 @@ class DeviceConfig {
     'KR': DeviceTypeConfig(
       prefix: 'KR',
       apiTemplate:
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.keralaApiKey}',
+          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.annamApiKey}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -893,7 +893,7 @@ class DeviceConfig {
     'KJ': DeviceTypeConfig(
       prefix: 'KJ',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/kjscedata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/kjscedata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_KJSCE/{deviceId}/{year}/{monthAbbr}.json',
       parameters: [
@@ -922,7 +922,7 @@ class DeviceConfig {
     'MY': DeviceTypeConfig(
       prefix: 'MY',
       apiTemplate:
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/mysurudata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/mysurudata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -949,7 +949,7 @@ class DeviceConfig {
     'SM': DeviceTypeConfig(
       prefix: 'SM',
       apiTemplate:
-          'https://n42fiw7l89.execute-api.us-east-1.amazonaws.com/default/SSMet_API_Func?device_id={deviceId}&start_date={startdate}&end_date={enddate}',
+          'https://n42fiw7l89.execute-api.us-east-1.amazonaws.com/default/SSMet_API_Func?device_id={deviceId}&start_date={startdate}&end_date={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMet_Railway&DeviceId={deviceId}',
       monthHistoryApiTemplate:
@@ -1059,9 +1059,10 @@ class DeviceConfig {
             unit: 'mm'),
         DeviceParameter(
             key: 'Battery_Voltage', displayName: 'Battery Voltage', unit: 'V'),
-       
         DeviceParameter(
-            key: 'Signal_Strength', displayName: 'Signal Strength', unit: 'dBm'),
+            key: 'Signal_Strength',
+            displayName: 'Signal Strength',
+            unit: 'dBm'),
       ],
     ),
   };

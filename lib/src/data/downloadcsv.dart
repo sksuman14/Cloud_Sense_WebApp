@@ -579,7 +579,7 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final krStartDate = krDateFmt.format(_startDate!);
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&key=${ApiKeys.keralaApiKey}&mode=download';
+          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&key=${ApiKeys.annamApiKey}&mode=download';
     } 
     
     else if (widget.deviceName.startsWith('AW')) {
