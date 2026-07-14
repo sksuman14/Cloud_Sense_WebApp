@@ -1417,7 +1417,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       for (var key in parameterKeys) {
         final rawValue = item[key];
         if (rawValue != null) {
-          final value = double.tryParse(rawValue.toString()) ?? 0.0;
+          double value = double.tryParse(rawValue.toString()) ?? 0.0;
+          
+          if ((key.toLowerCase() == 'batteryvoltage' || key.toLowerCase() == 'battery_voltage') && value == 0.0) {
+            if (parametersData[key] != null && parametersData[key]!.isNotEmpty) {
+              value = parametersData[key]!.last.value;
+            }
+          }
+
           String? gustTime;
           if (key == 'MaximumWindGustSpeed' ||
               key == 'Maximum_wind_gust_speed' ||
@@ -1710,6 +1717,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
         // ✅ FIX: Allow 0 values (don't skip them)
         if (numValue != null) {
+          if ((key.toLowerCase() == 'batteryvoltage' || key.toLowerCase() == 'battery_voltage') && numValue == 0.0) {
+            if (result[key] != null && result[key]!.isNotEmpty) {
+              numValue = result[key]!.last.value;
+            }
+          }
+
           if (key == 'BatteryVoltage') {
             _lastBatteries[widget.deviceName] = numValue;
           }
