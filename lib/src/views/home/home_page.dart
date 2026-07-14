@@ -155,7 +155,8 @@ class _HomePageState extends State<HomePage> {
           // Do not redirect. Admin users should stay on the home page.
         } else if (normalizedEmail == '05agriculture.05@gmail.com') {
           print("DEBUG: Redirecting to /deviceinfo");
-          NavigationUtils.navigateTo(context, '/deviceinfo', isReplacement: true);
+          NavigationUtils.navigateTo(context, '/deviceinfo',
+              isReplacement: true);
         } else {
           print("DEBUG: Normal user staying on /home");
           // Do not redirect. Normal users should just stay on the home page.
@@ -1911,7 +1912,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ─── Native Widget Update (widget independently finds nearest device) ───
-  static const _widgetChannel = MethodChannel('com.example.cloud_sense_webapp/widget');
+  static const _widgetChannel =
+      MethodChannel('com.example.cloud_sense_webapp/widget');
 
   Future<void> _updateNativeWidget() async {
     // Widget always independently finds the nearest device via GPS + API
@@ -1930,14 +1932,23 @@ class _HomePageState extends State<HomePage> {
             latitude: coords?.latitude?.toDouble() ?? 0,
             longitude: coords?.longitude?.toDouble() ?? 0,
             timestamp: DateTime.now(),
-            accuracy: 0, altitude: 0, heading: 0, speed: 0,
-            speedAccuracy: 0, altitudeAccuracy: 0, headingAccuracy: 0,
+            accuracy: 0,
+            altitude: 0,
+            heading: 0,
+            speed: 0,
+            speedAccuracy: 0,
+            altitudeAccuracy: 0,
+            headingAccuracy: 0,
           ));
         }).catchError((e) => completer.completeError("Location blocked"));
         final position = await completer.future;
         userLat = position.latitude;
         userLon = position.longitude;
       } else {
+        // Invalidate cache and force fresh GPS reading
+        lastLocationCheck = null;
+        cachedNearest = null;
+
         LocationPermission permission = await Geolocator.checkPermission();
         if (permission == LocationPermission.denied ||
             permission == LocationPermission.deniedForever) {
@@ -1960,9 +1971,9 @@ class _HomePageState extends State<HomePage> {
       ];
       final responses = await Future.wait(
         urls.map((url) => http.get(Uri.parse(url)).catchError((e) {
-          debugPrint("Widget API error for $url: $e");
-          return http.Response('{"devices":[]}', 500);
-        })),
+              debugPrint("Widget API error for $url: $e");
+              return http.Response('{"devices":[]}', 500);
+            })),
       );
 
       List<Map<String, dynamic>> allDevices = [];
@@ -1983,11 +1994,16 @@ class _HomePageState extends State<HomePage> {
       for (var device in allDevices) {
         String ts = device["TimeStamp_IST"]?.toString().trim() ?? "";
         if (ts.isEmpty) continue;
-        final formats = ["yyyy-MM-dd HH:mm:ss", "dd-MM-yyyy HH:mm:ss", "dd/MM/yyyy HH:mm:ss"];
+        final formats = [
+          "yyyy-MM-dd HH:mm:ss",
+          "dd-MM-yyyy HH:mm:ss",
+          "dd/MM/yyyy HH:mm:ss"
+        ];
         for (var fmt in formats) {
           try {
             DateTime parsedDate = DateFormat(fmt).parse(ts, false).toLocal();
-            if (parsedDate.isAfter(todayStart.subtract(const Duration(seconds: 1))) &&
+            if (parsedDate
+                    .isAfter(todayStart.subtract(const Duration(seconds: 1))) &&
                 parsedDate.isBefore(todayEnd)) {
               todaysDevices.add(Map<String, dynamic>.from(device));
               break;
@@ -1999,12 +2015,44 @@ class _HomePageState extends State<HomePage> {
       List<Map<String, dynamic>> candidates =
           todaysDevices.isNotEmpty ? todaysDevices : allDevices;
 
-      // Step 4: Find nearest device by distance
+      // Step 4: Filter eligible devices (must have at least 3 parameters: temp, wind, rain)
+      List<Map<String, dynamic>> eligibleDevices = [];
+      for (var device in candidates) {
+        // Only corrected temperature counts (sensor-calibrated value)
+        bool hasTemp = (device["CorrectedTemp"] != null &&
+                device["CorrectedTemp"].toString().toLowerCase() != 'null') ||
+            (device["correctedtemp"] != null &&
+                device["correctedtemp"].toString().toLowerCase() != 'null');
+        bool hasWind =
+            (device["WindSpeed"]?.toString().toLowerCase() != 'null' &&
+                    device["WindSpeed"] != null) ||
+                (device["windspeed"]?.toString().toLowerCase() != 'null' &&
+                    device["windspeed"] != null);
+        bool hasRain =
+            (device["RainfallHourly"]?.toString().toLowerCase() != 'null' &&
+                    device["RainfallHourly"] != null) ||
+                (device["rainfallhourly"]?.toString().toLowerCase() != 'null' &&
+                    device["rainfallhourly"] != null) ||
+                (device["RainfallHourlyComulative"]?.toString().toLowerCase() !=
+                        'null' &&
+                    device["RainfallHourlyComulative"] != null);
+
+        // Device must have at least 3 parameters (temperature + wind + rain)
+        if (hasTemp && hasWind && hasRain) {
+          eligibleDevices.add(Map<String, dynamic>.from(device));
+        }
+      }
+
+      debugPrint(
+          "Widget: Found \${eligibleDevices.length} eligible devices (with temp+wind+rain) out of \${candidates.length} candidates");
+
+      // Step 5: Find nearest device among eligible ones
       Map<String, dynamic>? nearest;
       double minDist = double.infinity;
-      for (var device in candidates) {
+      for (var device in eligibleDevices) {
         double lat = double.tryParse(device["Latitude"]?.toString() ?? "") ?? 0;
-        double lon = double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
+        double lon =
+            double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
         if (lat == 0 && lon == 0) continue;
         double dist = HomeUtils.calculateDistance(userLat, userLon, lat, lon);
         if (dist < minDist) {
@@ -2013,44 +2061,70 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // Step 5: Use nearest device (or fallback to first available)
-      widgetDeviceData = nearest ?? (allDevices.isNotEmpty ? allDevices.first : null);
+      // Step 6: Use nearest eligible device (or fallback to first available)
+      widgetDeviceData =
+          nearest ?? (allDevices.isNotEmpty ? allDevices.first : null);
       if (widgetDeviceData == null) return;
 
       // ─── Extract parameters ───────────────────────────────────────────
-      final deviceId = HomeUtils.getDeviceIdFromTopic(widgetDeviceData["deviceid#topic"]?.toString()).isNotEmpty
-          ? HomeUtils.getDeviceIdFromTopic(widgetDeviceData["deviceid#topic"]?.toString())
+      final deviceId = HomeUtils.getDeviceIdFromTopic(
+                  widgetDeviceData["deviceid#topic"]?.toString())
+              .isNotEmpty
+          ? HomeUtils.getDeviceIdFromTopic(
+              widgetDeviceData["deviceid#topic"]?.toString())
           : 'ANNAM001';
 
+      // Extract ONLY corrected temperature (sensor-calibrated, not raw)
       double? temp;
-      if (widgetDeviceData["CorrectedTemp"] != null && widgetDeviceData["CorrectedTemp"].toString().toLowerCase() != 'null') {
-        temp = double.tryParse(widgetDeviceData["CorrectedTemp"].toString());
-      } else if (widgetDeviceData["correctedtemp"] != null && widgetDeviceData["correctedtemp"].toString().toLowerCase() != 'null') {
-        temp = double.tryParse(widgetDeviceData["correctedtemp"].toString());
-      } else if (widgetDeviceData["CurrentTemperature"] != null && widgetDeviceData["CurrentTemperature"].toString().toLowerCase() != 'null') {
-        temp = double.tryParse(widgetDeviceData["CurrentTemperature"].toString());
-      } else if (widgetDeviceData["currenttemperature"] != null && widgetDeviceData["currenttemperature"].toString().toLowerCase() != 'null') {
-        temp = double.tryParse(widgetDeviceData["currenttemperature"].toString());
+      final correctedTemp = widgetDeviceData["CorrectedTemp"];
+      if (correctedTemp != null &&
+          correctedTemp.toString().trim().isNotEmpty &&
+          correctedTemp.toString().toLowerCase() != 'null') {
+        temp = double.tryParse(correctedTemp.toString());
+      } else {
+        final correctedTempLower = widgetDeviceData["correctedtemp"];
+        if (correctedTempLower != null &&
+            correctedTempLower.toString().trim().isNotEmpty &&
+            correctedTempLower.toString().toLowerCase() != 'null') {
+          temp = double.tryParse(correctedTempLower.toString());
+        }
       }
 
       double? windSpeed;
-      if (widgetDeviceData["WindSpeed"] != null && widgetDeviceData["WindSpeed"].toString().toLowerCase() != 'null') {
+      if (widgetDeviceData["WindSpeed"] != null &&
+          widgetDeviceData["WindSpeed"].toString().toLowerCase() != 'null') {
         windSpeed = double.tryParse(widgetDeviceData["WindSpeed"].toString());
-      } else if (widgetDeviceData["windspeed"] != null && widgetDeviceData["windspeed"].toString().toLowerCase() != 'null') {
+      } else if (widgetDeviceData["windspeed"] != null &&
+          widgetDeviceData["windspeed"].toString().toLowerCase() != 'null') {
         windSpeed = double.tryParse(widgetDeviceData["windspeed"].toString());
       }
 
       double? rainfall;
-      if (widgetDeviceData["RainfallHourly"] != null && widgetDeviceData["RainfallHourly"].toString().toLowerCase() != 'null') {
-        rainfall = double.tryParse(widgetDeviceData["RainfallHourly"].toString());
-      } else if (widgetDeviceData["rainfallhourly"] != null && widgetDeviceData["rainfallhourly"].toString().toLowerCase() != 'null') {
-        rainfall = double.tryParse(widgetDeviceData["rainfallhourly"].toString());
-      } else if (widgetDeviceData["RainfallHourlyComulative"] != null && widgetDeviceData["RainfallHourlyComulative"].toString().toLowerCase() != 'null') {
-        rainfall = double.tryParse(widgetDeviceData["RainfallHourlyComulative"].toString());
+      if (widgetDeviceData["RainfallHourly"] != null &&
+          widgetDeviceData["RainfallHourly"].toString().toLowerCase() !=
+              'null') {
+        rainfall =
+            double.tryParse(widgetDeviceData["RainfallHourly"].toString());
+      } else if (widgetDeviceData["rainfallhourly"] != null &&
+          widgetDeviceData["rainfallhourly"].toString().toLowerCase() !=
+              'null') {
+        rainfall =
+            double.tryParse(widgetDeviceData["rainfallhourly"].toString());
+      } else if (widgetDeviceData["RainfallHourlyComulative"] != null &&
+          widgetDeviceData["RainfallHourlyComulative"]
+                  .toString()
+                  .toLowerCase() !=
+              'null') {
+        rainfall = double.tryParse(
+            widgetDeviceData["RainfallHourlyComulative"].toString());
       }
 
-      final isOnline = (widgetDeviceData['HealthStatus']?.toString().toLowerCase() ?? 'online') == 'online';
-      final updatedTime = _formatUpdatedTime(widgetDeviceData?['TimeStamp_IST']?.toString());
+      final isOnline =
+          (widgetDeviceData['HealthStatus']?.toString().toLowerCase() ??
+                  'online') ==
+              'online';
+      final updatedTime =
+          _formatUpdatedTime(widgetDeviceData?['TimeStamp_IST']?.toString());
       final location = HomeUtils.getFormattedLocation(widgetDeviceData);
 
       // ─── Send to native widget ──────────────────────────────────────────
@@ -2063,7 +2137,8 @@ class _HomePageState extends State<HomePage> {
         'rainfall': rainfall != null ? rainfall : -999.0,
         'location': location,
       });
-      debugPrint("Widget updated (nearest independent): \$deviceId, temp=\${temp ?? 'N/A'}, wind=\${windSpeed ?? 'N/A'}, rain=\${rainfall ?? 'N/A'}, loc=\$location");
+      debugPrint(
+          "Widget updated (nearest independent): \$deviceId, temp=\${temp ?? 'N/A'}, wind=\${windSpeed ?? 'N/A'}, rain=\${rainfall ?? 'N/A'}, loc=\$location");
     } catch (e) {
       debugPrint("Error updating native widget: \$e");
     }

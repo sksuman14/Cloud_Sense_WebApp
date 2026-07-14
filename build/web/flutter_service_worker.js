@@ -138,21 +138,21 @@ const RESOURCES = {"assets/AssetManifest.bin": "194380137daf0a7ecc7bb35bec8c3c62
 "flutter_assets/packages/syncfusion_flutter_charts/assets/fonts/Times-New-Roman.ttf": "e2f6bf4ef7c6443cbb0ae33f1c1a9ccc",
 "flutter_assets/packages/wakelock_plus/assets/no_sleep.js": "9c3aa3cd0b217305aa860decab3d9f42",
 "flutter_assets/shaders/ink_sparkle.frag": "9bb2aaa0f9a9213b623947fa682efa76",
-"flutter_bootstrap.js": "ce287863498bea930d2cfa80808a506a",
+"flutter_bootstrap.js": "e0916b05b2c00e174512f7e0cfbd0d00",
 "icons/Icon-192.png": "90a948ad88bf1c17a5a40ed40bf4905a",
 "icons/Icon-512.png": "76feaf63bcbf28ae35c368fa70d14ce7",
 "icons/Icon-maskable-192.png": "90a948ad88bf1c17a5a40ed40bf4905a",
 "icons/Icon-maskable-512.png": "76feaf63bcbf28ae35c368fa70d14ce7",
 "index.html": "4b65c9f85c76b01461b3479d7354a8b5",
 "/": "4b65c9f85c76b01461b3479d7354a8b5",
-"main.dart.js": "c4d3b446f47900e38d3df3515e8818c4",
+"main.dart.js": "0b7f03a18d1f37226fa6ec49ec4ff9f0",
 "manifest.json": "93d60bccdcdb08270ee70427510365db",
 "maskable": "d41d8cd98f00b204e9800998ecf8427e",
 "mobile-app.png": "c2b1747bda9c67c734ff806e5bf0e684",
 "model-viewer.min.js": "8073c882ae28be9de881c5b7a63340bf",
 "smartphone.png": "07c28484887d1e8f958e7975763a2d2b",
 "vercel.json": "af5c9a62a01d43903b69be83782f6859",
-"version.json": "559dabe10b1faef090bfc8c4a531889a"};
+"version.json": "1d5e7bb129f3c688392ad30958fac52e"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",

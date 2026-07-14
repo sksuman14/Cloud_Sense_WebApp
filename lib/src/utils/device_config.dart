@@ -619,6 +619,8 @@ class DeviceConfig {
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Annam_0426&DeviceId={deviceId}',
+      monthHistoryApiTemplate:
+          'https://d2c53xydfx4tqe.cloudfront.net/WS_Annam_0426/{deviceId}/{year}/{monthAbbr}.json',
       hasWind: true,
       hasRainfall: true,
       parameters: [

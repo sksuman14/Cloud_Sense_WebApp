@@ -83,6 +83,8 @@ dependencies {
     implementation "com.google.firebase:firebase-auth"  // Firebase Authentication
     implementation "com.google.firebase:firebase-messaging"  // Firebase Cloud Messaging
     implementation "com.google.firebase:firebase-inappmessaging-display"  // Firebase In-App Messaging
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
     
     // Android Support Libraries (if needed)
     implementation 'com.android.support:multidex:1.0.3'  // Enable Multidex support if necessary
@@ -94,7 +96,7 @@ dependencies {
     configurations.all {
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.jetbrains.kotlin') {
-                details.useVersion '2.0.21'  // Use Kotlin version you prefer, ensuring compatibility
+                details.useVersion '2.0.0'
             }
         }
     }
