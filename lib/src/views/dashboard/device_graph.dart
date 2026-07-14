@@ -1451,8 +1451,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           final batVal = item[batteryKey] ?? item['BatteryVoltage'] ?? item['Battery_Voltage'] ?? item['battery_voltage'];
           if (batVal != null) {
             final bat = double.tryParse(batVal.toString()) ?? 0.0;
-            onBatteryUpdate(bat);
-            break;
+            if (bat != 0.0) {
+              onBatteryUpdate(bat);
+              break;
+            }
           }
         }
       }

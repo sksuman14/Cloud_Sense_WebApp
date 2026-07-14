@@ -89464,8 +89464,9 @@ if(l==null)l=m.i(n,"BatteryVoltage")
 c=l==null?m.i(n,"Battery_Voltage"):l
 if(c==null)c=m.i(n,"battery_voltage")
 if(c!=null){b=A.cH(J.J(c))
-d2.$1(b==null?0:b)
-break}}}for(s=q.gve(c7),o=s.$ti,s=new A.cf(s,s.gE(0),o.h("cf<ag.E>")),o=o.h("ag.E");s.q();){n=s.d
+if(b==null)b=0
+if(b!==0){d2.$1(b)
+break}}}}for(s=q.gve(c7),o=s.$ti,s=new A.cf(s,s.gE(0),o.h("cf<ag.E>")),o=o.h("ag.E");s.q();){n=s.d
 if(n==null)n=o.a(n)
 if(n!=null){m=J.a2(n)
 l=m.i(n,e3)
