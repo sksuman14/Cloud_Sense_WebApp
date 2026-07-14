@@ -1333,7 +1333,7 @@ class _AdminPageState extends State<AdminPage> {
 
   // ── NEW: Active/Inactive counts scoped to the selected brand ───────────────
   Map<String, int> get brandFilteredCounts {
-    final Iterable<Map<String, dynamic>> base = selectedBrand == "All"
+    Iterable<Map<String, dynamic>> base = selectedBrand == "All"
         ? allDevices
         : allDevices.where((d) {
             final sn = _resolveSensorName(d);
@@ -1342,6 +1342,15 @@ class _AdminPageState extends State<AdminPage> {
             if (selectedBrand == "Testing") return _isAnnamTestingSensor(sn);
             return true;
           });
+          
+    if (selectedCategory != null && selectedCategory != 'All Categories') {
+      base = base.where((d) {
+        final sn = _resolveSensorName(d);
+        final state = _getStateForSensor(sn);
+        return state == selectedCategory;
+      });
+    }
+
     final list = base.toList();
     return {
       "All": list.length,
