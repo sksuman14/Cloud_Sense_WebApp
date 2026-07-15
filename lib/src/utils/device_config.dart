@@ -1104,8 +1104,6 @@ class DeviceConfig {
             unit: '°',
             isMetadata: true),
         DeviceParameter(
-            key: 'now_light', displayName: 'Light Intensity', unit: 'Lux'),
-        DeviceParameter(
             key: 'now_pressure', displayName: 'Atm Pressure', unit: 'hPa'),
         DeviceParameter(
             key: 'Maximum_Temperature',

@@ -79,6 +79,13 @@ class DevicePrefixUtils {
       return num != null ? 'ANNAM/Kerala/WS_$num' : 'ANNAM/Kerala/WS_$cleanDigits';
     }
 
+    // NEW: AT sensors (AWS Testing) -> AWS_Testing_
+    if (upper.startsWith('AT') || upper.startsWith('AWS_TESTING')) {
+      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'AWS_Testing_$num' : 'AWS_Testing_$cleanDigits';
+    }
+
     // NEW: AW sensors (AWS) -> AWS_
     if (upper.startsWith('AW')) {
       // If it already starts with AWS_, the digits part might contain 'S_'
@@ -103,11 +110,6 @@ class DevicePrefixUtils {
     // NEW: DM sensors under Testing with DM_ prefix
     if (upper.startsWith('DM')) {
       return 'DM_$digits';
-    }
-
-    // NEW: AT sensors (AWS Testing) under Testing with AWS_Testing_ prefix
-    if (upper.startsWith('AT')) {
-      return 'AWS_Testing_$digits';
     }
 
     // 6. Other ANNAM group (CF, CP001, SW007, SW013)
@@ -177,6 +179,7 @@ class DevicePrefixUtils {
         upper.startsWith('DM') ||
         upper.startsWith('WM') ||
         upper.startsWith('AT') ||
+        upper.startsWith('AWS_TESTING') ||
         upper.startsWith('WN');
   }
 
@@ -200,6 +203,13 @@ class DevicePrefixUtils {
       final digits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '0';
       final id = int.tryParse(digits) ?? 0;
       return "WS_$id#WS/Kerala/$id";
+    }
+
+    // 1.5.5 Handle AWS Testing devices (AT)
+    if (sensorName.startsWith('AWS_TESTING_') || sensorName.startsWith('AT')) {
+      final digits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '0';
+      final id = int.tryParse(digits) ?? 0;
+      return "$id#Testing/nRF52840";
     }
 
     // 1.6 Handle AWS devices

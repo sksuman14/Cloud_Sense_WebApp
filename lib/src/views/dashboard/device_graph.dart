@@ -796,6 +796,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (topic.contains('Mysuru')) return 'MY';
     if (topic.contains('Kerala')) return 'KR';
     if (topic.contains('AWS')) return 'AW';
+    if (topic.contains('Testing/')) return 'AT'; // Map Testing/nRF52840 to AT
     return 'unknown';
   }
 
