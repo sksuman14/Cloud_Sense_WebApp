@@ -485,51 +485,51 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     String apiUrl = '';
     if (widget.deviceName.startsWith('SM')) {
       apiUrl =
-          'https://n42fiw7l89.execute-api.us-east-1.amazonaws.com/default/SSMet_API_Func?device_id=$deviceId&start_date=$startdate&end_date=$enddate';
+          'https://n42fiw7l89.execute-api.us-east-1.amazonaws.com/default/SSMet_API_Func?device_id=$deviceId&start_date=$startdate&end_date=$enddate&key=${ApiKeys.annamApiKey}';
     } else if (widget.deviceName.startsWith('SW')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('SS')) {
       apiUrl =
           'https://yebtmt03od.execute-api.us-east-1.amazonaws.com/default/SSMet_Soil_Api_Func?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
     } else if (widget.deviceName.startsWith('WJ')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('WA')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('PC')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/polytechnicdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/polytechnicdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('GP')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/gcpdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/gcpdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('SI')) {
       apiUrl =
           'https://wr8ort42hi.execute-api.us-east-1.amazonaws.com/default/SSMet_Custom_API_func?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
     } else if (widget.deviceName.startsWith('CF')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/colonelfarmdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/colonelfarmdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('VD')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/vanixdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/vanixdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('SV')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/svpudata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/svpudata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('KD')) {
       apiUrl =
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/kargildata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
     } else if (widget.deviceName.startsWith('NA')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmetnarldata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmetnarldata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName == 'CP001' || widget.deviceName == 'CP003') {
       String cpDeviceId = widget.deviceName == 'CP001' ? '1' : '3';
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/campusdata?deviceid=$cpDeviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/campusdata?deviceid=$cpDeviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('CP') &&
         widget.deviceName != 'CP001') {
       apiUrl =
-          'https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&mode=download';
+          'https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('WD')) {
       apiUrl =
           'https://62f4ihe2lf.execute-api.us-east-1.amazonaws.com/CloudSense_Weather_data_api_function?DeviceId=$deviceId&startdate=$startdate&enddate=$enddate';

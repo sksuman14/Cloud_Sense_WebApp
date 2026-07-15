@@ -86402,23 +86402,23 @@ a3=b.d
 k=a3!=null&&a3.length!==0?a3:a0
 j=""
 b=b.c
-if(B.b.G(b,"SM"))j=u.cD+A.l(k)+"&start_date="+A.l(m)+"&end_date="+A.l(l)
-else if(B.b.G(b,"SW"))j=u.k+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
+if(B.b.G(b,"SM"))j=u.cD+A.l(k)+"&start_date="+A.l(m)+"&end_date="+A.l(l)+"&key=Annam@2025"
+else if(B.b.G(b,"SW"))j=u.k+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
 else if(B.b.G(b,"SS"))j=u.cG+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"WJ"))j=u.bv+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"WA"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"PC"))j=u.ci+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"GP"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/gcpdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
+else if(B.b.G(b,"WJ"))j=u.bv+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
+else if(B.b.G(b,"WA"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0426data?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
+else if(B.b.G(b,"PC"))j=u.ci+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
+else if(B.b.G(b,"GP"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/gcpdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
 else if(B.b.G(b,"SI"))j=u.aY+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)
-else if(B.b.G(b,"CF"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/colonelfarmdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"VD"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/vanixdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"SV"))j=u.cJ+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
+else if(B.b.G(b,"CF"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/colonelfarmdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
+else if(B.b.G(b,"VD"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/vanixdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
+else if(B.b.G(b,"SV"))j=u.cJ+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
 else if(B.b.G(b,"KD"))j=u.cE+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
-else if(B.b.G(b,"NA"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmetnarldata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
+else if(B.b.G(b,"NA"))j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmetnarldata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
 else{a1=b==="CP001"
 a4=!a1
 if(!a4||b==="CP003"){a5=a1?"1":"3"
-j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/campusdata?deviceid="+a5+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"}else if(B.b.G(b,"CP")&&a4)j="https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&mode=download"
+j="https://gtk47vexob.execute-api.us-east-1.amazonaws.com/campusdata?deviceid="+a5+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"}else if(B.b.G(b,"CP")&&a4)j="https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)+"&key=Annam@2025&mode=download"
 else if(B.b.G(b,"WD"))j="https://62f4ihe2lf.execute-api.us-east-1.amazonaws.com/CloudSense_Weather_data_api_function?DeviceId="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)
 else if(B.b.G(b,"CL")||B.b.G(b,"BD"))j="https://b0e4z6nczh.execute-api.us-east-1.amazonaws.com/CloudSense_Chloritrone_api_function?deviceid="+A.l(k)+"&startdate="+A.l(m)+"&enddate="+A.l(l)
 else if(B.b.G(b,"WQ"))j="https://63jeajtwf8.execute-api.us-west-2.amazonaws.com/default/wqm_csv_dwnld_api?deviceId="+b+"&startdate="+A.l(m)+"&enddate="+A.l(l)
