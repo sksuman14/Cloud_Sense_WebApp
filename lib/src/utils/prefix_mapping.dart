@@ -72,6 +72,17 @@ class DevicePrefixUtils {
     // NEW: JW sensors (Jio Winds) -> JIO_WINDS_
     if (upper.startsWith('JW')) return 'JIO_WINDS_$digits';
 
+    // NEW: AM sensors (Annam CP01) -> ANNAM_CP01
+    if (upper.startsWith('AM')) {
+      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'ANNAM_CP${num.toString().padLeft(2, '0')}' : 'ANNAM_CP$cleanDigits';
+    }
+    
+    if (upper.startsWith('ANNAM_CP')) {
+      return upper;
+    }
+
     // NEW: KR sensors (Kerala) -> ANNAM/Kerala/WS_
     if (upper.startsWith('KR')) {
       final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
@@ -163,6 +174,7 @@ class DevicePrefixUtils {
         upper.startsWith('WF') ||
         upper.startsWith('PC') ||
         upper.startsWith('GP') ||
+        upper.startsWith('AM') ||
         upper.startsWith('KR') ||
         upper.startsWith('AW') ||
         upper == 'CP001' ||
@@ -281,6 +293,8 @@ class DevicePrefixUtils {
         return "$id#WS/Polytechnic/$id";
       case "GP":
         return "$id#WS/GPC/$id";
+      case "AM":
+        return "ANNAM_CP${id.toString().padLeft(2, '0')}#WS/ANNAM_CP${id.toString().padLeft(2, '0')}";
       case "KR":
         return "WS_$id#WS/Kerala/$id";
       case "SH":
@@ -339,6 +353,10 @@ class DevicePrefixUtils {
     if (topicPath.startsWith('WS/Polytechnic/')) return 'PC$paddedId';
     if (topicPath.startsWith('WS/Shobha/')) return 'SH$paddedId';
     if (topicPath.startsWith('WS/GP/')) return 'GP$paddedId';
+    if (topicPath.startsWith('WS/ANNAM_CP')) {
+      final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
+      return 'AM${cleanId.padLeft(2, '0')}';
+    }
     if (topicPath.startsWith('WS/Kerala/')) {
       final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
       return 'KRWS_$cleanId';
@@ -447,6 +465,9 @@ class DevicePrefixUtils {
     if (topic.contains('WS/GPC')) {
       return (category: 'ANNAM Sensors', prefix: 'GP');
     }
+    if (topic.contains('WS/ANNAM_CP')) {
+      return (category: 'ANNAM Sensors', prefix: 'AM');
+    }
     if (topic.contains('WS/Kerala')) {
       return (category: 'ANNAM Sensors', prefix: 'KR');
     }
@@ -553,6 +574,8 @@ class DevicePrefixUtils {
         return 'https://277fj9qud6.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Jio_Logger';
       case 'IT':
         return 'https://hg6lmrdyee.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Awadh_IITB';
+      case 'AM':
+        return 'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function';
       case 'WT':
         return 'https://uqevvzptx7.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_API_Weather_Sensor';
       case 'KR':

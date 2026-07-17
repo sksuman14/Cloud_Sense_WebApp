@@ -797,6 +797,48 @@ class DeviceConfig {
       ],
     ),
     // ── KR: Kerala Devices ──
+    'AM': DeviceTypeConfig(
+      prefix: 'AM',
+      apiTemplate:
+          'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP{deviceIdPadded2}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=Annam@2025',
+      hasWind: true,
+      hasRainfall: true,
+      parameters: [
+        DeviceParameter(
+            key: 'NowTemperature', displayName: 'Temperature', unit: '°C'),
+        DeviceParameter(
+            key: 'NowRelativeHumidity', displayName: 'Humidity', unit: '%'),
+        DeviceParameter(key: 'Rainfall', displayName: 'Rainfall', unit: 'mm'),
+        DeviceParameter(
+            key: 'NowWindSpeed', displayName: 'Wind Speed', unit: 'm/s'),
+        DeviceParameter(
+            key: 'NowWindDirection', displayName: 'Wind Direction', unit: '°'),
+        DeviceParameter(
+            key: 'now_pressure', displayName: 'Atm Pressure', unit: 'hPa'),
+        DeviceParameter(
+            key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s'),
+        DeviceParameter(
+            key: 'max_wind_direction_gust',
+            displayName: 'Max Wind Direction Gust',
+            unit: '°',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Rainfall_Cumulative',
+            displayName: 'Rainfall Cumulative',
+            unit: 'mm'),
+        DeviceParameter(
+            key: 'Panel_Voltage',
+            displayName: 'Panel Voltage',
+            unit: 'V',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Battery_Voltage', displayName: 'Battery Voltage', unit: 'V'),
+        DeviceParameter(
+            key: 'Signal_Strength',
+            displayName: 'Signal Strength',
+            unit: 'dBm'),
+      ],
+    ),
     'KR': DeviceTypeConfig(
       prefix: 'KR',
       apiTemplate:

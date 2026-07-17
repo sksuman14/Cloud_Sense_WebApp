@@ -517,9 +517,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         if (param.key == 'WindSpeed' ||
             param.key == 'Wind_Speed' ||
             param.key == 'now_wind_speed' ||
+            param.key == 'NowWindSpeed' ||
             param.key == 'WindDirection' ||
             param.key == 'WindDir' ||
-            param.key == 'now_wind_direction') {
+            param.key == 'now_wind_direction' ||
+            param.key == 'NowWindDirection') {
           continue;
         }
 
@@ -1019,6 +1021,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     }
 
     String deviceIdPadded = deviceIdNumeric.toString().padLeft(3, '0');
+    String deviceIdPadded2 = deviceIdNumeric.toString().padLeft(2, '0');
 
     String startdateYMD = '';
     String enddateYMD = '';
@@ -1035,6 +1038,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     return template
         .replaceAll('{deviceId}', deviceIdStr)
         .replaceAll('{deviceIdPadded}', deviceIdPadded)
+        .replaceAll('{deviceIdPadded2}', deviceIdPadded2)
         .replaceAll('{monthAbbr}', monthAbbr)
         .replaceAll('{deviceName}', widget.deviceName)
         .replaceAll('{strDeviceId}', subDeviceId)
@@ -1387,6 +1391,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         for (var key in item.keys) {
           if (!excludedKeys.contains(key)) {
             allKeys.add(key);
+            // Add CamelCase aliases for AM sensors so graphs render properly
+            if (key == 'now_temperature') allKeys.add('NowTemperature');
+            if (key == 'now_relative_humidity') allKeys.add('NowRelativeHumidity');
+            if (key == 'now_wind_speed') allKeys.add('NowWindSpeed');
+            if (key == 'now_wind_direction') allKeys.add('NowWindDirection');
+            if (key == 'rainfall') allKeys.add('Rainfall');
           }
         }
       }
@@ -1416,7 +1426,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       );
 
       for (var key in parameterKeys) {
-        final rawValue = item[key];
+        final rawValue = item[key] ?? 
+            (key == 'NowTemperature' ? item['now_temperature'] : null) ??
+            (key == 'NowRelativeHumidity' ? item['now_relative_humidity'] : null) ??
+            (key == 'NowWindSpeed' ? item['now_wind_speed'] : null) ??
+            (key == 'NowWindDirection' ? item['now_wind_direction'] : null) ??
+            (key == 'Rainfall' ? item['rainfall'] : null);
+            
         if (rawValue != null) {
           double value = double.tryParse(rawValue.toString()) ?? 0.0;
           
@@ -2373,7 +2389,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       if (p.key == 'WindDirection' ||
           p.key == 'WindDir' ||
           p.key == 'CurrentWindDirection' ||
-          p.key == 'now_wind_direction') return false;
+          p.key == 'now_wind_direction' ||
+          p.key == 'NowWindDirection') return false;
       if (p.key == 'BatteryVoltage' ||
           p.key == 'SignalStrength' ||
           p.key == 'Battery_Voltage' ||
@@ -2414,12 +2431,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       if (p.key == 'WindSpeed' ||
           p.key == 'Wind_Speed' ||
           p.key == 'CurrentWindSpeed' ||
-          p.key == 'now_wind_speed') {
+          p.key == 'now_wind_speed' ||
+          p.key == 'NowWindSpeed') {
         windDir = _parametersData['WindDirection']?.last.value ??
             _parametersData['WindDir']?.last.value ??
             _parametersData['Wind-Dir']?.last.value ??
             _parametersData['CurrentWindDirection']?.last.value ??
-            _parametersData['now_wind_direction']?.last.value;
+            _parametersData['now_wind_direction']?.last.value ??
+            _parametersData['NowWindDirection']?.last.value;
       }
 
       double finalCurrent = current;
@@ -3395,7 +3414,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                             if (p.isMetadata) return false;
                                             if (p.key == 'WindDirection' ||
                                                 p.key == 'WindDir' ||
-                                                p.key == 'now_wind_direction')
+                                                p.key == 'now_wind_direction' ||
+                                                p.key == 'NowWindDirection')
                                               return false;
                                             final data = _parametersData[p.key];
                                             if (data == null || data.isEmpty)
@@ -3405,7 +3425,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                           .map((p) {
                                             if (p.key == 'WindSpeed' ||
                                                 p.key == 'Wind_Speed' ||
-                                                p.key == 'now_wind_speed') {
+                                                p.key == 'now_wind_speed' ||
+                                                p.key == 'NowWindSpeed') {
                                               return 'Wind';
                                             }
                                             return p.displayName;
@@ -3639,12 +3660,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               if (p.isMetadata) return false;
                               if (p.key == 'WindDirection' ||
                                   p.key == 'WindDir' ||
-                                  p.key == 'now_wind_direction') return false;
+                                  p.key == 'now_wind_direction' ||
+                                  p.key == 'NowWindDirection') return false;
 
                               String displayName = p.displayName;
                               if (p.key == 'WindSpeed' ||
                                   p.key == 'Wind_Speed' ||
-                                  p.key == 'now_wind_speed') {
+                                  p.key == 'now_wind_speed' ||
+                                  p.key == 'NowWindSpeed') {
                                 displayName = 'Wind';
                               }
                               if (!_visibleParameters.contains(displayName))
@@ -3656,13 +3679,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               var data = _parametersData[p.key]!;
                               if (p.key == 'WindSpeed' ||
                                   p.key == 'Wind_Speed' ||
-                                  p.key == 'now_wind_speed') {
+                                  p.key == 'now_wind_speed' ||
+                                  p.key == 'NowWindSpeed') {
                                 Widget windChart = _buildWindChartContainer(
                                   'Wind',
                                   data,
                                   _parametersData['WindDirection'] ??
                                       _parametersData['WindDir'] ??
                                       _parametersData['now_wind_direction'] ??
+                                      _parametersData['NowWindDirection'] ??
                                       [],
                                   isDarkMode,
                                 );

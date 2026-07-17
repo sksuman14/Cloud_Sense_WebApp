@@ -179,6 +179,7 @@ class DeviceUtils {
     if (deviceId.startsWith('JW')) return 'Partnership Sensors';
     if (deviceId.startsWith('SH')) return 'Shobha Sensor';
     if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
+    if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
     return 'Rain Sensor';
   }
 
@@ -210,6 +211,7 @@ class DeviceUtils {
         deviceId.startsWith('JW_') ||
         deviceId.startsWith('WS_SHOBHA_') ||
         deviceId.startsWith('AWS_TESTING_') ||
+        deviceId.startsWith('ANNAM_CP') ||
         RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId)) {
       return true;
     }
@@ -251,6 +253,17 @@ class DeviceUtils {
       if (digitsOnly != null) {
         final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
         return ['WJ$paddedDigits'];
+      }
+      return [];
+    }
+
+    // ── Handle ANNAM_CP format (AM sensors display name) ───────────────────
+    if (input.startsWith('ANNAM_CP')) {
+      final suffix = input.substring('ANNAM_CP'.length);
+      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
+      if (digitsOnly != null) {
+        final paddedDigits = digitsOnly.group(0)!.padLeft(2, '0');
+        return ['AM$paddedDigits'];
       }
       return [];
     }
@@ -546,5 +559,6 @@ class DeviceUtils {
     'JW',
     'SH',
     'AT',
+    'AM',
   ];
 }

@@ -26,7 +26,7 @@ class HomeScreenWidgetPreview extends StatelessWidget {
 
   const HomeScreenWidgetPreview({
     Key? key,
-    this.deviceId = 'ANNAM001',
+    this.deviceId = 'ANNAM_CP01',
     this.temperature = 30.49,
     this.isOnline = true,
     this.updatedTime = '12:26 PM',

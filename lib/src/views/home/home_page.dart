@@ -385,9 +385,9 @@ class _HomePageState extends State<HomePage> {
       final statesCount = uniqueStates.length;
       final districtsCount = uniqueDistricts.length;
 
-      // Default to ANNAM001 if no device selected yet
+      // Default to ANNAM_CP01 if no device selected yet
       if (selectedDeviceId == null && !showNearestDevice) {
-        selectedDeviceId = "ANNAM001";
+        selectedDeviceId = "ANNAM_CP01";
       }
 
       if (mounted) {
@@ -399,7 +399,7 @@ class _HomePageState extends State<HomePage> {
                   nearestDevice?["deviceid#topic"].toString(),
               orElse: () {
                 final defDev =
-                    HomeUtils.getDeviceByDisplayId("ANNAM001", allDevices);
+                    HomeUtils.getDeviceByDisplayId("ANNAM_CP01", allDevices);
                 return defDev != null
                     ? Map<String, dynamic>.from(defDev)
                     : allDevices.first;
@@ -413,17 +413,25 @@ class _HomePageState extends State<HomePage> {
               selectedDevice = Map<String, dynamic>.from(device);
             } else {
               final defDev =
-                  HomeUtils.getDeviceByDisplayId("ANNAM001", allDevices);
+                  HomeUtils.getDeviceByDisplayId("ANNAM_CP01", allDevices);
               selectedDevice = defDev != null
                   ? Map<String, dynamic>.from(defDev)
                   : allDevices.first;
             }
           } else {
             final defDev =
-                HomeUtils.getDeviceByDisplayId("ANNAM001", allDevices);
+                HomeUtils.getDeviceByDisplayId("ANNAM_CP01", allDevices);
             selectedDevice = defDev != null
                 ? Map<String, dynamic>.from(defDev)
                 : allDevices.first;
+          }
+
+          if (selectedDevice != null) {
+            final actualId = HomeUtils.getDeviceIdFromTopic(
+                selectedDevice!["deviceid#topic"]?.toString());
+            if (actualId.isNotEmpty) {
+              selectedDeviceId = actualId;
+            }
           }
 
           if (!silent) isLoading = false;
@@ -1209,7 +1217,9 @@ class _HomePageState extends State<HomePage> {
                                                                 selectedDevice?[
                                                                     "CurrentTemperature"] ??
                                                                 selectedDevice?[
-                                                                    "currenttemperature"]))
+                                                                    "currenttemperature"] ??
+                                                                selectedDevice?[
+                                                                    "NowTemperature"]))
                                                               Container(
                                                                 padding:
                                                                     const EdgeInsets
@@ -1222,7 +1232,9 @@ class _HomePageState extends State<HomePage> {
                                                                       selectedDevice?[
                                                                           "CurrentTemperature"] ??
                                                                       selectedDevice?[
-                                                                          "currenttemperature"]),
+                                                                          "currenttemperature"] ??
+                                                                      selectedDevice?[
+                                                                          "NowTemperature"]),
                                                                   borderRadius:
                                                                       BorderRadius
                                                                           .circular(
@@ -1258,7 +1270,7 @@ class _HomePageState extends State<HomePage> {
                                                                         height:
                                                                             4),
                                                                     Text(
-                                                                      "${HomeUtils.formatValue(selectedDevice?["CorrectedTemp"] ?? selectedDevice?["correctedtemp"] ?? selectedDevice?["CurrentTemperature"] ?? selectedDevice?["currenttemperature"])}°C",
+                                                                      "${HomeUtils.formatValue(selectedDevice?["CorrectedTemp"] ?? selectedDevice?["correctedtemp"] ?? selectedDevice?["CurrentTemperature"] ?? selectedDevice?["currenttemperature"] ?? selectedDevice?["NowTemperature"])}°C",
                                                                       style: TextStyle(
                                                                           color: themeProvider.isDarkMode
                                                                               ? Colors
@@ -1279,12 +1291,15 @@ class _HomePageState extends State<HomePage> {
                                                                 selectedDevice?[
                                                                     "CurrentHumidity"] ??
                                                                 selectedDevice?[
-                                                                    "currenthumidity"]))
+                                                                    "currenthumidity"] ??
+                                                                selectedDevice?[
+                                                                    "NowRelativeHumidity"]))
                                                               AnimatedWaveHumidityCard(
                                                                 humidity: double.tryParse((selectedDevice?["CorrectedHumidity"] ??
                                                                             selectedDevice?["correctedhumidity"] ??
                                                                             selectedDevice?["CurrentHumidity"] ??
-                                                                            selectedDevice?["currenthumidity"])
+                                                                            selectedDevice?["currenthumidity"] ??
+                                                                            selectedDevice?["NowRelativeHumidity"])
                                                                         .toString()) ??
                                                                     0.0,
                                                                 formattedValue: HomeUtils.formatValue(selectedDevice?["CorrectedHumidity"] ??
@@ -1293,7 +1308,9 @@ class _HomePageState extends State<HomePage> {
                                                                     selectedDevice?[
                                                                         "CurrentHumidity"] ??
                                                                     selectedDevice?[
-                                                                        "currenthumidity"]),
+                                                                        "currenthumidity"] ??
+                                                                    selectedDevice?[
+                                                                        "NowRelativeHumidity"]),
                                                               ),
                                                             if (!HomeUtils.isNullOrEmpty(
                                                                 selectedDevice?[
@@ -1318,57 +1335,67 @@ class _HomePageState extends State<HomePage> {
                                                                     : Colors
                                                                         .black87,
                                                               ),
-                                                            if (!HomeUtils.isNullOrEmpty(
-                                                                    selectedDevice?[
-                                                                        "CurrentPressure"]) ||
+                                                            if (!HomeUtils
+                                                                    .isNullOrEmpty(
+                                                                        selectedDevice?[
+                                                                            "CurrentPressure"]) ||
                                                                 !HomeUtils.isNullOrEmpty(selectedDevice?[
                                                                         "AtmPressure"] ??
                                                                     selectedDevice?[
-                                                                        "atmpressure"]))
+                                                                        "atmpressure"] ??
+                                                                    selectedDevice?[
+                                                                        "now_pressure"]))
                                                               AnimatedPressureCard(
                                                                 pressure: double.tryParse((selectedDevice?["CurrentPressure"] ??
                                                                             selectedDevice?["AtmPressure"] ??
-                                                                            selectedDevice?["atmpressure"])
+                                                                            selectedDevice?["atmpressure"] ??
+                                                                            selectedDevice?["now_pressure"])
                                                                         .toString()) ??
                                                                     0.0,
                                                                 formattedValue: HomeUtils.formatValue(selectedDevice?["CurrentPressure"] ??
                                                                     selectedDevice?[
                                                                         "AtmPressure"] ??
                                                                     selectedDevice?[
-                                                                        "atmpressure"]),
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(
-                                                                selectedDevice?[
-                                                                        "WindSpeed"] ??
+                                                                        "atmpressure"] ??
                                                                     selectedDevice?[
-                                                                        "windspeed"]))
+                                                                        "now_pressure"]),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(selectedDevice?["WindSpeed"] ??
+                                                                selectedDevice?[
+                                                                    "windspeed"] ??
+                                                                selectedDevice?[
+                                                                    "NowWindSpeed"]))
                                                               AnimatedWindCard(
                                                                 windSpeed: double.tryParse((selectedDevice?["WindSpeed"] ??
-                                                                            selectedDevice?["windspeed"])
+                                                                            selectedDevice?["windspeed"] ??
+                                                                            selectedDevice?["NowWindSpeed"])
                                                                         .toString()) ??
                                                                     0.0,
-                                                                formattedValue: HomeUtils.formatValue(selectedDevice?[
-                                                                        "WindSpeed"] ??
+                                                                formattedValue: HomeUtils.formatValue(selectedDevice?["WindSpeed"] ??
                                                                     selectedDevice?[
-                                                                        "windspeed"]),
+                                                                        "windspeed"] ??
+                                                                    selectedDevice?[
+                                                                        "NowWindSpeed"]),
                                                               ),
-                                                            if (!HomeUtils.isNullOrEmpty(
+                                                            if (!HomeUtils.isNullOrEmpty(selectedDevice?["RainfallHourly"] ??
                                                                 selectedDevice?[
-                                                                        "RainfallHourly"] ??
-                                                                    selectedDevice?[
-                                                                        "rainfallhourly"]))
+                                                                    "rainfallhourly"] ??
+                                                                selectedDevice?[
+                                                                    "Rainfall"]))
                                                               AnimatedRainfallCard(
                                                                 rainfall: double.tryParse((selectedDevice?["RainfallHourly"] ??
-                                                                            selectedDevice?["rainfallhourly"])
+                                                                            selectedDevice?["rainfallhourly"] ??
+                                                                            selectedDevice?["Rainfall"])
                                                                         .toString()) ??
                                                                     0.0,
-                                                                formattedValue: HomeUtils.formatValue(selectedDevice?[
-                                                                        "RainfallHourly"] ??
+                                                                formattedValue: HomeUtils.formatValue(selectedDevice?["RainfallHourly"] ??
                                                                     selectedDevice?[
-                                                                        "rainfallhourly"]),
+                                                                        "rainfallhourly"] ??
+                                                                    selectedDevice?[
+                                                                        "Rainfall"]),
                                                                 label: HomeUtils
                                                                     .getNameForKey(
-                                                                        "RainfallHourly"),
+                                                                        "Rainfall"),
                                                                 intensityMultiplier:
                                                                     10.0,
                                                                 enableAnimation:
@@ -1391,6 +1418,27 @@ class _HomePageState extends State<HomePage> {
                                                                 label: HomeUtils
                                                                     .getNameForKey(
                                                                         "RainfallDaily"),
+                                                                intensityMultiplier:
+                                                                    2.0,
+                                                                enableAnimation:
+                                                                    false,
+                                                              ),
+                                                            if (!HomeUtils
+                                                                .isNullOrEmpty(
+                                                                    selectedDevice?[
+                                                                        "RainfallCumulative"]))
+                                                              AnimatedRainfallCard(
+                                                                rainfall: double.tryParse(
+                                                                        (selectedDevice?["RainfallCumulative"])
+                                                                            .toString()) ??
+                                                                    0.0,
+                                                                formattedValue:
+                                                                    HomeUtils.formatValue(
+                                                                        selectedDevice?[
+                                                                            "RainfallCumulative"]),
+                                                                label: HomeUtils
+                                                                    .getNameForKey(
+                                                                        "RainfallCumulative"),
                                                                 intensityMultiplier:
                                                                     2.0,
                                                                 enableAnimation:
@@ -1465,6 +1513,28 @@ class _HomePageState extends State<HomePage> {
                                                                       "currenttemperature",
                                                                       "CorrectedHumidity",
                                                                       "correctedhumidity",
+                                                                      "ANNAM_ID",
+                                                                      "max_wind_direction_gust",
+                                                                      "MaximumTemperature",
+                                                                      "MinimumTemperature",
+                                                                      "AverageWindSpeed",
+                                                                      "MQTT_TopicTime",
+                                                                      "MinimumRelativeHumidity",
+                                                                      "geo_status",
+                                                                      "RainfallCumulative",
+                                                                      "MaximumRelativeHumidity",
+                                                                      "AverageWindDirection",
+                                                                      "PanelVoltage",
+                                                                      "max_wind_gust",
+                                                                      "max_wind_gust_time",
+                                                                      "MaxWindGustTime",
+                                                                      "maxWindGustTime",
+                                                                      "NowTemperature",
+                                                                      "NowRelativeHumidity",
+                                                                      "NowWindSpeed",
+                                                                      "NowWindDirection",
+                                                                      "now_pressure",
+                                                                      "Rainfall",
                                                                     }.contains(
                                                                         e.key))
                                                                 .map((e) {
@@ -1541,16 +1611,16 @@ class _HomePageState extends State<HomePage> {
                                                             }).toList(),
                                                           ];
 
-                                                          if (!HomeUtils.isNullOrEmpty(
+                                                          if (!HomeUtils.isNullOrEmpty(selectedDevice?["WindDirection"] ??
                                                                   selectedDevice?[
-                                                                          "WindDirection"] ??
-                                                                      selectedDevice?[
-                                                                          "winddirection"]) &&
-                                                              !HomeUtils.isNullOrEmpty(
+                                                                      "winddirection"] ??
                                                                   selectedDevice?[
-                                                                          "WindSpeed"] ??
-                                                                      selectedDevice?[
-                                                                          "windspeed"])) {
+                                                                      "NowWindDirection"]) &&
+                                                              !HomeUtils.isNullOrEmpty(selectedDevice?["WindSpeed"] ??
+                                                                  selectedDevice?[
+                                                                      "windspeed"] ??
+                                                                  selectedDevice?[
+                                                                      "NowWindSpeed"])) {
                                                             gridItems.add(
                                                               Container(
                                                                 padding:
@@ -1588,14 +1658,16 @@ class _HomePageState extends State<HomePage> {
                                                                   fit: BoxFit
                                                                       .scaleDown,
                                                                   child: WindDial(
-                                                                      direction: selectedDevice?[
-                                                                              "WindDirection"] ??
+                                                                      direction: selectedDevice?["WindDirection"] ??
                                                                           selectedDevice?[
-                                                                              "winddirection"],
-                                                                      speed: selectedDevice?[
-                                                                              "WindSpeed"] ??
+                                                                              "winddirection"] ??
                                                                           selectedDevice?[
-                                                                              "windspeed"]),
+                                                                              "NowWindDirection"],
+                                                                      speed: selectedDevice?["WindSpeed"] ??
+                                                                          selectedDevice?[
+                                                                              "windspeed"] ??
+                                                                          selectedDevice?[
+                                                                              "NowWindSpeed"]),
                                                                 ),
                                                               ),
                                                             );

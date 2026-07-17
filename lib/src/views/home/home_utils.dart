@@ -295,7 +295,9 @@ class HomeUtils {
 
   static String buildTopicFromDisplayId(String displayId) {
     String internalId = displayId;
-    if (displayId.startsWith('ANNAM0126_')) {
+    if (displayId.startsWith('ANNAM_CP')) {
+      internalId = 'AM${displayId.replaceFirst('ANNAM_CP', '').padLeft(2, '0')}';
+    } else if (displayId.startsWith('ANNAM0126_')) {
       internalId =
           'WJ${displayId.replaceFirst('ANNAM0126_', '').padLeft(3, '0')}';
     } else if (displayId.startsWith('ANNAM0426_')) {

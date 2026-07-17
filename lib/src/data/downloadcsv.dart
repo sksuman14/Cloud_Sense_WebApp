@@ -593,6 +593,13 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final atEndDate = atDateFmt.format(_endDate!);
       apiUrl =
           'https://2xdgr2sgud.execute-api.us-east-1.amazonaws.com/default/AWS_Testing_API?ANNAM_ID=$deviceId&startdate=$atStartDate&enddate=$atEndDate&mode=download';
+    } else if (widget.deviceName.startsWith('AM')) {
+      final amDateFmt = DateFormat('yyyy-MM-dd');
+      final amStartDate = amDateFmt.format(_startDate!);
+      final amEndDate = amDateFmt.format(_endDate!);
+      final paddedDeviceId = deviceId.padLeft(2, '0');
+      apiUrl =
+          'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP$paddedDeviceId&startdate=$amStartDate&enddate=$amEndDate&key=Annam@2025&mode=download';
     }
 
     if (_supportsFieldSelection && _selectedFields.isNotEmpty) {
@@ -640,7 +647,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           widget.deviceName.startsWith('SW') ||
           widget.deviceName.startsWith('AW') ||
           widget.deviceName.startsWith('SH') ||
-          widget.deviceName.startsWith('AT')) {
+          widget.deviceName.startsWith('AT') ||
+          widget.deviceName.startsWith('AM')) {
         final downloadUrl = data['download_url'] as String?;
         if (downloadUrl == null) {
           _showSnack(
@@ -764,6 +772,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
         _csvRows.add(['Timestamp', 'Temperature', 'Humidity']);
         (data['sensor_data_items'] as List).forEach((i) =>
             _csvRows.add([i['HumanTime'], i['Temperature'], i['Humidity']]));
+      } else if (widget.deviceName.startsWith('AM')) {
+        _parseAMData(data['items'] ?? []);
       } else {
         _csvRows.add([
           'Timestamp',
@@ -855,6 +865,20 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
 
   void _parseSVData(List<dynamic> items) => _parseGeneric(items, 'TimeStamp',
       exclude: ['TimeStamp', 'Topic', 'IMEINumber', 'DeviceId']);
+
+  void _parseAMData(List<dynamic> items) =>
+      _parseGeneric(items, 'TimeStamp_IST', exclude: [
+        'TimeStamp_IST',
+        'ANNAM_ID',
+        'Device_ID',
+        'DeviceId',
+        'IMEI_Number',
+        'IMEINumber',
+        'Latitude',
+        'Longitude',
+        'Topic',
+        'deviceid#topic'
+      ]);
 
   void _parseSHData(List<dynamic> items) =>
       _parseGeneric(items, 'TimeStamp', exclude: [
