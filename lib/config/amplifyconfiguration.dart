@@ -28,8 +28,8 @@ const amplifyconfig = ''' {
             "OAuth": {
               "WebDomain": "auth.cloudsensevis.com",
               "AppClientId": "49bvgnea50gvvs00fts6s1pmml",
-              "SignInRedirectURI": "http://localhost:3000/home,https://www.cloudsensevis.com/home,https://cloudsensevis.com/home",
-              "SignOutRedirectURI": "http://localhost:3000/home,https://www.cloudsensevis.com/home",
+              "SignInRedirectURI": "cloudsensevis://,http://localhost:3000/home,https://www.cloudsensevis.com/home,https://cloudsensevis.com/home",
+              "SignOutRedirectURI": "cloudsensevis://,http://localhost:3000/home,https://www.cloudsensevis.com/home",
               "Scopes": [
                 "email",
                 "openid",

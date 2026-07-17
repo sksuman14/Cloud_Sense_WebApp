@@ -798,6 +798,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (topic.contains('Mysuru')) return 'MY';
     if (topic.contains('Kerala')) return 'KR';
     if (topic.contains('AWS')) return 'AW';
+    if (topic.startsWith('WS/ANNAM_CP') || topic.contains('ANNAM_CP'))
+      return 'AM';
+
     if (topic.contains('Testing/')) return 'AT'; // Map Testing/nRF52840 to AT
     return 'unknown';
   }
@@ -1393,7 +1396,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             allKeys.add(key);
             // Add CamelCase aliases for AM sensors so graphs render properly
             if (key == 'now_temperature') allKeys.add('NowTemperature');
-            if (key == 'now_relative_humidity') allKeys.add('NowRelativeHumidity');
+            if (key == 'now_relative_humidity')
+              allKeys.add('NowRelativeHumidity');
             if (key == 'now_wind_speed') allKeys.add('NowWindSpeed');
             if (key == 'now_wind_direction') allKeys.add('NowWindDirection');
             if (key == 'rainfall') allKeys.add('Rainfall');
@@ -1426,18 +1430,23 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       );
 
       for (var key in parameterKeys) {
-        final rawValue = item[key] ?? 
+        final rawValue = item[key] ??
             (key == 'NowTemperature' ? item['now_temperature'] : null) ??
-            (key == 'NowRelativeHumidity' ? item['now_relative_humidity'] : null) ??
+            (key == 'NowRelativeHumidity'
+                ? item['now_relative_humidity']
+                : null) ??
             (key == 'NowWindSpeed' ? item['now_wind_speed'] : null) ??
             (key == 'NowWindDirection' ? item['now_wind_direction'] : null) ??
             (key == 'Rainfall' ? item['rainfall'] : null);
-            
+
         if (rawValue != null) {
           double value = double.tryParse(rawValue.toString()) ?? 0.0;
-          
-          if ((key.toLowerCase() == 'batteryvoltage' || key.toLowerCase() == 'battery_voltage') && value == 0.0) {
-            if (parametersData[key] != null && parametersData[key]!.isNotEmpty) {
+
+          if ((key.toLowerCase() == 'batteryvoltage' ||
+                  key.toLowerCase() == 'battery_voltage') &&
+              value == 0.0) {
+            if (parametersData[key] != null &&
+                parametersData[key]!.isNotEmpty) {
               value = parametersData[key]!.last.value;
             }
           }
@@ -1453,10 +1462,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             }
           }
           parametersData[key]!.add(ChartData(
-              timestamp: timestamp, 
-              value: value, 
-              gustTime: gustTime, 
-              filledFlag: int.tryParse(item['filled_flag']?.toString() ?? '0') ?? 0));
+              timestamp: timestamp,
+              value: value,
+              gustTime: gustTime,
+              filledFlag:
+                  int.tryParse(item['filled_flag']?.toString() ?? '0') ?? 0));
         }
       }
     }
@@ -1465,7 +1475,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (onBatteryUpdate != null) {
       for (var item in items.reversed) {
         if (item != null) {
-          final batVal = item[batteryKey] ?? item['BatteryVoltage'] ?? item['Battery_Voltage'] ?? item['battery_voltage'];
+          final batVal = item[batteryKey] ??
+              item['BatteryVoltage'] ??
+              item['Battery_Voltage'] ??
+              item['battery_voltage'];
           if (batVal != null) {
             final bat = double.tryParse(batVal.toString()) ?? 0.0;
             if (bat != 0.0) {
@@ -1481,7 +1494,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (onSignalStrengthUpdate != null) {
       for (var item in items.reversed) {
         if (item != null) {
-          final sigVal = item[signalStrengthKey] ?? item['SignalStrength'] ?? item['Signal_Strength'] ?? item['signal_strength'];
+          final sigVal = item[signalStrengthKey] ??
+              item['SignalStrength'] ??
+              item['Signal_Strength'] ??
+              item['signal_strength'];
           if (sigVal != null) {
             final rssi = double.tryParse(sigVal.toString()) ?? 0.0;
             if (rssi != 0) {
@@ -1736,7 +1752,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
         // ✅ FIX: Allow 0 values (don't skip them)
         if (numValue != null) {
-          if ((key.toLowerCase() == 'batteryvoltage' || key.toLowerCase() == 'battery_voltage') && numValue == 0.0) {
+          if ((key.toLowerCase() == 'batteryvoltage' ||
+                  key.toLowerCase() == 'battery_voltage') &&
+              numValue == 0.0) {
             if (result[key] != null && result[key]!.isNotEmpty) {
               numValue = result[key]!.last.value;
             }
@@ -1757,9 +1775,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
           result.putIfAbsent(key, () => []);
           result[key]!.add(ChartData(
-              timestamp: timestamp, 
+              timestamp: timestamp,
               value: numValue,
-              filledFlag: int.tryParse(item['filled_flag']?.toString() ?? '0') ?? 0));
+              filledFlag:
+                  int.tryParse(item['filled_flag']?.toString() ?? '0') ?? 0));
         }
       });
     }
@@ -2774,11 +2793,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       currentDevice = _deviceStatuses.firstWhere(
         (d) {
           final int? dId = int.tryParse(d.deviceId);
-          
+
           if ((prefix == 'SH' && d.activityType == 'SH') ||
-              (prefix == 'KR' && d.activityType == 'KR')) {
-            final String dIdStr = d.deviceId.replaceAll(RegExp(r'\D'), '');
-            return dIdStr == targetIdNum?.toString() || d.deviceId == idStr;
+              (prefix == 'KR' && d.activityType == 'KR') ||
+              (prefix == 'AM' && d.activityType == 'AM')) {
+            final String dIdStr = d.deviceId
+                .replaceAll(RegExp(r'\D'), ''); // "ANNAM_CP01" -> "01"
+            final int? dIdNum = int.tryParse(dIdStr);
+            return dIdNum == targetIdNum || d.deviceId == idStr;
           }
 
           return d.activityType == prefix &&
@@ -5025,7 +5047,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               .format(time);
 
                                       try {
-                                        final pt = data.firstWhere((d) => d.timestamp == time);
+                                        final pt = data.firstWhere(
+                                            (d) => d.timestamp == time);
                                         if (_isAdmin && pt.filledFlag > 0) {
                                           formattedDate += ' (Filled Data)';
                                         }
@@ -5479,7 +5502,11 @@ class ChartData {
   final String? gustTime;
   final int filledFlag;
 
-  ChartData({required this.timestamp, required this.value, this.gustTime, this.filledFlag = 0});
+  ChartData(
+      {required this.timestamp,
+      required this.value,
+      this.gustTime,
+      this.filledFlag = 0});
 }
 
 class _MetricSummaryCard extends StatelessWidget {

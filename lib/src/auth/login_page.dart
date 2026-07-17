@@ -226,7 +226,13 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
     try {
       final res = await Amplify.Auth.signInWithWebUI(
         provider: AuthProvider.google,
+        options: const SignInWithWebUIOptions(
+          pluginOptions: CognitoSignInWithWebUIPluginOptions(
+            isPreferPrivateSession: false,
+          ),
+        ),
       );
+      safePrint('Google sign-in result: ${res.isSignedIn} | nextStep: ${res.nextStep}');
       if (res.isSignedIn) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         var userAttributes = await Amplify.Auth.fetchUserAttributes();
@@ -245,9 +251,19 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
           userProvider.setUser(email);
         }
         NavigationUtils.navigateTo(context, '/', removeUntil: true);
+      } else {
+        safePrint('Google sign-in not complete. Next step: ${res.nextStep}');
+        _showSnackbar('Sign-in was not completed. Please try again.');
       }
+    } on UserCancelledException {
+      // User cancelled — do nothing, just stop loading
+      safePrint('Google sign-in cancelled by user.');
     } on AuthException catch (e) {
+      safePrint('AuthException during Google sign-in: ${e.message}');
       _showSnackbar(e.message);
+    } catch (e) {
+      safePrint('Unexpected error during Google sign-in: $e');
+      _showSnackbar('An unexpected error occurred. Please try again.');
     } finally {
       setState(() {
         _isLoading = false;
