@@ -88920,7 +88920,7 @@ n=!o
 m=!n||B.b.E(p,"KR")||B.b.E(p,"SH")?"Battery_Voltage":"BatteryVoltage"
 n=!n||B.b.E(p,"KR")||B.b.E(p,"SH")?"Signal_Strength":"SignalStrength"
 if(o)p="Max_wind_gust_time"
-else p=B.b.E(p,"KR")?"max_wind_gust_time":"MaxWindGustTime"
+else p=B.b.E(p,"KR")||B.b.E(p,"AM")?"max_wind_gust_time":"MaxWindGustTime"
 s=j.a=l.aVE(r,m,q,p,new A.bwg(l),new A.bwh(l),new A.bwi(l),new A.bwk(l),new A.bwl(l),new A.bwm(l),new A.bwn(l),new A.bwo(l),new A.bwp(l),new A.bwq(l),new A.bwr(l),n,s)}r=l.a.c
 if(B.b.E(r,"SW003")||B.b.E(r,"SW025"))s.aj(0,new A.bwj(j))
 return j.a},

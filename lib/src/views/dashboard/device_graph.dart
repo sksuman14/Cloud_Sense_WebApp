@@ -378,7 +378,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             : 'SignalStrength',
         maxGustTimeKey: widget.deviceName.startsWith('JW')
             ? 'Max_wind_gust_time'
-            : widget.deviceName.startsWith('KR')
+            : (widget.deviceName.startsWith('KR') ||
+                    widget.deviceName.startsWith('AM'))
                 ? 'max_wind_gust_time'
                 : 'MaxWindGustTime',
         onBatteryUpdate: (v) => _lastBatteries[widget.deviceName] = v,
