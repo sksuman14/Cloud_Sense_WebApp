@@ -825,7 +825,8 @@ class DeviceConfig {
         DeviceParameter(
             key: 'Rainfall_Cumulative',
             displayName: 'Rainfall Cumulative',
-            unit: 'mm'),
+            unit: 'mm',
+            isMetadata: true),
         DeviceParameter(
             key: 'Panel_Voltage',
             displayName: 'Panel Voltage',

@@ -2475,9 +2475,37 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
       double? totalRainfall;
       if (p.key.toLowerCase().contains('rain')) {
-        bool isIncremental = widget.deviceName.startsWith('JW');
-        totalRainfall =
-            _calculateTotalRainfall(data, isIncremental: isIncremental);
+        // For AM (CP01) devices: use the last Rainfall_Cumulative value directly.
+        // The API reports a running cumulative total that resets daily,
+        // so the most-recent record always holds the correct cumulative value.
+        // For multi-day ranges, we sum the last Rainfall_Cumulative value seen
+        // per calendar day (each day's final reading = that day's total rain).
+        if (widget.deviceName.startsWith('AM') &&
+            p.key == 'Rainfall' &&
+            _parametersData.containsKey('Rainfall_Cumulative') &&
+            _parametersData['Rainfall_Cumulative']!.isNotEmpty) {
+          final cumulativeData = _parametersData['Rainfall_Cumulative']!;
+
+          if (_lastSelectedRange == 'single') {
+            // Single day: just take the last (most recent) cumulative value.
+            totalRainfall = cumulativeData.last.value;
+          } else {
+            // Multi-day range: group cumulative readings by calendar date,
+            // take the LAST value per day (= that day's total), then sum.
+            final Map<String, double> dailyLast = {};
+            for (final d in cumulativeData) {
+              final dateKey =
+                  '${d.timestamp.year}-${d.timestamp.month.toString().padLeft(2, '0')}-${d.timestamp.day.toString().padLeft(2, '0')}';
+              dailyLast[dateKey] = d.value; // overwrite → keeps last of the day
+            }
+            totalRainfall =
+                dailyLast.values.fold<double>(0.0, (sum, v) => sum + v);
+          }
+        } else {
+          bool isIncremental = widget.deviceName.startsWith('JW');
+          totalRainfall =
+              _calculateTotalRainfall(data, isIncremental: isIncremental);
+        }
       }
 
       return Padding(
