@@ -191,7 +191,7 @@ class HomeUtils {
     'WJ398': 'District Administration Complex, Sector 76, Mohali, Punjab',
     'IT100': 'IIT Bombay, Maharashtra',
     'SM003': 'Cachar, Assam',
-    'SW003': 'Rupnagar, Punjab',
+    'SW003': 'Bhubaneswar (M.Corp.) P.S., Khordha district, Odisha',
     'GPS': 'Rupnagar, Punjab',
     'gps': 'Rupnagar, Punjab',
     'WJ221': 'Zira tehsil, Firozpur district, Punjab',
@@ -296,7 +296,8 @@ class HomeUtils {
   static String buildTopicFromDisplayId(String displayId) {
     String internalId = displayId;
     if (displayId.startsWith('ANNAM_CP')) {
-      internalId = 'AM${displayId.replaceFirst('ANNAM_CP', '').padLeft(2, '0')}';
+      internalId =
+          'AM${displayId.replaceFirst('ANNAM_CP', '').padLeft(2, '0')}';
     } else if (displayId.startsWith('ANNAM0126_')) {
       internalId =
           'WJ${displayId.replaceFirst('ANNAM0126_', '').padLeft(3, '0')}';
@@ -310,8 +311,7 @@ class HomeUtils {
       internalId =
           'KR${displayId.replaceFirst('ANNAM/Kerala/', '').padLeft(3, '0')}';
     } else if (displayId.startsWith('AWS_')) {
-      internalId =
-          'AW${displayId.replaceFirst('AWS_', '').padLeft(3, '0')}';
+      internalId = 'AW${displayId.replaceFirst('AWS_', '').padLeft(3, '0')}';
     } else if (displayId.startsWith('ANNAM/GPC_')) {
       internalId =
           'GP${displayId.replaceFirst('ANNAM/GPC_', '').padLeft(3, '0')}';

@@ -978,7 +978,7 @@ class _AdminPageState extends State<AdminPage> {
     'WJ398': 'District Administration Complex, Sector 76, Mohali, Punjab',
     'IT100': 'IIT Bombay, Maharashtra',
     'SM003': 'Cachar, Assam',
-    'SW003': 'Rupnagar, Punjab',
+    'SW003': 'Bhubaneswar (M.Corp.) P.S., Khordha district, Odisha',
     'GPS': 'Rupnagar, Punjab',
     'gps': 'Rupnagar, Punjab',
     'WJ221': 'Zira tehsil, Firozpur district, Punjab',
@@ -1342,7 +1342,7 @@ class _AdminPageState extends State<AdminPage> {
             if (selectedBrand == "Testing") return _isAnnamTestingSensor(sn);
             return true;
           });
-          
+
     if (selectedCategory != null && selectedCategory != 'All Categories') {
       base = base.where((d) {
         final sn = _resolveSensorName(d);

@@ -94,7 +94,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     'WJ398': 'District Administration Complex, Sector 76, Mohali, Punjab',
     'IT100': 'IIT Bombay, Maharashtra',
     'SM003': 'Cachar, Assam',
-    'SW003': 'Rupnagar, Punjab',
+    'SW003': 'Bhubaneswar (M.Corp.) P.S., Khordha district, Odisha',
     'GPS': 'Rupnagar, Punjab',
     'gps': 'Rupnagar, Punjab',
     'WJ221': 'Zira tehsil, Firozpur district, Punjab',
