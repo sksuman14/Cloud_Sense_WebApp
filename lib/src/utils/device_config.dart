@@ -23,6 +23,7 @@ class DeviceTypeConfig {
   final String? apiTemplate; // Template for standard range
   final String? historyApiTemplate; // Template for 7-day range if different
   final String? monthHistoryApiTemplate; // Template for 30-day range
+  final String? threeMonthHistoryApiTemplate; // Template for 3-month range
   final bool hasWind;
   final bool hasRainfall;
   final bool hasAirQuality;
@@ -34,6 +35,7 @@ class DeviceTypeConfig {
     this.apiTemplate,
     this.historyApiTemplate,
     this.monthHistoryApiTemplate,
+    this.threeMonthHistoryApiTemplate,
     this.hasWind = false,
     this.hasRainfall = false,
     this.hasAirQuality = false,
@@ -94,6 +96,8 @@ class DeviceConfig {
           'https://yebtmt03od.execute-api.us-east-1.amazonaws.com/default/SSMet_Soil_Api_Func?deviceid={deviceId}&startdate={startdate}&enddate={enddate}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_Soil/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=SSMet_Soil&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -137,6 +141,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=SSMet_custom_1225&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/SSMet/custom/1225/C0/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=SSMet_custom_1225&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -228,6 +234,8 @@ class DeviceConfig {
           'https://d3g5fo66jwc4iw.cloudfront.net/ssmetnarldata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_NARL/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_NARL&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -257,6 +265,8 @@ class DeviceConfig {
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/polytechnicdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Polytechnic/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Polytechnic&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -370,6 +380,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Campus&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Campus/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Campus&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       hasAirQuality: true,
@@ -436,6 +448,8 @@ class DeviceConfig {
           'https://7a3bcew3y2.execute-api.us-east-1.amazonaws.com/default/IIT_Bombay_API_func?deviceId={deviceId}&startdate={startdate}&enddate={enddate}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/Awadh_IIT_B/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=Awadh_IIT_B&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -496,6 +510,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Campus&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Campus/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Campus&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -527,6 +543,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMET_1225&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMET_1225/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMET_1225&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       hasWeatherForecasting: true,
@@ -559,6 +577,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMet_0126&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_0126/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_0126&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -590,6 +610,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMet_0226&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_0226/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_0226&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -621,6 +643,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Annam_0426&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Annam_0426/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Annam_0426&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -941,6 +965,8 @@ class DeviceConfig {
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/kjscedata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_KJSCE/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_KJSCE&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       parameters: [
         DeviceParameter(
             key: 'CurrentTemperature', displayName: 'Temperature', unit: '°C'),
@@ -999,6 +1025,8 @@ class DeviceConfig {
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_SSMet_Railway&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_Railway/{deviceId}/{year}/{monthAbbr}.json',
+      threeMonthHistoryApiTemplate:
+          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_Railway&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasRainfall: true,
       parameters: [
         DeviceParameter(

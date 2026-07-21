@@ -952,6 +952,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     String template = '';
     if (range == '30days' && _config!.monthHistoryApiTemplate != null) {
       template = _config!.monthHistoryApiTemplate!;
+    } else if (range == '3months' && _config!.threeMonthHistoryApiTemplate != null) {
+      template = _config!.threeMonthHistoryApiTemplate!;
     } else if (range == '7days' && _config!.historyApiTemplate != null) {
       template = _config!.historyApiTemplate!;
     } else {
@@ -1029,11 +1031,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     String startdateYMD = '';
     String enddateYMD = '';
+    String windowAbbr = '';
     try {
       final startDt = DateFormat('dd-MM-yyyy').parse(startdate);
       startdateYMD = DateFormat('yyyy-MM-dd').format(startDt);
       final endDt = DateFormat('dd-MM-yyyy').parse(enddate);
       enddateYMD = DateFormat('yyyy-MM-dd').format(endDt);
+      if (range == '3months') {
+        windowAbbr = '${DateFormat('MMM').format(startDt).toLowerCase()}_${DateFormat('MMM').format(endDt).toLowerCase()}';
+      }
     } catch (e) {
       startdateYMD = startdate;
       enddateYMD = enddate;
@@ -1052,7 +1058,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         .replaceAll('{startdate_yyyy_mm_dd}', startdateYMD)
         .replaceAll('{enddate_yyyy_mm_dd}', enddateYMD)
         .replaceAll('{year}', year ?? '')
-        .replaceAll('{month}', month ?? '');
+        .replaceAll('{month}', month ?? '')
+        .replaceAll('{windowAbbr}', windowAbbr);
   }
 
   Future<void> _fetchDataForRange(String range,
