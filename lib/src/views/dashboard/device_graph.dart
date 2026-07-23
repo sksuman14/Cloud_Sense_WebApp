@@ -1469,12 +1469,34 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               gustTime = (item['Time_Stamp'] ?? item['TimeStamp'])?.toString();
             }
           }
+          int filledFlag = int.tryParse(item['filled_flag']?.toString() ?? '0') ?? 0;
           parametersData[key]!.add(ChartData(
               timestamp: timestamp,
               value: value,
               gustTime: gustTime,
-              filledFlag:
-                  int.tryParse(item['filled_flag']?.toString() ?? '0') ?? 0));
+              filledFlag: filledFlag));
+              
+          // Extract corrected_fields
+          if (item['corrected_fields'] != null && item['corrected_fields'] is Map) {
+            final correctedFields = item['corrected_fields'] as Map;
+            final lowerKey = key.toLowerCase();
+            if (correctedFields.containsKey(lowerKey) && correctedFields[lowerKey]['corrected_value'] != null) {
+              final correctedRaw = correctedFields[lowerKey]['corrected_value'];
+              final correctedValue = double.tryParse(correctedRaw.toString());
+              if (correctedValue != null) {
+                final correctedKey = 'CorrectedField_$key';
+                if (parametersData[correctedKey] == null) {
+                  parametersData[correctedKey] = [];
+                }
+                parametersData[correctedKey]!.add(ChartData(
+                  timestamp: timestamp,
+                  value: correctedValue,
+                  gustTime: gustTime,
+                  filledFlag: filledFlag,
+                ));
+              }
+            }
+          }
         }
       }
     }
@@ -2437,7 +2459,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     final cards = displayParams.map((p) {
       var data = _parametersData[p.key]!;
-      if (p.displayName.toLowerCase().contains('temperature')) {
+      final correctedField = _parametersData['CorrectedField_${p.key}'];
+      if (correctedField != null && correctedField.isNotEmpty) {
+        data = correctedField;
+      } else if (p.displayName.toLowerCase().contains('temperature')) {
         final corrected = _parametersData['CorrectedTemp'];
         if (corrected != null && corrected.isNotEmpty) {
           data = corrected;
@@ -3760,7 +3785,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               List<ChartData>? secondaryData;
                               String? secondaryTitle;
                               if (_isAdmin) {
-                                if (p.displayName
+                                final correctedField = _parametersData['CorrectedField_${p.key}'];
+                                if (correctedField != null && correctedField.isNotEmpty) {
+                                  secondaryData = correctedField;
+                                  secondaryTitle = 'Corrected ${p.displayName}';
+                                } else if (p.displayName
                                     .toLowerCase()
                                     .contains('temperature')) {
                                   final corrected =
@@ -3782,7 +3811,28 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   }
                                 }
                               } else {
-                                if (p.displayName
+                                final correctedField = _parametersData['CorrectedField_${p.key}'];
+                                if (correctedField != null && correctedField.isNotEmpty) {
+                                  if (_lastSelectedRange == 'single' ||
+                                      _lastSelectedRange == '7days') {
+                                    data = correctedField;
+                                  } else {
+                                    final Map<DateTime, double> correctedMap = {
+                                      for (var c in correctedField)
+                                        c.timestamp: c.value
+                                    };
+                                    data = data.map((d) {
+                                      final corrValue =
+                                          correctedMap[d.timestamp];
+                                      return corrValue != null
+                                          ? ChartData(
+                                              timestamp: d.timestamp,
+                                              value: corrValue,
+                                              gustTime: d.gustTime)
+                                          : d;
+                                    }).toList();
+                                  }
+                                } else if (p.displayName
                                     .toLowerCase()
                                     .contains('temperature')) {
                                   final corrected =
@@ -5366,7 +5416,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                       final Color seriesColor =
                                           title.toLowerCase().contains('temp')
                                               ? Colors.teal
-                                              : Colors.cyan;
+                                              : title.toLowerCase().contains('rain')
+                                                  ? Colors.deepPurple
+                                                  : Colors.cyan;
                                       return LineSeries<ChartData, DateTime>(
                                         dataSource: segment,
                                         xValueMapper: (ChartData data, _) =>
@@ -5385,7 +5437,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                       final Color seriesColor =
                                           title.toLowerCase().contains('temp')
                                               ? Colors.teal
-                                              : Colors.cyan;
+                                              : title.toLowerCase().contains('rain')
+                                                  ? Colors.deepPurple
+                                                  : Colors.cyan;
                                       return LineSeries<ChartData, DateTime>(
                                         dataSource: connector,
                                         xValueMapper: (ChartData data, _) =>
