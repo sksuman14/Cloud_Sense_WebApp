@@ -17399,7 +17399,7 @@ r=s[0]
 q=A.ve(r+"#"+s[1]+"/"+r)
 if(q!=null)return A.fx(q)
 return""},
-bUL(a){var s,r,q,p,o,n,m,l
+bUL(a){var s,r,q,p,o,n,m,l,k,j
 if(a==null)return""
 s=J.a2(a)
 r=s.h(a,"City")
@@ -17425,7 +17425,12 @@ m=J.J(r==null?"":r)
 if(m.length!==0){l=A.ve(m)
 if(l!=null){if(B.oC.aC(0,l)){s=B.oC.h(0,l)
 s.toString
-return s}if(A.oD(l))return"Rupnagar, Punjab"}}return"Latitude: "+A.tJ(s.h(a,"Latitude"))+" , Longitude: "+A.tJ(s.h(a,"Longitude"))},
+return s}if(A.oD(l))return"Rupnagar, Punjab"}}k=A.tJ(s.h(a,"Latitude"))
+j=A.tJ(s.h(a,"Longitude"))
+if(k==="--"||k==="N/A"||k.length===0)s=j==="--"||j==="N/A"||j.length===0
+else s=!1
+if(s)return""
+return"Latitude: "+k+" , Longitude: "+j},
 Ls(a,b){var s,r,q,p,o,n,m="ANNAM_CP",l="0",k="ANNAM0126_",j="ANNAM0426_",i="ANNAM/PC_",h="ANNAM/Kerala/",g="ANNAM/GPC_"
 if(B.b.E(a,m))r="AM"+B.b.br(B.b.f4(a,m,""),2,l)
 else if(B.b.E(a,k))r="WJ"+B.b.br(B.b.f4(a,k,""),3,l)

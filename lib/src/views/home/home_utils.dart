@@ -239,7 +239,13 @@ class HomeUtils {
       }
     }
 
-    return "Latitude: ${formatValue(device["Latitude"])} , Longitude: ${formatValue(device["Longitude"])}";
+    final latStr = formatValue(device["Latitude"]);
+    final lonStr = formatValue(device["Longitude"]);
+    if ((latStr == "--" || latStr == "N/A" || latStr.isEmpty) &&
+        (lonStr == "--" || lonStr == "N/A" || lonStr.isEmpty)) {
+      return "";
+    }
+    return "Latitude: $latStr , Longitude: $lonStr";
   }
 
   static int getResponsiveCrossAxisCount(double screenWidth) {
