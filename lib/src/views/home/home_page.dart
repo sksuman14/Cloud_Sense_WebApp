@@ -385,9 +385,9 @@ class _HomePageState extends State<HomePage> {
       final statesCount = uniqueStates.length;
       final districtsCount = uniqueDistricts.length;
 
-      // Default to ANNAM_CP01 if no device selected yet
+      // Default to ANNAM_CP02 if no device selected yet
       if (selectedDeviceId == null && !showNearestDevice) {
-        selectedDeviceId = "ANNAM_CP01";
+        selectedDeviceId = "ANNAM_CP02";
       }
 
       if (mounted) {
@@ -399,7 +399,7 @@ class _HomePageState extends State<HomePage> {
                   nearestDevice?["deviceid#topic"].toString(),
               orElse: () {
                 final defDev =
-                    HomeUtils.getDeviceByDisplayId("ANNAM_CP01", allDevices);
+                    HomeUtils.getDeviceByDisplayId("ANNAM_CP02", allDevices);
                 return defDev != null
                     ? Map<String, dynamic>.from(defDev)
                     : allDevices.first;
@@ -413,14 +413,14 @@ class _HomePageState extends State<HomePage> {
               selectedDevice = Map<String, dynamic>.from(device);
             } else {
               final defDev =
-                  HomeUtils.getDeviceByDisplayId("ANNAM_CP01", allDevices);
+                  HomeUtils.getDeviceByDisplayId("ANNAM_CP02", allDevices);
               selectedDevice = defDev != null
                   ? Map<String, dynamic>.from(defDev)
                   : allDevices.first;
             }
           } else {
             final defDev =
-                HomeUtils.getDeviceByDisplayId("ANNAM_CP01", allDevices);
+                HomeUtils.getDeviceByDisplayId("ANNAM_CP02", allDevices);
             selectedDevice = defDev != null
                 ? Map<String, dynamic>.from(defDev)
                 : allDevices.first;

@@ -96215,7 +96215,7 @@ c=B.b.b1(J.J(a3==null?"":a3))
 if(J.aE(d)!==0&&d.toLowerCase()!=="null")J.ce(g,d)
 if(J.aE(c)!==0&&c.toLowerCase()!=="null")J.ce(f,c)}b=g.a
 a=f.a
-if(n.z==null&&!n.Q)n.z="ANNAM_CP01"
+if(n.z==null&&!n.Q)n.z="ANNAM_CP02"
 if(n.c!=null){n.I(new A.bF9(n,k,a7,b,a))
 n.ox()}p=2
 s=6
@@ -96566,7 +96566,7 @@ s.CW="No devices found."
 s.cx=!1},
 $S:0}
 A.bF9.prototype={
-$0(){var s,r,q,p,o,n,m,l=this,k="ANNAM_CP01",j=l.a
+$0(){var s,r,q,p,o,n,m,l=this,k="ANNAM_CP02",j=l.a
 if(j.Q&&j.ch!=null){n=l.b
 s=B.c.nT(n,new A.bF4(j),new A.bF5(n))
 n=j.dx=A.ea(s,t.N,t.z)}else{n=j.z
@@ -96589,7 +96589,7 @@ $1(a){var s="deviceid#topic",r=J.J(J.j(a,s)),q=this.a.ch
 return r===(q==null?null:J.J(q.h(0,s)))},
 $S:12}
 A.bF5.prototype={
-$0(){var s=this.a,r=A.WQ("ANNAM_CP01",s)
+$0(){var s=this.a,r=A.WQ("ANNAM_CP02",s)
 return r!=null?A.ea(r,t.N,t.z):B.c.gac(s)},
 $S:300}
 A.bFa.prototype={
