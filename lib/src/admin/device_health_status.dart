@@ -791,7 +791,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
         title: Text(
             _isMapView
                 ? 'Sensor Health Map (${_filteredDevices.length})'
-                : 'Weather Sensor Health (${_filteredDevices.length})',
+                : 'Device Health Status (${_filteredDevices.length})',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
@@ -1808,17 +1808,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
   }
 
   String _getSdLabel(String status) {
-    String prefix = status.toUpperCase();
-    switch (status.toLowerCase().trim()) {
-      case 'critical':
-        return '$prefix\nStorage failed';
-      case 'warning':
-        return '$prefix\nStorage warning';
-      case 'ok':
-        return '$prefix\nStorage healthy';
-      default:
-        return '$prefix\nStatus unknown';
-    }
+    return status.toUpperCase();
   }
 
   String _getStatusLabel(String status) {

@@ -74,7 +74,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     final email = prefs.getString('email');
     if (mounted) {
       setState(() {
-        _isAdmin = DeviceUtils.isSuperAdmin(email);
+        _isAdmin = (email?.toLowerCase().trim() == 'sksuman14@gmail.com');
       });
     }
   }
