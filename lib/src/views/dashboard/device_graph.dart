@@ -269,6 +269,34 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     return hourlyTotals.values.fold(0.0, (sum, total) => sum + total);
   }
 
+// Helper function to merge raw sensor data with available corrected fields without dropping uncorrected timestamps
+  List<ChartData> _mergeCorrectedData(
+      List<ChartData> rawData, List<ChartData>? correctedData) {
+    if (correctedData == null || correctedData.isEmpty) return rawData;
+
+    final Map<DateTime, ChartData> mergedMap = {
+      for (var d in rawData) d.timestamp: d
+    };
+
+    for (var c in correctedData) {
+      if (mergedMap.containsKey(c.timestamp)) {
+        final existing = mergedMap[c.timestamp]!;
+        mergedMap[c.timestamp] = ChartData(
+          timestamp: c.timestamp,
+          value: c.value,
+          gustTime: existing.gustTime,
+          filledFlag: existing.filledFlag,
+        );
+      } else {
+        mergedMap[c.timestamp] = c;
+      }
+    }
+
+    final result = mergedMap.values.toList();
+    result.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return result;
+  }
+
 // Helper function to transform cumulative rainfall to incremental rainfall
 
   final DateFormat formatter = DateFormat('dd-MM-yyyy HH:mm:ss');
@@ -2461,16 +2489,16 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       var data = _parametersData[p.key]!;
       final correctedField = _parametersData['CorrectedField_${p.key}'];
       if (correctedField != null && correctedField.isNotEmpty) {
-        data = correctedField;
+        data = _mergeCorrectedData(data, correctedField);
       } else if (p.displayName.toLowerCase().contains('temperature')) {
         final corrected = _parametersData['CorrectedTemp'];
         if (corrected != null && corrected.isNotEmpty) {
-          data = corrected;
+          data = _mergeCorrectedData(data, corrected);
         }
       } else if (p.displayName.toLowerCase().contains('humidity')) {
         final corrected = _parametersData['CorrectedHumidity'];
         if (corrected != null && corrected.isNotEmpty) {
-          data = corrected;
+          data = _mergeCorrectedData(data, corrected);
         }
       }
       final current = data.last.value;
@@ -3785,8 +3813,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               List<ChartData>? secondaryData;
                               String? secondaryTitle;
                               if (_isAdmin) {
-                                final correctedField = _parametersData['CorrectedField_${p.key}'];
-                                if (correctedField != null && correctedField.isNotEmpty) {
+                                final correctedField =
+                                    _parametersData['CorrectedField_${p.key}'];
+                                if (correctedField != null &&
+                                    correctedField.isNotEmpty) {
                                   secondaryData = correctedField;
                                   secondaryTitle = 'Corrected ${p.displayName}';
                                 } else if (p.displayName
@@ -3811,27 +3841,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   }
                                 }
                               } else {
-                                final correctedField = _parametersData['CorrectedField_${p.key}'];
-                                if (correctedField != null && correctedField.isNotEmpty) {
-                                  if (_lastSelectedRange == 'single' ||
-                                      _lastSelectedRange == '7days') {
-                                    data = correctedField;
-                                  } else {
-                                    final Map<DateTime, double> correctedMap = {
-                                      for (var c in correctedField)
-                                        c.timestamp: c.value
-                                    };
-                                    data = data.map((d) {
-                                      final corrValue =
-                                          correctedMap[d.timestamp];
-                                      return corrValue != null
-                                          ? ChartData(
-                                              timestamp: d.timestamp,
-                                              value: corrValue,
-                                              gustTime: d.gustTime)
-                                          : d;
-                                    }).toList();
-                                  }
+                                final correctedField =
+                                    _parametersData['CorrectedField_${p.key}'];
+                                if (correctedField != null &&
+                                    correctedField.isNotEmpty) {
+                                  data = _mergeCorrectedData(data, correctedField);
                                 } else if (p.displayName
                                     .toLowerCase()
                                     .contains('temperature')) {
@@ -3839,26 +3853,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                       _parametersData['CorrectedTemp'];
                                   if (corrected != null &&
                                       corrected.isNotEmpty) {
-                                    if (_lastSelectedRange == 'single' ||
-                                        _lastSelectedRange == '7days') {
-                                      data = corrected;
-                                    } else {
-                                      final Map<DateTime, double> correctedMap =
-                                          {
-                                        for (var c in corrected)
-                                          c.timestamp: c.value
-                                      };
-                                      data = data.map((d) {
-                                        final corrValue =
-                                            correctedMap[d.timestamp];
-                                        return corrValue != null
-                                            ? ChartData(
-                                                timestamp: d.timestamp,
-                                                value: corrValue,
-                                                gustTime: d.gustTime)
-                                            : d;
-                                      }).toList();
-                                    }
+                                    data = _mergeCorrectedData(data, corrected);
                                   }
                                 } else if (p.displayName
                                     .toLowerCase()
@@ -3867,26 +3862,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                       _parametersData['CorrectedHumidity'];
                                   if (corrected != null &&
                                       corrected.isNotEmpty) {
-                                    if (_lastSelectedRange == 'single' ||
-                                        _lastSelectedRange == '7days') {
-                                      data = corrected;
-                                    } else {
-                                      final Map<DateTime, double> correctedMap =
-                                          {
-                                        for (var c in corrected)
-                                          c.timestamp: c.value
-                                      };
-                                      data = data.map((d) {
-                                        final corrValue =
-                                            correctedMap[d.timestamp];
-                                        return corrValue != null
-                                            ? ChartData(
-                                                timestamp: d.timestamp,
-                                                value: corrValue,
-                                                gustTime: d.gustTime)
-                                            : d;
-                                      }).toList();
-                                    }
+                                    data = _mergeCorrectedData(data, corrected);
                                   }
                                 }
                               }

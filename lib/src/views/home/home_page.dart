@@ -744,7 +744,7 @@ class _HomePageState extends State<HomePage> {
                                                           TextEditingController(
                                                         text:
                                                             selectedDeviceId ??
-                                                                "ANNAM001",
+                                                                "ANNAM_CP02",
                                                       ),
                                                       style: TextStyle(
                                                         color: isDarkMode
@@ -845,15 +845,26 @@ class _HomePageState extends State<HomePage> {
                                                   onPressed: () {
                                                     setState(() {
                                                       showNearestDevice = false;
+                                                      final targetId =
+                                                          (selectedDeviceId !=
+                                                                      null &&
+                                                                  selectedDeviceId !=
+                                                                      "ANNAM001")
+                                                              ? selectedDeviceId!
+                                                              : "ANNAM_CP02";
                                                       selectedDeviceId =
-                                                          "ANNAM001";
+                                                          targetId;
                                                       selectedDevice = HomeUtils
-                                                          .getDeviceByDisplayId(
-                                                        "ANNAM001",
-                                                        devices.cast<
-                                                            Map<String,
-                                                                dynamic>>(),
-                                                      );
+                                                              .getDeviceByDisplayId(
+                                                                  targetId,
+                                                                  devices.cast<
+                                                                      Map<String,
+                                                                          dynamic>>()) ??
+                                                          HomeUtils.getDeviceByDisplayId(
+                                                              "ANNAM_CP02",
+                                                              devices.cast<
+                                                                  Map<String,
+                                                                      dynamic>>());
                                                       nearestDevice = null;
                                                       errorMessage = null;
                                                     });
