@@ -265,6 +265,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
   String? _nextToken;
   bool _hasMore = false;
   bool _isLoadingMore = false;
+  final Set<String> _expandedDevices = {};
 
   final String _apiUrl =
       'https://4p8k77fw8b.execute-api.us-east-1.amazonaws.com/default/IoT_Health_API';
@@ -789,8 +790,8 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
         ),
         title: Text(
             _isMapView
-                ? 'Device Health Map (${_filteredDevices.length})'
-                : 'Device Health Status (${_filteredDevices.length})',
+                ? 'Sensor Health Map (${_filteredDevices.length})'
+                : 'Weather Sensor Health (${_filteredDevices.length})',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
@@ -1040,19 +1041,11 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
           isMobile ? 2 : (constraints.maxWidth / 200).floor().clamp(1, 5);
       final spacing = isMobile ? 10.0 : 16.0;
       final childAspectRatio =
-          isMobile ? 1.7 : (constraints.maxWidth < 1100 ? 1.8 : 1.6);
+          isMobile ? 1.7 : (constraints.maxWidth < 1100 ? 2.5 : 3.2);
 
       final cards = [
         _StatCard(
-            title: 'OFFLINE',
-            value: offlineCount.toDouble(),
-            color: const Color(0xFF94A3B8),
-            icon: Icons.cloud_off_rounded,
-            isSelected: _selectedFilter == 'Offline',
-            onTap: () => _handleCardTap('Offline'),
-            subtitle: 'last active > 60 min'),
-        _StatCard(
-            title: 'CRITICAL',
+            title: 'NEED HELP NOW (Critical)',
             value: criticalCount.toDouble(),
             color: const Color(0xFFF43F5E),
             icon: Icons.gpp_maybe_rounded,
@@ -1060,7 +1053,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
             onTap: () => _handleCardTap('Critical'),
             subtitle: 'Score < 75'),
         _StatCard(
-            title: 'WARNING',
+            title: 'KEEP AN EYE ON (Warning)',
             value: warningCount.toDouble(),
             color: const Color(0xFFF59E0B),
             icon: Icons.warning_amber_rounded,
@@ -1068,7 +1061,15 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
             onTap: () => _handleCardTap('Warning'),
             subtitle: 'Score 75-90'),
         _StatCard(
-            title: 'ONLINE / OK',
+            title: 'NOT RESPONDING (Offline)',
+            value: offlineCount.toDouble(),
+            color: const Color(0xFF94A3B8),
+            icon: Icons.cloud_off_rounded,
+            isSelected: _selectedFilter == 'Offline',
+            onTap: () => _handleCardTap('Offline'),
+            subtitle: 'last active > 60 min'),
+        _StatCard(
+            title: 'ALL GOOD (OK)',
             value: onlineCount.toDouble(),
             color: const Color(0xFF10B981),
             icon: Icons.check_circle_outline_rounded,
@@ -1076,7 +1077,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
             onTap: () => _handleCardTap('OK'),
             subtitle: 'Score > 90'),
         _StatCard(
-            title: 'TOTAL DEVICES',
+            title: 'TOTAL STATIONS',
             value: (_apiTotalCount ?? _allDevices.length).toDouble(),
             color: const Color(0xFF6366F1),
             icon: Icons.devices_other_rounded,
@@ -1129,7 +1130,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
             },
             style: TextStyle(color: strong),
             decoration: InputDecoration(
-              hintText: 'Search Device ID, Location, Missing Parameters...',
+              hintText: 'Search by station name or village...',
               hintStyle: TextStyle(color: strong.withOpacity(0.4)),
               prefixIcon: Icon(Icons.search, color: strong.withOpacity(0.6)),
               border: InputBorder.none,
@@ -1142,13 +1143,20 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children:
-                ['Offline', 'Critical', 'Warning', 'OK', 'All'].map((filter) {
+            children: [
+              {'value': 'All', 'label': 'All'},
+              {'value': 'Critical', 'label': 'Need help now (Critical)'},
+              {'value': 'Warning', 'label': 'Keep an eye on (Warning)'},
+              {'value': 'Offline', 'label': 'Not responding (Offline)'},
+              {'value': 'OK', 'label': 'All good (OK)'},
+            ].map((filterMap) {
+              final filter = filterMap['value']!;
+              final label = filterMap['label']!;
               final isSelected = _selectedFilter == filter;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(filter),
+                  label: Text(label),
                   selected: isSelected,
                   onSelected: (val) {
                     if (val) {
@@ -1382,8 +1390,8 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 showBorder: true),
             _HeaderCell(
                 label: 'OVERALL',
-                width: 100,
-                flex: 1,
+                width: 140,
+                flex: 2,
                 isExpanded: isExpanded,
                 isDark: isDark,
                 showBorder: true,
@@ -1404,7 +1412,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 }),
             _HeaderCell(
                 label: 'BATTERY',
-                width: 120,
+                width: 110,
                 flex: 2,
                 isExpanded: isExpanded,
                 isDark: isDark,
@@ -1420,7 +1428,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 }),
             _HeaderCell(
                 label: 'SD CARD',
-                width: 130,
+                width: 110,
                 flex: 2,
                 isExpanded: isExpanded,
                 isDark: isDark,
@@ -1436,7 +1444,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 }),
             _HeaderCell(
                 label: 'SIGNAL',
-                width: 120,
+                width: 110,
                 flex: 2,
                 isExpanded: isExpanded,
                 isDark: isDark,
@@ -1542,8 +1550,8 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 ),
               ),
               _DataCell(
-                width: 100,
-                flex: 1,
+                width: 140,
+                flex: 2,
                 isExpanded: isExpanded,
                 showBorder: true,
                 isDark: isDark,
@@ -1595,7 +1603,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 ),
               ),
               _DataCell(
-                width: 120,
+                width: 110,
                 flex: 2,
                 isExpanded: isExpanded,
                 showBorder: true,
@@ -1621,18 +1629,19 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      device.batteryStatus.toUpperCase(),
+                      _getBatteryLabel(device.batteryStatus),
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _getStatusColor(device.batteryStatus),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
               _DataCell(
-                width: 130,
+                width: 110,
                 flex: 2,
                 isExpanded: isExpanded,
                 showBorder: true,
@@ -1653,18 +1662,19 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      device.sdCardStatus.toUpperCase(),
+                      _getSdLabel(device.sdCardStatus),
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _getStatusColor(device.sdCardStatus),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
               _DataCell(
-                width: 120,
+                width: 110,
                 flex: 2,
                 isExpanded: isExpanded,
                 showBorder: true,
@@ -1686,11 +1696,12 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      device.signalStatus.toUpperCase(),
+                      _getSignalLabel(device.signalStatus),
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _getStatusColor(device.signalStatus),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -1768,9 +1779,66 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
     return Colors.grey;
   }
 
+  String _getBatteryLabel(String status) {
+    String prefix = status.toUpperCase();
+    switch (status.toLowerCase().trim()) {
+      case 'critical':
+        return '$prefix\nCharge immediately';
+      case 'warning':
+        return '$prefix\nPlan to charge soon';
+      case 'ok':
+        return '$prefix\nBattery healthy';
+      default:
+        return '$prefix\nStatus unknown';
+    }
+  }
+
+  String _getSignalLabel(String status) {
+    String prefix = status.toUpperCase();
+    switch (status.toLowerCase().trim()) {
+      case 'critical':
+        return '$prefix\nCheck antenna';
+      case 'warning':
+        return '$prefix\nData might delay';
+      case 'ok':
+        return '$prefix\nGood connection';
+      default:
+        return '$prefix\nCheck network';
+    }
+  }
+
+  String _getSdLabel(String status) {
+    String prefix = status.toUpperCase();
+    switch (status.toLowerCase().trim()) {
+      case 'critical':
+        return '$prefix\nStorage failed';
+      case 'warning':
+        return '$prefix\nStorage warning';
+      case 'ok':
+        return '$prefix\nStorage healthy';
+      default:
+        return '$prefix\nStatus unknown';
+    }
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status.toLowerCase().trim()) {
+      case 'offline':
+        return 'Not responding (Offline)';
+      case 'critical':
+        return 'Need help now (Critical)';
+      case 'warning':
+        return 'Keep an eye on (Warning)';
+      case 'ok':
+        return 'All good (OK)';
+      default:
+        return status.toUpperCase();
+    }
+  }
+
   Widget _buildStatusBadge(String status, {bool isSmall = false}) {
     Color color = _getStatusColor(status);
-    String label = status.toUpperCase();
+    String label = _getStatusLabel(status);
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -1782,6 +1850,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
       ),
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: TextStyle(
             color: color,
             fontSize: isSmall ? 8 : 10,
@@ -3749,6 +3818,7 @@ class _QualityCheckDialog extends StatefulWidget {
 class _QualityCheckDialogState extends State<_QualityCheckDialog> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  final Set<String> _expandedDevices = {};
   List<DeviceQualityHistoryRecord> _records = [];
   String? _error;
   bool _showQualityIndex = true;
