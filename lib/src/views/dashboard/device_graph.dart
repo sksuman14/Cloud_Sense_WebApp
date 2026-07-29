@@ -2462,7 +2462,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     final displayParams = _config!.parameters.where((p) {
       if (p.isMetadata) return false;
-      if (p.unit.isEmpty) return false;
+      if (p.unit.isEmpty && p.key != 'aqi') return false;
       if (p.key == 'WindDirection' ||
           p.key == 'WindDir' ||
           p.key == 'CurrentWindDirection' ||
@@ -2725,6 +2725,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       'PM2.5': Icons.blur_on,
       'PM4': Icons.blur_on,
       'PM10': Icons.blur_on,
+      'AQI': Icons.air,
       'CO₂': Icons.co2,
       'VOC': Icons.cloud_queue,
       'NOx': Icons.cloud,
@@ -4759,6 +4760,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return const Color(0xFFFF5722); // Deep Orange
     if (lowerTitle.contains('pm10'))
       return const Color.fromARGB(255, 196, 130, 105); // Brown
+    if (lowerTitle.contains('aqi'))
+      return const Color(0xFF009688); // Teal
     if (lowerTitle.contains('radiation')) return Colors.orange;
     if (lowerTitle.contains('gust')) return Colors.deepOrangeAccent;
     if (lowerTitle.contains('layer')) return Colors.brown;
@@ -4778,6 +4781,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (lowerTitle.contains('co2')) return Icons.cloud_outlined;
     if (lowerTitle.contains('pm2.5')) return Icons.grain;
     if (lowerTitle.contains('pm10')) return Icons.grain;
+    if (lowerTitle.contains('aqi')) return Icons.air;
     if (title.contains('Radiation')) return Icons.wb_sunny;
     if (title.contains('Max Wind Gust')) return Icons.wind_power;
     return Icons.show_chart;

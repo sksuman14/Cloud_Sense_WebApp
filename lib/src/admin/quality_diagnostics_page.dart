@@ -756,6 +756,8 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       return const Color(0xFFFF5722); // Deep Orange
     if (lowerTitle.contains('pm10'))
       return const Color.fromARGB(255, 196, 130, 105); // Brown
+    if (lowerTitle.contains('aqi'))
+      return const Color(0xFF009688); // Teal
     return const Color(0xFF00BCD4); // Cyan
   }
 
@@ -799,6 +801,9 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       "Rainfall": "Rainfall",
       "Tilt": "Tilt",
       "PanelVoltage": "Panel Voltage",
+      "pm25": "PM2.5",
+      "pm10": "PM10",
+      "aqi": "AQI",
       "spatial": "Spatial Anomaly",
     };
 

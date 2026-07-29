@@ -957,6 +957,9 @@ class DeviceConfig {
             key: 'Signal_Strength',
             displayName: 'Signal Strength',
             unit: 'dBm'),
+        DeviceParameter(key: 'pm25', displayName: 'PM2.5', unit: 'µg/m³'),
+        DeviceParameter(key: 'pm10', displayName: 'PM10', unit: 'µg/m³'),
+        DeviceParameter(key: 'aqi', displayName: 'AQI', unit: ''),
       ],
     ),
     'KJ': DeviceTypeConfig(
