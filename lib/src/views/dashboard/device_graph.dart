@@ -2882,19 +2882,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     try {
       currentDevice = _deviceStatuses.firstWhere(
         (d) {
-          final int? dId = int.tryParse(d.deviceId);
-
-          if ((prefix == 'SH' && d.activityType == 'SH') ||
-              (prefix == 'KR' && d.activityType == 'KR') ||
-              (prefix == 'AM' && d.activityType == 'AM')) {
-            final String dIdStr = d.deviceId
-                .replaceAll(RegExp(r'\D'), ''); // "ANNAM_CP01" -> "01"
-            final int? dIdNum = int.tryParse(dIdStr);
-            return dIdNum == targetIdNum || d.deviceId == idStr;
-          }
+          final String dIdStr = d.deviceId.replaceAll(RegExp(r'\D'), '');
+          final int? dIdNum = int.tryParse(dIdStr);
 
           return d.activityType == prefix &&
-              (d.deviceId == idStr || dId == targetIdNum);
+              (d.deviceId == idStr ||
+               dIdStr == idStr ||
+               d.deviceId == widget.deviceName ||
+               (dIdNum != null && dIdNum == targetIdNum));
         },
       );
     } catch (_) {
