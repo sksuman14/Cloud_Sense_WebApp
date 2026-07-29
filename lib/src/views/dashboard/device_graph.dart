@@ -3699,12 +3699,71 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                           )
                         : const SizedBox.shrink();
 
+                    final Widget forecastButton = (_config?.hasWeatherForecasting == true && !_isLoading)
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/nowcasting',
+                                  arguments: {
+                                    'deviceName': widget.deviceName,
+                                    'sequentialName': widget.sequentialName,
+                                  },
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: surfaceColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: borderColor,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    if (!isDarkMode)
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.cloudy_snowing,
+                                        size: 16, color: strongText),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Nowcast & Forecast 🌦️',
+                                      style: TextStyle(
+                                        color: strongText,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink();
+
                     if (isLarge) {
                       return Stack(
                         alignment: Alignment.center,
                         children: [
                           SizedBox(
                               width: MediaQuery.of(context).size.width - 32),
+                          if (_config?.hasWeatherForecasting == true && !_isLoading)
+                            Positioned(left: 0, child: forecastButton)
+                          else
+                            const SizedBox.shrink(),
                           timeFiltersRow,
                           if (_isAdmin && _config != null && !_isLoading)
                             Positioned(right: 0, child: dropdownsRow),
@@ -3716,6 +3775,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         children: [
                           timeFiltersRow,
                           dropdownsRow,
+                          forecastButton,
                         ],
                       );
                     }

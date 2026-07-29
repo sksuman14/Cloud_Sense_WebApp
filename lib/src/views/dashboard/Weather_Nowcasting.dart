@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:async';
+import 'package:cloud_sense_webapp/src/utils/device_config.dart';
 
 class WeatherNowcastingPage extends StatefulWidget {
   final String deviceName;
@@ -42,8 +44,11 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
 
   List<NowcastData> _forecastWind = [];
   List<NowcastData> _forecastRain = [];
+  List<NowcastData> _forecastRainProb = [];
   String _currentCondition = '';
   List<String> _hourlyConditions = [];
+  List<Map<String, dynamic>> _forecastRawList = [];
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -57,13 +62,21 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
       duration: const Duration(seconds: 5),
     )..repeat(reverse: true);
     _loadData();
+    _refreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      _loadData();
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _sunController.dispose();
     _cloudController.dispose();
     super.dispose();
+  }
+
+  double _round1Decimal(double val) {
+    return (val * 10).round() / 10.0;
   }
 
   Future<void> _loadData() async {
@@ -85,14 +98,50 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day, 0, 0, 0);
 
-    final url =
-        'https://d3g5fo66jwc4iw.cloudfront.net/campusdata?deviceid=1&startdate=${DateFormat('dd-MM-yyyy').format(startOfDay)}&enddate=${DateFormat('dd-MM-yyyy').format(now)}';
+    final config = DeviceConfig.getConfig(widget.deviceName);
+    if (config == null) return;
 
-    final response = await http.get(Uri.parse(url));
+    String template = config.apiTemplate ?? '';
+    if (template.isEmpty) return;
+
+    String deviceIdStr = widget.deviceName;
+    if (widget.deviceName.startsWith('AWS_')) {
+      deviceIdStr = widget.deviceName.substring(4);
+    } else if (RegExp(r'^[A-Za-z]{2}').hasMatch(widget.deviceName)) {
+      deviceIdStr = widget.deviceName.substring(2);
+    }
+    if (RegExp(r'^\d+$').hasMatch(deviceIdStr)) {
+      deviceIdStr = int.parse(deviceIdStr).toString();
+    }
+    final int deviceIdNumeric = int.tryParse(deviceIdStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+
+    String deviceIdPadded = deviceIdNumeric.toString().padLeft(3, '0');
+    String deviceIdPadded2 = deviceIdNumeric.toString().padLeft(2, '0');
+
+    final String startdateStr = DateFormat('dd-MM-yyyy').format(startOfDay);
+    final String enddateStr = DateFormat('dd-MM-yyyy').format(now);
+    final String startdateYMD = DateFormat('yyyy-MM-dd').format(startOfDay);
+    final String enddateYMD = DateFormat('yyyy-MM-dd').format(now);
+
+    final String url = template
+        .replaceAll('{deviceId}', deviceIdStr)
+        .replaceAll('{deviceIdPadded}', deviceIdPadded)
+        .replaceAll('{deviceIdPadded2}', deviceIdPadded2)
+        .replaceAll('{deviceName}', widget.deviceName)
+        .replaceAll('{startdate}', startdateStr)
+        .replaceAll('{enddate}', enddateStr)
+        .replaceAll('{startdate_yyyy_mm_dd}', startdateYMD)
+        .replaceAll('{enddate_yyyy_mm_dd}', enddateYMD);
+
+    final separator = url.contains('?') ? '&' : '?';
+    final cacheBusterUrl = '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+    final response = await http.get(Uri.parse(cacheBusterUrl));
     if (response.statusCode != 200) return;
 
     final data = json.decode(response.body);
-    final items = (data['items'] as List?) ?? [];
+    final List<dynamic> items = data is List
+        ? data
+        : ((data as Map<String, dynamic>)['items'] as List?) ?? [];
     if (items.isEmpty) return;
 
     // Parse all readings
@@ -103,19 +152,21 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
     final List<NowcastData> allRain = [];
 
     for (final item in items) {
-      final ts = DateTime.parse(item['TimeStamp']);
+      final tsStr = (item['TimeStamp'] ?? item['human_time'] ?? item['timestamp'] ?? item['Time_Stamp'] ?? '').toString();
+      if (tsStr.isEmpty) continue;
+      final ts = DateTime.parse(tsStr);
       if (ts.isBefore(startOfDay)) continue;
 
-      final temp = (item['CurrentTemperature'] as num?)?.toDouble() ?? 0.0;
-      final pres = (item['AtmPressure'] as num?)?.toDouble() ?? 0.0;
-      final hum = (item['CurrentHumidity'] as num?)?.toDouble() ?? 0.0;
-      final wind = (item['WindSpeed'] as num?)?.toDouble() ?? 0.0;
-      final rain = (item['RainfallHourly'] as num?)?.toDouble() ?? 0.0;
+      final temp = double.tryParse((item['CurrentTemperature'] ?? item['now_temperature'] ?? '0').toString()) ?? 0.0;
+      final pres = double.tryParse((item['AtmPressure'] ?? item['now_pressure'] ?? '0').toString()) ?? 0.0;
+      final hum = double.tryParse((item['CurrentHumidity'] ?? item['now_relative_humidity'] ?? '0').toString()) ?? 0.0;
+      final wind = double.tryParse((item['WindSpeed'] ?? item['now_wind_speed'] ?? '0').toString()) ?? 0.0;
+      final rain = double.tryParse((item['RainfallHourly'] ?? item['rainfall'] ?? '0').toString()) ?? 0.0;
 
       allTemp.add(NowcastData(ts, temp));
       allPres.add(NowcastData(ts, pres));
       allHum.add(NowcastData(ts, hum));
-      allWind.add(NowcastData(ts, wind / 3.6)); // already in m/s
+      allWind.add(NowcastData(ts, wind / 3.6));
       allRain.add(NowcastData(ts, rain));
     }
 
@@ -204,18 +255,19 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
 
   Future<void> _fetchForecastData() async {
     final url =
-        'https://fpoc1yed39.execute-api.us-east-1.amazonaws.com/prod/forecast';
+        'https://pov4sqw1t1.execute-api.us-east-1.amazonaws.com/prod/forecast?t=${DateTime.now().millisecondsSinceEpoch}';
     final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final forecastItems = data['data'] as List<dynamic>;
+      final forecastItems = (data['forecast'] as List<dynamic>?) ?? [];
 
       List<NowcastData> tempData = [],
           pressureData = [],
           humidityData = [],
           windData = [],
-          rainData = [];
+          rainData = [],
+          rainProbData = [];
 
       List<NowcastData> shortTemp = [];
       List<IconData> shortIcons = [];
@@ -231,28 +283,31 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
         hourlyConditions.add(condition);
 
         tempData.add(NowcastData(
-            timestamp, (item['temp'] as num).toDouble().roundToDouble()));
+            timestamp, _round1Decimal((item['temp'] as num).toDouble())));
         pressureData.add(NowcastData(
-            timestamp, (item['pressure'] as num).toDouble().roundToDouble()));
+            timestamp, _round1Decimal((item['pressure'] as num).toDouble())));
         humidityData.add(NowcastData(
-            timestamp, (item['humidity'] as num).toDouble().roundToDouble()));
+            timestamp, _round1Decimal((item['humidity'] as num).toDouble())));
 
         final windKmh = (item['wind_speed'] as num).toDouble();
         final windMs = windKmh / 3.6;
-        windData.add(NowcastData(timestamp, windMs));
+        windData.add(NowcastData(timestamp, _round1Decimal(windMs)));
 
         rainData.add(NowcastData(
-            timestamp, (item['rain'] as num).toDouble().roundToDouble()));
+            timestamp, _round1Decimal((item['rain'] as num).toDouble())));
+
+        rainProbData.add(NowcastData(
+            timestamp, _round1Decimal((item['rain_prob'] as num).toDouble())));
 
         if (i < 4) {
           final timeLabel =
               i == 0 ? 'Now' : DateFormat('h a').format(timestamp);
 
           shortTemp.add(NowcastData(
-              timestamp, (item['temp'] as num).toDouble().roundToDouble()));
+              timestamp, _round1Decimal((item['temp'] as num).toDouble())));
 
           final dewPoint = (item['dew_point'] as num?)?.toDouble() ?? 0.0;
-          _shortForecastDewPoint.add(dewPoint.roundToDouble());
+          _shortForecastDewPoint.add(_round1Decimal(dewPoint));
 
           IconData icon = Icons.wb_sunny;
           if (condition.contains('CLEAR') || condition.contains('☀️')) {
@@ -274,11 +329,13 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
 
       if (mounted) {
         setState(() {
+          _forecastRawList = List<Map<String, dynamic>>.from(forecastItems);
           _forecastTemperature = tempData;
           _forecastPressure = pressureData;
           _forecastHumidity = humidityData;
           _forecastWind = windData;
           _forecastRain = rainData;
+          _forecastRainProb = rainProbData;
           _hourlyConditions = hourlyConditions;
 
           _shortForecastTemp = shortTemp;
@@ -301,45 +358,37 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
     return Scaffold(
       key: _scaffoldKey,
       appBar: _buildAppBar(isDarkMode, isMobile),
-      drawer: isMobile ? _buildDrawer(isDarkMode) : null,
-      body: Row(
-        children: [
-          if (!isMobile) _buildSidebar(isDarkMode, 280.0),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: isDarkMode
-                      ? [
-                          Color.fromARGB(255, 192, 185, 185),
-                          Color.fromARGB(255, 123, 159, 174)
-                        ]
-                      : [
-                          Color.fromARGB(255, 126, 171, 166),
-                          Color.fromARGB(255, 54, 58, 59)
-                        ],
-                ),
-              ),
-              child: _isLoading
-                  ? _buildLoadingState(isDarkMode)
-                  : _historicalTemperature.isEmpty
-                      ? _buildEmptyState(isDarkMode)
-                      : SingleChildScrollView(
-                          padding: EdgeInsets.all(16),
-                          child: Column(children: [
-                            _buildWeatherHeader(isDarkMode, isMobile),
-                            const SizedBox(height: 24),
-                            _buildShortHourlyOverview(isDarkMode),
-                            const SizedBox(height: 24),
-                            _buildNowcastChart(isDarkMode),
-                            SizedBox(height: 20),
-                            _buildForecastTable(isDarkMode)
-                          ])),
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDarkMode
+                ? [
+                    const Color(0xFF14212B),
+                    const Color(0xFF0B141D),
+                  ]
+                : [
+                    Colors.grey[200]!,
+                    Colors.white,
+                  ],
           ),
-        ],
+        ),
+        child: _isLoading
+            ? _buildLoadingState(isDarkMode)
+            : _historicalTemperature.isEmpty
+                ? _buildEmptyState(isDarkMode)
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(children: [
+                      _buildWeatherHeader(isDarkMode, isMobile),
+                      const SizedBox(height: 24),
+                      _buildParameterTabs(isDarkMode),
+                      const SizedBox(height: 16),
+                      _buildNowcastChart(isDarkMode),
+                      const SizedBox(height: 24),
+                      _buildDetailedForecastSection(isDarkMode),
+                    ])),
       ),
     );
   }
@@ -348,242 +397,502 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
     return AppBar(
       elevation: 0,
       backgroundColor: isDarkMode ? const Color(0xFF14212B) : Colors.grey[200],
-      leading: isMobile
-          ? IconButton(
-              icon: Icon(Icons.menu),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer())
-          : IconButton(
-              icon: Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context)),
+      leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black87),
+          onPressed: () => Navigator.pop(context)),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Weather Nowcasting',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              )),
           Text('${widget.sequentialName} (${widget.deviceName})',
-              style: TextStyle(fontSize: 12)),
+              style: TextStyle(
+                fontSize: 12,
+                color: isDarkMode ? Colors.white70 : Colors.black54,
+              )),
         ],
       ),
       actions: [
         IconButton(
-            icon: Icon(Icons.refresh), onPressed: _loadData, tooltip: 'Refresh')
+            icon: Icon(Icons.refresh, color: isDarkMode ? Colors.white : Colors.black87),
+            onPressed: _loadData,
+            tooltip: 'Refresh')
       ],
     );
   }
 
   Widget _buildWeatherHeader(bool isDarkMode, bool isMobile) {
-    if (_historicalTemperature.isEmpty) return SizedBox.shrink();
+    if (_historicalTemperature.isEmpty) return const SizedBox.shrink();
 
-    final temp = _historicalTemperature.last.value.toInt();
-    final humidity = _historicalHumidity.last.value.toInt();
-    final isDay = DateTime.now().hour >= 6 && DateTime.now().hour < 18;
+    final temp = _historicalTemperature.last.value.toStringAsFixed(1);
+    final humidity = _historicalHumidity.last.value.toStringAsFixed(1);
+    
+    // Dynamic gradients with high contrast and colors
+    final String conditionLower = _currentCondition.toLowerCase();
+    LinearGradient cardGradient;
+    Color glowColor;
+    if (conditionLower.contains('clear')) {
+      cardGradient = LinearGradient(
+        colors: isDarkMode 
+            ? [const Color(0xFF1E3C72), const Color(0xFF2A5298)]
+            : [const Color(0xFFE0F2FE), const Color(0xFFBAE6FD)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      glowColor = Colors.blueAccent;
+    } else if (conditionLower.contains('rain') || conditionLower.contains('drizzle')) {
+      cardGradient = LinearGradient(
+        colors: isDarkMode
+            ? [const Color(0xFF374151), const Color(0xFF1F2937)]
+            : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      glowColor = Colors.grey;
+    } else {
+      cardGradient = LinearGradient(
+        colors: isDarkMode
+            ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+            : [const Color(0xFFF8FAFC), const Color(0xFFF1F5F9)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      glowColor = Colors.indigoAccent;
+    }
 
-    return Container(
-      padding: EdgeInsets.all(24),
+    final Widget weatherStatusCard = Container(
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDarkMode
-            ? Color.fromARGB(150, 0, 0, 0)
-            : Color.fromARGB(173, 227, 220, 220),
+        gradient: cardGradient,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDarkMode
-              ? Colors.white.withOpacity(0.2)
-              : Colors.black.withOpacity(0.1),
+          color: isDarkMode ? Colors.white24 : Colors.black12,
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+            color: glowColor.withOpacity(isDarkMode ? 0.25 : 0.15),
+            blurRadius: 24,
+            spreadRadius: 2,
+            offset: const Offset(0, 8),
+          )
         ],
       ),
-      child: Stack(
+      child: Row(
         children: [
-          // Animated Weather Background
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: _buildAnimatedWeatherBackground(isDay),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CURRENT CONDITIONS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                    color: isDarkMode ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedParameter = 'Temperature';
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _selectedParameter == 'Temperature'
+                          ? (isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05))
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _selectedParameter == 'Temperature'
+                            ? (isDarkMode ? Colors.white30 : Colors.black12)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '$temp',
+                          style: TextStyle(
+                            fontSize: 54,
+                            fontWeight: FontWeight.bold,
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '°C',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: isDarkMode ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Glowing Weather Condition Pill Badge!
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Colors.blueAccent, Colors.cyanAccent],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.cyanAccent.withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: Text(
+                    _currentCondition,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-
-          // Main Content
+          Container(
+            height: 90,
+            width: 1.5,
+            color: isDarkMode ? Colors.white24 : Colors.black12,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+          ),
           Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Weather icon with animation
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_currentCondition.contains('Clear') && isDay)
-                    AnimatedBuilder(
-                      animation: _sunController,
-                      builder: (context, child) {
-                        return Transform.rotate(
-                          angle: _sunController.value * 2 * math.pi,
-                          child: child,
-                        );
-                      },
-                      child: Icon(Icons.wb_sunny,
-                          size: 100, color: Color(0xFFFFD700)),
-                    )
-                  else if (_currentCondition.contains('Clear') && !isDay)
-                    Icon(Icons.nightlight_round,
-                        size: 100, color: Color(0xFFFFA726))
-                  else if (_currentCondition.contains('Cloudy'))
-                    AnimatedBuilder(
-                      animation: _cloudController,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset: Offset(_cloudController.value * 10 - 5, 0),
-                          child: child,
-                        );
-                      },
-                      child:
-                          Icon(Icons.cloud, size: 100, color: Colors.white70),
-                    )
-                  else if (_currentCondition.contains('Rain'))
-                    Icon(Icons.water_drop, size: 100, color: Color(0xFF29b6f6))
-                  else if (_currentCondition.contains('Drizzle'))
-                    _buildDrizzleIcon()
-                  else
-                    Icon(Icons.wb_cloudy, size: 100, color: Colors.white70),
-                ],
+              _buildClickableMiniStat(
+                icon: Icons.water_drop,
+                label: 'Hum',
+                value: '$humidity%',
+                parameterName: 'Humidity',
+                isDarkMode: isDarkMode,
               ),
-
-              SizedBox(height: 16),
-
-              // Temperature
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$temp',
-                    style: TextStyle(
-                      fontSize: 72,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : Colors.black,
-                      height: 1,
-                    ),
-                  ),
-                  Text(
-                    '°C',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w300,
-                      color: isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 10),
+              _buildClickableMiniStat(
+                icon: Icons.speed,
+                label: 'Pres',
+                value: '${_historicalPressure.last.value.toStringAsFixed(0)} hPa',
+                parameterName: 'Pressure',
+                isDarkMode: isDarkMode,
               ),
-
-              SizedBox(height: 8),
-
-              // Condition
-              Text(
-                _currentCondition,
-                style: TextStyle(
-                  fontSize: 24,
-                  color: isDarkMode ? Colors.white : Colors.black,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-
-              SizedBox(height: 24),
-
-              // Weather stats row
-              Wrap(
-                spacing: 20,
-                runSpacing: 16,
-                alignment: WrapAlignment.center,
-                children: [
-                  _buildWeatherStat(
-                    Icons.water_drop,
-                    'Humidity',
-                    '$humidity %',
-                    Colors.blue[300]!,
-                    isDarkMode,
-                  ),
-                  _buildWeatherStat(
-                      Icons.speed,
-                      'Pressure',
-                      '${_historicalPressure.last.value.toInt()} hPa',
-                      Colors.purple[300]!,
-                      isDarkMode),
-                  _buildWeatherStat(
-                      Icons.air,
-                      'Wind',
-                      '${_historicalWind.last.value.toStringAsFixed(2)} m/s',
-                      Colors.teal[300]!,
-                      isDarkMode),
-                ],
+              const SizedBox(height: 10),
+              _buildClickableMiniStat(
+                icon: Icons.air,
+                label: 'Wind',
+                value: '${_historicalWind.last.value.toStringAsFixed(1)} m/s',
+                parameterName: 'Wind Speed',
+                isDarkMode: isDarkMode,
               ),
             ],
           ),
         ],
       ),
     );
-  }
 
-  // Custom drizzle icon - sun behind cloud with drops below
-  Widget _buildDrizzleIcon() {
-    return SizedBox(
-      width: 100,
-      height: 100,
-      child: Stack(
+    final insights = _generateWeatherInsights();
+    final Widget insightsCard = Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: cardGradient,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDarkMode ? Colors.white24 : Colors.black12,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: glowColor.withOpacity(isDarkMode ? 0.25 : 0.15),
+            blurRadius: 24,
+            spreadRadius: 2,
+            offset: const Offset(0, 8),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sun in the back
-          Positioned(
-            top: 10,
-            right: 15,
-            child: Icon(
-              Icons.wb_sunny,
-              size: 45,
-              color: Color(0xFFFFD700),
+          Text(
+            'WEATHER INSIGHTS & ALERTS',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+              color: isDarkMode ? Colors.white70 : Colors.black54,
             ),
           ),
-          // Cloud in front
-          Positioned(
-            top: 15,
-            left: 10,
-            child: Icon(
-              Icons.cloud,
-              size: 70,
-              color: Colors.white.withOpacity(0.9),
-            ),
-          ),
-          // Small water drops below cloud
-          Positioned(
-            bottom: 15,
-            left: 20,
-            child: Icon(
-              Icons.water_drop,
-              size: 12,
-              color: Color(0xFF64B5F6),
-            ),
-          ),
-          Positioned(
-            bottom: 20,
-            left: 35,
-            child: Icon(
-              Icons.water_drop,
-              size: 10,
-              color: Color(0xFF64B5F6),
-            ),
-          ),
-          Positioned(
-            bottom: 18,
-            left: 48,
-            child: Icon(
-              Icons.water_drop,
-              size: 11,
-              color: Color(0xFF64B5F6),
-            ),
+          const SizedBox(height: 12),
+          Column(
+            children: insights.map((alert) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (alert['color'] as Color).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: (alert['color'] as Color).withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      alert['icon'] as IconData,
+                      color: alert['color'] as Color,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            alert['title'] as String,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            alert['message'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDarkMode ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
     );
+
+    if (isMobile) {
+      return Column(
+        children: [
+          weatherStatusCard,
+          const SizedBox(height: 16),
+          insightsCard,
+        ],
+      );
+    } else {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 4, child: weatherStatusCard),
+          const SizedBox(width: 16),
+          Expanded(flex: 5, child: insightsCard),
+        ],
+      );
+    }
+  }
+
+  Widget _buildClickableMiniStat({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String parameterName,
+    required bool isDarkMode,
+  }) {
+    final isSelected = _selectedParameter == parameterName;
+    final textCol = isDarkMode ? Colors.white : Colors.black87;
+    final activeBg = isDarkMode ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08);
+    final inactiveBg = isDarkMode ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedParameter = parameterName;
+          });
+        },
+        borderRadius: BorderRadius.circular(16),
+        hoverColor: Colors.blueAccent.withOpacity(0.1),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : inactiveBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? Colors.cyanAccent : (isDarkMode ? Colors.white12 : Colors.black12),
+              width: 1.5,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.blueAccent.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    )
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? Colors.cyanAccent : Colors.blueAccent,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '$label: ',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: textCol,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _generateWeatherInsights() {
+    final List<Map<String, dynamic>> insights = [];
+
+    if (_historicalTemperature.isNotEmpty) {
+      final currentTemp = _historicalTemperature.last.value;
+      if (currentTemp > 35.0) {
+        insights.add({
+          'type': 'warning',
+          'icon': Icons.light_mode,
+          'color': Colors.orangeAccent,
+          'title': 'High Temperature Warning',
+          'message': 'Temperatures are very high (${currentTemp.toStringAsFixed(1)}°C). Stay indoors and stay hydrated!'
+        });
+      } else if (currentTemp < 15.0) {
+        insights.add({
+          'type': 'info',
+          'icon': Icons.ac_unit,
+          'color': Colors.blueAccent,
+          'title': 'Cold Weather Alert',
+          'message': 'It is currently cool (${currentTemp.toStringAsFixed(1)}°C). Dress warmly!'
+        });
+      }
+    }
+
+    if (_historicalHumidity.isNotEmpty) {
+      final currentHum = _historicalHumidity.last.value;
+      if (currentHum > 80.0) {
+        insights.add({
+          'type': 'info',
+          'icon': Icons.water_drop,
+          'color': Colors.blue,
+          'title': 'High Humidity Alert',
+          'message': 'Relative humidity is very high ($currentHum%). It may feel warmer than the actual temperature.'
+        });
+      }
+    }
+
+    if (_historicalWind.isNotEmpty) {
+      final currentWind = _historicalWind.last.value;
+      if (currentWind > 15.0) {
+        insights.add({
+          'type': 'warning',
+          'icon': Icons.air,
+          'color': Colors.amber,
+          'title': 'Strong Winds Alert',
+          'message': 'Winds are currently strong (${currentWind.toStringAsFixed(1)} m/s). Secure loose outdoor items.'
+        });
+      }
+    }
+
+    if (_forecastRainProb.isNotEmpty) {
+      final rainProbVal = _forecastRainProb.first.value;
+      if (rainProbVal > 50.0) {
+        insights.add({
+          'type': 'warning',
+          'icon': Icons.umbrella,
+          'color': Colors.lightBlueAccent,
+          'title': 'Rain Expected Soon',
+          'message': 'There is a high chance of rain ($rainProbVal%) in the next 1-2 hours. Carry an umbrella!'
+        });
+      } else if (rainProbVal > 20.0) {
+        insights.add({
+          'type': 'info',
+          'icon': Icons.cloudy_snowing,
+          'color': Colors.grey,
+          'title': 'Slight Chance of Rain',
+          'message': 'A light drizzle is possible ($rainProbVal% probability) shortly.'
+        });
+      }
+    }
+
+    if (_forecastRawList.isNotEmpty) {
+      final firstForecast = _forecastRawList.first;
+      final presChange = double.tryParse(firstForecast['pressure_change_3h']?.toString() ?? '0') ?? 0.0;
+      if (presChange < -1.5) {
+        insights.add({
+          'type': 'warning',
+          'icon': Icons.trending_down,
+          'color': Colors.redAccent,
+          'title': 'Rapid Pressure Drop',
+          'message': 'Atmospheric pressure is dropping fast, indicating a possible storm or weather change!'
+        });
+      } else if (presChange > 1.5) {
+        insights.add({
+          'type': 'info',
+          'icon': Icons.trending_up,
+          'color': Colors.greenAccent,
+          'title': 'Pressure Rising',
+          'message': 'Atmospheric pressure is rising, indicating clear skies and stable weather ahead.'
+        });
+      }
+    }
+
+    if (insights.isEmpty) {
+      insights.add({
+        'type': 'stable',
+        'icon': Icons.check_circle_outline,
+        'color': Colors.green,
+        'title': 'Stable Weather Conditions',
+        'message': 'No critical weather changes or alerts for the next few hours. Outdoor activities are safe.'
+      });
+    }
+
+    return insights;
   }
 
   // Small drizzle icon for hourly cards - sun behind cloud with drops below
@@ -694,12 +1003,12 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
               end: Alignment.bottomCenter,
               colors: isDay
                   ? [
-                      Color(0xFF87CEEB),
-                      Color(0xFFB0E0E6),
+                      const Color(0xFF2193b0),
+                      const Color(0xFF6dd5ed),
                     ]
                   : [
-                      Color(0xFF191970),
-                      Color(0xFF483D8B),
+                      const Color(0xFF0F2027),
+                      const Color(0xFF2C5364),
                     ],
             ),
           ),
@@ -741,8 +1050,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF9DB4C0),
-                Color(0xFFB8C5D0),
+                const Color(0xFF3a7bd5),
+                const Color(0xFF3a6073),
               ],
             ),
           ),
@@ -771,8 +1080,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF6C7A89),
-                Color(0xFF95A5A6),
+                const Color(0xFF2b5876),
+                const Color(0xFF4e4376),
               ],
             ),
           ),
@@ -813,8 +1122,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFB0C4DE),
-                Color(0xFFD3D3D3),
+                const Color(0xFF61a5c2),
+                const Color(0xFF89c2d9),
               ],
             ),
           ),
@@ -855,8 +1164,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF2C3E50),
-                Color(0xFF34495E),
+                const Color(0xFF141E30),
+                const Color(0xFF243B55),
               ],
             ),
           ),
@@ -883,7 +1192,7 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
                 color: Colors.white.withOpacity(0.3),
               );
             }
-            return SizedBox.shrink();
+            return const SizedBox.shrink();
           },
         ),
 
@@ -910,8 +1219,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFCCCCCC),
-                Color(0xFFE0E0E0),
+                const Color(0xFF757F9A),
+                const Color(0xFFD7DDE8),
               ],
             ),
           ),
@@ -947,11 +1256,7 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
 // Cartoon Landscape
   Widget _buildCartoonLandscape(bool isDay,
       {bool isRainy = false, bool isDrizzle = false}) {
-    return CustomPaint(
-      painter: LandscapePainter(
-          isDay: isDay, isRainy: isRainy, isDrizzle: isDrizzle),
-      size: Size.infinite,
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildWeatherStat(
@@ -1420,6 +1725,22 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
     final historicalData = _getHistoricalData();
     final forecastData = _getForecastData();
     final unit = _getUnit();
+    double? minY;
+    double? maxY;
+    if (_selectedParameter == 'Rain Probability' || _selectedParameter == 'Wind Speed' || _selectedParameter == 'Humidity') {
+      minY = 0.0;
+    }
+    double maxVal = 0.0;
+    for (var d in historicalData) { if (d.value > maxVal) maxVal = d.value; }
+    for (var d in forecastData) { if (d.value > maxVal) maxVal = d.value; }
+    if (maxVal == 0.0) { maxY = 5.0; }
+
+    final DateTime? minX = historicalData.isNotEmpty
+        ? historicalData.first.time
+        : (forecastData.isNotEmpty ? forecastData.first.time : null);
+    final DateTime? maxX = forecastData.isNotEmpty
+        ? forecastData.last.time
+        : (historicalData.isNotEmpty ? historicalData.last.time : null);
 
     return Container(
       width: double.infinity,
@@ -1474,6 +1795,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
                           ? Color.fromARGB(100, 0, 0, 0)
                           : Color.fromARGB(189, 222, 218, 218),
                       primaryXAxis: DateTimeAxis(
+                        minimum: minX,
+                        maximum: maxX,
                         dateFormat: DateFormat('HH:mm'),
                         title: AxisTitle(
                           text: 'Time',
@@ -1486,19 +1809,17 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
                         edgeLabelPlacement: EdgeLabelPlacement.shift,
                         labelRotation: 0,
                         labelIntersectAction: AxisLabelIntersectAction.rotate45,
-                        initialVisibleMinimum:
-                            DateTime.now().subtract(const Duration(hours: 24)),
-                        initialVisibleMaximum:
-                            DateTime.now().add(const Duration(hours: 4)),
                         interval: 2,
                         intervalType: DateTimeIntervalType.hours,
                         majorGridLines: MajorGridLines(
-                            width: 0.5, color: Colors.grey.withOpacity(0.3)),
+                            width: 0.5, color: isDarkMode ? Colors.white12 : Colors.black12),
                         minorGridLines: MinorGridLines(width: 0),
                         majorTickLines: MajorTickLines(size: 0),
                         minorTickLines: MinorTickLines(size: 0),
                       ),
                       primaryYAxis: NumericAxis(
+                        minimum: minY,
+                        maximum: maxY,
                         labelStyle: TextStyle(
                             color: isDarkMode ? Colors.white : Colors.black),
                         axisLine: AxisLine(width: 1),
@@ -1761,7 +2082,7 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
                   return TableRow(children: [
                     _buildTableCell(
                         DateFormat('HH:mm').format(data.time), isDarkMode),
-                    _buildTableCell('${data.value.toInt()} $unit', isDarkMode),
+                    _buildTableCell('${data.value.toStringAsFixed(1)} $unit', isDarkMode),
                     _buildTableCell('', isDarkMode,
                         isIcon: true, trendValue: trend)
                   ]);
@@ -1771,6 +2092,309 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildParameterTabs(bool isDarkMode) {
+    final parameters = [
+      {'name': 'Temperature', 'icon': Icons.thermostat},
+      {'name': 'Humidity', 'icon': Icons.water_drop},
+      {'name': 'Pressure', 'icon': Icons.speed},
+      {'name': 'Wind Speed', 'icon': Icons.air},
+      {'name': 'Rain Probability', 'icon': Icons.umbrella},
+    ];
+
+    final activeColor = Colors.blueAccent;
+    final borderCol = isDarkMode ? Colors.white12 : Colors.black12;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF0F1B25) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderCol),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: parameters.map((param) {
+            final name = param['name'] as String;
+            final icon = param['icon'] as IconData;
+            final isSelected = _selectedParameter == name;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedParameter = name;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? activeColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: activeColor.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 16,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDarkMode ? Colors.white70 : Colors.black87),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDarkMode ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailedForecastSection(bool isDarkMode) {
+    if (_forecastRawList.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Text(
+            '3-Hour Forecast Analysis',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 900;
+            return isWide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: _forecastRawList.map((item) {
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: _buildDetailedForecastCard(item, isDarkMode),
+                        ),
+                      );
+                    }).toList(),
+                  )
+                : Column(
+                    children: _forecastRawList.map((item) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: _buildDetailedForecastCard(item, isDarkMode),
+                      );
+                    }).toList(),
+                  );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailedForecastCard(Map<String, dynamic> item, bool isDarkMode) {
+    final String timeStr = item['time'] as String? ?? '';
+    DateTime? parsedTime;
+    try {
+      parsedTime = DateTime.parse(timeStr);
+    } catch (_) {}
+    final String displayTime = parsedTime != null
+        ? DateFormat('hh:mm a').format(parsedTime)
+        : timeStr;
+
+    final String condition = item['condition'] as String? ?? 'N/A';
+    
+    final double tempLocal = double.tryParse(item['temp']?.toString() ?? '0') ?? 0.0;
+    final double tempGlobal = double.tryParse(item['temp_global']?.toString() ?? '0') ?? 0.0;
+    
+    final double humLocal = double.tryParse(item['humidity']?.toString() ?? '0') ?? 0.0;
+    final double humGlobal = double.tryParse(item['humidity_global']?.toString() ?? '0') ?? 0.0;
+    
+    final double windLocal = double.tryParse(item['wind_speed']?.toString() ?? '0') ?? 0.0;
+    final double windGlobal = double.tryParse(item['wind_speed_global']?.toString() ?? '0') ?? 0.0;
+    
+    final double presLocal = double.tryParse(item['pressure']?.toString() ?? '0') ?? 0.0;
+    final double presGlobal = double.tryParse(item['pressure_global']?.toString() ?? '0') ?? 0.0;
+    
+    final double rainProb = double.tryParse(item['rain_prob']?.toString() ?? '0') ?? 0.0;
+    final double dewPoint = double.tryParse(item['dew_point']?.toString() ?? '0') ?? 0.0;
+    final double dewPointDep = double.tryParse(item['dew_point_depression']?.toString() ?? '0') ?? 0.0;
+    final double presChange = double.tryParse(item['pressure_change_3h']?.toString() ?? '0') ?? 0.0;
+
+    final cardBgColor = isDarkMode
+        ? const Color(0xFF182A3A).withOpacity(0.65)
+        : Colors.white.withOpacity(0.85);
+    final textCol = isDarkMode ? Colors.white : Colors.black87;
+    final subTextCol = isDarkMode ? Colors.white60 : Colors.black54;
+    final borderCol = isDarkMode ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderCol),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                displayTime,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: textCol,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  condition,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '${tempLocal.toStringAsFixed(1)}°C',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: textCol,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Global: ${tempGlobal.toStringAsFixed(1)}°C',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: subTextCol,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(color: borderCol, height: 1),
+          const SizedBox(height: 16),
+          _buildDetailRow(Icons.water_drop, 'Humidity', '${humLocal.toStringAsFixed(1)}%', 'Global: ${humGlobal.toStringAsFixed(0)}%', isDarkMode),
+          const SizedBox(height: 8),
+          _buildDetailRow(Icons.air, 'Wind Speed', '${windLocal.toStringAsFixed(1)} m/s', 'Global: ${windGlobal.toStringAsFixed(1)}', isDarkMode),
+          const SizedBox(height: 8),
+          _buildDetailRow(Icons.speed, 'Pressure', '${presLocal.toStringAsFixed(1)} hPa', 'Global: ${presGlobal.toStringAsFixed(0)}', isDarkMode),
+          const SizedBox(height: 8),
+          _buildDetailRow(Icons.umbrella, 'Rain Prob.', '${rainProb.toStringAsFixed(0)}%', '', isDarkMode),
+          const SizedBox(height: 8),
+          _buildDetailRow(Icons.thermostat, 'Dew Point', '${dewPoint.toStringAsFixed(1)}°C', 'Depr: ${dewPointDep.toStringAsFixed(1)}°C', isDarkMode),
+          const SizedBox(height: 8),
+          _buildDetailRow(Icons.trending_up, 'Pres. Change', '${presChange >= 0 ? '+' : ''}${presChange.toStringAsFixed(2)} hPa', '', isDarkMode),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value, String subValue, bool isDarkMode) {
+    final textCol = isDarkMode ? Colors.white: Colors.black87;
+    final subTextCol = isDarkMode ? Colors.white60 : Colors.black54;
+
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.blueAccent.withOpacity(0.8)),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: subTextCol,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textCol,
+                ),
+              ),
+              if (subValue.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text(
+                  subValue,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: subTextCol,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1826,8 +2450,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
         return _historicalHumidity;
       case 'Wind Speed':
         return _historicalWind;
-      case 'Rainfall':
-        return _historicalRain;
+      case 'Rain Probability':
+        return []; // No historical data for rain probability
       default:
         return [];
     }
@@ -1843,8 +2467,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
         return _forecastHumidity;
       case 'Wind Speed':
         return _forecastWind;
-      case 'Rainfall':
-        return _forecastRain;
+      case 'Rain Probability':
+        return _forecastRainProb;
       default:
         return [];
     }
@@ -1860,8 +2484,8 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
         return '%';
       case 'Wind Speed':
         return 'm/s';
-      case 'Rainfall':
-        return 'mm';
+      case 'Rain Probability':
+        return '%';
       default:
         return '';
     }

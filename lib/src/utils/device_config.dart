@@ -827,6 +827,7 @@ class DeviceConfig {
           'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP{deviceIdPadded2}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=Annam@2025',
       hasWind: true,
       hasRainfall: true,
+      hasWeatherForecasting: true,
       parameters: [
         DeviceParameter(
             key: 'NowTemperature', displayName: 'Temperature', unit: '°C'),

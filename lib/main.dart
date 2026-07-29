@@ -30,6 +30,7 @@ import 'package:url_strategy/url_strategy.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_sense_webapp/src/views/dashboard/forecast_dashboard.dart';
+import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 
 // Initialize Flutter local notifications plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -753,6 +754,20 @@ class MyApp extends StatelessWidget {
                     sequentialName: finalArgs['sequentialName'] ?? '',
                   );
                 },
+              );
+            }
+            break;
+
+          case '/nowcasting':
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null) {
+              pageContent = WeatherNowcastingPage(
+                deviceName: args['deviceName'] ?? '',
+                sequentialName: args['sequentialName'] ?? '',
+              );
+            } else {
+              pageContent = const Scaffold(
+                body: Center(child: Text("No arguments provided")),
               );
             }
             break;
