@@ -267,14 +267,14 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                 const SizedBox(height: 12),
                 _buildTextField("Rain Gauge Size", _krRainGuageSizeController, Icons.water_drop, isNumber: true),
                 const SizedBox(height: 12),
-                _buildTextField("File Upload Counter", _krFileUploadCounterController, Icons.upload_file, isNumber: true),
-                const SizedBox(height: 12),
                 if (_isSHDevice) ...[
-                  _buildTextField("Backlog File Counter", _krBacklogFileCounterController, Icons.folder_copy, isNumber: true),
-                  const SizedBox(height: 12),
-                  _buildTextField("SIM Card APN", _krSimCardApnController, Icons.sim_card),
+                  _buildTextField("File Upload Counter", _krFileUploadCounterController, Icons.upload_file, isNumber: true),
                   const SizedBox(height: 12),
                 ],
+                _buildTextField("Backlog File Counter", _krBacklogFileCounterController, Icons.folder_copy, isNumber: true),
+                const SizedBox(height: 12),
+                _buildTextField("SIM Card APN", _krSimCardApnController, Icons.sim_card),
+                const SizedBox(height: 12),
                 _buildSwitch("Reset System Time", _krResetSystemTime, (v) => setState(() => _krResetSystemTime = v)),
                 const SizedBox(height: 12),
                 _buildSwitch("Restart Device", _krRestart, (v) => setState(() => _krRestart = v)),
@@ -702,7 +702,6 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
     } else if (_isKRDevice || _isAWDevice) {
       final Map<String, dynamic> dataPayload = {};
       
-      // The API requires ANNAM_ID to know which device to update.
       if (_krDeviceIdController.text.isNotEmpty) {
         dataPayload["deviceId"] = _krDeviceIdController.text;
         dataPayload["ANNAM_ID"] = _krDeviceIdController.text;
@@ -712,7 +711,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
       if (_krFixLongController.text.isNotEmpty) dataPayload["fixLong"] = _krFixLongController.text;
       if (_krUploadIntervalController.text.isNotEmpty) dataPayload["UploadInterval"] = num.tryParse(_krUploadIntervalController.text) ?? 10;
       if (_krRainGuageSizeController.text.isNotEmpty) dataPayload["RainGuageSize"] = num.tryParse(_krRainGuageSizeController.text) ?? 0.5;
-      if (_krFileUploadCounterController.text.isNotEmpty) dataPayload["FileUploadCounter"] = num.tryParse(_krFileUploadCounterController.text) ?? 10;
+      if (_krBacklogFileCounterController.text.isNotEmpty) dataPayload["BacklogFileCounter"] = num.tryParse(_krBacklogFileCounterController.text) ?? 10;
+      if (_krSimCardApnController.text.isNotEmpty) dataPayload["SetSimCardAPN"] = _krSimCardApnController.text;
       dataPayload["ResetSystemTime"] = _krResetSystemTime;
       dataPayload["restart"] = _krRestart;
 

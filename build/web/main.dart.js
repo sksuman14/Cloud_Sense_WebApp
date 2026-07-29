@@ -94237,8 +94237,12 @@ if(B.b.E(m.toUpperCase(),"JW")){m=c.ay
 m===$&&A.b()
 B.c.G(l,A.a([c.mO("Numeric Device ID",m,B.uz),B.ab,c.mO(a1,c.ch,B.ik),B.ab,c.mO(a2,c.CW,B.ik),B.ab,c.mO("Station ID",c.cx,B.aag),B.ab,c.mO("Provider ID",c.cy,B.a9M),B.ab,c.mO("HTTP Login Username",c.db,B.uG),B.ab,c.aFI("HTTP Login Password",c.dx,B.aa5,!0),B.ab,c.mO("HTTP Login API",c.dy,B.a9G),B.ab,c.mO("HTTP Secret API",c.fr,B.aad),B.ab,c.mO("HTTP Upload API",c.fx,B.DE),B.ab,c.wf(a3,c.fy,new A.bpO(c))],f))}else if(B.b.E(m.toUpperCase(),"KR")||B.b.E(m.toUpperCase(),"AW")||B.b.E(m.toUpperCase(),a)){m=c.go
 m===$&&A.b()
-m=A.a([c.mO(a0,m,B.uz),B.ab,c.mO(a1,c.id,B.ik),B.ab,c.mO(a2,c.k1,B.ik),B.ab,c.Kw("Upload Interval (min)",c.k2,B.lv,!0),B.ab,c.Kw("Rain Gauge Size",c.k3,B.f_,!0),B.ab,c.Kw("File Upload Counter",c.k4,B.aaj,!0),B.ab],f)
-if(B.b.E(c.a.c.toUpperCase(),a))B.c.G(m,A.a([c.Kw("Backlog File Counter",c.ok,B.ab1,!0),B.ab,c.mO("SIM Card APN",c.p1,B.aaf),B.ab],f))
+m=A.a([c.mO(a0,m,B.uz),B.ab,c.mO(a1,c.id,B.ik),B.ab,c.mO(a2,c.k1,B.ik),B.ab,c.Kw("Upload Interval (min)",c.k2,B.lv,!0),B.ab,c.Kw("Rain Gauge Size",c.k3,B.f_,!0),B.ab],f)
+if(B.b.E(c.a.c.toUpperCase(),a))B.c.G(m,A.a([c.Kw("File Upload Counter",c.k4,B.aaj,!0),B.ab],f))
+m.push(c.Kw("Backlog File Counter",c.ok,B.ab1,!0))
+m.push(B.ab)
+m.push(c.mO("SIM Card APN",c.p1,B.aaf))
+m.push(B.ab)
 m.push(c.wf("Reset System Time",c.p2,new A.bpP(c)))
 m.push(B.ab)
 m.push(c.wf(a3,c.p3,new A.bpQ(c)))
@@ -94405,9 +94409,11 @@ c=n.k2.a.a
 if(c.length!==0){c=A.qN(c)
 d.n(0,"UploadInterval",c==null?10:c)}c=n.k3.a.a
 if(c.length!==0){c=A.qN(c)
-d.n(0,"RainGuageSize",c==null?0.5:c)}c=n.k4.a.a
+d.n(0,"RainGuageSize",c==null?0.5:c)}c=n.ok.a.a
 if(c.length!==0){c=A.qN(c)
-d.n(0,"FileUploadCounter",c==null?10:c)}d.n(0,"ResetSystemTime",n.p2)
+d.n(0,"BacklogFileCounter",c==null?10:c)}c=n.p1.a.a
+if(c.length!==0)d.n(0,"SetSimCardAPN",c)
+d.n(0,"ResetSystemTime",n.p2)
 d.n(0,"restart",n.p3)
 k=A.B(["config",!0,"data",d],f,e)}else if(B.b.E(f.toUpperCase(),"SH")){f=t.N
 e=t.z
