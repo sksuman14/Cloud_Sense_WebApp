@@ -739,7 +739,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                   .toString());
 
           final activityType =
-              _mapActivityToPrefix(_getActivityTypeFromTopic(topic), topic);
+              DevicePrefixUtils.mapCategoryAndPrefix(topic).prefix;
 
           String lastReceivedTime = parseTime(device['TimeStamp_IST'] ??
               device['TimeStamp'] ??
@@ -787,54 +787,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     }
   }
 
-  String _getActivityTypeFromTopic(String topic) {
-    if (topic.startsWith('WS/Weather/')) return 'weather';
-    if (topic.startsWith('WS/Water/')) return 'water';
-
-    if (topic.startsWith('WS/JioData/'))
-      return 'Awadh_Jio'; // Map JioData to Awadh_Jio
-
-    if (topic.startsWith('WS/SVPU/')) return 'SV'; // Map SVPU to WS
-    if (topic.startsWith('chloritrone/')) return 'chloritrone';
-    if (topic.startsWith('Awadh_Jio/')) return 'Awadh_Jio';
-    if (topic == 'WS/Campus/2') return 'CF';
-    if (topic.startsWith('WS/Campus/')) return 'CP';
-    if (topic.startsWith('Weather/sensor/')) return 'WT';
-    if (topic.contains('SSMet/Forest')) return 'FS';
-    if (topic.contains('SSMet/Soil')) return 'SS';
-    if (topic.contains('Polytechnic')) return 'PC';
-    if (topic.contains('GPC')) return 'GP';
-    if (topic.startsWith('Awadh/IIT_B')) return 'IT';
-    if (topic.startsWith('Demo/Device')) return 'DM';
-    if (topic.contains('IIT/WS/SSMet/1')) return 'SM'; // Special case for SM001
-    if (topic.contains('SSMet/Railway')) return 'SM';
-    if (topic.contains('SSMET_1225')) return 'SW';
-    if (topic.contains('SSMet_0126')) return 'WJ';
-    if (topic.contains('SSMet_0226')) return 'WF';
-    if (topic.contains('Annam_0426')) return 'WA';
-    if (topic.contains('Annam_0526')) return 'WM';
-    if (topic.contains('SSMet/custom/1225/C0')) return 'SI';
-    if (topic.contains('NARL')) return 'NA';
-    if (topic.contains('KJSCE')) return 'KJ';
-    if (topic.contains('KARGIL/')) return 'KD';
-    if (topic.contains('WS/Vanix/02')) return 'VD';
-
-    if (topic.contains('Shobha')) return 'SH';
-    if (topic.contains('Jio_Logger')) return 'JW';
-    if (topic.contains('Winds_WN') ||
-        topic.contains('WINDS/') ||
-        topic.contains('Winds/Sensor/')) return 'WN';
-    if (topic.contains('Mysuru')) return 'MY';
-    if (topic.contains('Kerala')) return 'KR';
-    if (topic.contains('AWS')) return 'AW';
-    if (topic.startsWith('WS/ANNAM_CP') || topic.contains('ANNAM_CP'))
-      return 'AM';
-    if (topic.contains('WS/CPS') || topic.contains('CPS'))
-      return 'PS';
-
-    if (topic.contains('Testing/')) return 'AT'; // Map Testing/nRF52840 to AT
-    return 'unknown';
-  }
 
   String parseTime(String? time) {
     if (time == null || time.isEmpty || time == "N/A") return 'Unknown';
@@ -933,40 +885,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     }
   }
 
-  String _mapActivityToPrefix(String activityType, String? topic) {
-    if (activityType == 'chloritrone') return 'CL';
-    if (activityType == 'water') return 'WQ';
-    if (activityType == 'weather') return 'weather';
-
-    if (activityType == 'WS') {
-      if (topic == null) return 'CX';
-      if (topic.contains('SSMET')) return 'SM';
-      if (topic.contains('SSMET_1225')) return 'SW';
-      if (topic.contains('SSMET_0126')) return 'WJ';
-      if (topic.contains('SSMET_0226')) return 'WF';
-      if (topic.contains('Annam_0426')) return 'WA';
-      if (topic.contains('Annam_0526')) return 'WM';
-      if (topic.contains('SSMet/custom/1225/C0')) return 'SI';
-      if (topic.contains('NARL')) return 'NA';
-      if (topic.contains('Polytechnic')) return 'PC';
-      if (topic.contains('GPC')) return 'GP';
-      if (topic == 'WS/Campus/2') return 'CF';
-      if (topic.contains('WS/Campus')) return 'CP';
-      if (topic.contains('SSMet/Forest')) return 'FS';
-      if (topic.contains('SSMet/Soil')) return 'SS';
-      if (topic.contains('Awadh/IIT_B')) return 'IT';
-      if (topic.contains('Demo/Device')) return 'DM';
-      if (topic.contains('KJSCE')) return 'KJ';
-      if (topic.contains('SVPU')) return 'SV';
-      if (topic.contains('Mysuru')) return 'MY';
-      if (topic.contains('Winds_WN')) return 'WN';
-      if (topic.contains('WS_WINDS/Jio_Logger')) return 'JW';
-      if (topic.contains('Shobha')) return 'SH';
-      if (topic.contains('WS/CPS') || topic.contains('CPS')) return 'PS';
-      return 'CX';
-    }
-    return activityType;
-  }
 
   String _getPrefix(String deviceName) {
     if (deviceName.startsWith('Awadh_Jio')) return 'Awadh_Jio';

@@ -5,6 +5,149 @@ import 'package:intl/intl.dart';
 /// Consistent naming convention for CloudSense WebApp modernization.
 
 class DevicePrefixUtils {
+  static const List<String> validPrefixes = [
+    'WD', 'CL', 'BD', 'SS', 'WQ', 'WS', 'DO', 'LU', 'TE', 'AC',
+    'BF', 'CS', 'TH', 'NH', 'IT', 'FS', 'SM', 'SW', 'SI', 'CF',
+    'SV', 'CB', 'WF', 'KD', 'VD', 'PC', 'KR', 'AW', 'GP', 'NA',
+    'CP', 'KJ', 'MY', 'DM', 'WJ', 'WF', 'WT', 'WA', 'WM', 'TS',
+    'WN', 'JW', 'SH', 'AT', 'AM', 'PS',
+  ];
+
+  static String getSensorType(String deviceId) {
+    if (deviceId.startsWith('WD')) return 'Weather Sensor';
+    if (deviceId.startsWith('CL') || deviceId.startsWith('BD')) return 'Chlorine Sensor';
+    if (deviceId.startsWith('SS')) return 'Soil Sensor';
+    if (deviceId.startsWith('WQ')) return 'Water Quality Sensor';
+    if (deviceId.startsWith('WS')) return 'Water Sensor';
+    if (deviceId.startsWith('IT')) return 'IIT Bombay Sensor';
+    if (deviceId.startsWith('DO')) return 'DO Sensor';
+    if (deviceId.startsWith('LU')) return 'LU Sensor';
+    if (deviceId.startsWith('TE')) return 'TE Sensor';
+    if (deviceId.startsWith('AC')) return 'AC Sensor';
+    if (deviceId.startsWith('BF')) return 'BF Sensor';
+    if (deviceId.startsWith('CS')) return 'Cow Sensor';
+    if (deviceId.startsWith('TH')) return 'Temperature Sensor';
+    if (deviceId.startsWith('NH')) return 'Ammonia Sensor';
+    if (deviceId.startsWith('FS')) return 'Forest Sensor (Bhopal)';
+    if (deviceId.startsWith('SM')) return 'SSMET Sensor';
+    if (deviceId.startsWith('SW')) return 'SSMET Weather Sensor';
+    if (deviceId.startsWith('WJ')) return 'Jan Weather Sensors';
+    if (deviceId.startsWith('WA')) return 'April Weather Sensors';
+    if (deviceId.startsWith('WT')) return 'Weather OTA Sensors';
+    if (deviceId.startsWith('WF')) return 'Feb Weather Sensors';
+    if (deviceId.startsWith('WM')) return 'Testing Devices';
+    if (deviceId.startsWith('SI')) return 'Synthite Industries Private Limited Sensor';
+    if (deviceId.startsWith('CF')) return 'Sekhon Biotech Pvt Ltd Farm Sensor';
+    if (deviceId.startsWith('SV')) return 'Sardar Vallabhbhai Patel University of Agriculture and TechnologySensor';
+    if (deviceId.startsWith('CB')) return 'COD/BOD Sensor';
+    if (deviceId.startsWith('WF')) return 'WF Sensor';
+    if (deviceId.startsWith('KD')) return 'Kargil Sensor';
+    if (deviceId.startsWith('VD')) return 'Vanix Sensor';
+    if (deviceId.startsWith('PC')) return 'Polytechnical Sensor';
+    if (deviceId.startsWith('KR')) return 'Kerala Sensor';
+    if (deviceId.startsWith('AW')) return 'AWS Sensor';
+    if (deviceId.startsWith('GP')) return 'GPC Sensor';
+    if (deviceId.startsWith('NA')) return 'National Atmospheric Research Labortary Sensor';
+    if (deviceId.startsWith('KJ')) return 'KJ Somaiya College of Engineering';
+    if (deviceId.startsWith('MY')) return 'Mysuru NIE';
+    if (deviceId.startsWith('CP')) return 'IIT Ropar Campus Sensor';
+    if (deviceId.startsWith('DM')) return 'Demo Sensor';
+    if (deviceId.startsWith('WN')) return 'Winds Weather Sensor';
+    if (deviceId.startsWith('JW')) return 'Partnership Sensors';
+    if (deviceId.startsWith('SH')) return 'Shobha Sensor';
+    if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
+    if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
+    if (deviceId.startsWith('PS')) return 'CPS Sensor';
+    return 'Rain Sensor';
+  }
+
+  static String getCategoryDisplayName(String prefix) {
+    switch (prefix) {
+      case 'CL':
+      case 'BD':
+        return 'Chlorine Sensors';
+      case 'WD':
+        return 'Weather Sensors';
+      case 'WT':
+        return 'Testing Devices';
+      case 'SS':
+        return 'SSMet Soil Sensors';
+      case 'WQ':
+        return 'Water Quality Sensors';
+      case 'DO':
+        return 'DO Sensors';
+      case 'IT':
+        return 'IIT Bombay\nSensors';
+      case 'WS':
+        return 'Water Sensors';
+      case 'LU':
+      case 'TE':
+      case 'AC':
+        return 'CPS Lab Sensors';
+      case 'BF':
+        return 'Buffalo Sensors';
+      case 'CS':
+        return 'Cow Sensors';
+      case 'TH':
+        return 'Temperature Sensors';
+      case 'NH':
+        return 'Ammonia Sensors';
+      case 'FS':
+        return 'SSMet Forest Sensors\n(Bhopal)';
+      case 'SM':
+        return 'SSMET Sensors';
+      case 'SW':
+        return 'SSMET Weather Sensors';
+      case 'WJ':
+        return 'ANNAM Sensors';
+      case 'WF':
+        return 'Feb Weather Sensors';
+      case 'WA':
+        return 'ANNAM Sensors';
+      case 'SI':
+        return 'Synthite Industries\nPrivate Limited Sensors';
+      case 'CF':
+        return 'ANNAM Sensors';
+      case 'SV':
+        return 'Sardar Vallabhbhai Patel University of Agriculture\nand Technology Sensors (Meerut)';
+      case 'CB':
+        return 'COD/BOD Sensors';
+      case 'KD':
+        return 'Kargil Sensors';
+      case 'VD':
+        return 'Vanix Sensors';
+      case 'PC':
+        return 'Polytechnical Sensors';
+      case 'KR':
+        return 'Kerala Sensors';
+      case 'AW':
+        return 'AWS Sensors';
+      case 'GP':
+        return 'GPC Sensors';
+      case 'NA':
+        return 'National Atmospheric Research Labortary\nSensors';
+      case 'CP':
+        return 'IIT Ropar Campus\nSensors';
+      case 'DM':
+        return 'Testing Devices';
+      case 'KJ':
+        return 'KJ Somaiya College of Engineering Sensors';
+      case 'MY':
+        return 'Mysuru NIE Sensors';
+      case 'JW':
+        return 'Partnership Sensors';
+      case 'SH':
+        return 'Partnership Sensors';
+      case 'WN':
+        return 'Testing Devices';
+      case 'PS':
+        return 'CPS Sensors';
+      default:
+        return 'Rain Sensors';
+    }
+  }
+
+  /// Strips administrative suffixes from district strings.
   /// Strips administrative suffixes from district strings.
   /// e.g. "Rupnagar district" → "Rupnagar", "Rupnagar Tahsil" → "Rupnagar"
   static String cleanDistrict(String? raw) {
@@ -496,6 +639,20 @@ class DevicePrefixUtils {
     }
     if (topic.contains('WS/Aurassure')) {
       return (category: 'Aurassure Sensor', prefix: 'AS');
+    }
+
+    // Special non-standard topic handlers
+    if (topic.contains('chloritrone')) {
+      return (category: 'Chlorine Sensors', prefix: 'CL');
+    }
+    if (topic.contains('WS/Water') || topic.contains('water')) {
+      return (category: 'Water Quality Sensors', prefix: 'WQ');
+    }
+    if (topic.contains('WS/Weather') || topic.contains('weather')) {
+      return (category: 'Weather Sensors', prefix: 'weather');
+    }
+    if (topic.contains('WS/JioData') || topic.contains('JioData') || topic.contains('Awadh_Jio') || topic.contains('Awadh_jio')) {
+      return (category: 'Partnership Sensors', prefix: 'Awadh_Jio');
     }
 
     // Fallback search to catch standard SSMet generic topics

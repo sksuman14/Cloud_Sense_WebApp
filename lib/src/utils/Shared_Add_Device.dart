@@ -133,55 +133,7 @@ class DeviceUtils {
   // --- YOUR ORIGINAL FUNCTIONS (UNCHANGED) ---
 
   static String getSensorType(String deviceId) {
-    if (deviceId.startsWith('WD')) return 'Weather Sensor';
-    if (deviceId.startsWith('CL') || deviceId.startsWith('BD'))
-      return 'Chlorine Sensor';
-    if (deviceId.startsWith('SS')) return 'Soil Sensor';
-    if (deviceId.startsWith('WQ')) return 'Water Quality Sensor';
-    if (deviceId.startsWith('WS')) return 'Water Sensor';
-    if (deviceId.startsWith('IT')) return 'IIT Bombay Sensor';
-    if (deviceId.startsWith('DO')) return 'DO Sensor';
-    if (deviceId.startsWith('LU')) return 'LU Sensor';
-    if (deviceId.startsWith('TE')) return 'TE Sensor';
-    if (deviceId.startsWith('AC')) return 'AC Sensor';
-    if (deviceId.startsWith('BF')) return 'BF Sensor';
-    if (deviceId.startsWith('CS')) return 'Cow Sensor';
-    if (deviceId.startsWith('TH')) return 'Temperature Sensor';
-    if (deviceId.startsWith('NH')) return 'Ammonia Sensor';
-    if (deviceId.startsWith('FS')) return 'Forest Sensor (Bhopal)';
-    if (deviceId.startsWith('SM')) return 'SSMET Sensor';
-    if (deviceId.startsWith('SW')) return 'SSMET Weather Sensor';
-    if (deviceId.startsWith('WJ')) return 'Jan Weather Sensors';
-    if (deviceId.startsWith('WA')) return 'April Weather Sensors';
-    if (deviceId.startsWith('WT')) return 'Weather OTA Sensors';
-    if (deviceId.startsWith('WF')) return 'Feb Weather Sensors';
-    if (deviceId.startsWith('WM')) return 'Testing Devices';
-    if (deviceId.startsWith('SI'))
-      return 'Synthite Industries Private Limited Sensor';
-    if (deviceId.startsWith('CF')) return 'Sekhon Biotech Pvt Ltd Farm Sensor';
-    if (deviceId.startsWith('SV'))
-      return 'Sardar Vallabhbhai Patel University of Agriculture and TechnologySensor';
-    if (deviceId.startsWith('CB')) return 'COD/BOD Sensor';
-    if (deviceId.startsWith('WF')) return 'WF Sensor';
-    if (deviceId.startsWith('KD')) return 'Kargil Sensor';
-    if (deviceId.startsWith('VD')) return 'Vanix Sensor';
-    if (deviceId.startsWith('PC')) return 'Polytechnical Sensor';
-    if (deviceId.startsWith('KR')) return 'Kerala Sensor';
-    if (deviceId.startsWith('AW')) return 'AWS Sensor';
-    if (deviceId.startsWith('GP')) return 'GPC Sensor';
-    if (deviceId.startsWith('NA'))
-      return 'National Atmospheric Research Labortary Sensor';
-    if (deviceId.startsWith('KJ')) return 'KJ Somaiya College of Engineering';
-    if (deviceId.startsWith('MY')) return 'Mysuru NIE';
-    if (deviceId.startsWith('CP')) return 'IIT Ropar Campus Sensor';
-    if (deviceId.startsWith('DM')) return 'Demo Sensor';
-    if (deviceId.startsWith('WN')) return 'Winds Weather Sensor';
-    if (deviceId.startsWith('JW')) return 'Partnership Sensors';
-    if (deviceId.startsWith('SH')) return 'Shobha Sensor';
-    if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
-    if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
-    if (deviceId.startsWith('PS')) return 'CPS Sensor';
-    return 'Rain Sensor';
+    return DevicePrefixUtils.getSensorType(deviceId);
   }
 
   static String getSensorPrefix(String deviceId) {
@@ -529,52 +481,5 @@ class DeviceUtils {
     );
   }
 
-  static final List<String> validPrefixes = [
-    'WD',
-    'CL',
-    'BD',
-    'SS',
-    'WQ',
-    'WS',
-    'DO',
-    'LU',
-    'TE',
-    'AC',
-    'BF',
-    'CS',
-    'TH',
-    'NH',
-    'IT',
-    'FS',
-    'SM',
-    'SW',
-    'SI',
-    'CF',
-    'SV',
-    'CB',
-    'WF',
-    'KD',
-    'VD',
-    'PC',
-    'KR',
-    'AW',
-    'GP',
-    'NA',
-    'CP',
-    'KJ',
-    'MY',
-    'DM',
-    'WJ',
-    'WF',
-    'WT',
-    'WA',
-    'WM',
-    'TS',
-    'WN',
-    'JW',
-    'SH',
-    'AT',
-    'AM',
-    'PS',
-  ];
+  static final List<String> validPrefixes = DevicePrefixUtils.validPrefixes;
 }
