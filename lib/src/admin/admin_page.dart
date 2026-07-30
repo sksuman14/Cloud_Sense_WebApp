@@ -282,204 +282,215 @@ class _AdminPageState extends State<AdminPage> {
     final displayParamNames = paramNames;
     final loc = _getLocationForSensor(sensorName);
     final isActive = d['isActive'] == true;
+    final statusColor = _isRestrictedAdmin
+        ? Colors.grey
+        : (isActive ? const Color(0xFF10B981) : const Color(0xFFEF4444));
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF192430) : Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            NavigationUtils.navigateTo(
-              context,
-              '/admin/devicegraph',
-              arguments: {
-                'deviceName': sensorName,
-                'sequentialName': mapped.category,
-                'backgroundImagePath': 'assets/backgroundd.jpg',
-              },
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '#${idx + 1}',
-                      style: TextStyle(
-                        color: subtle,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    _StatusDot(
-                      color: _isRestrictedAdmin
-                          ? Colors.grey
-                          : (isActive ? Colors.green : Colors.red),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        displaySensorName,
-                        style: TextStyle(
-                          color: strong,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    PopupMenuButton<String>(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: Icon(
-                        Icons.more_vert,
-                        color: isDark ? Colors.white54 : Colors.black54,
-                        size: 16,
-                      ),
-                      tooltip: 'Actions',
-                      onSelected: (String value) {
-                        switch (value) {
-                          case 'graph':
-                            NavigationUtils.navigateTo(
-                              context,
-                              '/admin/devicegraph',
-                              arguments: {
-                                'deviceName': sensorName,
-                                'sequentialName': mapped.category,
-                                'backgroundImagePath': 'assets/backgroundd.jpg',
-                              },
-                            );
-                            break;
-                          case 'ota':
-                            if (['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix)) {
-                              AdvancedDataSendDialog.show(
-                                context,
-                                sensorName,
-                                displayDeviceId: displaySensorName,
-                                apiUrl: _getOtaApiUrl(mapped.prefix, sensorName: sensorName),
-                              );
-                            } else if (mapped.category == 'SSMet Soil sensor') {
-                              _navigateToOTA(sensorName, updateInterval);
-                            }
-                            break;
-                          case 'parameters':
-                            _showParametersDialog(
-                              context: context,
-                              isDark: isDark,
-                              updateInterval: updateInterval,
-                              displayParamNames: displayParamNames,
-                              parameterDisplayNames: parameterDisplayNames,
-                            );
-                            break;
-                          case 'health':
-                            showDeviceHealthDetailDialog(
-                              context,
-                              "$deviceId#$topic",
-                              isDark,
-                            );
-                            break;
-                          case 'quality':
-                            NavigationUtils.navigateTo(
-                              context,
-                              '/admin/health/quality-diagnostics',
-                              arguments: {
-                                'deviceId': deviceId,
-                                'deviceIdTopic': "$deviceId#$topic",
-                                'displayName': displaySensorName,
-                                'isDark': isDark,
-                              },
-                            );
-                            break;
-                        }
-                      },
-                      itemBuilder: (BuildContext context) {
-                        final String providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? "";
-                        final String email = (_currentUserEmail ?? widget.adminEmail ?? providerEmail).trim().toLowerCase();
-                        final bool isSkusuman = email.contains('sksuman');
-                        final bool hasOtaSupport = ['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) ||
-                            mapped.category == 'SSMet Soil sensor' ||
-                            _getOtaApiUrl(mapped.prefix, sensorName: sensorName) != null;
-                        final bool showOtaOption = isSkusuman && !_hideSensitiveSections && hasOtaSupport;
-                        return <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'graph',
-                            child: Row(children: [
-                              Icon(Icons.bar_chart, color: Colors.blue, size: 18),
-                              SizedBox(width: 10),
-                              Text('Graph', style: TextStyle(fontSize: 13)),
-                            ]),
-                          ),
-                          if (showOtaOption)
-                            const PopupMenuItem<String>(
-                              value: 'ota',
-                              child: Row(children: [
-                                Icon(Icons.settings_remote, color: Colors.orangeAccent, size: 18),
-                                SizedBox(width: 10),
-                                Text('OTA Update', style: TextStyle(fontSize: 13)),
-                              ]),
-                            ),
-                          const PopupMenuItem<String>(
-                            value: 'parameters',
-                            child: Row(children: [
-                              Icon(Icons.info_outline, color: Colors.teal, size: 18),
-                              SizedBox(width: 10),
-                              Text('Parameters', style: TextStyle(fontSize: 13)),
-                            ]),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'health',
-                            child: Row(children: [
-                              Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
-                              SizedBox(width: 10),
-                              Text('Health Status', style: TextStyle(fontSize: 13)),
-                            ]),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'quality',
-                            child: Row(children: [
-                              Icon(Icons.science_outlined, color: Colors.purple, size: 18),
-                              SizedBox(width: 10),
-                              Text('Quality Diagnostics', style: TextStyle(fontSize: 13)),
-                            ]),
-                          ),
-                        ];
-                      },
-                    ),
-                  ],
-                ),
-                if (loc != null && loc.isNotEmpty) ...[
-                  const SizedBox(height: 1),
-                  Row(
-                    children: [
-                      Icon(Icons.location_on_outlined, size: 11, color: subtle),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          loc,
-                          style: TextStyle(color: subtle, fontSize: 10),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 3.5,
+              color: statusColor,
             ),
-          ),
+            Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    NavigationUtils.navigateTo(
+                      context,
+                      '/admin/devicegraph',
+                      arguments: {
+                        'deviceName': sensorName,
+                        'sequentialName': mapped.category,
+                        'backgroundImagePath': 'assets/backgroundd.jpg',
+                      },
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${idx + 1}. ',
+                              style: TextStyle(
+                                color: strong,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                displaySensorName,
+                                style: TextStyle(
+                                  color: strong,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                                size: 16,
+                              ),
+                              tooltip: 'Actions',
+                              onSelected: (String value) {
+                                switch (value) {
+                                  case 'graph':
+                                    NavigationUtils.navigateTo(
+                                      context,
+                                      '/admin/devicegraph',
+                                      arguments: {
+                                        'deviceName': sensorName,
+                                        'sequentialName': mapped.category,
+                                        'backgroundImagePath': 'assets/backgroundd.jpg',
+                                      },
+                                    );
+                                    break;
+                                  case 'ota':
+                                    if (['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix)) {
+                                      AdvancedDataSendDialog.show(
+                                        context,
+                                        sensorName,
+                                        displayDeviceId: displaySensorName,
+                                        apiUrl: _getOtaApiUrl(mapped.prefix, sensorName: sensorName),
+                                      );
+                                    } else if (mapped.category == 'SSMet Soil sensor') {
+                                      _navigateToOTA(sensorName, updateInterval);
+                                    }
+                                    break;
+                                  case 'parameters':
+                                    _showParametersDialog(
+                                      context: context,
+                                      isDark: isDark,
+                                      updateInterval: updateInterval,
+                                      displayParamNames: displayParamNames,
+                                      parameterDisplayNames: parameterDisplayNames,
+                                    );
+                                    break;
+                                  case 'health':
+                                    showDeviceHealthDetailDialog(
+                                      context,
+                                      "$deviceId#$topic",
+                                      isDark,
+                                    );
+                                    break;
+                                  case 'quality':
+                                    NavigationUtils.navigateTo(
+                                      context,
+                                      '/admin/health/quality-diagnostics',
+                                      arguments: {
+                                        'deviceId': deviceId,
+                                        'deviceIdTopic': "$deviceId#$topic",
+                                        'displayName': displaySensorName,
+                                         'isDark': isDark,
+                                         'fromAdminPage': true,
+                                      },
+                                    );
+                                    break;
+                                }
+                              },
+                              itemBuilder: (BuildContext context) {
+                                final String providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? "";
+                                final String email = (_currentUserEmail ?? widget.adminEmail ?? providerEmail).trim().toLowerCase();
+                                final bool isSkusuman = email.contains('sksuman');
+                                final bool hasOtaSupport = ['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) ||
+                                    mapped.category == 'SSMet Soil sensor' ||
+                                    _getOtaApiUrl(mapped.prefix, sensorName: sensorName) != null;
+                                final bool showOtaOption = isSkusuman && !_hideSensitiveSections && hasOtaSupport;
+                                return <PopupMenuEntry<String>>[
+                                  const PopupMenuItem<String>(
+                                    value: 'graph',
+                                    child: Row(children: [
+                                      Icon(Icons.bar_chart, color: Colors.blue, size: 18),
+                                      SizedBox(width: 10),
+                                      Text('Graph', style: TextStyle(fontSize: 13)),
+                                    ]),
+                                  ),
+                                  if (showOtaOption)
+                                    const PopupMenuItem<String>(
+                                      value: 'ota',
+                                      child: Row(children: [
+                                        Icon(Icons.settings_remote, color: Colors.orangeAccent, size: 18),
+                                        SizedBox(width: 10),
+                                        Text('OTA Update', style: TextStyle(fontSize: 13)),
+                                      ]),
+                                    ),
+                                  const PopupMenuItem<String>(
+                                    value: 'parameters',
+                                    child: Row(children: [
+                                      Icon(Icons.info_outline, color: Colors.teal, size: 18),
+                                      SizedBox(width: 10),
+                                      Text('Parameters', style: TextStyle(fontSize: 13)),
+                                    ]),
+                                  ),
+                                  const PopupMenuItem<String>(
+                                    value: 'health',
+                                    child: Row(children: [
+                                      Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
+                                      SizedBox(width: 10),
+                                      Text('Health Status', style: TextStyle(fontSize: 13)),
+                                    ]),
+                                  ),
+                                  const PopupMenuItem<String>(
+                                    value: 'quality',
+                                    child: Row(children: [
+                                      Icon(Icons.science_outlined, color: Colors.purple, size: 18),
+                                      SizedBox(width: 10),
+                                      Text('Quality Diagnostics', style: TextStyle(fontSize: 13)),
+                                    ]),
+                                  ),
+                                ];
+                              },
+                            ),
+                          ],
+                        ),
+                        if (loc != null && loc.isNotEmpty) ...[
+                          const SizedBox(height: 1),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined, size: 11, color: subtle),
+                              const SizedBox(width: 2),
+                              Expanded(
+                                child: Text(
+                                  loc,
+                                  style: TextStyle(color: subtle, fontSize: 10),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -986,7 +997,8 @@ class _AdminPageState extends State<AdminPage> {
                       'deviceId': deviceId,
                       'deviceIdTopic': "$deviceId#$topic",
                       'displayName': displayName,
-                      'isDark': isDark,
+                                         'isDark': isDark,
+                                         'fromAdminPage': true,
                     },
                   );
                 },

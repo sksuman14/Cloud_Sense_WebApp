@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +13,7 @@ class QualityDiagnosticsPage extends StatefulWidget {
   final String deviceIdTopic;
   final String displayName;
   final bool isDark;
+  final bool fromAdminPage;
 
   const QualityDiagnosticsPage({
     Key? key,
@@ -20,6 +21,7 @@ class QualityDiagnosticsPage extends StatefulWidget {
     required this.deviceIdTopic,
     required this.displayName,
     required this.isDark,
+    this.fromAdminPage = false,
   }) : super(key: key);
 
   @override
@@ -89,7 +91,12 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
 
   Future<void> _fetchQualityStatus() async {
     try {
-      final topic = widget.deviceIdTopic.split('#').last;
+      String topic = widget.deviceIdTopic.split('#').last;
+      if (topic.contains('WS/Kerala/WS_')) {
+        topic = topic.replaceFirst('WS/Kerala/WS_', 'WS/Kerala/');
+      } else if (topic.contains('WS/Kerala/WS')) {
+        topic = topic.replaceFirst('WS/Kerala/WS', 'WS/Kerala/');
+      }
       final uri = Uri.https(
         'xj0wfbsjyi.execute-api.us-east-1.amazonaws.com',
         '/default/IoT_QC_Api_Func',
@@ -134,7 +141,12 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
 
     setState(() => _isLoadingMore = true);
     try {
-      final topic = widget.deviceIdTopic.split('#').last;
+      String topic = widget.deviceIdTopic.split('#').last;
+      if (topic.contains('WS/Kerala/WS_')) {
+        topic = topic.replaceFirst('WS/Kerala/WS_', 'WS/Kerala/');
+      } else if (topic.contains('WS/Kerala/WS')) {
+        topic = topic.replaceFirst('WS/Kerala/WS', 'WS/Kerala/');
+      }
       final uri = Uri.https(
         'xj0wfbsjyi.execute-api.us-east-1.amazonaws.com',
         '/default/IoT_QC_Api_Func',
@@ -178,96 +190,113 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
         widget.isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
     final cardColor = widget.isDark ? const Color(0xFF1E293B) : Colors.white;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: widget.isDark ? const Color(0xFF0F172A) : Colors.white,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: strong),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Quality Diagnostics',
-              style: TextStyle(
-                  color: strong, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Row(
-              children: [
-                Text(
-                  widget.displayName,
-                  style:
-                      TextStyle(color: strong.withOpacity(0.5), fontSize: 12),
-                ),
-                const SizedBox(width: 16),
-                InkWell(
-                  onTap: () {
-                    String? sensorName =
-                        DevicePrefixUtils.getSensorNameFromTopic(
-                            widget.deviceIdTopic);
-                    if (sensorName == null &&
-                        widget.deviceIdTopic.contains('WS/SSMet_0126')) {
-                      sensorName = 'WJ${widget.deviceId.padLeft(3, '0')}';
-                    }
-
-                    final mapping = DevicePrefixUtils.mapCategoryAndPrefix(
-                        widget.deviceIdTopic.contains('WS/SSMet_0126')
-                            ? widget.deviceIdTopic
-                            : '0#${widget.deviceIdTopic}');
-
-                    NavigationUtils.navigateTo(
-                      context,
-                      '/admin/devicegraph',
-                      arguments: {
-                        'deviceName': sensorName ?? widget.deviceId,
-                        'sequentialName': mapping.category,
-                        'backgroundImagePath': 'assets/backgroundd.jpg',
-                      },
-                    );
-                  },
-                  child: const Row(
-                    children: [
-                      Icon(Icons.show_chart,
-                          color: Colors.blueAccent, size: 14),
-                      SizedBox(width: 4),
-                      Text(
-                        "View Graph",
-                        style: TextStyle(
-                          color: Colors.blueAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ],
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          NavigationUtils.navigateTo(context, '/admin', isReplacement: true);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: widget.isDark ? const Color(0xFF0F172A) : Colors.white,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: strong),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                NavigationUtils.navigateTo(context, '/admin', isReplacement: true);
+              }
+            },
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Quality Diagnostics',
+                style: TextStyle(
+                    color: strong, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: [
+                  Text(
+                    widget.displayName,
+                    style:
+                        TextStyle(color: strong.withOpacity(0.5), fontSize: 12),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  InkWell(
+                    onTap: () {
+                      String? sensorName =
+                          DevicePrefixUtils.getSensorNameFromTopic(
+                              widget.deviceIdTopic);
+                      if (sensorName == null &&
+                          widget.deviceIdTopic.contains('WS/SSMet_0126')) {
+                        sensorName = 'WJ${widget.deviceId.padLeft(3, '0')}';
+                      }
+
+                      final mapping = DevicePrefixUtils.mapCategoryAndPrefix(
+                          widget.deviceIdTopic.contains('WS/SSMet_0126')
+                              ? widget.deviceIdTopic
+                              : '0#${widget.deviceIdTopic}');
+
+                      NavigationUtils.navigateTo(
+                        context,
+                        '/admin/devicegraph',
+                        arguments: {
+                          'deviceName': sensorName ?? widget.deviceId,
+                          'sequentialName': mapping.category,
+                          'backgroundImagePath': 'assets/backgroundd.jpg',
+                        },
+                      );
+                    },
+                    child: const Row(
+                      children: [
+                        Icon(Icons.show_chart,
+                            color: Colors.blueAccent, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          "View Graph",
+                          style: TextStyle(
+                            color: Colors.blueAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh, color: strong),
+              onPressed: () {
+                setState(() => _isLoading = true);
+                _fetchQualityStatus();
+              },
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: strong),
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _fetchQualityStatus();
-            },
-          ),
-        ],
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child:
+                        Text(_error!, style: const TextStyle(color: Colors.red)))
+                : _records.isEmpty
+                    ? const Center(child: Text('No history found'))
+                    : _buildContent(strong, cardColor),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child:
-                      Text(_error!, style: const TextStyle(color: Colors.red)))
-              : _records.isEmpty
-                  ? const Center(child: Text('No history found'))
-                  : _buildContent(strong, cardColor),
     );
   }
 
@@ -281,7 +310,7 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
     allParams.removeWhere((p) {
       final lp = p.toLowerCase();
       return lp.contains('battery') ||
-          lp.contains('signalstrength') ||
+          lp.contains('signal') ||
           lp.contains('firmware') ||
           lp.contains('sd_card');
     });
@@ -463,21 +492,6 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
           } else if (fieldData != null) {
             pointStatus = fieldData.toString().toUpperCase();
           }
-
-          // // Check for spatial anomaly and append its reason
-          // if (r.flaggedFields.containsKey('spatial')) {
-          //   final spatialData = r.flaggedFields['spatial'];
-          //   if (spatialData is Map) {
-          //     final spatialReason = spatialData['reason']?.toString();
-          //     if (spatialReason != null && spatialReason.isNotEmpty) {
-          //       if (reason != null && reason.isNotEmpty) {
-          //         reason = "$reason, Spatial Anomaly: $spatialReason";
-          //       } else {
-          //         reason = "Spatial Anomaly: $spatialReason";
-          //       }
-          //     }
-          //   }
-          // }
 
           final pointColor = _getFlagColor(pointStatus);
 
@@ -781,7 +795,7 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       "BatteryVoltage": "Battery Voltage",
       "MinimumHumidity": "Minimum Humidity",
       "CurrentHumidity": "Humidity",
-      "RainfallHourly": "Rainfall Hourly",
+      "RainfallHourly": "Rainfall",
       "LuxHourlyComulative": "Lux Hourly Comulative",
       "TemperatureHourlyComulative": "Temperature Hourly Comulative",
       "SunshineHours": "Sunshine Hours",

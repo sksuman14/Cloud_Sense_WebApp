@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:cloud_sense_webapp/config/amplifyconfiguration.dart';
 import 'package:cloud_sense_webapp/src/admin/admin_page.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
@@ -778,6 +778,7 @@ class MyApp extends StatelessWidget {
                 deviceIdTopic: args['deviceIdTopic'] ?? '',
                 displayName: args['displayName'] ?? '',
                 isDark: args['isDark'] ?? isDark,
+                fromAdminPage: args['fromAdminPage'] == true,
               );
             } else {
               pageContent = FutureBuilder<Map<String, dynamic>?>(
