@@ -29,7 +29,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_strategy/url_strategy.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
-import 'package:cloud_sense_webapp/src/views/dashboard/forecast_dashboard.dart';
 import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 
 // Initialize Flutter local notifications plugin
@@ -505,14 +504,6 @@ Future<Map<String, dynamic>?> loadQualityArgs() async {
   return null;
 }
 
-Future<Map<String, dynamic>?> loadForecastArgs() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('forecastArgs');
-    if (data != null) return jsonDecode(data);
-  } catch (e) {}
-  return null;
-}
 
 Future<Map<String, dynamic>?> loadBuffaloArgs() async {
   try {
@@ -727,36 +718,7 @@ class MyApp extends StatelessWidget {
           case '/deviceinfo':
             pageContent = MapPage();
             break;
-          case '/forecast':
-            final args = settings.arguments as Map<String, dynamic>?;
-            if (args != null) {
-              pageContent = ForecastDashboard(
-                deviceName: args['deviceName'] ?? '',
-                sequentialName: args['sequentialName'] ?? '',
-              );
-            } else {
-              pageContent = FutureBuilder<Map<String, dynamic>?>(
-                future: loadForecastArgs(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()));
-                  }
-                  final finalArgs = snapshot.data;
-                  if (finalArgs == null) {
-                    return Scaffold(
-                      appBar: AppBar(title: const Text("Forecast Dashboard")),
-                      body: const Center(child: Text("No data found")),
-                    );
-                  }
-                  return ForecastDashboard(
-                    deviceName: finalArgs['deviceName'] ?? '',
-                    sequentialName: finalArgs['sequentialName'] ?? '',
-                  );
-                },
-              );
-            }
-            break;
+
 
           case '/nowcasting':
             final args = settings.arguments as Map<String, dynamic>?;

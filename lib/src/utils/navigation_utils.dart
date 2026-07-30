@@ -31,8 +31,6 @@ class NavigationUtils {
           await prefs.setString('lastGraphArgs', json.encode(arguments));
         } else if (routeName == '/admin/health/quality-diagnostics') {
           await prefs.setString('lastQualityArgs', json.encode(arguments));
-        } else if (routeName == '/forecast') {
-          await prefs.setString('forecastArgs', json.encode(arguments));
         } else if (routeName == '/buffalodata') {
           await prefs.setString(
               'buffaloArgs',
