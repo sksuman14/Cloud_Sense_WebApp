@@ -295,7 +295,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: DropdownButtonFormField<String>(isExpanded: true, 
                         value: intervalType,
                         hint: Text("Select Interval Type",
                             style:
@@ -319,7 +319,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<int>(
+                      child: DropdownButtonFormField<int>(isExpanded: true, 
                         value: interval,
                         hint: Text("Select Interval Value",
                             style:
@@ -347,7 +347,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                 )
               else ...[
                 // Mobile: Stacked, consistent colors, shorter hints
-                DropdownButtonFormField<String>(
+                DropdownButtonFormField<String>(isExpanded: true, 
                   value: intervalType,
                   hint: Text("Select Interval Type",
                       style: TextStyle(
@@ -376,7 +376,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                   },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
+                DropdownButtonFormField<int>(isExpanded: true, 
                   value: interval,
                   hint: Text("Select Interval Value",
                       style: TextStyle(
@@ -389,7 +389,6 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                   dropdownColor:
                       isDark ? Colors.blueGrey[50] : Colors.blueGrey[800],
                   style: TextStyle(color: textColor, fontSize: 15),
-                  isExpanded: true,
                   items: (intervalType == 'Minutely'
                           ? minutelyOptions
                           : hourlyOptions)

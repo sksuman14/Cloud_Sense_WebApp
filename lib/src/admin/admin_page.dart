@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
@@ -19,6 +19,8 @@ import 'dart:ui' as ui;
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_sense_webapp/main.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -76,7 +78,7 @@ class _AdminPageState extends State<AdminPage> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _devicesSectionKey = GlobalKey();
   final GlobalKey _usersSectionKey = GlobalKey();
-  int devicesToShow = 10;
+  int devicesToShow = 12;
   int usersToShow = 10;
   String? selectedCategory;
   String selectedBrand = "All"; // ← Default to All initially
@@ -130,6 +132,358 @@ class _AdminPageState extends State<AdminPage> {
     return 'Unknown';
   }
 
+  void _showParametersDialog({
+    required BuildContext context,
+    required bool isDark,
+    required String? updateInterval,
+    required List<String> displayParamNames,
+    required Map<String, String> parameterDisplayNames,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: AlertDialog(
+            title: Text(
+              "Parameters",
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (updateInterval != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF3B6A7F).withOpacity(0.3)
+                            : const Color(0xFF5BAA9D).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF3B6A7F)
+                                : const Color(0xFF5BAA9D),
+                            width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.access_time,
+                              size: 16,
+                              color: isDark
+                                  ? const Color(0xFF5BAA9D)
+                                  : const Color(0xFF3B6A7F)),
+                          const SizedBox(width: 8),
+                          Text('Data Interval: ',
+                              style: TextStyle(
+                                  fontSize: getResponsiveFontSize(
+                                      context, 13, 14),
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                  fontWeight: FontWeight.w500)),
+                          Text(updateInterval,
+                              style: TextStyle(
+                                  fontSize: getResponsiveFontSize(
+                                      context, 13, 14),
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Divider(color: isDark ? Colors.white12 : Colors.black12),
+                    const SizedBox(height: 8),
+                  ],
+                  displayParamNames.isEmpty
+                      ? Text('No parameters available yet.',
+                          style: TextStyle(
+                              color: isDark ? Colors.white54 : Colors.black45,
+                              fontSize:
+                                  getResponsiveFontSize(context, 13, 14)))
+                      : ListBody(
+                          children: displayParamNames.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final param = entry.value;
+                            final displayName =
+                                parameterDisplayNames[param] ?? param;
+                            return Padding(
+                              padding: EdgeInsets.symmetric(
+                                  vertical: getResponsiveFontSize(
+                                      context, 6, 8)),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                      width: 40,
+                                      child: Text('${idx + 1}.',
+                                          style: TextStyle(
+                                              fontSize: getResponsiveFontSize(
+                                                  context, 14, 16),
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.black87),
+                                          textAlign: TextAlign.right)),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                      child: Text(displayName,
+                                          style: TextStyle(
+                                              fontSize: getResponsiveFontSize(
+                                                  context, 14, 16),
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.black87))),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ],
+              ),
+            ),
+            backgroundColor: isDark
+                ? const Color(0xFF2C3E50).withOpacity(0.85)
+                : Colors.white.withOpacity(0.85),
+            actions: [
+              TextButton(
+                child: Text("Close",
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black)),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDeviceCard({
+    required BuildContext context,
+    required int idx,
+    required Map<String, dynamic> d,
+    required bool isDark,
+    required Color strong,
+    required Color subtle,
+  }) {
+    final deviceId = (d['DeviceId'] ?? "Unknown").toString();
+    final topic = (d['Topic'] ?? "Unknown").toString();
+    final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
+    final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, topic);
+    final displaySensorName = _toAnnamDisplayName(sensorName);
+    final updateInterval = _getUpdateInterval(sensorName);
+    final paramNames = getParamNamesForSensor(sensorName);
+    final displayParamNames = paramNames;
+    final loc = _getLocationForSensor(sensorName);
+    final isActive = d['isActive'] == true;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF192430) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            NavigationUtils.navigateTo(
+              context,
+              '/admin/devicegraph',
+              arguments: {
+                'deviceName': sensorName,
+                'sequentialName': mapped.category,
+                'backgroundImagePath': 'assets/backgroundd.jpg',
+              },
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '#${idx + 1}',
+                      style: TextStyle(
+                        color: subtle,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _StatusDot(
+                      color: _isRestrictedAdmin
+                          ? Colors.grey
+                          : (isActive ? Colors.green : Colors.red),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        displaySensorName,
+                        style: TextStyle(
+                          color: strong,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: isDark ? Colors.white54 : Colors.black54,
+                        size: 16,
+                      ),
+                      tooltip: 'Actions',
+                      onSelected: (String value) {
+                        switch (value) {
+                          case 'graph':
+                            NavigationUtils.navigateTo(
+                              context,
+                              '/admin/devicegraph',
+                              arguments: {
+                                'deviceName': sensorName,
+                                'sequentialName': mapped.category,
+                                'backgroundImagePath': 'assets/backgroundd.jpg',
+                              },
+                            );
+                            break;
+                          case 'ota':
+                            if (['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix)) {
+                              AdvancedDataSendDialog.show(
+                                context,
+                                sensorName,
+                                displayDeviceId: displaySensorName,
+                                apiUrl: _getOtaApiUrl(mapped.prefix, sensorName: sensorName),
+                              );
+                            } else if (mapped.category == 'SSMet Soil sensor') {
+                              _navigateToOTA(sensorName, updateInterval);
+                            }
+                            break;
+                          case 'parameters':
+                            _showParametersDialog(
+                              context: context,
+                              isDark: isDark,
+                              updateInterval: updateInterval,
+                              displayParamNames: displayParamNames,
+                              parameterDisplayNames: parameterDisplayNames,
+                            );
+                            break;
+                          case 'health':
+                            showDeviceHealthDetailDialog(
+                              context,
+                              "$deviceId#$topic",
+                              isDark,
+                            );
+                            break;
+                          case 'quality':
+                            NavigationUtils.navigateTo(
+                              context,
+                              '/admin/health/quality-diagnostics',
+                              arguments: {
+                                'deviceId': deviceId,
+                                'deviceIdTopic': "$deviceId#$topic",
+                                'displayName': displaySensorName,
+                                'isDark': isDark,
+                              },
+                            );
+                            break;
+                        }
+                      },
+                      itemBuilder: (BuildContext context) {
+                        final String providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? "";
+                        final String email = (_currentUserEmail ?? widget.adminEmail ?? providerEmail).trim().toLowerCase();
+                        final bool isSkusuman = email.contains('sksuman');
+                        final bool hasOtaSupport = ['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) ||
+                            mapped.category == 'SSMet Soil sensor' ||
+                            _getOtaApiUrl(mapped.prefix, sensorName: sensorName) != null;
+                        final bool showOtaOption = isSkusuman && !_hideSensitiveSections && hasOtaSupport;
+                        return <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'graph',
+                            child: Row(children: [
+                              Icon(Icons.bar_chart, color: Colors.blue, size: 18),
+                              SizedBox(width: 10),
+                              Text('Graph', style: TextStyle(fontSize: 13)),
+                            ]),
+                          ),
+                          if (showOtaOption)
+                            const PopupMenuItem<String>(
+                              value: 'ota',
+                              child: Row(children: [
+                                Icon(Icons.settings_remote, color: Colors.orangeAccent, size: 18),
+                                SizedBox(width: 10),
+                                Text('OTA Update', style: TextStyle(fontSize: 13)),
+                              ]),
+                            ),
+                          const PopupMenuItem<String>(
+                            value: 'parameters',
+                            child: Row(children: [
+                              Icon(Icons.info_outline, color: Colors.teal, size: 18),
+                              SizedBox(width: 10),
+                              Text('Parameters', style: TextStyle(fontSize: 13)),
+                            ]),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'health',
+                            child: Row(children: [
+                              Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
+                              SizedBox(width: 10),
+                              Text('Health Status', style: TextStyle(fontSize: 13)),
+                            ]),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'quality',
+                            child: Row(children: [
+                              Icon(Icons.science_outlined, color: Colors.purple, size: 18),
+                              SizedBox(width: 10),
+                              Text('Quality Diagnostics', style: TextStyle(fontSize: 13)),
+                            ]),
+                          ),
+                        ];
+                      },
+                    ),
+                  ],
+                ),
+                if (loc != null && loc.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 11, color: subtle),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          loc,
+                          style: TextStyle(color: subtle, fontSize: 10),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildAlertsDashboardSection(
       Color strong, Color subtle, Color cardColor, bool isDark) {
     List<Map<String, dynamic>> allQualityAlerts = [
@@ -1471,8 +1825,46 @@ class _AdminPageState extends State<AdminPage> {
             location.contains(q);
       });
     }
+    // Exclude TS_018 and ANNAM001
+    list = list.where((d) {
+      final deviceId = (d['DeviceId'] ?? "").toString();
+      final topic = (d['Topic'] ?? "").toString();
+      final sn = DevicePrefixUtils.resolveSensorName(deviceId, topic).toUpperCase();
+      final dn = _toAnnamDisplayName(sn).toUpperCase();
+      final rawDevId = deviceId.toUpperCase();
+
+      if (sn == 'TS018' || sn == 'TS_018' || dn == 'TS_018' || dn == 'TS018' || rawDevId == 'TS018' || rawDevId == 'TS_018') {
+        return false;
+      }
+      if (sn == 'ANNAM001' || dn == 'ANNAM001' || rawDevId == 'ANNAM001') {
+        return false;
+      }
+      return true;
+    });
+
+    int getSortRank(Map<String, dynamic> d) {
+      final deviceId = (d['DeviceId'] ?? "").toString();
+      final topic = (d['Topic'] ?? "").toString();
+      final sn = DevicePrefixUtils.resolveSensorName(deviceId, topic);
+      final dn = _toAnnamDisplayName(sn);
+      final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
+
+      if (sn == 'CP001' || dn == 'ANNAM_CP01' || sn.contains('CP01') || dn.contains('ANNAM_CP01')) {
+        return 0;
+      }
+      if (mapped.prefix == 'KR' || sn.startsWith('KR') || topic.toLowerCase().contains('kerala')) {
+        return 1;
+      }
+      return 2;
+    }
+
     final sorted = list.toList()
       ..sort((a, b) {
+        final rankA = getSortRank(a);
+        final rankB = getSortRank(b);
+        if (rankA != rankB) {
+          return rankA.compareTo(rankB);
+        }
         if (a['isActive'] == b['isActive']) {
           return a['DeviceId'].toString().compareTo(b['DeviceId'].toString());
         }
@@ -1796,7 +2188,7 @@ class _AdminPageState extends State<AdminPage> {
                           setState(() {
                             selectedBrand = "All";
                             selectedCategory = null;
-                            devicesToShow = 10;
+                            devicesToShow = 12;
                           });
                           _scrollToSection(_devicesSectionKey);
                         },
@@ -1814,7 +2206,7 @@ class _AdminPageState extends State<AdminPage> {
                           setState(() {
                             selectedBrand = "ANNAM";
                             selectedCategory = null;
-                            devicesToShow = 10;
+                            devicesToShow = 12;
                           });
                           _scrollToSection(_devicesSectionKey);
                         },
@@ -1832,7 +2224,7 @@ class _AdminPageState extends State<AdminPage> {
                           setState(() {
                             selectedBrand = "Partnership";
                             selectedCategory = null;
-                            devicesToShow = 10;
+                            devicesToShow = 12;
                           });
                           _scrollToSection(_devicesSectionKey);
                         },
@@ -1850,7 +2242,7 @@ class _AdminPageState extends State<AdminPage> {
                           setState(() {
                             selectedBrand = "Testing";
                             selectedCategory = null;
-                            devicesToShow = 10;
+                            devicesToShow = 12;
                           });
                           _scrollToSection(_devicesSectionKey);
                         },
@@ -2034,7 +2426,7 @@ class _AdminPageState extends State<AdminPage> {
                                       onChanged: (value) {
                                         setState(() {
                                           searchQuery = value.trim();
-                                          devicesToShow = 10;
+                                          devicesToShow = 12;
                                         });
                                       },
                                     ),
@@ -2133,7 +2525,7 @@ class _AdminPageState extends State<AdminPage> {
                                                     setState(() {
                                                       selectedBrand = val;
                                                       selectedCategory = null;
-                                                      devicesToShow = 10;
+                                                      devicesToShow = 12;
                                                     });
                                                   }
                                                 },
@@ -2184,7 +2576,7 @@ class _AdminPageState extends State<AdminPage> {
                                                 setState(() {
                                                   selectedBrand = brand;
                                                   selectedCategory = null;
-                                                  devicesToShow = 10;
+                                                  devicesToShow = 12;
                                                 });
                                               },
                                             );
@@ -2366,7 +2758,7 @@ class _AdminPageState extends State<AdminPage> {
                                                                               null) {
                                                                             setState(() {
                                                                               selectedCategory = v;
-                                                                              devicesToShow = 10;
+                                                                              devicesToShow = 12;
                                                                             });
                                                                           }
                                                                         },
@@ -2508,7 +2900,7 @@ class _AdminPageState extends State<AdminPage> {
                                                                               null) {
                                                                             setState(() {
                                                                               selectedCategory = v;
-                                                                              devicesToShow = 10;
+                                                                              devicesToShow = 12;
                                                                             });
                                                                           }
                                                                         },
@@ -2672,7 +3064,7 @@ class _AdminPageState extends State<AdminPage> {
                                                           setState(() {
                                                             selectedCategory =
                                                                 v;
-                                                            devicesToShow = 10;
+                                                            devicesToShow = 12;
                                                           });
                                                         }
                                                       },
@@ -2716,348 +3108,72 @@ class _AdminPageState extends State<AdminPage> {
                                 else
                                   Column(
                                     children: [
-                                      if (filteredDevices.isNotEmpty)
-                                        ...filteredDevices
-                                            .asMap()
-                                            .entries
-                                            .take(devicesToShow)
-                                            .map((entry) {
-                                          final idx = entry.key;
-                                          final d = entry.value;
-                                          final deviceId =
-                                              (d['DeviceId'] ?? "Unknown")
-                                                  .toString();
-                                          final topic =
-                                              (d['Topic'] ?? "Unknown")
-                                                  .toString();
-                                          final mapped = DevicePrefixUtils
-                                              .mapCategoryAndPrefix(topic);
-                                          final sensorName = DevicePrefixUtils
-                                              .resolveSensorName(
-                                                  deviceId, topic);
-                                          final displaySensorName =
-                                              _toAnnamDisplayName(sensorName);
-                                          final updateInterval =
-                                              _getUpdateInterval(sensorName);
-                                          final paramNames =
-                                              getParamNamesForSensor(
-                                                  sensorName);
-                                          final displayParamNames = paramNames;
+                                       if (filteredDevices.isNotEmpty)
+                                         LayoutBuilder(
+                                           builder: (context, constraints) {
+                                             final width = constraints.maxWidth;
+                                             int crossAxisCount = 1;
+                                             if (width > 1100) {
+                                               crossAxisCount = 3;
+                                             } else if (width > 650) {
+                                               crossAxisCount = 2;
+                                             }
 
-                                          return Column(
-                                            children: [
-                                              InkWell(
-                                                hoverColor: isDark
-                                                    ? const Color(0xFF2C3E50)
-                                                        .withOpacity(0.6)
-                                                    : const Color(0xFF1976D2)
-                                                        .withOpacity(0.08),
-                                                onTap: () {
-                                                  NavigationUtils.navigateTo(
-                                                    context,
-                                                    '/admin/devicegraph',
-                                                    arguments: {
-                                                      'deviceName': sensorName,
-                                                      'sequentialName':
-                                                          mapped.category,
-                                                      'backgroundImagePath':
-                                                          'assets/backgroundd.jpg',
-                                                    },
-                                                  );
-                                                },
-                                                child: ListTile(
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(
-                                                    horizontal:
-                                                        getResponsiveFontSize(
-                                                            context, 8, 16),
-                                                    vertical:
-                                                        getResponsiveFontSize(
-                                                            context, 4, 8),
-                                                  ),
-                                                  leading: Text(
-                                                    '${idx + 1}.',
-                                                    style: TextStyle(
-                                                      color: subtle,
-                                                      fontSize:
-                                                          getResponsiveFontSize(
-                                                              context, 12, 14),
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  title: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Flexible(
-                                                        child: Text(
-                                                          "$displaySensorName",
-                                                          style: TextStyle(
-                                                            color: strong,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            fontSize:
-                                                                getResponsiveFontSize(
-                                                                    context,
-                                                                    12,
-                                                                    14),
-                                                          ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          maxLines: 1,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      _StatusDot(
-                                                        color: _isRestrictedAdmin
-                                                            ? Colors.grey
-                                                            : (d['isActive'] ==
-                                                                    true
-                                                                ? Colors.green
-                                                                : Colors.red),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  subtitle: Builder(
-                                                    builder: (context) {
-                                                      final loc =
-                                                          _getLocationForSensor(
-                                                              sensorName);
-                                                      if (loc == null ||
-                                                          loc.isEmpty)
-                                                        return const SizedBox
-                                                            .shrink();
-                                                      return Text(
-                                                        loc,
-                                                        style: TextStyle(
-                                                          color: subtle,
-                                                          fontSize:
-                                                              getResponsiveFontSize(
-                                                                  context,
-                                                                  10,
-                                                                  13),
-                                                        ),
-                                                      );
-                                                    },
-                                                  ),
-                                                  trailing: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      if (!_hideSensitiveSections &&
-                                                          [
-                                                            'CP',
-                                                            'CF',
-                                                            'WF',
-                                                            'WJ',
-                                                            'WM',
-                                                            'IT',
-                                                            "WA",
-                                                            'WT',
-                                                            'JW',
-                                                            'KR',
-                                                            'SH'
-                                                          ].contains(
-                                                              mapped.prefix))
-                                                        IconButton(
-                                                          icon: Icon(
-                                                            Icons
-                                                                .settings_remote,
-                                                            size:
-                                                                getResponsiveFontSize(
-                                                                    context,
-                                                                    20,
-                                                                    24),
-                                                            color: Colors
-                                                                .orangeAccent,
-                                                          ),
-                                                          tooltip: 'OTA Update',
-                                                          onPressed: () =>
-                                                              AdvancedDataSendDialog
-                                                                  .show(
-                                                            context,
-                                                            sensorName,
-                                                            displayDeviceId:
-                                                                displaySensorName,
-                                                            apiUrl:
-                                                                _getOtaApiUrl(
-                                                              mapped.prefix,
-                                                              sensorName:
-                                                                  sensorName,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      if (!_hideSensitiveSections &&
-                                                          mapped.category ==
-                                                              'SSMet Soil sensor')
-                                                        IconButton(
-                                                          icon: Icon(
-                                                            Icons
-                                                                .settings_remote,
-                                                            size:
-                                                                getResponsiveFontSize(
-                                                                    context,
-                                                                    20,
-                                                                    24),
-                                                            color: Colors
-                                                                .orangeAccent,
-                                                          ),
-                                                          onPressed: () =>
-                                                              _navigateToOTA(
-                                                                  sensorName,
-                                                                  updateInterval),
-                                                          tooltip: 'OTA Update',
-                                                        ),
-                                                      IconButton(
-                                                        icon: Icon(
-                                                          Icons.info_outline,
-                                                          size:
-                                                              getResponsiveFontSize(
-                                                                  context,
-                                                                  16,
-                                                                  20),
-                                                          color: isDark
-                                                              ? Colors.white
-                                                              : Colors.black,
-                                                        ),
-                                                        onPressed: () {
-                                                          showDialog(
-                                                            context: context,
-                                                            builder: (context) {
-                                                              return BackdropFilter(
-                                                                filter: ui.ImageFilter
-                                                                    .blur(
-                                                                        sigmaX:
-                                                                            4,
-                                                                        sigmaY:
-                                                                            4),
-                                                                child:
-                                                                    AlertDialog(
-                                                                  title: Text(
-                                                                    "Parameters",
-                                                                    style:
-                                                                        TextStyle(
-                                                                      color: isDark
-                                                                          ? Colors
-                                                                              .white
-                                                                          : Colors
-                                                                              .black,
-                                                                    ),
-                                                                  ),
-                                                                  content:
-                                                                      SingleChildScrollView(
-                                                                    child:
-                                                                        Column(
-                                                                      crossAxisAlignment:
-                                                                          CrossAxisAlignment
-                                                                              .start,
-                                                                      mainAxisSize:
-                                                                          MainAxisSize
-                                                                              .min,
-                                                                      children: [
-                                                                        if (updateInterval !=
-                                                                            null) ...[
-                                                                          Container(
-                                                                            width:
-                                                                                double.infinity,
-                                                                            padding:
-                                                                                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                                            decoration:
-                                                                                BoxDecoration(
-                                                                              color: isDark ? const Color(0xFF3B6A7F).withOpacity(0.3) : const Color(0xFF5BAA9D).withOpacity(0.12),
-                                                                              borderRadius: BorderRadius.circular(10),
-                                                                              border: Border.all(color: isDark ? const Color(0xFF3B6A7F) : const Color(0xFF5BAA9D), width: 1),
-                                                                            ),
-                                                                            child:
-                                                                                Row(
-                                                                              children: [
-                                                                                Icon(Icons.access_time, size: 16, color: isDark ? const Color(0xFF5BAA9D) : const Color(0xFF3B6A7F)),
-                                                                                const SizedBox(width: 8),
-                                                                                Text('Data Interval: ', style: TextStyle(fontSize: getResponsiveFontSize(context, 13, 14), color: isDark ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)),
-                                                                                Text(updateInterval, style: TextStyle(fontSize: getResponsiveFontSize(context, 13, 14), color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.w800)),
-                                                                              ],
-                                                                            ),
-                                                                          ),
-                                                                          const SizedBox(
-                                                                              height: 14),
-                                                                          Divider(
-                                                                              color: isDark ? Colors.white12 : Colors.black12),
-                                                                          const SizedBox(
-                                                                              height: 8),
-                                                                        ],
-                                                                        displayParamNames
-                                                                                .isEmpty
-                                                                            ? Text('No parameters available yet.',
-                                                                                style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: getResponsiveFontSize(context, 13, 14)))
-                                                                            : ListBody(
-                                                                                children: displayParamNames.asMap().entries.map((entry) {
-                                                                                  final idx = entry.key;
-                                                                                  final param = entry.value;
-                                                                                  final displayName = parameterDisplayNames[param] ?? param;
-                                                                                  return Padding(
-                                                                                    padding: EdgeInsets.symmetric(vertical: getResponsiveFontSize(context, 6, 8)),
-                                                                                    child: Row(
-                                                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                      children: [
-                                                                                        SizedBox(width: 40, child: Text('${idx + 1}.', style: TextStyle(fontSize: getResponsiveFontSize(context, 14, 16), color: isDark ? Colors.white70 : Colors.black87), textAlign: TextAlign.right)),
-                                                                                        const SizedBox(width: 10),
-                                                                                        Expanded(child: Text(displayName, style: TextStyle(fontSize: getResponsiveFontSize(context, 14, 16), color: isDark ? Colors.white70 : Colors.black87))),
-                                                                                      ],
-                                                                                    ),
-                                                                                  );
-                                                                                }).toList(),
-                                                                              ),
-                                                                      ],
-                                                                    ),
-                                                                  ),
-                                                                  backgroundColor: isDark
-                                                                      ? const Color(
-                                                                              0xFF2C3E50)
-                                                                          .withOpacity(
-                                                                              0.85)
-                                                                      : Colors
-                                                                          .white
-                                                                          .withOpacity(
-                                                                              0.85),
-                                                                  actions: [
-                                                                    TextButton(
-                                                                      child: Text(
-                                                                          "Close",
-                                                                          style:
-                                                                              TextStyle(color: isDark ? Colors.white : Colors.black)),
-                                                                      onPressed:
-                                                                          () =>
-                                                                              Navigator.pop(context),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              );
-                                                            },
-                                                          );
-                                                        },
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                              Divider(
-                                                  color:
-                                                      subtle.withOpacity(0.12)),
-                                            ],
-                                          );
-                                        }),
+                                             final visibleDevices = filteredDevices.asMap().entries.take(devicesToShow).toList();
+
+                                             if (crossAxisCount > 1) {
+                                               return GridView.builder(
+                                                 shrinkWrap: true,
+                                                 physics: const NeverScrollableScrollPhysics(),
+                                                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                                   crossAxisCount: crossAxisCount,
+                                                   mainAxisExtent: 76,
+                                                   crossAxisSpacing: 14,
+                                                   mainAxisSpacing: 14,
+                                                 ),
+                                                 itemCount: visibleDevices.length,
+                                                 itemBuilder: (context, i) {
+                                                   final entry = visibleDevices[i];
+                                                   return _buildDeviceCard(
+                                                     context: context,
+                                                     idx: entry.key,
+                                                     d: entry.value,
+                                                     isDark: isDark,
+                                                     strong: strong,
+                                                     subtle: subtle,
+                                                   );
+                                                 },
+                                               );
+                                             }
+
+                                             return Column(
+                                               children: visibleDevices
+                                                   .map((entry) => Padding(
+                                                         padding: const EdgeInsets.only(bottom: 12),
+                                                         child: _buildDeviceCard(
+                                                           context: context,
+                                                           idx: entry.key,
+                                                           d: entry.value,
+                                                           isDark: isDark,
+                                                           strong: strong,
+                                                           subtle: subtle,
+                                                         ),
+                                                       ))
+                                                   .toList(),
+                                             );
+                                           },
+                                         ),
                                       if (devicesToShow <
                                           filteredDevices.length)
                                         TextButton(
                                           onPressed: () => setState(() {
-                                            devicesToShow = (devicesToShow + 10)
+                                            devicesToShow = (devicesToShow + 12)
                                                 .clamp(
                                                     0, filteredDevices.length);
                                           }),
                                           child: const Text("Show More"),
                                         )
-                                      else if (filteredDevices.length > 10)
+                                      else if (filteredDevices.length > 12)
                                         TextButton(
                                           onPressed: () => setState(
                                               () => devicesToShow = 10),

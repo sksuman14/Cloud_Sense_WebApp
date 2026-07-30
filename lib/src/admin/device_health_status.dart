@@ -1892,6 +1892,7 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black.withOpacity(0.65),
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
@@ -2691,6 +2692,7 @@ Future<void> showDeviceHealthDetailDialog(
       final device = DeviceHealthData.fromJson(json.decode(response.body));
       showDialog(
         context: context,
+        barrierColor: Colors.black.withOpacity(0.65),
         builder: (_) =>
             _HealthDetailDialogWidget(device: device, isDark: isDark),
       );

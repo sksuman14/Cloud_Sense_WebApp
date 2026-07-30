@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -210,7 +210,7 @@ class _DataSendDialogState extends State<DataSendDialog> {
                 ),
               ),
               const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
+              DropdownButtonFormField<String>(isExpanded: true, 
                 decoration: InputDecoration(
                   labelText: "Select Interval Type",
                   labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
@@ -245,7 +245,7 @@ class _DataSendDialogState extends State<DataSendDialog> {
                 },
               ),
               const SizedBox(height: 20),
-              DropdownButtonFormField<int>(
+              DropdownButtonFormField<int>(isExpanded: true, 
                 decoration: InputDecoration(
                   labelText: "Select Interval",
                   labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
