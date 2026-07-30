@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -429,303 +430,358 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
     if (_historicalTemperature.isEmpty) return const SizedBox.shrink();
 
     final temp = _historicalTemperature.last.value.toStringAsFixed(1);
-    final humidity = _historicalHumidity.last.value.toStringAsFixed(1);
-    
-    // Dynamic gradients with high contrast and colors
+    final humidityVal = _historicalHumidity.last.value;
+    final pressureVal = _historicalPressure.last.value;
+    final windVal = _historicalWind.last.value;
+
+    final humidityPct = (humidityVal / 100.0).clamp(0.0, 1.0);
+    final pressurePct = ((pressureVal - 900) / 200.0).clamp(0.0, 1.0);
+    final windPct = (windVal / 20.0).clamp(0.0, 1.0);
+
     final String conditionLower = _currentCondition.toLowerCase();
-    LinearGradient cardGradient;
-    Color glowColor;
+    Color themeColor;
     if (conditionLower.contains('clear')) {
-      cardGradient = LinearGradient(
-        colors: isDarkMode 
-            ? [const Color(0xFF1E3C72), const Color(0xFF2A5298)]
-            : [const Color(0xFFE0F2FE), const Color(0xFFBAE6FD)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-      glowColor = Colors.blueAccent;
-    } else if (conditionLower.contains('rain') || conditionLower.contains('drizzle')) {
-      cardGradient = LinearGradient(
-        colors: isDarkMode
-            ? [const Color(0xFF374151), const Color(0xFF1F2937)]
-            : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-      glowColor = Colors.grey;
+      themeColor = Colors.orangeAccent;
+    } else if (conditionLower.contains('rain')) {
+      themeColor = Colors.lightBlueAccent;
     } else {
-      cardGradient = LinearGradient(
-        colors: isDarkMode
-            ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
-            : [const Color(0xFFF8FAFC), const Color(0xFFF1F5F9)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-      glowColor = Colors.indigoAccent;
+      themeColor = Colors.cyanAccent;
     }
 
-    final Widget weatherStatusCard = Container(
-      padding: const EdgeInsets.all(24),
+    final insights = _generateWeatherInsights();
+
+    return Container(
       decoration: BoxDecoration(
-        gradient: cardGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDarkMode ? Colors.white24 : Colors.black12,
+          color: isDarkMode ? Colors.white10 : Colors.black12,
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: glowColor.withOpacity(isDarkMode ? 0.25 : 0.15),
-            blurRadius: 24,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
           )
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CURRENT CONDITIONS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    color: isDarkMode ? Colors.white70 : Colors.black54,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedParameter = 'Temperature';
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _selectedParameter == 'Temperature'
-                          ? (isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05))
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _selectedParameter == 'Temperature'
-                            ? (isDarkMode ? Colors.white30 : Colors.black12)
-                            : Colors.transparent,
-                      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _sunController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: AuroraBackgroundPainter(
+                      condition: _currentCondition,
+                      animationValue: _sunController.value,
+                      isDarkMode: isDarkMode,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
+                  );
+                },
+              ),
+            ),
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  color: isDarkMode 
+                      ? Colors.black.withOpacity(0.2) 
+                      : Colors.white.withOpacity(0.25),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(28),
+              child: isMobile 
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '$temp',
-                          style: TextStyle(
-                            fontSize: 54,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode ? Colors.white : Colors.black87,
-                          ),
+                        _buildHeroWeatherBlock(temp, isDarkMode, themeColor),
+                        const SizedBox(height: 24),
+                        const Divider(color: Colors.white12),
+                        const SizedBox(height: 16),
+                        _buildMetricsHubRow(humidityVal, humidityPct, pressureVal, pressurePct, windVal, windPct, isDarkMode),
+                        const SizedBox(height: 24),
+                        const Divider(color: Colors.white12),
+                        const SizedBox(height: 16),
+                        _buildInsightsBlock(insights, isDarkMode),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _buildHeroWeatherBlock(temp, isDarkMode, themeColor),
                         ),
-                        Text(
-                          '°C',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode ? Colors.white70 : Colors.black54,
-                          ),
+                        Container(
+                          height: 120,
+                          width: 1.5,
+                          color: isDarkMode ? Colors.white12 : Colors.black12,
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                        ),
+                        Expanded(
+                          flex: 4,
+                          child: _buildMetricsHubRow(humidityVal, humidityPct, pressureVal, pressurePct, windVal, windPct, isDarkMode),
+                        ),
+                        Container(
+                          height: 120,
+                          width: 1.5,
+                          color: isDarkMode ? Colors.white12 : Colors.black12,
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                        ),
+                        Expanded(
+                          flex: 5,
+                          child: _buildInsightsBlock(insights, isDarkMode),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Glowing Weather Condition Pill Badge!
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Colors.blueAccent, Colors.cyanAccent],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroWeatherBlock(String temp, bool isDarkMode, Color themeColor) {
+    final String conditionLower = _currentCondition.toLowerCase();
+    IconData weatherIcon;
+    Color iconColor;
+    bool isSunny = false;
+
+    if (conditionLower.contains('clear')) {
+      weatherIcon = Icons.wb_sunny_rounded;
+      iconColor = Colors.orangeAccent;
+      isSunny = true;
+    } else if (conditionLower.contains('rain') || conditionLower.contains('drizzle')) {
+      weatherIcon = Icons.thunderstorm_rounded;
+      iconColor = Colors.blueAccent;
+    } else if (conditionLower.contains('cloud')) {
+      weatherIcon = Icons.cloud_rounded;
+      iconColor = isDarkMode ? Colors.white70 : Colors.black45;
+    } else {
+      weatherIcon = Icons.wb_cloudy_rounded;
+      iconColor = Colors.cyanAccent;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedParameter = 'Temperature';
+                });
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    temp,
+                    style: TextStyle(
+                      fontSize: 64,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  Text(
+                    '°C',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w300,
+                      color: isDarkMode ? Colors.white70 : Colors.black54,
+                ),
+              ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            AnimatedBuilder(
+              animation: _sunController,
+              builder: (context, child) {
+                Widget iconWidget = Icon(
+                  weatherIcon,
+                  size: 40,
+                  color: iconColor,
+                );
+
+                if (isSunny) {
+                  iconWidget = Transform.rotate(
+                    angle: _sunController.value * 2 * math.pi,
+                    child: iconWidget,
+                  );
+                } else {
+                  iconWidget = Transform.scale(
+                    scale: 1.0 + 0.06 * math.sin(_sunController.value * 2 * math.pi),
+                    child: iconWidget,
+                  );
+                }
+
+                return Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.cyanAccent.withOpacity(0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: iconColor.withOpacity(isDarkMode ? 0.25 : 0.15),
+                        blurRadius: 16,
+                        spreadRadius: 2,
                       )
                     ],
                   ),
-                  child: Text(
-                    _currentCondition,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+                  child: iconWidget,
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isDarkMode ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDarkMode ? Colors.white12 : Colors.black.withOpacity(0.08),
+              width: 1.2,
             ),
           ),
-          Container(
-            height: 90,
-            width: 1.5,
-            color: isDarkMode ? Colors.white24 : Colors.black12,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildClickableMiniStat(
-                icon: Icons.water_drop,
-                label: 'Hum',
-                value: '$humidity%',
-                parameterName: 'Humidity',
-                isDarkMode: isDarkMode,
+              AnimatedBuilder(
+                animation: _sunController,
+                builder: (context, child) {
+                  return Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: themeColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: themeColor.withOpacity(0.4 + 0.4 * math.sin(_sunController.value * 2 * math.pi)),
+                          blurRadius: 4,
+                          spreadRadius: 1.5,
+                        )
+                      ],
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 10),
-              _buildClickableMiniStat(
-                icon: Icons.speed,
-                label: 'Pres',
-                value: '${_historicalPressure.last.value.toStringAsFixed(0)} hPa',
-                parameterName: 'Pressure',
-                isDarkMode: isDarkMode,
-              ),
-              const SizedBox(height: 10),
-              _buildClickableMiniStat(
-                icon: Icons.air,
-                label: 'Wind',
-                value: '${_historicalWind.last.value.toStringAsFixed(1)} m/s',
-                parameterName: 'Wind Speed',
-                isDarkMode: isDarkMode,
+              const SizedBox(width: 8),
+              Text(
+                _currentCondition,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-
-    final insights = _generateWeatherInsights();
-    final Widget insightsCard = Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: cardGradient,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDarkMode ? Colors.white24 : Colors.black12,
-          width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: glowColor.withOpacity(isDarkMode ? 0.25 : 0.15),
-            blurRadius: 24,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WEATHER INSIGHTS & ALERTS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-              color: isDarkMode ? Colors.white70 : Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Column(
-            children: insights.map((alert) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: (alert['color'] as Color).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: (alert['color'] as Color).withOpacity(0.2),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      alert['icon'] as IconData,
-                      color: alert['color'] as Color,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            alert['title'] as String,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isDarkMode ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            alert['message'] as String,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDarkMode ? Colors.white70 : Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
+      ],
     );
-
-    if (isMobile) {
-      return Column(
-        children: [
-          weatherStatusCard,
-          const SizedBox(height: 16),
-          insightsCard,
-        ],
-      );
-    } else {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: 4, child: weatherStatusCard),
-          const SizedBox(width: 16),
-          Expanded(flex: 5, child: insightsCard),
-        ],
-      );
-    }
   }
 
-  Widget _buildClickableMiniStat({
+  Widget _buildMetricsHubRow(
+    double humidityVal, double humidityPct,
+    double pressureVal, double pressurePct,
+    double windVal, double windPct,
+    bool isDarkMode,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildInteractiveMetricDial(
+          icon: Icons.water_drop,
+          label: 'HUMIDITY',
+          percentage: humidityPct,
+          displayValue: '${humidityVal.toStringAsFixed(0)}%',
+          parameterName: 'Humidity',
+          color: Colors.blueAccent,
+          isDarkMode: isDarkMode,
+        ),
+        _buildInteractiveMetricDial(
+          icon: Icons.speed,
+          label: 'PRESSURE',
+          percentage: pressurePct,
+          displayValue: '${pressureVal.toStringAsFixed(0)} hPa',
+          parameterName: 'Pressure',
+          color: Colors.purpleAccent,
+          isDarkMode: isDarkMode,
+        ),
+        _buildInteractiveMetricDial(
+          icon: Icons.air,
+          label: 'WIND',
+          percentage: windPct,
+          displayValue: '${windVal.toStringAsFixed(1)} m/s',
+          parameterName: 'Wind Speed',
+          color: Colors.tealAccent,
+          isDarkMode: isDarkMode,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInteractiveMetricDial({
     required IconData icon,
     required String label,
-    required String value,
+    required double percentage,
+    required String displayValue,
     required String parameterName,
+    required Color color,
     required bool isDarkMode,
   }) {
     final isSelected = _selectedParameter == parameterName;
-    final textCol = isDarkMode ? Colors.white : Colors.black87;
-    final activeBg = isDarkMode ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08);
-    final inactiveBg = isDarkMode ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02);
+    
+    Widget iconWidget = Icon(
+      icon,
+      size: 20,
+      color: isSelected ? color : (isDarkMode ? Colors.white70 : Colors.black54),
+    );
+
+    if (parameterName == 'Wind Speed' && _historicalWind.isNotEmpty) {
+      final windSpeed = _historicalWind.last.value;
+      final speedFactor = (windSpeed / 2.5).clamp(0.4, 4.0);
+      iconWidget = AnimatedBuilder(
+        animation: _sunController,
+        builder: (context, child) {
+          return Transform.rotate(
+            angle: _sunController.value * 2 * math.pi * speedFactor,
+            child: child,
+          );
+        },
+        child: iconWidget,
+      );
+    } else if (parameterName == 'Humidity') {
+      iconWidget = AnimatedBuilder(
+        animation: _sunController,
+        builder: (context, child) {
+          final scale = 1.0 + 0.08 * math.sin(_sunController.value * 2 * math.pi);
+          return Transform.scale(
+            scale: scale,
+            child: child,
+          );
+        },
+        child: iconWidget,
+      );
+    }
 
     return Material(
       color: Colors.transparent,
@@ -735,57 +791,134 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
             _selectedParameter = parameterName;
           });
         },
-        borderRadius: BorderRadius.circular(16),
-        hoverColor: Colors.blueAccent.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? activeBg : inactiveBg,
-            borderRadius: BorderRadius.circular(16),
+            color: isSelected 
+                ? color.withOpacity(isDarkMode ? 0.15 : 0.08) 
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? Colors.cyanAccent : (isDarkMode ? Colors.white12 : Colors.black12),
+              color: isSelected ? color.withOpacity(0.4) : Colors.transparent,
               width: 1.5,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.blueAccent.withOpacity(0.3),
-                      blurRadius: 8,
+                      color: color.withOpacity(isDarkMode ? 0.15 : 0.1),
+                      blurRadius: 16,
                       spreadRadius: 1,
                     )
                   ]
                 : null,
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isSelected ? Colors.cyanAccent : Colors.blueAccent,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                '$label: ',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDarkMode ? Colors.white70 : Colors.black54,
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: percentage,
+                      strokeWidth: 4,
+                      backgroundColor: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                    iconWidget,
+                  ],
                 ),
               ),
+              const SizedBox(height: 8),
               Text(
-                value,
+                displayValue,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: textCol,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isDarkMode ? Colors.white54 : Colors.black45,
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInsightsBlock(List<Map<String, dynamic>> insights, bool isDarkMode) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'WEATHER INSIGHTS',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: isDarkMode ? Colors.white54 : Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: insights.take(2).map((alert) {
+            final color = alert['color'] as Color;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: color.withOpacity(0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(alert['icon'] as IconData, color: color, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          alert['title'] as String,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          alert['message'] as String,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDarkMode ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -2808,4 +2941,141 @@ class NowcastData {
   final DateTime time;
   final double value;
   NowcastData(this.time, this.value);
+}
+
+class WeatherParticlePainter extends CustomPainter {
+  final String condition;
+  final double animationValue;
+  final bool isDarkMode;
+
+  WeatherParticlePainter({
+    required this.condition,
+    required this.animationValue,
+    required this.isDarkMode,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final conditionLower = condition.toLowerCase();
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    if (conditionLower.contains('rain') || conditionLower.contains('drizzle')) {
+      paint.color = (isDarkMode ? Colors.blueAccent : Colors.blue).withOpacity(0.2);
+      final int dropCount = 18;
+      for (int i = 0; i < dropCount; i++) {
+        final double startX = (size.width / dropCount) * i + (animationValue * 25) % (size.width / dropCount);
+        final double startY = (size.height * (i / dropCount) + animationValue * size.height) % size.height;
+        canvas.drawLine(
+          Offset(startX, startY),
+          Offset(startX - 2.5, startY + 10),
+          paint..strokeWidth = 1.8,
+        );
+      }
+    } else if (conditionLower.contains('cloud')) {
+      paint.color = (isDarkMode ? Colors.white : Colors.black).withOpacity(0.04);
+      final int cloudCount = 3;
+      for (int i = 0; i < cloudCount; i++) {
+        final double radius = 32.0 + (i * 8);
+        final double startX = (size.width * (i / cloudCount) + animationValue * size.width) % (size.width + radius * 2.5) - radius;
+        final double startY = size.height * 0.25 + (i * 12) % (size.height * 0.4);
+        canvas.drawCircle(Offset(startX, startY), radius, paint);
+        canvas.drawCircle(Offset(startX + radius * 0.6, startY + radius * 0.15), radius * 0.75, paint);
+      }
+    } else if (conditionLower.contains('clear')) {
+      paint.color = (isDarkMode ? Colors.yellowAccent : Colors.amber).withOpacity(0.06 + 0.1 * math.sin(animationValue * 2 * math.pi));
+      final int flareCount = 6;
+      for (int i = 0; i < flareCount; i++) {
+        final double centerX = size.width * ((i * 0.21 + 0.15) % 1.0);
+        final double centerY = size.height * ((i * 0.14 + 0.25) % 1.0);
+        final double radius = 3.5 + (i % 2) * 2;
+        canvas.drawCircle(Offset(centerX, centerY), radius, paint);
+        canvas.drawCircle(Offset(centerX, centerY), radius * 2.5, paint..color = paint.color.withOpacity(paint.color.opacity * 0.4));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant WeatherParticlePainter oldDelegate) {
+    return oldDelegate.animationValue != animationValue || oldDelegate.condition != condition;
+  }
+}
+
+class AuroraBackgroundPainter extends CustomPainter {
+  final String condition;
+  final double animationValue;
+  final bool isDarkMode;
+
+  AuroraBackgroundPainter({
+    required this.condition,
+    required this.animationValue,
+    required this.isDarkMode,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final conditionLower = condition.toLowerCase();
+    
+    // Select base colors based on weather condition
+    Color c1, c2, c3;
+    if (conditionLower.contains('clear')) {
+      c1 = isDarkMode ? const Color(0xFF1E3C72) : const Color(0xFF93C5FD);
+      c2 = isDarkMode ? const Color(0xFFD97706) : const Color(0xFFFDBA74);
+      c3 = isDarkMode ? const Color(0xFFBE185D) : const Color(0xFFFBCFE8);
+    } else if (conditionLower.contains('rain') || conditionLower.contains('drizzle')) {
+      c1 = isDarkMode ? const Color(0xFF0284C7) : const Color(0xFF38BDF8);
+      c2 = isDarkMode ? const Color(0xFF4F46E5) : const Color(0xFF818CF8);
+      c3 = isDarkMode ? const Color(0xFF2563EB) : const Color(0xFF60A5FA);
+    } else {
+      c1 = isDarkMode ? const Color(0xFF0D9488) : const Color(0xFF2DD4BF);
+      c2 = isDarkMode ? const Color(0xFF6D28D9) : const Color(0xFFC4B5FD);
+      c3 = isDarkMode ? const Color(0xFF475569) : const Color(0xFF94A3B8);
+    }
+
+    // Paint background base gradient
+    final baseGradient = LinearGradient(
+      colors: isDarkMode 
+          ? [const Color(0xFF080D11), const Color(0xFF0F151C)] 
+          : [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    canvas.drawRect(Offset.zero & size, Paint()..shader = baseGradient.createShader(Offset.zero & size));
+
+    // Paint Orb 1 (moving clockwise)
+    final double dx1 = size.width * (0.35 + 0.12 * math.sin(animationValue * 2 * math.pi));
+    final double dy1 = size.height * (0.45 + 0.08 * math.cos(animationValue * 2 * math.pi));
+    final double r1 = size.width * 0.45;
+
+    final grad1 = RadialGradient(
+      colors: [
+        c1.withOpacity(isDarkMode ? 0.35 : 0.22),
+        c2.withOpacity(isDarkMode ? 0.15 : 0.08),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawCircle(Offset(dx1, dy1), r1, Paint()..shader = grad1.createShader(Rect.fromCircle(center: Offset(dx1, dy1), radius: r1)));
+
+    // Paint Orb 2 (moving counter-clockwise)
+    final double dx2 = size.width * (0.65 + 0.1 * math.sin((animationValue + 0.5) * 2 * math.pi));
+    final double dy2 = size.height * (0.5 + 0.08 * math.cos((animationValue + 0.3) * 2 * math.pi));
+    final double r2 = size.width * 0.4;
+
+    final grad2 = RadialGradient(
+      colors: [
+        c3.withOpacity(isDarkMode ? 0.25 : 0.16),
+        c2.withOpacity(isDarkMode ? 0.10 : 0.04),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawCircle(Offset(dx2, dy2), r2, Paint()..shader = grad2.createShader(Rect.fromCircle(center: Offset(dx2, dy2), radius: r2)));
+  }
+
+  @override
+  bool shouldRepaint(covariant AuroraBackgroundPainter oldDelegate) {
+    return oldDelegate.animationValue != animationValue || 
+           oldDelegate.condition != condition ||
+           oldDelegate.isDarkMode != isDarkMode;
+  }
 }

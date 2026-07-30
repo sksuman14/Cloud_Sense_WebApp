@@ -180,6 +180,7 @@ class DeviceUtils {
     if (deviceId.startsWith('SH')) return 'Shobha Sensor';
     if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
     if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
+    if (deviceId.startsWith('PS')) return 'CPS Sensor';
     return 'Rain Sensor';
   }
 
@@ -212,6 +213,7 @@ class DeviceUtils {
         deviceId.startsWith('WS_SHOBHA_') ||
         deviceId.startsWith('AWS_TESTING_') ||
         deviceId.startsWith('ANNAM_CP') ||
+        deviceId.startsWith('ANNAM/CPS_') ||
         RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId)) {
       return true;
     }
@@ -275,6 +277,17 @@ class DeviceUtils {
       if (digitsOnly != null) {
         final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
         return ['WF$paddedDigits'];
+      }
+      return [];
+    }
+
+    // ── Handle ANNAM/CPS_NNN format (CPS sensors display name) ────────────────
+    if (input.startsWith('ANNAM/CPS_')) {
+      final suffix = input.substring('ANNAM/CPS_'.length);
+      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
+      if (digitsOnly != null) {
+        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
+        return ['PS$paddedDigits'];
       }
       return [];
     }
@@ -398,6 +411,8 @@ class DeviceUtils {
     } else if (input.startsWith('ANNAM5') || input.startsWith('ANNAM/GPC_')) {
       // PC sensors (display name: ANNAM4NNN or ANNAM/PC_NNN)
       return ['GP$paddedDigits'];
+    } else if (input.startsWith('ANNAM/CPS_')) {
+      return ['PS$paddedDigits'];
     } else if (input.startsWith('ANNAM')) {
       // ANNAM standard prefixes (CF, WJ, plus special cases)
       if (idInt == 1) return ['CP001'];
@@ -560,5 +575,6 @@ class DeviceUtils {
     'SH',
     'AT',
     'AM',
+    'PS',
   ];
 }

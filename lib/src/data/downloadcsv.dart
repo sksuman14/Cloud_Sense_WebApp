@@ -600,6 +600,12 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final paddedDeviceId = deviceId.padLeft(2, '0');
       apiUrl =
           'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP$paddedDeviceId&startdate=$amStartDate&enddate=$amEndDate&key=Annam@2025&mode=download';
+    } else if (widget.deviceName.startsWith('PS')) {
+      final krDateFmt = DateFormat('dd-MM-yyyy');
+      final krStartDate = krDateFmt.format(_startDate!);
+      final krEndDate = krDateFmt.format(_endDate!);
+      apiUrl =
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/cpsdata?deviceid=$deviceId&startdate=$krStartDate&enddate=$krEndDate&key=${ApiKeys.annamApiKey}&mode=download';
     }
 
     if (_supportsFieldSelection && _selectedFields.isNotEmpty) {
@@ -648,7 +654,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           widget.deviceName.startsWith('AW') ||
           widget.deviceName.startsWith('SH') ||
           widget.deviceName.startsWith('AT') ||
-          widget.deviceName.startsWith('AM')) {
+          widget.deviceName.startsWith('AM') ||
+          widget.deviceName.startsWith('PS')) {
         final downloadUrl = data['download_url'] as String?;
         if (downloadUrl == null) {
           _showSnack(
@@ -774,6 +781,35 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
             _csvRows.add([i['HumanTime'], i['Temperature'], i['Humidity']]));
       } else if (widget.deviceName.startsWith('AM')) {
         _parseAMData(data['items'] ?? []);
+      } else if (widget.deviceName.startsWith('PS')) {
+        _csvRows.add([
+          'Timestamp',
+          'Temperature (°C)',
+          'Humidity (%)',
+          'Atm Pressure (hPa)',
+          'Light Intensity (Lux)',
+          'Wind Speed (m/s)',
+          'Wind Direction (°)',
+          'Rainfall Hourly (mm)',
+          'Rainfall Daily (mm)',
+          'Rainfall Weekly (mm)',
+          'Battery Voltage (V)',
+          'Signal Strength (dBm)'
+        ]);
+        (data['items'] as List).forEach((i) => _csvRows.add([
+              i['TimeStamp'] ?? i['Timestamp'] ?? '',
+              i['CurrentTemperature'] ?? '',
+              i['CurrentHumidity'] ?? '',
+              i['AtmPressure'] ?? '',
+              i['LightIntensity'] ?? '',
+              i['WindSpeed'] ?? '',
+              i['WindDirection'] ?? '',
+              i['RainfallHourly'] ?? '',
+              i['RainfallDaily'] ?? '',
+              i['RainfallWeekly'] ?? '',
+              i['BatteryVoltage'] ?? '',
+              i['SignalStrength'] ?? '',
+            ]));
       } else {
         _csvRows.add([
           'Timestamp',

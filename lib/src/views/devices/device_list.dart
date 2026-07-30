@@ -315,6 +315,8 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
         return 'Partnership Sensors';
       case 'WN':
         return 'Testing Devices';
+      case 'PS':
+        return 'CPS Sensors';
       default:
         return 'Rain Sensors';
     }

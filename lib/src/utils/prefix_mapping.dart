@@ -83,6 +83,13 @@ class DevicePrefixUtils {
       return upper;
     }
 
+    // NEW: PS sensors (CPS) -> ANNAM/CPS_
+    if (upper.startsWith('PS')) {
+      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'ANNAM/CPS_$num' : 'ANNAM/CPS_$cleanDigits';
+    }
+
     // NEW: KR sensors (Kerala) -> ANNAM/Kerala/WS_
     if (upper.startsWith('KR')) {
       final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
@@ -177,6 +184,7 @@ class DevicePrefixUtils {
         upper.startsWith('AM') ||
         upper.startsWith('KR') ||
         upper.startsWith('AW') ||
+        upper.startsWith('PS') ||
         upper == 'CP001' ||
         upper == 'SW007' ||
         upper == 'SW013';
@@ -301,6 +309,8 @@ class DevicePrefixUtils {
         return "WS_Shobha_$id#WS/Shobha/$id";
       case "AT":
         return "$id#Testing/nRF52840";
+      case "PS":
+        return "$id#WS/CPS/$id";
       default:
         return "$id#WS/Unknown/$id";
     }
@@ -364,6 +374,10 @@ class DevicePrefixUtils {
     if (topicPath.startsWith('WS/AWS/') || topicPath.startsWith('AWS/')) {
       final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
       return 'AW${cleanId.padLeft(3, '0')}';
+    }
+    if (topicPath.startsWith('WS/CPS/')) {
+      final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
+      return 'PS${cleanId.padLeft(3, '0')}';
     }
     if (topicPath.startsWith('Weather/sensor/')) return 'WT$paddedId';
     if (topicPath.startsWith('Testing/nRF52840') || topicPath.startsWith('AWS/Testing/')) return 'AT$paddedId';
@@ -473,6 +487,9 @@ class DevicePrefixUtils {
     }
     if (topic.contains('WS/AWS') || topic.contains('AWS/')) {
       return (category: 'ANNAM Sensors', prefix: 'AW');
+    }
+    if (topic.contains('WS/CPS') || topic.contains('WS/CPS/')) {
+      return (category: 'CPS Sensors', prefix: 'PS');
     }
     if (topic.contains('SSMet/Soil')) {
       return (category: 'SSMet Soil sensor', prefix: 'SS');

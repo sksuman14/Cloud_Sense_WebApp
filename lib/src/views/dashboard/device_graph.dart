@@ -829,6 +829,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (topic.contains('AWS')) return 'AW';
     if (topic.startsWith('WS/ANNAM_CP') || topic.contains('ANNAM_CP'))
       return 'AM';
+    if (topic.contains('WS/CPS') || topic.contains('CPS'))
+      return 'PS';
 
     if (topic.contains('Testing/')) return 'AT'; // Map Testing/nRF52840 to AT
     return 'unknown';
@@ -960,6 +962,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       if (topic.contains('Winds_WN')) return 'WN';
       if (topic.contains('WS_WINDS/Jio_Logger')) return 'JW';
       if (topic.contains('Shobha')) return 'SH';
+      if (topic.contains('WS/CPS') || topic.contains('CPS')) return 'PS';
       return 'CX';
     }
     return activityType;

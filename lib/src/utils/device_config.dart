@@ -413,6 +413,37 @@ class DeviceConfig {
             key: 'SignalStrength', displayName: 'Signal Strength', unit: 'dBm'),
       ],
     ),
+    'PS': DeviceTypeConfig(
+      prefix: 'PS',
+      apiTemplate:
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/cpsdata?deviceid={deviceId}&startdate={startdate}&enddate={enddate}&key=${ApiKeys.annamApiKey}',
+      hasWind: true,
+      hasRainfall: true,
+      parameters: [
+        DeviceParameter(
+            key: 'CurrentTemperature', displayName: 'Temperature', unit: '°C'),
+        DeviceParameter(
+            key: 'CurrentHumidity', displayName: 'Humidity', unit: '%'),
+        DeviceParameter(
+            key: 'AtmPressure', displayName: 'Atm Pressure', unit: 'hPa'),
+        DeviceParameter(
+            key: 'LightIntensity', displayName: 'Light Intensity', unit: 'Lux'),
+        DeviceParameter(
+            key: 'RainfallHourly', displayName: 'Rainfall Hourly', unit: 'mm'),
+        DeviceParameter(
+            key: 'RainfallDaily', displayName: 'Rainfall Daily', unit: 'mm'),
+        DeviceParameter(
+            key: 'RainfallWeekly', displayName: 'Rainfall Weekly', unit: 'mm'),
+        DeviceParameter(
+            key: 'WindSpeed', displayName: 'Wind Speed', unit: 'm/s'),
+        DeviceParameter(
+            key: 'WindDirection', displayName: 'Wind Direction', unit: '°'),
+        DeviceParameter(
+            key: 'BatteryVoltage', displayName: 'Battery Voltage', unit: 'V'),
+        DeviceParameter(
+            key: 'SignalStrength', displayName: 'Signal Strength', unit: 'dBm'),
+      ],
+    ),
     'SV': DeviceTypeConfig(
       prefix: 'SV',
       apiTemplate:
