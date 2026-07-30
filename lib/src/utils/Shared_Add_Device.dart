@@ -143,46 +143,7 @@ class DeviceUtils {
   }
 
   static bool isValidDeviceId(String deviceId) {
-    if (deviceId.isEmpty) return false;
-
-    deviceId = deviceId.trim().toUpperCase();
-
-    // ── Accept display-name formats that contain special chars ──────────
-    // ANNAM0126_NNN (WJ sensors), ANNAM0226_NNN (WF), ANNAM0426_NNN (WA), ANNAM/PC_NNN (PC sensors), TS_NNN, DM_NNN
-    if (deviceId.startsWith('ANNAM0126_') ||
-        deviceId.startsWith('ANNAM0226_') ||
-        deviceId.startsWith('ANNAM0426_') ||
-        deviceId.startsWith('ANNAM0526_') ||
-        deviceId.startsWith('ANNAM/GPC_') ||
-        deviceId.startsWith('ANNAM/KERALA/') ||
-        deviceId.startsWith('AWS_') ||
-        deviceId.startsWith('TS0526_') ||
-        deviceId.startsWith('TS_') ||
-        deviceId.startsWith('DM_') ||
-        deviceId.startsWith('Winds_') ||
-        deviceId.startsWith('JIO_WINDS_') ||
-        deviceId.startsWith('JW_') ||
-        deviceId.startsWith('WS_SHOBHA_') ||
-        deviceId.startsWith('AWS_TESTING_') ||
-        deviceId.startsWith('ANNAM_CP') ||
-        deviceId.startsWith('ANNAM/CPS_') ||
-        RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId)) {
-      return true;
-    }
-
-    // ── General pattern: 2+ uppercase letters followed by alphanumeric/underscore
-    final RegExp flexiblePattern = RegExp(r'^[A-Z]{2,}[A-Z0-9_]*$');
-
-    if (!flexiblePattern.hasMatch(deviceId)) {
-      return false;
-    }
-
-    if (deviceId.startsWith('ANNAM')) return true;
-
-    // Check only first 2 characters as prefix
-    String prefix = deviceId.substring(0, 2);
-
-    return validPrefixes.contains(prefix);
+    return DevicePrefixUtils.isValidDeviceId(deviceId);
   }
 
   // ── Helper to resolve ANNAM display names back to internal IDs ─────────────

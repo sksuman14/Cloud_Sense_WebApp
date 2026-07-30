@@ -147,6 +147,46 @@ class DevicePrefixUtils {
     }
   }
 
+  static bool isValidDeviceId(String deviceId) {
+    if (deviceId.isEmpty) return false;
+
+    deviceId = deviceId.trim().toUpperCase();
+
+    // Ensure the display templates end with a numeric value
+    final bool isDisplayTemplate = deviceId.startsWith('ANNAM0126_') ||
+        deviceId.startsWith('ANNAM0226_') ||
+        deviceId.startsWith('ANNAM0426_') ||
+        deviceId.startsWith('ANNAM0526_') ||
+        deviceId.startsWith('ANNAM/GPC_') ||
+        deviceId.startsWith('ANNAM/KERALA/') ||
+        deviceId.startsWith('AWS_') ||
+        deviceId.startsWith('TS0526_') ||
+        deviceId.startsWith('TS_') ||
+        deviceId.startsWith('DM_') ||
+        deviceId.startsWith('Winds_') ||
+        deviceId.startsWith('JIO_WINDS_') ||
+        deviceId.startsWith('JW_') ||
+        deviceId.startsWith('WS_SHOBHA_') ||
+        deviceId.startsWith('AWS_TESTING_') ||
+        deviceId.startsWith('ANNAM_CP') ||
+        deviceId.startsWith('ANNAM/CPS_') ||
+        RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId);
+
+    if (isDisplayTemplate && RegExp(r'\d+$').hasMatch(deviceId)) {
+      return true;
+    }
+
+    // Must be at least 3 characters, start with a valid prefix, and end with a number (optionally with an underscore)
+    if (deviceId.length >= 3 && RegExp(r'^[A-Z]{2,}_?\d+$').hasMatch(deviceId)) {
+      String prefix = deviceId.substring(0, 2);
+      if (validPrefixes.contains(prefix)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /// Strips administrative suffixes from district strings.
   /// Strips administrative suffixes from district strings.
   /// e.g. "Rupnagar district" → "Rupnagar", "Rupnagar Tahsil" → "Rupnagar"
