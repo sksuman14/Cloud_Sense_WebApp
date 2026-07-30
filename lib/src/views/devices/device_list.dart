@@ -1,13 +1,6 @@
-import 'package:cloud_sense_webapp/src/auth/login_page.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/GPS.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/buffalodata.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/cowdata.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/device_graph.dart';
-import 'package:cloud_sense_webapp/src/views/devices/device_map.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
 import 'package:cloud_sense_webapp/src/views/devices/qr_scan_add_device.dart';
-import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
 import 'package:cloud_sense_webapp/src/widgets/drawer.dart';
 import 'package:flutter/material.dart';
@@ -29,12 +22,6 @@ bool _isAnnamSensor(String internalSensorName) =>
 
 bool _isAnnamTestingSensor(String internalSensorName) =>
     DevicePrefixUtils.isAnnamTestingSensor(internalSensorName);
-
-// Partnership: all other sensors (formerly ANNAM1, ANNAM3, ANNAM4, ANNAM0)
-bool _isPartnershipSensor(String internalSensorName) {
-  return !_isAnnamSensor(internalSensorName) &&
-      !_isAnnamTestingSensor(internalSensorName);
-}
 
 // ── Internal Helpers for prefixing ──
 // (Unused helpers removed. Logic now handled via RegExp in _toAnnamDisplayName)
@@ -240,20 +227,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
     return DevicePrefixUtils.getCategoryDisplayName(key);
   }
 
-  Future<void> _handleLogout() async {
-    try {
-      await Amplify.Auth.signOut();
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      NavigationUtils.navigateTo(
-        context,
-        '/',
-        removeUntil: true,
-      );
-    } catch (e) {
-      print("[Logout] Error: $e");
-    }
-  }
+
 
   Future<void> _loadTimestampMapFromApi() async {
     final urls = [
@@ -463,9 +437,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
     return devices;
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
+
 
   @override
   Widget build(BuildContext context) {

@@ -4,8 +4,6 @@ import 'dart:ui';
 
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/device_graph.dart';
-import 'package:cloud_sense_webapp/src/views/devices/device_list.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -29,11 +27,7 @@ bool _isAnnamSensor(String internalSensorName) =>
 bool _isAnnamTestingSensor(String internalSensorName) =>
     DevicePrefixUtils.isAnnamTestingSensor(internalSensorName);
 
-// Partnership: all other sensors
-bool _isPartnershipSensor(String internalSensorName) {
-  return !_isAnnamSensor(internalSensorName) &&
-      !_isAnnamTestingSensor(internalSensorName);
-}
+
 
 // =============================================================================
 // Hardcoded IIT Ropar campus sensors
@@ -757,25 +751,7 @@ String _formatMarkerValue(WeatherLayer layer, double value) {
   }
 }
 
-/// Returns true if the value is within a physically plausible range for the
-/// given weather field. Rejects garbage data such as 150 for temperature
-/// (likely LightIntensity leakage) or 0 hPa pressure (dead sensor).
-bool _isPlausibleWeatherValue(String field, double value) {
-  switch (field) {
-    case 'curr_temp':
-      return value > -60 && value <= 65; // °C
-    case 'rh':
-      return value >= 0 && value <= 100; // %
-    case 'wind_speed':
-      return value >= 0 && value <= 200; // m/s
-    case 'rainfall':
-      return value >= 0; // mm (no upper cap)
-    case 'mslp':
-      return value >= 300 && value <= 1100; // hPa
-    default:
-      return true;
-  }
-}
+
 
 // =============================================================================
 // Weather value marker — circular bubble with value text
@@ -1289,8 +1265,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
     }
   }
 
-  ({String category, String prefix}) _mapCategoryAndPrefix(String topic) =>
-      DevicePrefixUtils.mapCategoryAndPrefix(topic);
+
 
   Future<void> _loadDeviceDataFromApi() async {
     final urls = [
@@ -2004,34 +1979,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
     }
   }
 
-  Color _getWeatherColor(double? value, String metric) {
-    if (value == null) return Colors.grey;
-    if (metric == 'Temperature') {
-      if (value < 10) return Colors.indigo;
-      if (value < 20) return Colors.blue;
-      if (value < 30) return Colors.green;
-      if (value < 40) return Colors.orange;
-      return Colors.red;
-    } else if (metric == 'Humidity') {
-      if (value < 30) return Colors.orange;
-      if (value < 60) return Colors.green;
-      return Colors.blue;
-    } else if (metric == 'Wind') {
-      if (value < 10) return Colors.green;
-      if (value < 20) return Colors.orange;
-      return Colors.red;
-    } else if (metric == 'Rainfall') {
-      if (value == 0) return Colors.grey;
-      if (value < 5) return Colors.lightBlue;
-      if (value < 15) return Colors.blue;
-      return Colors.indigo;
-    } else if (metric == 'Pressure') {
-      if (value < 1000) return Colors.red;
-      if (value < 1020) return Colors.green;
-      return Colors.blue;
-    }
-    return const Color(0xFF2E7D32);
-  }
+
 
   Map<String, dynamic> _buildStateClusters(List<Map<String, dynamic>> source) {
     final Map<String, List<Map<String, dynamic>>> groups = {};
@@ -2875,80 +2823,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
         );
       }).toList();
 
-  // ── Weather-layer IMD markers (individual — used at high zoom) ─────────────
-  List<Marker> _buildImdWeatherMarkers() {
-    final field = _fieldForLayer(_selectedLayer);
-    final unit = _unitForLayer(_selectedLayer);
 
-    return imdLocations.map((device) {
-      final rawVal = device[field]?.toString() ?? 'N/A';
-      final numVal = double.tryParse(rawVal);
-      // Skip implausible values
-      final validVal =
-          (numVal != null && _isPlausibleWeatherValue(field, numVal))
-              ? numVal
-              : null;
-      final displayVal =
-          validVal != null ? _formatMarkerValue(_selectedLayer, validVal) : '—';
-      final color = validVal != null
-          ? _colorForLayer(_selectedLayer, validVal)
-          : Colors.grey;
-
-      return Marker(
-        point: LatLng((device['latitude'] as num).toDouble(),
-            (device['longitude'] as num).toDouble()),
-        width: 42,
-        height: 42,
-        child: GestureDetector(
-          onTap: () => _showWeatherTooltipDialog(context, device),
-          child: _WeatherValueMarker(
-            displayValue: displayVal,
-            unit: unit,
-            bgColor: color,
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  // ── Weather-layer state cluster markers (low zoom) ──────────────────────
-  List<Marker> _buildImdWeatherStateClusters() {
-    final field = _fieldForLayer(_selectedLayer);
-    final unit = _unitForLayer(_selectedLayer);
-    final clusters = _imdStateClusters;
-
-    return clusters.entries.map((e) {
-      final cd = e.value;
-      final devices = cd['devices'] as List<Map<String, dynamic>>;
-      // Compute average value for this cluster
-      final values = devices
-          .map((d) => double.tryParse(d[field]?.toString() ?? ''))
-          .where((v) => v != null && _isPlausibleWeatherValue(field, v!))
-          .cast<double>()
-          .toList();
-      final avg = values.isNotEmpty
-          ? values.reduce((a, b) => a + b) / values.length
-          : null;
-      final displayVal =
-          avg != null ? _formatMarkerValue(_selectedLayer, avg) : '—';
-      final color =
-          avg != null ? _colorForLayer(_selectedLayer, avg) : Colors.grey;
-
-      return Marker(
-        point: LatLng(cd['latitude'], cd['longitude']),
-        width: 46,
-        height: 46,
-        child: GestureDetector(
-          onTap: () => _showClusterWeatherTooltip(context, e.key, devices),
-          child: _WeatherValueMarker(
-            displayValue: displayVal,
-            unit: unit,
-            bgColor: color,
-          ),
-        ),
-      );
-    }).toList();
-  }
 
   // ── Weather-layer district cluster markers (mid zoom) ───────────────────
 

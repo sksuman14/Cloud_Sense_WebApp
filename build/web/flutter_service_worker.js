@@ -141,7 +141,7 @@ const RESOURCES = {"assets/AssetManifest.bin": "194380137daf0a7ecc7bb35bec8c3c62
 "flutter_assets/packages/syncfusion_flutter_charts/assets/fonts/Times-New-Roman.ttf": "e2f6bf4ef7c6443cbb0ae33f1c1a9ccc",
 "flutter_assets/packages/wakelock_plus/assets/no_sleep.js": "9c3aa3cd0b217305aa860decab3d9f42",
 "flutter_assets/shaders/ink_sparkle.frag": "9bb2aaa0f9a9213b623947fa682efa76",
-"flutter_bootstrap.js": "b1979447451e75d1a31b8f0171f32a9c",
+"flutter_bootstrap.js": "891b20be2db543ed0d35f46012bed515",
 "icons/Icon-192.png": "90a948ad88bf1c17a5a40ed40bf4905a",
 "icons/Icon-512.png": "76feaf63bcbf28ae35c368fa70d14ce7",
 "icons/Icon-maskable-192.png": "90a948ad88bf1c17a5a40ed40bf4905a",
