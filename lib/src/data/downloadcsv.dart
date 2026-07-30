@@ -791,8 +791,6 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           'Wind Speed (m/s)',
           'Wind Direction (°)',
           'Rainfall Hourly (mm)',
-          'Rainfall Daily (mm)',
-          'Rainfall Weekly (mm)',
           'Battery Voltage (V)',
           'Signal Strength (dBm)'
         ]);
@@ -805,8 +803,6 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
               i['WindSpeed'] ?? '',
               i['WindDirection'] ?? '',
               i['RainfallHourly'] ?? '',
-              i['RainfallDaily'] ?? '',
-              i['RainfallWeekly'] ?? '',
               i['BatteryVoltage'] ?? '',
               i['SignalStrength'] ?? '',
             ]));

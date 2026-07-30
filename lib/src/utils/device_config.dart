@@ -431,10 +431,6 @@ class DeviceConfig {
         DeviceParameter(
             key: 'RainfallHourly', displayName: 'Rainfall Hourly', unit: 'mm'),
         DeviceParameter(
-            key: 'RainfallDaily', displayName: 'Rainfall Daily', unit: 'mm'),
-        DeviceParameter(
-            key: 'RainfallWeekly', displayName: 'Rainfall Weekly', unit: 'mm'),
-        DeviceParameter(
             key: 'WindSpeed', displayName: 'Wind Speed', unit: 'm/s'),
         DeviceParameter(
             key: 'WindDirection', displayName: 'Wind Direction', unit: '°'),
