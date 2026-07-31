@@ -794,8 +794,6 @@ class DevicePrefixUtils {
   /// Returns the appropriate OTA (Data Fetch) API URL for a given device.
   static String? getOtaApiUrl(String prefix, {String sensorName = ''}) {
     switch (prefix.toUpperCase()) {
-      case 'PJ':
-        return 'Punjab Sensors';
       case 'KR':
         return 'https://f1hgmtzq6h.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Kerala';
       case 'CP':
@@ -823,8 +821,6 @@ class DevicePrefixUtils {
         return 'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function';
       case 'WT':
         return 'https://uqevvzptx7.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_API_Weather_Sensor';
-      case 'PJ':
-        return 'Punjab Sensors';
       case 'KR':
         return 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API';
       case 'AW':

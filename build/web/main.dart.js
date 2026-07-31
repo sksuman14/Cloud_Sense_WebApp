@@ -47786,12 +47786,11 @@ a8=A.bR(J.j(a2,2),b2,b2)
 a9=A.bp(a3,a4,a5,a6,a7,a8,0,0)
 return a9}a9=A.AE(b3)
 return a9}catch(b1){return b2}},
-c1u(a,b){var s="Punjab Sensors",r="https://eceufa3wc6.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_BTP"
-switch(a.toUpperCase()){case"PJ":return s
-case"KR":return"https://f1hgmtzq6h.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Kerala"
-case"CP":if(b==="CP001")return r
+c1u(a,b){var s="https://eceufa3wc6.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_BTP"
+switch(a.toUpperCase()){case"KR":return"https://f1hgmtzq6h.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Kerala"
+case"CP":if(b==="CP001")return s
 return u.k
-case"CF":return r
+case"CF":return s
 case"WF":return"https://apen68q46i.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_SSMet0226"
 case"WJ":return"https://2jajsh64sd.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_SSMet0126"
 case"WA":return"https://k17dioqtpk.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Annam_0426"
@@ -47801,7 +47800,6 @@ case"JW":return"https://277fj9qud6.execute-api.us-east-1.amazonaws.com/default/D
 case"IT":return"https://hg6lmrdyee.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Awadh_IITB"
 case"AM":return"https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function"
 case"WT":return"https://uqevvzptx7.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_API_Weather_Sensor"
-case"PJ":return s
 case"KR":return"https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API"
 case"AW":return"https://ag25teqhvi.execute-api.us-east-1.amazonaws.com/default/AWS_Api_Function"
 case"SH":return"https://915gy7u30a.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Shobha"
