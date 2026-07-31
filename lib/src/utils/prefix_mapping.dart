@@ -10,7 +10,7 @@ class DevicePrefixUtils {
     'BF', 'CS', 'TH', 'NH', 'IT', 'FS', 'SM', 'SW', 'SI', 'CF',
     'SV', 'CB', 'WF', 'KD', 'VD', 'PC', 'KR', 'AW', 'GP', 'NA',
     'CP', 'KJ', 'MY', 'DM', 'WJ', 'WF', 'WT', 'WA', 'WM', 'TS',
-    'WN', 'JW', 'SH', 'AT', 'AM', 'PS',
+    'PS', 'PJ',
   ];
 
   static String getSensorType(String deviceId) {
@@ -45,6 +45,7 @@ class DevicePrefixUtils {
     if (deviceId.startsWith('VD')) return 'Vanix Sensor';
     if (deviceId.startsWith('PC')) return 'Polytechnical Sensor';
     if (deviceId.startsWith('KR')) return 'Kerala Sensor';
+    if (deviceId.startsWith('PJ')) return 'Punjab Sensor';
     if (deviceId.startsWith('AW')) return 'AWS Sensor';
     if (deviceId.startsWith('GP')) return 'GPC Sensor';
     if (deviceId.startsWith('NA')) return 'National Atmospheric Research Labortary Sensor';
@@ -118,6 +119,8 @@ class DevicePrefixUtils {
         return 'Vanix Sensors';
       case 'PC':
         return 'Polytechnical Sensors';
+      case 'PJ':
+        return 'Punjab Sensors';
       case 'KR':
         return 'Kerala Sensors';
       case 'AW':
@@ -159,6 +162,8 @@ class DevicePrefixUtils {
         deviceId.startsWith('ANNAM0526_') ||
         deviceId.startsWith('ANNAM/GPC_') ||
         deviceId.startsWith('ANNAM/KERALA/') ||
+        deviceId.startsWith('ANNAM/PUNJAB/') ||
+        deviceId.startsWith('WS_PUNJAB_') ||
         deviceId.startsWith('AWS_') ||
         deviceId.startsWith('TS0526_') ||
         deviceId.startsWith('TS_') ||
@@ -273,6 +278,13 @@ class DevicePrefixUtils {
       return num != null ? 'ANNAM/CPS_$num' : 'ANNAM/CPS_$cleanDigits';
     }
 
+    // NEW: PJ sensors (Punjab) -> ANNAM/Punjab/WS_
+    if (upper.startsWith('PJ') || upper.startsWith('WS_PUNJAB')) {
+      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? "ANNAM/Punjab/WS_$num" : "ANNAM/Punjab/WS_$cleanDigits";
+    }
+
     // NEW: KR sensors (Kerala) -> ANNAM/Kerala/WS_
     if (upper.startsWith('KR')) {
       final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
@@ -365,6 +377,7 @@ class DevicePrefixUtils {
         upper.startsWith('PC') ||
         upper.startsWith('GP') ||
         upper.startsWith('AM') ||
+        upper.startsWith('PJ') ||
         upper.startsWith('KR') ||
         upper.startsWith('AW') ||
         upper.startsWith('PS') ||
@@ -399,6 +412,13 @@ class DevicePrefixUtils {
         return "$idPart#SSMet/custom/1225/$idPart";
       }
       return "C0#SSMet/custom/1225/C0";
+    }
+
+    // 1.4 Handle PJWS_NNN (Punjab devices)
+    if (sensorName.startsWith('PJWS_') || sensorName.startsWith('PJ')) {
+      final digits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '0';
+      final id = int.tryParse(digits) ?? 0;
+      return "WS_Punjab_$id#WS/Punjab/$id";
     }
 
     // 1.5 Handle KRWS_NNN (Kerala devices)
@@ -486,6 +506,8 @@ class DevicePrefixUtils {
         return "$id#WS/GPC/$id";
       case "AM":
         return "ANNAM_CP${id.toString().padLeft(2, '0')}#WS/ANNAM_CP${id.toString().padLeft(2, '0')}";
+      case "PJ":
+        return "WS_Punjab_$id#WS/Punjab/$id";
       case "KR":
         return "WS_$id#WS/Kerala/$id";
       case "SH":
@@ -549,6 +571,10 @@ class DevicePrefixUtils {
     if (topicPath.startsWith('WS/ANNAM_CP')) {
       final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
       return 'AM${cleanId.padLeft(2, '0')}';
+    }
+    if (topicPath.startsWith('WS/Punjab/')) {
+      final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
+      return 'PJWS_$cleanId';
     }
     if (topicPath.startsWith('WS/Kerala/')) {
       final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
@@ -665,6 +691,9 @@ class DevicePrefixUtils {
     if (topic.contains('WS/ANNAM_CP')) {
       return (category: 'ANNAM Sensors', prefix: 'AM');
     }
+    if (topic.contains('WS/Punjab') || topic.contains('Punjab')) {
+      return (category: 'ANNAM Sensors', prefix: 'PJ');
+    }
     if (topic.contains('WS/Kerala')) {
       return (category: 'ANNAM Sensors', prefix: 'KR');
     }
@@ -765,6 +794,8 @@ class DevicePrefixUtils {
   /// Returns the appropriate OTA (Data Fetch) API URL for a given device.
   static String? getOtaApiUrl(String prefix, {String sensorName = ''}) {
     switch (prefix.toUpperCase()) {
+      case 'PJ':
+        return 'Punjab Sensors';
       case 'KR':
         return 'https://f1hgmtzq6h.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Kerala';
       case 'CP':
@@ -792,6 +823,8 @@ class DevicePrefixUtils {
         return 'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function';
       case 'WT':
         return 'https://uqevvzptx7.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_API_Weather_Sensor';
+      case 'PJ':
+        return 'Punjab Sensors';
       case 'KR':
         return 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API';
       case 'AW':

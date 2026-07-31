@@ -468,7 +468,7 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     } else if (RegExp(r'^[A-Za-z]{2}').hasMatch(widget.deviceName)) {
       extractedId = widget.deviceName.substring(2);
     }
-    if (widget.deviceName.startsWith('KR')) {
+    if (widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) {
       final numericId =
           int.tryParse(extractedId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
       extractedId = numericId.toString();
@@ -575,6 +575,12 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final shEndDate = shDateFmt.format(_endDate!);
       apiUrl =
           'https://bne596pwxi.execute-api.us-east-1.amazonaws.com/default/WS_Shobha_Api?ANNAM_ID=WS_Shobha_$deviceId&startdate=$shStartDate&enddate=$shEndDate&mode=download';
+    } else if (widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) {
+      final pjDateFmt = DateFormat('yyyy-MM-dd');
+      final pjStartDate = pjDateFmt.format(_startDate!);
+      final pjEndDate = pjDateFmt.format(_endDate!);
+      apiUrl =
+          'https://eu81fynn70.execute-api.us-east-1.amazonaws.com/default/WS_Punjab_API?ANNAM_ID=WS_Punjab_$deviceId&startdate=$pjStartDate&enddate=$pjEndDate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('KR')) {
       final krDateFmt = DateFormat('yyyy-MM-dd');
       final krStartDate = krDateFmt.format(_startDate!);
@@ -649,6 +655,8 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           widget.deviceName.startsWith('GP') ||
           widget.deviceName.startsWith('WJ') ||
           widget.deviceName.startsWith('WA') ||
+          widget.deviceName.startsWith('PJ') ||
+          widget.deviceName.contains('Punjab') ||
           widget.deviceName.startsWith('KR') ||
           widget.deviceName.startsWith('SW') ||
           widget.deviceName.startsWith('AW') ||

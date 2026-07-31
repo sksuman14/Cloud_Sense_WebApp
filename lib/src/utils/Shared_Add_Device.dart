@@ -303,6 +303,14 @@ class DeviceUtils {
     } else if (input.startsWith('ANNAM4') || input.startsWith('ANNAM/PC_')) {
       // PC sensors (display name: ANNAM4NNN or ANNAM/PC_NNN)
       return ['PC$paddedDigits'];
+    } else if (input.startsWith('ANNAM/PUNJAB/') || input.startsWith('WS_PUNJAB_') || input.startsWith('PJWS_')) {
+      // Punjab devices → resolve to PJ{num} which is in validPrefixes
+      final digitsOnly = RegExp(r'\d+$').firstMatch(input);
+      if (digitsOnly != null) {
+        final num = digitsOnly.group(0)!;
+        return ['PJ$num'];
+      }
+      return ['PJ$paddedDigits'];
     } else if (input.startsWith('ANNAM6') ||
         input.startsWith('ANNAM/KERALA/')) {
       if (input.startsWith('ANNAM/KERALA/WS_')) {

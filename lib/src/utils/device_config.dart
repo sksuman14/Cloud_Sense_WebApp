@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 
 class DeviceParameter {
@@ -892,6 +892,51 @@ class DeviceConfig {
             unit: 'dBm'),
       ],
     ),
+    'PJ': DeviceTypeConfig(
+      prefix: 'PJ',
+      apiTemplate:
+          'https://eu81fynn70.execute-api.us-east-1.amazonaws.com/default/WS_Punjab_API?ANNAM_ID=WS_Punjab_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.annamApiKey}',
+      hasWind: true,
+      hasRainfall: true,
+      parameters: [
+        DeviceParameter(
+            key: 'now_temperature', displayName: 'Temperature', unit: 'Â°C'),
+        DeviceParameter(
+            key: 'now_relative_humidity', displayName: 'Humidity', unit: '%'),
+        DeviceParameter(key: 'rainfall', displayName: 'Rainfall', unit: 'mm'),
+        DeviceParameter(
+            key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s'),
+        DeviceParameter(
+            key: 'now_wind_direction',
+            displayName: 'Wind Direction',
+            unit: 'Â°'),
+        DeviceParameter(
+            key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s'),
+        DeviceParameter(
+            key: 'max_wind_direction_gust',
+            displayName: 'Max Wind Direction Gust',
+            unit: 'Â°',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'now_pressure', displayName: 'Atm Pressure', unit: 'hPa'),
+        DeviceParameter(
+            key: 'max_wind_gust_time',
+            displayName: 'Max Gust Time',
+            unit: '',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Panel_Voltage',
+            displayName: 'Panel Voltage',
+            unit: 'V',
+            isMetadata: true),
+        DeviceParameter(
+            key: 'Battery_Voltage', displayName: 'Battery Voltage', unit: 'V'),
+        DeviceParameter(
+            key: 'Signal_Strength',
+            displayName: 'Signal Strength',
+            unit: 'dBm'),
+      ],
+    ),
     'KR': DeviceTypeConfig(
       prefix: 'KR',
       apiTemplate:
@@ -1193,63 +1238,23 @@ class DeviceConfig {
         DeviceParameter(
             key: 'max_wind_direction_gust',
             displayName: 'Max Wind Direction Gust',
-            unit: '°',
+            unit: 'Â°',
             isMetadata: true),
-        DeviceParameter(
-            key: 'average_wind_speed',
-            displayName: 'Avg Wind Speed',
-            unit: 'm/s',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'average_wind_direction',
-            displayName: 'Avg Wind Direction',
-            unit: '°',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'now_pressure', displayName: 'Atm Pressure', unit: 'hPa'),
-        DeviceParameter(
-            key: 'Maximum_Temperature',
-            displayName: 'Max Temperature',
-            unit: '°C',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'Minimum_Temperature',
-            displayName: 'Min Temperature',
-            unit: '°C',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'Maximum_Relative_Humidity',
-            displayName: 'Max Humidity',
-            unit: '%',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'Minimum_Relative_Humidity',
-            displayName: 'Min Humidity',
-            unit: '%',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'max_wind_gust_time',
-            displayName: 'Max Gust Time',
-            unit: '',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'Panel_Voltage',
-            displayName: 'Panel Voltage',
-            unit: 'V',
-            isMetadata: true),
-        DeviceParameter(
-            key: 'Battery_Voltage', displayName: 'Battery Voltage', unit: 'V'),
-        DeviceParameter(
-            key: 'Signal_Strength',
-            displayName: 'Signal Strength',
-            unit: 'dBm'),
       ],
     ),
   };
 
   static DeviceTypeConfig? getConfig(String deviceName) {
+    if (deviceName == null || deviceName.isEmpty) return null;
+    final name = deviceName.toUpperCase();
+    if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ')) {
+      return _configs['PJ'];
+    }
+    if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR')) {
+      return _configs['KR'];
+    }
     for (var prefix in _configs.keys) {
-      if (deviceName.startsWith(prefix)) {
+      if (name.startsWith(prefix)) {
         return _configs[prefix];
       }
     }
@@ -1257,8 +1262,16 @@ class DeviceConfig {
   }
 
   static String getPrefix(String deviceName) {
+    if (deviceName == null || deviceName.isEmpty) return '';
+    final name = deviceName.toUpperCase();
+    if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ')) {
+      return 'PJ';
+    }
+    if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR')) {
+      return 'KR';
+    }
     for (var prefix in _configs.keys) {
-      if (deviceName.startsWith(prefix)) {
+      if (name.startsWith(prefix)) {
         return prefix;
       }
     }

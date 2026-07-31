@@ -1864,7 +1864,7 @@ class _AdminPageState extends State<AdminPage> {
       if (sn == 'CP001' || dn == 'ANNAM_CP01' || sn.contains('CP01') || dn.contains('ANNAM_CP01')) {
         return 0;
       }
-      if (mapped.prefix == 'KR' || sn.startsWith('KR') || topic.toLowerCase().contains('kerala')) {
+      if (mapped.prefix == 'KR' || mapped.prefix == 'PJ' || sn.startsWith('KR') || sn.startsWith('PJ') || topic.toLowerCase().contains('kerala') || topic.toLowerCase().contains('punjab')) {
         return 1;
       }
       return 2;

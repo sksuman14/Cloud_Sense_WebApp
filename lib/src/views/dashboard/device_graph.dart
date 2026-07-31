@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -395,18 +395,18 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             ? 'TimeStamp'
                             : 'TimeStamp')))),
         batteryKey: (widget.deviceName.startsWith('JW') ||
-                widget.deviceName.startsWith('KR') ||
+                ((widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) || widget.deviceName.startsWith('PJ')) ||
                 widget.deviceName.startsWith('SH'))
             ? 'Battery_Voltage'
             : 'BatteryVoltage',
         signalStrengthKey: (widget.deviceName.startsWith('JW') ||
-                widget.deviceName.startsWith('KR') ||
+                ((widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) || widget.deviceName.startsWith('PJ')) ||
                 widget.deviceName.startsWith('SH'))
             ? 'Signal_Strength'
             : 'SignalStrength',
         maxGustTimeKey: widget.deviceName.startsWith('JW')
             ? 'Max_wind_gust_time'
-            : (widget.deviceName.startsWith('KR') ||
+            : (((widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) || widget.deviceName.startsWith('PJ')) ||
                     widget.deviceName.startsWith('AM'))
                 ? 'max_wind_gust_time'
                 : 'MaxWindGustTime',
@@ -936,7 +936,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     int deviceIdNumeric =
         int.tryParse(deviceIdStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
-    if (widget.deviceName.startsWith('KR')) {
+    if (((widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) || widget.deviceName.startsWith('PJ'))) {
       deviceIdStr = deviceIdNumeric.toString();
     }
 
