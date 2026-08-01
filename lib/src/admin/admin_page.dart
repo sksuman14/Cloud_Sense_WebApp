@@ -506,6 +506,12 @@ class _AdminPageState extends State<AdminPage> {
       ..._offlineDevices,
       ..._criticalDevices
     ];
+    allHealthAlerts.sort((a, b) {
+      final minsA = (a['last_active_mins_ago'] as num?)?.toDouble() ?? double.infinity;
+      final minsB = (b['last_active_mins_ago'] as num?)?.toDouble() ?? double.infinity;
+      return minsA.compareTo(minsB);
+    });
+
 
     if (alertSearchQuery.isNotEmpty) {
       final q = alertSearchQuery.toLowerCase();
@@ -821,13 +827,16 @@ class _AdminPageState extends State<AdminPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              displayName,
-                              style: TextStyle(
-                                  color: strong,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
+                            child: Tooltip(
+                              message: displayName,
+                              child: Text(
+                                displayName,
+                                style: TextStyle(
+                                    color: strong,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                           Container(
