@@ -788,8 +788,9 @@ class _AdminPageState extends State<AdminPage> {
             final color = status == 'OFFLINE' ? Colors.grey : Colors.redAccent;
 
             String displayName = deviceId;
+            String? sensorName;
             try {
-              String? sensorName =
+              sensorName =
                   DevicePrefixUtils.getSensorNameFromTopic(topic);
               if (sensorName != null) {
                 displayName = DevicePrefixUtils.toAnnamDisplayName(sensorName);
@@ -821,15 +822,19 @@ class _AdminPageState extends State<AdminPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              displayName,
-                              style: TextStyle(
-                                  color: strong,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
+                            child: Tooltip(
+                              message: displayName,
+                              child: Text(
+                                displayName,
+                                style: TextStyle(
+                                    color: strong,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
@@ -847,7 +852,14 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      Text(
+                        DevicePrefixUtils.getSensorType(sensorName ?? deviceId),
+                        style: TextStyle(
+                            color: subtle.withOpacity(0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       Row(
                         children: [
                           Icon(Icons.history, size: 10, color: subtle),
@@ -977,9 +989,10 @@ class _AdminPageState extends State<AdminPage> {
                 .join(', ');
 
             String displayName = deviceId;
+            String? sensorName;
             try {
               final fullTopic = "$deviceId#$topic";
-              String? sensorName =
+              sensorName =
                   DevicePrefixUtils.getSensorNameFromTopic(fullTopic);
               if (sensorName != null) {
                 displayName = DevicePrefixUtils.toAnnamDisplayName(sensorName);
@@ -997,8 +1010,8 @@ class _AdminPageState extends State<AdminPage> {
                       'deviceId': deviceId,
                       'deviceIdTopic': "$deviceId#$topic",
                       'displayName': displayName,
-                                         'isDark': isDark,
-                                         'fromAdminPage': true,
+                      'isDark': isDark,
+                      'fromAdminPage': true,
                     },
                   );
                 },
@@ -1006,7 +1019,7 @@ class _AdminPageState extends State<AdminPage> {
                 child: Container(
                   width: 200,
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
+                  decoration: BoxDecoration( 
                     color: cardColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: color.withOpacity(0.3)),
@@ -1026,15 +1039,19 @@ class _AdminPageState extends State<AdminPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              displayName,
-                              style: TextStyle(
-                                  color: strong,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
+                            child: Tooltip(
+                              message: displayName,
+                              child: Text(
+                                displayName,
+                                style: TextStyle(
+                                    color: strong,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
@@ -1052,7 +1069,14 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      Text(
+                        DevicePrefixUtils.getSensorType(sensorName ?? deviceId),
+                        style: TextStyle(
+                            color: subtle.withOpacity(0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       if (flaggedParams.isNotEmpty)
                         Text(
                           "Issues: $flaggedParams",
@@ -1062,8 +1086,9 @@ class _AdminPageState extends State<AdminPage> {
                               fontWeight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
-                        ),
-                      const SizedBox(height: 4),
+                        )
+                      else
+                        const SizedBox.shrink(),
                       Row(
                         children: [
                           Icon(Icons.access_time, size: 10, color: subtle),
@@ -1151,7 +1176,7 @@ class _AdminPageState extends State<AdminPage> {
 
       // Time range: last 24 hours
       final now = DateTime.now();
-      final cutoff = now.subtract(const Duration(hours: 1));
+      final cutoff = now.subtract(const Duration(minutes: 15));
       final startTs = DateFormat("yyyy-MM-dd HH:mm:ss").format(cutoff);
       final endTs = DateFormat("yyyy-MM-dd HH:mm:ss").format(now);
 
