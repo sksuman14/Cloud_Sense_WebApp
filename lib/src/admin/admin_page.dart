@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
@@ -788,9 +788,8 @@ class _AdminPageState extends State<AdminPage> {
             final color = status == 'OFFLINE' ? Colors.grey : Colors.redAccent;
 
             String displayName = deviceId;
-            String? sensorName;
             try {
-              sensorName =
+              String? sensorName =
                   DevicePrefixUtils.getSensorNameFromTopic(topic);
               if (sensorName != null) {
                 displayName = DevicePrefixUtils.toAnnamDisplayName(sensorName);
@@ -822,19 +821,15 @@ class _AdminPageState extends State<AdminPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Tooltip(
-                              message: displayName,
-                              child: Text(
-                                displayName,
-                                style: TextStyle(
-                                    color: strong,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            child: Text(
+                              displayName,
+                              style: TextStyle(
+                                  color: strong,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
@@ -852,14 +847,7 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                         ],
                       ),
-                      Text(
-                        DevicePrefixUtils.getSensorType(sensorName ?? deviceId),
-                        style: TextStyle(
-                            color: subtle.withOpacity(0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           Icon(Icons.history, size: 10, color: subtle),
@@ -1069,14 +1057,7 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                         ],
                       ),
-                      Text(
-                        DevicePrefixUtils.getSensorType(sensorName ?? deviceId),
-                        style: TextStyle(
-                            color: subtle.withOpacity(0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+
                       if (flaggedParams.isNotEmpty)
                         Text(
                           "Issues: $flaggedParams",
