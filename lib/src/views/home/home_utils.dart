@@ -340,4 +340,35 @@ class HomeUtils {
 
     return DevicePrefixUtils.buildTopicFromSensorName(internalId);
   }
+
+  static dynamic getCorrectedValue(Map? selectedDevice, List<String> parameterKeys) {
+    if (selectedDevice == null) return null;
+
+    // 1. Check corrected_fields first (1st Priority)
+    if (selectedDevice['corrected_fields'] != null && selectedDevice['corrected_fields'] is Map) {
+      final correctedFields = selectedDevice['corrected_fields'] as Map;
+      for (var key in parameterKeys) {
+        final lowerKey = key.toLowerCase();
+        if (correctedFields.containsKey(lowerKey)) {
+          final correctedData = correctedFields[lowerKey];
+          if (correctedData is Map && correctedData['corrected_value'] != null) {
+            final val = correctedData['corrected_value'];
+            if (val != null && val.toString().toLowerCase() != 'null') {
+              return val;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Check the fallback list of keys
+    for (var key in parameterKeys) {
+      final val = selectedDevice[key];
+      if (val != null && val.toString().toLowerCase() != 'null') {
+        return val;
+      }
+    }
+
+    return null;
+  }
 }
