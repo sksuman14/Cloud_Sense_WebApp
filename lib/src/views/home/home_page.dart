@@ -2305,62 +2305,141 @@ class _TechCardState extends State<_TechCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Accent glow color — cyan-blue that matches the homepage palette
+    const glowColor = Color(0xFF40C4FF);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
-        duration: 300.ms,
-        padding: const EdgeInsets.all(24),
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOut,
         decoration: BoxDecoration(
-          color: widget.isDarkMode
-              ? (const Color(0xFF1D2B38).withOpacity(_hovered ? 0.95 : 0.6))
-              : (Colors.white.withOpacity(_hovered ? 0.95 : 0.6)),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: widget.isDarkMode
-                ? (Colors.white.withOpacity(_hovered ? 0.3 : 0.1))
-                : (Colors.black.withOpacity(_hovered ? 0.15 : 0.05)),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(_hovered ? 0.15 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
+          borderRadius: BorderRadius.circular(18),
+          // Outer glow shadow — intensifies on hover
+          boxShadow: widget.isDarkMode
+              ? [
+                  BoxShadow(
+                    color: glowColor.withOpacity(_hovered ? 0.30 : 0.10),
+                    blurRadius: _hovered ? 32 : 16,
+                    spreadRadius: _hovered ? 2 : 0,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF1565C0).withOpacity(_hovered ? 0.20 : 0.07),
+                    blurRadius: _hovered ? 28 : 12,
+                    spreadRadius: _hovered ? 1 : 0,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              widget.icon,
-              color: Colors.blueAccent.shade400,
-              size: 36,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            // Glassmorphism fill
+            color: widget.isDarkMode
+                ? const Color(0xFF0D1F2D).withOpacity(_hovered ? 0.88 : 0.72)
+                : Colors.white.withOpacity(_hovered ? 0.97 : 0.85),
+            // Gradient sheen
+            gradient: widget.isDarkMode
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF1A2E42).withOpacity(_hovered ? 0.95 : 0.75),
+                      const Color(0xFF0D1B2A).withOpacity(_hovered ? 0.95 : 0.75),
+                    ],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(_hovered ? 1.0 : 0.90),
+                      const Color(0xFFF0F6FF).withOpacity(_hovered ? 1.0 : 0.90),
+                    ],
+                  ),
+            border: Border.all(
+              // Glowing cyan border in dark mode, subtle blue in light
+              color: widget.isDarkMode
+                  ? glowColor.withOpacity(_hovered ? 0.65 : 0.22)
+                  : const Color(0xFF1565C0).withOpacity(_hovered ? 0.45 : 0.13),
+              width: _hovered ? 1.5 : 1.0,
             ),
-            const SizedBox(height: 16),
-            Text(
-              widget.title,
-              style: TextStyle(
-                fontFamily: 'OpenSans',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: widget.isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon with glowing circle background
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: widget.isDarkMode
+                      ? glowColor.withOpacity(0.10)
+                      : const Color(0xFF1565C0).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: widget.isDarkMode
+                        ? glowColor.withOpacity(0.28)
+                        : const Color(0xFF1565C0).withOpacity(0.18),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  widget.icon,
+                  color: widget.isDarkMode ? glowColor : const Color(0xFF1565C0),
+                  size: 28,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              widget.desc,
-              style: TextStyle(
-                fontFamily: 'OpenSans',
-                fontSize: 13.5,
-                color: widget.isDarkMode
-                    ? Colors.white.withOpacity(0.7)
-                    : Colors.black.withOpacity(0.65),
-                height: 1.5,
+              const SizedBox(height: 18),
+              Text(
+                widget.title,
+                style: TextStyle(
+                  fontFamily: 'OpenSans',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: widget.isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              // Subtle accent divider line
+              Container(
+                width: 36,
+                height: 2,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  gradient: LinearGradient(
+                    colors: widget.isDarkMode
+                        ? [glowColor.withOpacity(0.8), glowColor.withOpacity(0.1)]
+                        : [const Color(0xFF1565C0).withOpacity(0.7), const Color(0xFF1565C0).withOpacity(0.1)],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.desc,
+                style: TextStyle(
+                  fontFamily: 'OpenSans',
+                  fontSize: 13.5,
+                  color: widget.isDarkMode
+                      ? Colors.white.withOpacity(0.68)
+                      : Colors.black.withOpacity(0.62),
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
