@@ -1961,23 +1961,14 @@ class _HeroSectionState extends State<HeroSection> {
               final slidePath = _slides[slideIndex]["path"]!;
               return Stack(
                 children: [
-                  // Background image covering full space
+                  // Background image covering full space — no frameBuilder,
+                  // renders immediately so blurred bg appears instantly.
+                  // Dark overlay (BackdropFilter below) hides any pop-in.
                   Positioned.fill(
                     child: Image.asset(
                       slidePath,
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
-                      color: const Color(0xFF0B141D),
-                      colorBlendMode: BlendMode.darken,
-                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                        if (wasSynchronouslyLoaded || frame != null) return child;
-                        return AnimatedOpacity(
-                          opacity: frame == null ? 0.0 : 1.0,
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeIn,
-                          child: child,
-                        );
-                      },
                     ),
                   ),
                   // Blurred overlay to create matching blurry space filler (lower blur sigma!)
