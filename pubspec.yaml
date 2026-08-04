@@ -148,6 +148,16 @@ flutter:
     - assets/images/soil.png
     - assets/models/
     - assets/images/weather.jpg
+    - assets/images/site1.jpg
+    - assets/images/site2.jpg
+    - assets/images/site3.jpg
+    - assets/images/site4.jpg
+    - assets/images/site5.jpg
+    - assets/images/site6.jpg
+    - assets/images/site7.jpg
+    - assets/images/site8.jpg
+    - assets/images/site9.jpg
+    - assets/images/site10.jpg
     - assets/images/buffalo_1.png
     - assets/pdfs/PROBE_DATASHEET.pdf
     - assets/pdfs/Data_logger_datasheet.pdf

@@ -147,14 +147,14 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
           "Our Products",
           style: TextStyle(
             fontFamily: 'OpenSans',
-            fontSize: screenWidth < 600 ? 32 : 42,
+            fontSize: screenWidth < 600 ? 28 : 38,
             fontWeight: FontWeight.w800,
-            letterSpacing: -1,
+            letterSpacing: -0.5,
             color: isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
           ),
         ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2),
 
-        const SizedBox(height: 48),
+        const SizedBox(height: 32),
 
         // --- Summary Stats ---
         Padding(
@@ -215,10 +215,10 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                     decoration: BoxDecoration(
                       color: _currentIndex == index
                           ? (isDarkMode
-                              ? const Color(0xFF1FCB8A)
+                              ? const Color(0xFF40C4FF)
                               : const Color(0xFF0D47A1))
                           : (isDarkMode
-                              ? const Color(0xFF1FCB8A).withOpacity(0.3)
+                              ? const Color(0xFF40C4FF).withOpacity(0.3)
                               : Colors.black.withOpacity(0.15)),
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -275,7 +275,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
             : Colors.black.withOpacity(0.03),
         borderRadius: BorderRadius.circular(isSmall ? 10 : 16),
         border: Border.all(
-          color: (isDark ? const Color(0xFF1FCB8A) : const Color(0xFF0D47A1))
+          color: (isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
               .withOpacity(isDark ? 0.3 : 0.5),
           width: 1.5,
         ),
@@ -288,7 +288,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
               fontFamily: 'OpenSans',
               fontSize: isSmall ? 18 : 28,
               fontWeight: FontWeight.w800,
-              color: isDark ? const Color(0xFF1FCB8A) : const Color(0xFF0D47A1),
+              color: isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1),
             ),
           ),
           const SizedBox(height: 4),
@@ -352,7 +352,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                   ),
                   child: Icon(Icons.sensors,
                       color: isDark
-                          ? const Color(0xFF1FCB8A)
+                          ? const Color(0xFF40C4FF)
                           : const Color(0xFF0D47A1),
                       size: 24),
                 ),
@@ -362,7 +362,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                   decoration: BoxDecoration(
                     border: Border.all(
                         color: (isDark
-                                ? const Color(0xFF1FCB8A)
+                                ? const Color(0xFF40C4FF)
                                 : const Color(0xFF0D47A1))
                             .withOpacity(0.5)),
                     borderRadius: BorderRadius.circular(16),
@@ -372,7 +372,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                     style: TextStyle(
                         fontFamily: 'OpenSans',
                         color: isDark
-                            ? const Color(0xFF1FCB8A)
+                            ? const Color(0xFF40C4FF)
                             : const Color(0xFF0D47A1),
                         fontSize: 10,
                         fontWeight: FontWeight.w800),
@@ -467,7 +467,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                     style: TextStyle(
                         fontFamily: 'OpenSans',
                         color: isDark
-                            ? const Color(0xFF1FCB8A)
+                            ? const Color(0xFF40C4FF)
                             : const Color(0xFF1565C0),
                         fontSize: 9,
                         fontWeight: FontWeight.w800),

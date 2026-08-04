@@ -110,7 +110,7 @@ class _SensorCardState extends State<SensorCard> {
                 ElevatedButton(
                   onPressed: widget.onReadMore,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDarkMode ? const Color(0xFF1FCB8A) : const Color(0xFF00796B),
+                    backgroundColor: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

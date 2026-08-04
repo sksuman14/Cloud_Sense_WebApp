@@ -61,7 +61,7 @@ class Footer extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color: isDarkMode ? const Color(0xFF1FCB8A) : const Color(0xFF0D47A1),
+          color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1),
           size: isWideScreen ? 24 : 20,
         ),
         const SizedBox(width: 12),

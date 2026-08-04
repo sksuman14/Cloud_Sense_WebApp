@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/views/devices/device_map.dart';
+import 'dart:ui' as ui;
 import 'package:cloud_sense_webapp/src/views/home/widgets/circular_product_carousel.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
@@ -16,7 +17,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
-
+import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:math';
 import 'dart:async';
 import 'package:universal_html/html.dart' as html;
 
@@ -33,7 +35,6 @@ import 'widgets/wind_dial.dart';
 import 'widgets/station_image_card.dart';
 import 'widgets/stats_banner.dart';
 import 'widgets/sensor_card.dart';
-import 'widgets/circular_product_carousel.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -50,13 +51,29 @@ class _HomePageState extends State<HomePage> {
   bool _isHoveredMyDevicesButton = false;
   bool _isPressedMyDevicesButton = false;
   // NEW: For device dropdown
-  String? selectedDeviceId; // e.g., "ANNAM001", "DM001", etc.
+  String? selectedDeviceId;
   bool showNearestDevice = false;
+  final TextEditingController _deviceIdController =
+      TextEditingController(text: "ANNAM_CP02");
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _productSectionKey = GlobalKey();
   bool _hasScrolledToProducts = false;
+
+  final GlobalKey _heroKey = GlobalKey();
+  final GlobalKey _telemetryKey = GlobalKey();
+  final GlobalKey _techKey = GlobalKey();
+  final GlobalKey _insightsKey = GlobalKey();
+  final GlobalKey _mapKey = GlobalKey();
+
+  void _scrollToSection(GlobalKey key) {
+    Scrollable.ensureVisible(
+      key.currentContext!,
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOut,
+    );
+  }
 
   Map<String, dynamic>? nearestDevice;
   String? errorMessage;
@@ -70,6 +87,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    if (selectedDeviceId != null && selectedDeviceId!.isNotEmpty) {
+      _deviceIdController.text = selectedDeviceId!;
+    }
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -190,6 +210,7 @@ class _HomePageState extends State<HomePage> {
     _authSubscription?.cancel();
     _scrollController.dispose();
     _pollingTimer?.cancel();
+    _deviceIdController.dispose();
     super.dispose();
   }
 
@@ -439,6 +460,9 @@ class _HomePageState extends State<HomePage> {
           _districtsCount = districtsCount;
           errorMessage = null;
         });
+        if (selectedDeviceId != null && selectedDeviceId!.isNotEmpty) {
+          _deviceIdController.text = selectedDeviceId!;
+        }
         _updateNativeWidget();
       }
     } catch (e) {
@@ -605,6 +629,7 @@ class _HomePageState extends State<HomePage> {
 
       return Scaffold(
         key: _scaffoldKey,
+        extendBodyBehindAppBar: true,
         backgroundColor: Colors.transparent,
         appBar: AppBarWidget(
           onRefresh: () async {
@@ -660,15 +685,31 @@ class _HomePageState extends State<HomePage> {
               controller: _scrollController,
               child: Column(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth < 800 ? 15 : 30,
-                      vertical: 15,
-                    ),
+                  // ── Hero Section ──
+                  HeroSection(
+                    key: _heroKey,
+                    isDarkMode: isDarkMode,
+                    onMyDevicesTap: _handleDeviceNavigation,
+                    onTelemetryTap: () => _scrollToSection(_telemetryKey),
+                    onProductsTap: () => _scrollToSection(_productSectionKey),
+                    onMapTap: () => _scrollToSection(_mapKey),
+                  ),
+
+                  // ── Live Weather Telemetry ──
+                  KeyedSubtree(
+                    key: _telemetryKey,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: screenWidth < 800 ? 15 : 30,
+                        right: screenWidth < 800 ? 15 : 30,
+                        top: 0,
+                        bottom: 15,
+                      ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         SafeArea(
+                          top: false,
                           child: Center(
                             child: isLoading
                                 ? const CircularProgressIndicator(
@@ -714,15 +755,14 @@ class _HomePageState extends State<HomePage> {
                                               if (!showNearestDevice)
                                                 SizedBox(
                                                   height:
-                                                      isSmallScreen ? 34 : 40,
+                                                      isSmallScreen ? 38 : 42,
                                                   child: Container(
                                                     width: isSmallScreen
-                                                        ? 100
+                                                        ? 115
                                                         : 150,
                                                     padding: const EdgeInsets
                                                         .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4),
+                                                        horizontal: 8),
                                                     decoration: BoxDecoration(
                                                       color: !isDarkMode
                                                           ? Colors.white
@@ -739,20 +779,18 @@ class _HomePageState extends State<HomePage> {
                                                         width: 1,
                                                       ),
                                                     ),
+                                                    alignment: Alignment.center,
                                                     child: TextField(
                                                       controller:
-                                                          TextEditingController(
-                                                        text:
-                                                            selectedDeviceId ??
-                                                                "ANNAM_CP02",
-                                                      ),
+                                                          _deviceIdController,
                                                       style: TextStyle(
                                                         color: isDarkMode
                                                             ? Colors.white
                                                             : Colors.black,
+                                                        fontFamily: 'OpenSans',
                                                         fontSize: isSmallScreen
                                                             ? 10
-                                                            : 14,
+                                                            : 13,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                       ),
@@ -770,13 +808,9 @@ class _HomePageState extends State<HomePage> {
                                                         ),
                                                         border:
                                                             InputBorder.none,
-                                                        contentPadding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                          horizontal: 4,
-                                                          vertical: 8,
-                                                        ),
                                                         isDense: true,
+                                                        contentPadding:
+                                                            EdgeInsets.zero,
                                                       ),
                                                       textAlign:
                                                           TextAlign.center,
@@ -868,6 +902,9 @@ class _HomePageState extends State<HomePage> {
                                                       nearestDevice = null;
                                                       errorMessage = null;
                                                     });
+                                                    _deviceIdController.text =
+                                                        selectedDeviceId ??
+                                                            'ANNAM_CP02';
                                                     _updateNativeWidget();
                                                   },
                                                   child: const Icon(
@@ -880,34 +917,11 @@ class _HomePageState extends State<HomePage> {
                                               if (!showNearestDevice)
                                                 SizedBox(
                                                   height:
-                                                      isSmallScreen ? 34 : 40,
-                                                  child: TextButton(
-                                                    style: TextButton.styleFrom(
-                                                      backgroundColor:
-                                                          !isDarkMode
-                                                              ? Colors.white
-                                                              : const Color(
-                                                                      0xFF0D1F2D)
-                                                                  .withOpacity(
-                                                                      0.5),
-                                                      padding: isSmallScreen
-                                                          ? const EdgeInsets
-                                                              .symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 12)
-                                                          : const EdgeInsets
-                                                              .symmetric(
-                                                              horizontal: 16,
-                                                              vertical: 16),
-                                                      minimumSize: Size.zero,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(6),
-                                                      ),
-                                                    ),
-                                                    onPressed: () async {
+                                                      isSmallScreen ? 38 : 42,
+                                                  child: InkWell(
+                                                    borderRadius:
+                                                        BorderRadius.circular(6),
+                                                    onTap: () async {
                                                       bool gotLocation =
                                                           await _getUserLocationAndFindNearest();
                                                       if (!gotLocation &&
@@ -929,17 +943,50 @@ class _HomePageState extends State<HomePage> {
                                                         });
                                                       }
                                                     },
-                                                    child: Text(
-                                                      "Check Nearest Device",
-                                                      style: TextStyle(
-                                                        color: isDarkMode
+                                                    child: Container(
+                                                      padding: EdgeInsets
+                                                          .symmetric(
+                                                        horizontal:
+                                                            isSmallScreen
+                                                                ? 12
+                                                                : 16,
+                                                      ),
+                                                      decoration:
+                                                          BoxDecoration(
+                                                        color: !isDarkMode
                                                             ? Colors.white
-                                                            : Colors.black,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: isSmallScreen
-                                                            ? 9
-                                                            : 12,
+                                                            : const Color(
+                                                                    0xFF0D1F2D)
+                                                                .withOpacity(
+                                                                    0.5),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
+                                                        border: Border.all(
+                                                          color: isDarkMode
+                                                              ? Colors.white30
+                                                              : Colors
+                                                                  .black26,
+                                                          width: 1,
+                                                        ),
+                                                      ),
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: Text(
+                                                        "Check Nearest Device",
+                                                        style: TextStyle(
+                                                          color: isDarkMode
+                                                              ? Colors.white
+                                                              : Colors.black,
+                                                          fontFamily:
+                                                              'OpenSans',
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize:
+                                                              isSmallScreen
+                                                                  ? 10
+                                                                  : 13,
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -955,52 +1002,40 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                             child: ConstrainedBox(
                                               constraints: BoxConstraints(
-                                                  maxWidth: screenWidth < 1024
+                                                          maxWidth: screenWidth < 1024
                                                       ? 1400
                                                       : double.infinity),
                                               child: Container(
                                                 decoration: BoxDecoration(
                                                   borderRadius:
                                                       BorderRadius.circular(16),
-                                                  gradient: LinearGradient(
-                                                    colors: isDarkMode
-                                                        ? [
-                                                            const Color(
-                                                                    0xFF1D2B38)
-                                                                .withOpacity(
-                                                                    0.9),
-                                                            const Color(
-                                                                0xFF1D2B38)
-                                                          ]
-                                                        : [
-                                                            Colors.white
-                                                                .withOpacity(
-                                                                    0.9),
-                                                            const Color(
-                                                                    0xFFF5F7FA)
-                                                                .withOpacity(
-                                                                    0.9),
-                                                          ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.3),
-                                                        blurRadius: 8,
-                                                        offset:
-                                                            const Offset(0, 4))
-                                                  ],
+                                                  color: Colors.transparent,
                                                 ),
                                                 child: Padding(
                                                   padding:
-                                                      const EdgeInsets.all(25),
+                                                      const EdgeInsets.only(top: 20, bottom: 20, left: 16, right: 16),
                                                   child: Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
                                                             .stretch,
                                                     children: [
+                                                      // ── Live Data Section Heading ──
+                                                      Center(
+                                                        child: Text(
+                                                          "Live Data",
+                                                          style: TextStyle(
+                                                            fontFamily: 'OpenSans',
+                                                            fontSize: screenWidth < 600 ? 26 : 34,
+                                                            fontWeight: FontWeight.w800,
+                                                            letterSpacing: -0.5,
+                                                            color: isDarkMode
+                                                                ? Colors.white
+                                                                : const Color(0xFF0D1B1E),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 32),
+
                                                       // --- START OF LAYOUT CHANGES ---
 
                                                       // --- CORRECTED HEADER SECTION ---
@@ -1262,525 +1297,109 @@ class _HomePageState extends State<HomePage> {
                                                             "lightintensity"
                                                           ]);
                                                           final windDirVal = HomeUtils.getCorrectedValue(selectedDevice, [
-                                                            "WindDirection",
-                                                            "winddirection",
-                                                            "NowWindDirection"
-                                                          ]);
-
-                                                          // Build the shared list of grid items once
-                                                          List<Widget>
-                                                              gridItems = [
-                                                            if (!HomeUtils.isNullOrEmpty(tempVal))
-                                                              Container(
-                                                                padding:
-                                                                    const EdgeInsets
-                                                                        .all(4),
-                                                                decoration:
-                                                                    BoxDecoration(
-                                                                  gradient: getTemperatureGradient(tempVal),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              8),
-                                                                ),
-                                                                child: Column(
-                                                                  mainAxisAlignment:
-                                                                      MainAxisAlignment
-                                                                          .center,
-                                                                  children: [
-                                                                    Row(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .center,
-                                                                      children: [
-                                                                        Icon(
-                                                                            Icons
-                                                                                .thermostat,
-                                                                            color: themeProvider.isDarkMode
-                                                                                ? Colors.white
-                                                                                : Colors.black,
-                                                                            size: 18),
-                                                                        const SizedBox(
-                                                                            width:
-                                                                                4),
-                                                                        Text(
-                                                                            "Temperature",
-                                                                            style:
-                                                                                TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 11)),
-                                                                      ],
-                                                                    ),
-                                                                    const SizedBox(
-                                                                        height:
-                                                                            4),
-                                                                    Text(
-                                                                      "${HomeUtils.formatValue(tempVal)}°C",
-                                                                      style: TextStyle(
-                                                                          color: themeProvider.isDarkMode
-                                                                              ? Colors
-                                                                                  .white70
-                                                                              : Colors
-                                                                                  .black87,
-                                                                          fontWeight: FontWeight
-                                                                              .bold,
-                                                                          fontSize:
-                                                                              16),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(humidityVal))
-                                                              AnimatedWaveHumidityCard(
-                                                                humidity: double.tryParse(humidityVal.toString()) ?? 0.0,
-                                                                formattedValue: HomeUtils.formatValue(humidityVal),
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(lightIntensityVal))
-                                                              AnimatedLightCard(
-                                                                luxValue: HomeUtils.formatValue(lightIntensityVal),
-                                                                name: HomeUtils
-                                                                    .getNameForKey(
-                                                                        "LightIntensity"),
-                                                                unit: HomeUtils
-                                                                    .getUnitForKey(
-                                                                        "LightIntensity"),
-                                                                color: themeProvider
-                                                                        .isDarkMode
-                                                                    ? Colors
-                                                                        .white70
-                                                                    : Colors
-                                                                        .black87,
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(pressureVal))
-                                                              AnimatedPressureCard(
-                                                                pressure: double.tryParse(pressureVal.toString()) ?? 0.0,
-                                                                formattedValue: HomeUtils.formatValue(pressureVal),
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(windSpeedVal))
-                                                              AnimatedWindCard(
-                                                                windSpeed: double.tryParse(windSpeedVal.toString()) ?? 0.0,
-                                                                formattedValue: HomeUtils.formatValue(windSpeedVal),
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(rainfallVal))
-                                                              AnimatedRainfallCard(
-                                                                rainfall: double.tryParse(rainfallVal.toString()) ?? 0.0,
-                                                                formattedValue: HomeUtils.formatValue(rainfallVal),
-                                                                label: HomeUtils
-                                                                    .getNameForKey(
-                                                                        "Rainfall"),
-                                                                intensityMultiplier:
-                                                                    10.0,
-                                                                enableAnimation:
-                                                                    true,
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(rainfallDailyVal))
-                                                              AnimatedRainfallCard(
-                                                                rainfall: double.tryParse(rainfallDailyVal.toString()) ?? 0.0,
-                                                                formattedValue: HomeUtils.formatValue(rainfallDailyVal),
-                                                                label: HomeUtils
-                                                                    .getNameForKey(
-                                                                        "RainfallDaily"),
-                                                                intensityMultiplier:
-                                                                    2.0,
-                                                                enableAnimation:
-                                                                    false,
-                                                              ),
-                                                            if (!HomeUtils.isNullOrEmpty(rainfallCumulativeVal))
-                                                              AnimatedRainfallCard(
-                                                                rainfall: double.tryParse(rainfallCumulativeVal.toString()) ?? 0.0,
-                                                                formattedValue: HomeUtils.formatValue(rainfallCumulativeVal),
-                                                                label: HomeUtils
-                                                                    .getNameForKey(
-                                                                        "RainfallCumulative"),
-                                                                intensityMultiplier:
-                                                                    2.0,
-                                                                enableAnimation:
-                                                                    false,
-                                                              ),
-                                                            ...(selectedDevice ??
-                                                                    {})
-                                                                .entries
-                                                                .where((e) =>
-                                                                    !HomeUtils
-                                                                        .isNullOrEmpty(e
-                                                                            .value) &&
-                                                                    !{
-                                                                      "Latitude",
-                                                                      "Longitude",
                                                                       "WindDirection",
                                                                       "winddirection",
-                                                                      "TimeStamp_IST",
-                                                                      "CurrentTemperature",
-                                                                      "CurrentHumidity",
-                                                                      "currenthumidity",
-                                                                      "LightIntensity",
-                                                                      "lightintensity",
-                                                                      "CurrentPressure",
-                                                                      "AtmPressure",
-                                                                      "atmpressure",
-                                                                      "WindSpeed",
-                                                                      "windspeed",
-                                                                      "RainfallHourly",
-                                                                      "rainfallhourly",
-                                                                      "RainfallDaily",
-                                                                      "rainfalldaily",
-                                                                      "RainfallWeekly",
-                                                                      "rainfallweekly",
-                                                                      "deviceid#topic",
-                                                                      "ExpiresAt",
-                                                                      "IMEINumber",
-                                                                      "LastUpdated",
-                                                                      "Topic",
-                                                                      "SignalStrength",
-                                                                      "BatteryVoltage",
-                                                                      "AverageHumidity",
-                                                                      "MinimumHumidity",
-                                                                      "HumidityHourlyComulative",
-                                                                      "AverageTemperature",
-                                                                      "MaximumTemperature",
-                                                                      "MinimumTemperature",
-                                                                      "PressureHourlyComulative",
-                                                                      "RainfallMinutlyComulative",
-                                                                      "RainfallHourlyComulative",
-                                                                      "RainfallWeeklyComulative",
-                                                                      "RainfallDailyComulative",
-                                                                      "MaximumHumidity",
-                                                                      "TemperatureHourlyComulative",
-                                                                      "State",
-                                                                      "District",
-                                                                      "City",
-                                                                      'SDcardStatus',
-                                                                      "CurrentRelativeHumidity",
-                                                                      "geo_status",
-                                                                      "Rainfall",
-                                                                      "Interval",
-                                                                      "epoch_ts",
-                                                                      "HealthStatus",
-                                                                      "Payload",
-                                                                      "DeviceId",
-                                                                      "FirmwareVersion",
-                                                                      "firmwareversion",
-                                                                      "PcbVersion",
-                                                                      "pcbversion",
-                                                                      "pcb_version",
-                                                                      "corrected_fields",
-                                                                      "correctedfields",
-                                                                      "CorrectedTemp",
-                                                                      "correctedtemp",
-                                                                      "CurrentTemperature",
-                                                                      "currenttemperature",
-                                                                      "CorrectedHumidity",
-                                                                      "correctedhumidity",
-                                                                      "ANNAM_ID",
-                                                                      "max_wind_direction_gust",
-                                                                      "MaximumTemperature",
-                                                                      "MinimumTemperature",
-                                                                      "AverageWindSpeed",
-                                                                      "MQTT_TopicTime",
-                                                                      "MinimumRelativeHumidity",
-                                                                      "geo_status",
-                                                                      "RainfallCumulative",
-                                                                      "MaximumRelativeHumidity",
-                                                                      "AverageWindDirection",
-                                                                      "PanelVoltage",
-                                                                      "max_wind_gust",
-                                                                      "max_wind_gust_time",
-                                                                      "MaxWindGustTime",
-                                                                      "maxWindGustTime",
-                                                                      "NowTemperature",
-                                                                      "NowRelativeHumidity",
-                                                                      "NowWindSpeed",
-                                                                      "NowWindDirection",
-                                                                      "now_pressure",
-                                                                      "Rainfall",
-                                                                    }.contains(
-                                                                        e.key))
-                                                                .map((e) {
-                                                              return Container(
-                                                                padding:
-                                                                    const EdgeInsets
-                                                                        .all(2),
-                                                                decoration:
-                                                                    BoxDecoration(
-                                                                  color: themeProvider
-                                                                          .isDarkMode
-                                                                      ? Colors
-                                                                          .white
-                                                                          .withOpacity(
-                                                                              0.1)
-                                                                      : Colors
-                                                                          .black
-                                                                          .withOpacity(
-                                                                              0.05),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              8),
-                                                                ),
-                                                                child: Column(
-                                                                  mainAxisAlignment:
-                                                                      MainAxisAlignment
-                                                                          .center,
-                                                                  children: [
-                                                                    Row(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .center,
-                                                                      children: [
-                                                                        Icon(
-                                                                            HomeUtils.getIconForKey(e
-                                                                                .key),
-                                                                            color: themeProvider.isDarkMode
-                                                                                ? Colors.white
-                                                                                : Colors.black,
-                                                                            size: 18),
-                                                                        const SizedBox(
-                                                                            width:
-                                                                                4),
-                                                                        Text(
-                                                                            HomeUtils.getNameForKey(e
-                                                                                .key),
-                                                                            style:
-                                                                                TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 11)),
-                                                                      ],
-                                                                    ),
-                                                                    const SizedBox(
-                                                                        height:
-                                                                            4),
-                                                                    Text(
-                                                                      "${HomeUtils.formatValue(e.value)} ${HomeUtils.getUnitForKey(e.key)}",
-                                                                      style: TextStyle(
-                                                                          color: themeProvider.isDarkMode
-                                                                              ? Colors
-                                                                                  .white70
-                                                                              : Colors
-                                                                                  .black87,
-                                                                          fontWeight: FontWeight
-                                                                              .bold,
-                                                                          fontSize:
-                                                                              16),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .center,
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              );
-                                                            }).toList(),
-                                                          ];
+                                                                      "NowWindDirection"
+                                                                    ]);
 
-                                                          if (!HomeUtils.isNullOrEmpty(windDirVal) &&
-                                                              !HomeUtils.isNullOrEmpty(windSpeedVal)) {
-                                                            gridItems.add(
-                                                              Container(
-                                                                padding:
-                                                                    const EdgeInsets
-                                                                        .all(2),
-                                                                decoration:
-                                                                    BoxDecoration(
-                                                                  gradient:
-                                                                      LinearGradient(
-                                                                    colors:
-                                                                        themeProvider.isDarkMode
-                                                                            ? [
-                                                                                Colors.lightBlue.shade700.withOpacity(0.5),
-                                                                                Colors.blue.shade900.withOpacity(0.6),
-                                                                              ]
-                                                                            : [
-                                                                                Colors.lightBlue.shade800.withOpacity(0.85),
-                                                                                Colors.blue.shade900.withOpacity(0.9),
-                                                                              ],
-                                                                    begin: Alignment
-                                                                        .topLeft,
-                                                                    end: Alignment
-                                                                        .bottomRight,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              8),
-                                                                ),
-                                                                alignment:
-                                                                    Alignment
-                                                                        .center,
-                                                                child:
-                                                                    FittedBox(
-                                                                  fit: BoxFit
-                                                                      .scaleDown,
-                                                                  child: WindDial(
-                                                                      direction: selectedDevice?["WindDirection"] ??
-                                                                          selectedDevice?[
-                                                                              "winddirection"] ??
-                                                                          selectedDevice?[
-                                                                              "NowWindDirection"],
-                                                                      speed: selectedDevice?["WindSpeed"] ??
-                                                                          selectedDevice?[
-                                                                              "windspeed"] ??
-                                                                          selectedDevice?[
-                                                                              "NowWindSpeed"]),
-                                                                ),
+                                                          // Build the shared list of grid items once
+                                                          List<Widget> gridItems = [
+                                                            if (!HomeUtils.isNullOrEmpty(tempVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.thermostat,
+                                                                label: "Temperature",
+                                                                value: "${HomeUtils.formatValue(tempVal)}°C",
+                                                                glowColor: Colors.amber,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.temperature,
+                                                                numericValue: double.tryParse(tempVal.toString()),
                                                               ),
-                                                            );
-                                                          }
+                                                            if (!HomeUtils.isNullOrEmpty(humidityVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.water_drop_outlined,
+                                                                label: "Humidity",
+                                                                value: "${HomeUtils.formatValue(humidityVal)} %",
+                                                                glowColor: Colors.cyan,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.humidity,
+                                                                numericValue: double.tryParse(humidityVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(lightIntensityVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.lightbulb_outline,
+                                                                label: "Light Intensity",
+                                                                value: "${HomeUtils.formatValue(lightIntensityVal)} Lux",
+                                                                glowColor: Colors.orangeAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.light,
+                                                                numericValue: double.tryParse(lightIntensityVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(pressureVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.compress,
+                                                                label: "Atm Pressure",
+                                                                value: "${HomeUtils.formatValue(pressureVal)} hPa",
+                                                                glowColor: Colors.purpleAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.pressure,
+                                                                numericValue: double.tryParse(pressureVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(windSpeedVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.air,
+                                                                label: "Wind Speed",
+                                                                value: "${HomeUtils.formatValue(windSpeedVal)} m/s",
+                                                                glowColor: Colors.tealAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.wind,
+                                                                numericValue: double.tryParse(windSpeedVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(rainfallVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.grain,
+                                                                label: "Rainfall",
+                                                                value: "${HomeUtils.formatValue(rainfallVal)} mm",
+                                                                glowColor: Colors.blueAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.rainfall,
+                                                                numericValue: double.tryParse(rainfallVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(rainfallCumulativeVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.cloud_download_outlined,
+                                                                label: "Rainfall Cumulative",
+                                                                value: "${HomeUtils.formatValue(rainfallCumulativeVal)} mm",
+                                                                glowColor: Colors.indigoAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.rainfall,
+                                                                numericValue: double.tryParse(rainfallCumulativeVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(windDirVal) &&
+                                                                !HomeUtils.isNullOrEmpty(windSpeedVal))
+                                                              _HoverableCompassCard(
+                                                                selectedDevice: selectedDevice,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                              ),
+                                                           ];
 
-                                                          Widget weatherGrid =
-                                                              GridView.count(
-                                                            crossAxisCount:
-                                                                screenWidth <
-                                                                        800
-                                                                    ? 2
-                                                                    : 3,
-                                                            crossAxisSpacing:
-                                                                15,
-                                                            mainAxisSpacing: 15,
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .all(4),
+                                                          Widget weatherGrid = GridView.count(
+                                                            crossAxisCount: screenWidth < 700 ? 2 : (screenWidth < 1100 ? 3 : 4),
+                                                            crossAxisSpacing: 12,
+                                                            mainAxisSpacing: 12,
+                                                            padding: const EdgeInsets.all(4),
                                                             shrinkWrap: true,
-                                                            physics:
-                                                                const NeverScrollableScrollPhysics(),
-                                                            childAspectRatio:
-                                                                screenWidth <
-                                                                        800
-                                                                    ? 1.8
-                                                                    : 2.4,
+                                                            physics: const NeverScrollableScrollPhysics(),
+                                                            childAspectRatio: screenWidth < 480
+                                                                ? 1.22
+                                                                : (screenWidth < 700
+                                                                    ? 1.4
+                                                                    : (screenWidth < 1000
+                                                                        ? 1.65
+                                                                        : (screenWidth < 1300 ? 1.85 : 2.05))),
                                                             children: gridItems,
                                                           );
 
-                                                          if (!isLargeScreen) {
-                                                            // ── Mobile & Small Tablet ──────────────────────────────
-                                                            return Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .stretch,
-                                                              children: [
-                                                                StationImageCard(
-                                                                  width: double
-                                                                      .infinity,
-                                                                  fit: BoxFit
-                                                                      .fitWidth,
-                                                                ),
-                                                                const SizedBox(
-                                                                    height: 16),
-                                                                weatherGrid,
-                                                              ],
-                                                            );
-                                                          } else {
-                                                            // ── Large Tablet & Desktop ─────────────────────────────
-                                                            return LayoutBuilder(
-                                                              builder: (ctx,
-                                                                  outerConstraints) {
-                                                                const spacing =
-                                                                    16.0;
-                                                                final totalW =
-                                                                    outerConstraints
-                                                                        .maxWidth;
-
-                                                                // Syncing with map's 7:3 ratio for desktop screens (>= 1024)
-                                                                final bool
-                                                                    useMapRatio =
-                                                                    screenWidth >=
-                                                                        1024;
-                                                                final gridW = (totalW -
-                                                                        spacing) *
-                                                                    (useMapRatio
-                                                                        ? 7
-                                                                        : 5) /
-                                                                    (useMapRatio
-                                                                        ? 10
-                                                                        : 8);
-                                                                final imageW = (totalW -
-                                                                        spacing) *
-                                                                    (useMapRatio
-                                                                        ? 3
-                                                                        : 3) /
-                                                                    (useMapRatio
-                                                                        ? 10
-                                                                        : 8);
-
-                                                                const crossAxisSpacing =
-                                                                    15.0;
-                                                                const mainAxisSpacing =
-                                                                    15.0;
-                                                                const gridPadding =
-                                                                    4.0;
-                                                                const crossCount =
-                                                                    3;
-                                                                const childAspectRatio =
-                                                                    2.4;
-
-                                                                final itemW = (gridW -
-                                                                        (crossCount -
-                                                                                1) *
-                                                                            crossAxisSpacing -
-                                                                        gridPadding *
-                                                                            2) /
-                                                                    crossCount;
-                                                                final itemH =
-                                                                    itemW /
-                                                                        childAspectRatio;
-
-                                                                final numRows =
-                                                                    (gridItems.length /
-                                                                            crossCount)
-                                                                        .ceil()
-                                                                        .clamp(
-                                                                            1,
-                                                                            999);
-
-                                                                final gridH = numRows *
-                                                                        itemH +
-                                                                    (numRows -
-                                                                            1) *
-                                                                        mainAxisSpacing +
-                                                                    gridPadding *
-                                                                        2;
-
-                                                                final imageH =
-                                                                    (gridH).clamp(
-                                                                        200.0,
-                                                                        9999.0);
-
-                                                                return Row(
-                                                                  crossAxisAlignment:
-                                                                      CrossAxisAlignment
-                                                                          .start,
-                                                                  children: [
-                                                                    SizedBox(
-                                                                      width:
-                                                                          gridW,
-                                                                      child:
-                                                                          Column(
-                                                                        crossAxisAlignment:
-                                                                            CrossAxisAlignment.start,
-                                                                        mainAxisSize:
-                                                                            MainAxisSize.min,
-                                                                        children: [
-                                                                          weatherGrid,
-                                                                        ],
-                                                                      ),
-                                                                    ),
-                                                                    const SizedBox(
-                                                                        width:
-                                                                            spacing),
-                                                                    SizedBox(
-                                                                      width:
-                                                                          imageW,
-                                                                      height:
-                                                                          imageH,
-                                                                      child:
-                                                                          StationImageCard(
-                                                                        width:
-                                                                            imageW,
-                                                                        height:
-                                                                            imageH,
-                                                                        fit: BoxFit
-                                                                            .fill,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                );
-                                                              },
-                                                            );
-                                                          }
+                                                          return weatherGrid;
                                                         },
                                                       ),
                                                       const SizedBox(height: 5),
@@ -1823,30 +1442,12 @@ class _HomePageState extends State<HomePage> {
                                       ),
                           ),
                         ),
-                        const SizedBox(height: 15),
-                        // ── Stats Banner ─────────────────────────────────
-                        KeyedSubtree(
-                          key: _statsRefreshKey,
-                          child: StatsBanner(
-                            totalDevices: _totalDevices,
-                            dataPointsCount: _dataPointsCount,
-                            statesCount: _statesCount,
-                            districtsCount: _districtsCount,
-                            themeProvider: themeProvider,
-                            screenWidth: screenWidth,
-                            onMyDevicesTap: _handleDeviceNavigation,
-                            isHovered: _isHoveredMyDevicesButton,
-                            isPressed: _isPressedMyDevicesButton,
-                            onHoverChanged: (v) =>
-                                setState(() => _isHoveredMyDevicesButton = v),
-                            onPressChanged: (v) =>
-                                setState(() => _isPressedMyDevicesButton = v),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
                       ],
                     ),
                   ),
+                ),
+
+                // ── Nationwide Deployments Section (now first) ──
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -1866,38 +1467,70 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: Column(
                       children: [
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 60),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 30),
                           child: Text(
                             "Nationwide Deployments",
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: screenWidth < 600 ? 24 : 30,
-                              fontWeight: FontWeight.bold,
+                              fontFamily: 'OpenSans',
+                              fontSize: screenWidth < 600 ? 28 : 38,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
                               color: themeProvider.isDarkMode
                                   ? Colors.white
-                                  : Colors.black,
+                                  : const Color(0xFF0D1B1E),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: screenWidth < 600 ? 0 : 30),
-                          child: DeviceMapScreen(
-                            isComponent: true,
-                            height: 600,
+                        const SizedBox(height: 32),
+                        KeyedSubtree(
+                          key: _mapKey,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: screenWidth < 600 ? 0 : 30),
+                            child: DeviceMapScreen(
+                              isComponent: true,
+                              height: 600,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 50),
+                        const SizedBox(height: 40),
+                        // Stats Banner right below map
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth < 800 ? 15 : 30,
+                          ),
+                          child: KeyedSubtree(
+                            key: _statsRefreshKey,
+                            child: StatsBanner(
+                              totalDevices: _totalDevices,
+                              dataPointsCount: _dataPointsCount,
+                              statesCount: _statesCount,
+                              districtsCount: _districtsCount,
+                              themeProvider: themeProvider,
+                              screenWidth: screenWidth,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 48),
+                        // ── Tech Showcase Section (above Our Products) ──
+                        KeyedSubtree(
+                          key: _techKey,
+                          child: TechShowcaseSection(isDarkMode: isDarkMode),
+                        ),
+                        const SizedBox(height: 48),
+                        // ── Our Products Carousel ──
                         KeyedSubtree(
                           key: _productSectionKey,
                           child: const ProductSectionV2(),
                         ),
+                        const SizedBox(height: 48),
                       ],
                     ),
                   ),
+
                   Footer(),
                 ],
               ),
@@ -1936,6 +1569,7 @@ class _HomePageState extends State<HomePage> {
       MethodChannel('com.example.cloud_sense_webapp/widget');
 
   Future<void> _updateNativeWidget() async {
+    if (kIsWeb) return;
     // Widget always independently finds the nearest device via GPS + API
     // It does NOT depend on the home screen's nearestDevice variable
     Map<String, dynamic>? widgetDeviceData;
@@ -2184,6 +1818,1169 @@ class _GlowCircle extends StatelessWidget {
             color,
             color.withOpacity(0),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class HeroSection extends StatefulWidget {
+  final VoidCallback onMyDevicesTap;
+  final VoidCallback onTelemetryTap;
+  final VoidCallback onProductsTap;
+  final VoidCallback onMapTap;
+  final bool isDarkMode;
+
+  const HeroSection({
+    super.key,
+    required this.onMyDevicesTap,
+    required this.onTelemetryTap,
+    required this.onProductsTap,
+    required this.onMapTap,
+    required this.isDarkMode,
+  });
+
+  @override
+  State<HeroSection> createState() => _HeroSectionState();
+}
+
+class _HeroSectionState extends State<HeroSection> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  bool _isAutoScrolling = false;
+
+  final List<Map<String, String>> _slides = [
+    {"path": "assets/images/site10.jpg", "location": "Udhampur"},
+    {"path": "assets/images/site1.jpg", "location": "Nehon, Punjab"},
+    {"path": "assets/images/site2.jpg", "location": "Machhiwara, Punjab"},
+    {"path": "assets/images/site3.jpg", "location": "Abohar, Punjab"},
+    {"path": "assets/images/site4.jpg", "location": "Khanna, Punjab"},
+    {"path": "assets/images/site5.jpg", "location": "Bhagta Bhai Ka, Punjab"},
+    {"path": "assets/images/site6.jpg", "location": "Maur, Punjab"},
+    {"path": "assets/images/site8.jpg", "location": "Jandiala, Punjab"},
+    {"path": "assets/images/site9.jpg", "location": "Fazilka, Punjab"},
+  ];
+
+  static const int _initialVirtualMultiplier = 1000;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(
+      initialPage: _initialVirtualMultiplier * _slides.length,
+    );
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    if (_isAutoScrolling) return;
+    _isAutoScrolling = true;
+    _scheduleNextScroll();
+  }
+
+  void _scheduleNextScroll() {
+    Future.delayed(const Duration(seconds: 6), () {
+      if (!mounted) return;
+      final currentVirtual = _pageController.hasClients && _pageController.page != null
+          ? _pageController.page!.round()
+          : (_initialVirtualMultiplier * _slides.length + _currentIndex);
+      final nextVirtual = currentVirtual + 1;
+      _pageController.animateToPage(
+        nextVirtual,
+        duration: const Duration(milliseconds: 1500),
+        curve: Curves.easeInOut,
+      ).then((_) {
+        if (mounted) {
+          setState(() {
+            _currentIndex = nextVirtual % _slides.length;
+          });
+          _scheduleNextScroll();
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double width = MediaQuery.of(context).size.width;
+    bool isMobile = width < 800;
+    bool isTablet = width >= 800 && width < 1200;
+    
+    // Responsive Button Styling
+    double btnPaddingHorizontal = isMobile ? 16.0 : (isTablet ? 18.0 : 28.0);
+    double btnPaddingVertical = isMobile ? 12.0 : (isTablet ? 14.0 : 18.0);
+    double btnFontSize = isMobile ? 12.0 : (isTablet ? 13.0 : 14.0);
+    double iconSize = isMobile ? 16.0 : (isTablet ? 18.0 : 20.0);
+
+    return Container(
+      width: double.infinity,
+      height: isMobile ? 650 : 750,
+      color: Colors.black,
+      child: Stack(
+        children: [
+          // 1. Full-Screen Slideshow Background (Tesla Style with blurred sides!)
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (virtualIdx) {
+              setState(() {
+                _currentIndex = virtualIdx % _slides.length;
+              });
+            },
+            itemBuilder: (context, virtualIndex) {
+              final slideIndex = virtualIndex % _slides.length;
+              final slidePath = _slides[slideIndex]["path"]!;
+              return Stack(
+                children: [
+                  // Background image covering full space
+                  Positioned.fill(
+                    child: Image.asset(
+                      slidePath,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                    ),
+                  ),
+                  // Blurred overlay to create matching blurry space filler (lower blur sigma!)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      child: BackdropFilter(
+                        filter: ui.ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                        child: Container(
+                          color: Colors.black.withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Fully uncropped contained image aligned to the right on desktop, center on mobile
+                  Positioned.fill(
+                    child: Align(
+                      alignment: isMobile ? Alignment.center : Alignment.centerRight,
+                      child: Padding(
+                        padding: isMobile 
+                            ? const EdgeInsets.only(bottom: 20.0, left: 16.0, right: 16.0) 
+                            : const EdgeInsets.only(right: 60.0, top: 40.0, bottom: 40.0),
+                        child: ShaderMask(
+                          shaderCallback: (Rect bounds) {
+                            return LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: const [
+                                Colors.transparent,
+                                Colors.black,
+                                Colors.black,
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.08, 0.92, 1.0],
+                            ).createShader(bounds);
+                          },
+                          blendMode: BlendMode.dstIn,
+                          child: ShaderMask(
+                            shaderCallback: (Rect bounds) {
+                              return LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: const [
+                                  Colors.transparent,
+                                  Colors.black,
+                                  Colors.black,
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.08, 0.92, 1.0],
+                              ).createShader(bounds);
+                            },
+                            blendMode: BlendMode.dstIn,
+                            child: Image.asset(
+                              slidePath,
+                              fit: BoxFit.contain,
+                              alignment: isMobile ? Alignment.center : Alignment.centerRight,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          // 2. Dark Overlay Gradient for Readability
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.65),
+                  Colors.black.withOpacity(0.3),
+                  widget.isDarkMode ? const Color(0xFF0B141D) : const Color(0xFFFFFFFF),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+          // 3. Left-Aligned Content Overlay on Desktop (Tesla Style)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
+            child: Align(
+              alignment: isMobile ? Alignment.center : Alignment.centerLeft,
+              child: SizedBox(
+                width: isMobile ? double.infinity : width * 0.5,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 140), // Spacing for glassmorphic AppBar
+                    // Main Title
+                    Text(
+                      "WEATHER INTELLIGENCE",
+                      textAlign: isMobile ? TextAlign.center : TextAlign.left,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'OpenSans',
+                        fontSize: isMobile ? 28 : 52,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 4.0,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.5),
+                            offset: const Offset(0, 4),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                    ).animate().fade(delay: 200.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
+                    const SizedBox(height: 12),
+                    // Subtitle
+                    Text(
+                      "Industrial-grade telemetry. Real-time agricultural decision intelligence.",
+                      textAlign: isMobile ? TextAlign.center : TextAlign.left,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: isMobile ? 14 : 18,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.5),
+                            offset: const Offset(0, 2),
+                            blurRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ).animate().fade(delay: 400.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
+                    Spacer(flex: isMobile ? 3 : 1),
+                    // CTA Buttons
+                    Wrap(
+                      spacing: isMobile ? 10 : 16,
+                      runSpacing: isMobile ? 10 : 16,
+                      alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: widget.onMyDevicesTap,
+                          icon: Icon(Icons.devices, color: Colors.black, size: iconSize),
+                          label: const Text("My Devices"),
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.black,
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: widget.onTelemetryTap,
+                          icon: Icon(Icons.analytics_outlined, color: Colors.white, size: iconSize),
+                          label: const Text("Live Monitor"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white, width: 2),
+                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: widget.onProductsTap,
+                          icon: Icon(Icons.explore_outlined, color: Colors.white, size: iconSize),
+                          label: const Text("Explore Hardware"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white, width: 2),
+                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: widget.onMapTap,
+                          icon: Icon(Icons.map_outlined, color: Colors.white, size: iconSize),
+                          label: const Text("Nationwide Map"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white, width: 2),
+                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          ),
+                        ),
+                      ],
+                    ).animate().fade(delay: 600.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
+                    Spacer(flex: isMobile ? 1 : 1),
+                // Animated Scroll Indicator
+                Icon(
+                  Icons.keyboard_double_arrow_down,
+                  color: Colors.white.withOpacity(0.6),
+                  size: 28,
+                ).animate(onPlay: (controller) => controller.repeat())
+                 .slideY(duration: 1.seconds, begin: 0.0, end: 0.4)
+                 .fade(duration: 1.seconds, begin: 1.0, end: 0.0),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+          // 4. Location Badge Overlay at the bottom-left
+          Positioned(
+            bottom: 24,
+            left: 24,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.location_on, color: Colors.redAccent, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    _slides[_currentIndex]["location"]!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // 5. Slide Indicator Dots at the bottom-right
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                _slides.length,
+                (index) => Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentIndex == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TechShowcaseSection extends StatelessWidget {
+  final bool isDarkMode;
+
+  const TechShowcaseSection({required this.isDarkMode});
+
+  @override
+  Widget build(BuildContext context) {
+    double width = MediaQuery.of(context).size.width;
+    bool isMobile = width < 800;
+
+    final cards = [
+      _TechCard(
+        icon: Icons.auto_awesome_outlined,
+        title: "AI Telemetry Cleanse",
+        desc: "Filters spikes and sensor errors automatically. Our backend cross-verifies values using grid deviance and range algorithms to ensure reliable decision data.",
+        isDarkMode: isDarkMode,
+      ),
+      _TechCard(
+        icon: Icons.solar_power_outlined,
+        title: "Autonomous Hardware",
+        desc: "Built to survive harsh monsoons. Equipped with integrated solar charging, IP65 waterproof housing, and 30-day battery backup for zero downtime.",
+        isDarkMode: isDarkMode,
+      ),
+      _TechCard(
+        icon: Icons.cell_tower_outlined,
+        title: "4G & GPS Sync",
+        desc: "Instant remote connectivity. Telemetry nodes automatically sync raw and corrected weather values to our interactive maps every minute.",
+        isDarkMode: isDarkMode,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+      child: Column(
+        children: [
+          Text(
+            "ADVANCED FARM TECHNOLOGY",
+            style: TextStyle(
+              fontFamily: 'OpenSans',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.blueAccent.shade200 : const Color(0xFF1565C0),
+              letterSpacing: 2.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Designed for reliability. Engineered for impact.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'OpenSans',
+              fontSize: isMobile ? 26 : 36,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
+            ),
+          ),
+          const SizedBox(height: 36),
+          isMobile
+              ? Column(
+                  children: cards.map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: c,
+                  )).toList(),
+                )
+              : IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: cards.map((c) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: c,
+                      ),
+                    )).toList(),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TechCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String desc;
+  final bool isDarkMode;
+
+  const _TechCard({
+    required this.icon,
+    required this.title,
+    required this.desc,
+    required this.isDarkMode,
+  });
+
+  @override
+  State<_TechCard> createState() => _TechCardState();
+}
+
+class _TechCardState extends State<_TechCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: 300.ms,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: widget.isDarkMode
+              ? (const Color(0xFF1D2B38).withOpacity(_hovered ? 0.95 : 0.6))
+              : (Colors.white.withOpacity(_hovered ? 0.95 : 0.6)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: widget.isDarkMode
+                ? (Colors.white.withOpacity(_hovered ? 0.3 : 0.1))
+                : (Colors.black.withOpacity(_hovered ? 0.15 : 0.05)),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(_hovered ? 0.15 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              widget.icon,
+              color: Colors.blueAccent.shade400,
+              size: 36,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.title,
+              style: TextStyle(
+                fontFamily: 'OpenSans',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: widget.isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              widget.desc,
+              style: TextStyle(
+                fontFamily: 'OpenSans',
+                fontSize: 13.5,
+                color: widget.isDarkMode
+                    ? Colors.white.withOpacity(0.7)
+                    : Colors.black.withOpacity(0.65),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum SensorType {
+  temperature,
+  humidity,
+  light,
+  pressure,
+  wind,
+  rainfall,
+  generic,
+}
+
+class _WavePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final double fillPercentage;
+
+  _WavePainter({
+    required this.progress,
+    required this.color,
+    required this.fillPercentage,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final level = (1.0 - (fillPercentage / 100.0).clamp(0.0, 1.0));
+    final paint = Paint()
+      ..color = color.withOpacity(0.4)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height);
+    for (double x = 0; x <= size.width; x++) {
+      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 8;
+      path.lineTo(x, y);
+    }
+    path.lineTo(size.width, size.height);
+    path.close();
+    canvas.drawPath(path, paint);
+
+    final paint2 = Paint()
+      ..color = color.withOpacity(0.22)
+      ..style = PaintingStyle.fill;
+    final path2 = Path();
+    path2.moveTo(0, size.height);
+    for (double x = 0; x <= size.width; x++) {
+      final y = size.height * (level + 0.03).clamp(0.0, 1.0) + sin(x / size.width * 2 * pi - progress * 2 * pi + pi / 2) * 6;
+      path2.lineTo(x, y);
+    }
+    path2.lineTo(size.width, size.height);
+    path2.close();
+    canvas.drawPath(path2, paint2);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _PressureLinePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _PressureLinePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2;
+
+    for (int i = 0; i < 4; i++) {
+      final path = Path();
+      final baseHeight = size.height * (0.35 + i * 0.14);
+      path.moveTo(0, baseHeight);
+      for (double x = 0; x <= size.width; x++) {
+        final y = baseHeight + sin(x / size.width * 3 * pi + progress * 2 * pi + i * pi / 4) * 8;
+        path.lineTo(x, y);
+      }
+      paint.color = color.withOpacity(0.2 + 0.08 * (4 - i));
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _WindLinePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _WindLinePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    for (int i = 0; i < 5; i++) {
+      final path = Path();
+      final startY = size.height * (0.2 + i * 0.16);
+      final localProgress = (progress + i * 0.22) % 1.0;
+      final startX = size.width * (localProgress - 0.2);
+      final endX = startX + size.width * 0.35;
+      
+      path.moveTo(startX, startY);
+      for (double x = startX; x <= endX; x++) {
+        final y = startY + sin(x / size.width * 4 * pi + progress * 2 * pi) * 4;
+        path.lineTo(x, y);
+      }
+      
+      paint.color = color.withOpacity(0.55 * sin(localProgress * pi));
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _RainDropPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _RainDropPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (int i = 0; i < 12; i++) {
+      final x = size.width * (0.05 + i * 0.08);
+      final localProgress = (progress + i * 0.17) % 1.0;
+      final startY = size.height * (localProgress - 0.25);
+      final endY = startY + 20.0;
+
+      final opacity = 0.5 * sin(localProgress * pi);
+      final paintLine = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..color = color.withOpacity(opacity * 0.4);
+
+      final paintDrop = Paint()
+        ..style = PaintingStyle.fill
+        ..color = color.withOpacity(opacity);
+
+      // Draw rain droplet head
+      canvas.drawCircle(Offset(x, endY), 2.0, paintDrop);
+
+      // Draw rain droplet tail/trail
+      canvas.drawLine(Offset(x, startY), Offset(x, endY - 2.0), paintLine);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _HoverableGlassCard extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color glowColor;
+  final bool isDarkMode;
+  final SensorType type;
+  final double? numericValue;
+
+  const _HoverableGlassCard({
+    Key? key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.glowColor,
+    required this.isDarkMode,
+    required this.type,
+    this.numericValue,
+  }) : super(key: key);
+
+  @override
+  State<_HoverableGlassCard> createState() => _HoverableGlassCardState();
+}
+
+class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _animController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cardBg = [Colors.transparent, Colors.transparent];
+
+    final cardBorder = widget.isDarkMode
+        ? (_isHovered
+            ? widget.glowColor.withOpacity(0.55)
+            : widget.glowColor.withOpacity(0.25))
+        : (_isHovered
+            ? widget.glowColor.withOpacity(0.7)
+            : widget.glowColor.withOpacity(0.35));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()..scale(_isHovered ? 1.03 : 1.0),
+        transformAlignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cardBorder, width: 1.2),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: cardBg,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _isHovered
+                  ? widget.glowColor.withOpacity(0.3)
+                  : widget.glowColor.withOpacity(0.12),
+              blurRadius: _isHovered ? 18 : 10,
+              spreadRadius: _isHovered ? 1.5 : 0.5,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // 1. Subtle Background Animation Overlay
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _animController,
+                  builder: (context, child) {
+                    if (widget.type == SensorType.temperature) {
+                      final opacity = (0.1 + 0.3 * sin(_animController.value * 2 * pi).abs());
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment.center,
+                            radius: 1.2,
+                            colors: [
+                              widget.glowColor.withOpacity(opacity),
+                              widget.glowColor.withOpacity(opacity * 0.2),
+                            ],
+                          ),
+                        ),
+                      );
+                    } else if (widget.type == SensorType.humidity) {
+                      return CustomPaint(
+                        painter: _WavePainter(
+                          progress: _animController.value,
+                          color: widget.glowColor,
+                          fillPercentage: widget.numericValue ?? 0.0,
+                        ),
+                      );
+                    } else if (widget.type == SensorType.light) {
+                      final progress = _animController.value;
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment(-2.0 + progress * 4.0, -1.0),
+                            end: Alignment(-1.0 + progress * 4.0, 1.0),
+                            colors: [
+                              Colors.transparent,
+                              widget.glowColor.withOpacity(0.04),
+                              widget.glowColor.withOpacity(0.45),
+                              widget.glowColor.withOpacity(0.04),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
+                          ),
+                        ),
+                      );
+                    } else if (widget.type == SensorType.pressure) {
+                      return CustomPaint(
+                        painter: _PressureLinePainter(
+                          progress: _animController.value,
+                          color: widget.glowColor,
+                        ),
+                      );
+                    } else if (widget.type == SensorType.wind) {
+                      return CustomPaint(
+                        painter: _WindLinePainter(
+                          progress: _animController.value,
+                          color: widget.glowColor,
+                        ),
+                      );
+                    } else if (widget.type == SensorType.rainfall) {
+                      if (widget.numericValue != null && widget.numericValue! > 0.0) {
+                        return CustomPaint(
+                          painter: _RainDropPainter(
+                            progress: _animController.value,
+                            color: widget.glowColor,
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              // 2. Light leak glow in top-right (always visible, boosts on hover)
+              Positioned(
+                top: -20,
+                right: -20,
+                child: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.glowColor.withOpacity(_isHovered ? 0.25 : 0.12),
+                        blurRadius: _isHovered ? 35 : 20,
+                        spreadRadius: _isHovered ? 18 : 8,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 3. Foreground metric data
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: widget.glowColor.withOpacity(0.1),
+                          ),
+                          child: Icon(
+                            widget.icon,
+                            color: widget.glowColor,
+                            size: 18,
+                          ),
+                        ),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isHovered
+                                ? widget.glowColor
+                                : widget.glowColor.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.label.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                                color: widget.isDarkMode ? Colors.white60 : Colors.black54,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                widget.value,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: widget.isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _HoverableCompassCard extends StatefulWidget {
+  final Map<String, dynamic>? selectedDevice;
+  final bool isDarkMode;
+
+  const _HoverableCompassCard({
+    Key? key,
+    required this.selectedDevice,
+    required this.isDarkMode,
+  }) : super(key: key);
+
+  @override
+  State<_HoverableCompassCard> createState() => _HoverableCompassCardState();
+}
+
+class _HoverableCompassCardState extends State<_HoverableCompassCard> with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const glowColor = Colors.blueAccent;
+    final cardBg = [Colors.transparent, Colors.transparent];
+
+    final cardBorder = widget.isDarkMode
+        ? (_isHovered
+            ? glowColor.withOpacity(0.55)
+            : glowColor.withOpacity(0.25))
+        : (_isHovered
+            ? glowColor.withOpacity(0.7)
+            : glowColor.withOpacity(0.35));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()..scale(_isHovered ? 1.03 : 1.0),
+        transformAlignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cardBorder, width: 1.2),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: cardBg,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _isHovered
+                  ? glowColor.withOpacity(0.3)
+                  : glowColor.withOpacity(0.12),
+              blurRadius: _isHovered ? 18 : 10,
+              spreadRadius: _isHovered ? 1.5 : 0.5,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // Subtle rotating radar sweep gradient
+              Positioned.fill(
+                child: RotationTransition(
+                  turns: _rotationController,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: SweepGradient(
+                        colors: [
+                          Colors.transparent,
+                          glowColor.withOpacity(0.01),
+                          glowColor.withOpacity(0.12),
+                          glowColor.withOpacity(0.01),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Main content
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Top row: icon badge
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: glowColor.withOpacity(0.1),
+                          ),
+                          child: const Icon(
+                            Icons.explore_outlined,
+                            color: glowColor,
+                            size: 16,
+                          ),
+                        ),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isHovered
+                                ? glowColor
+                                : glowColor.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Compass dial — compact
+                    Expanded(
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: WindDial(
+                              direction: widget.selectedDevice?["WindDirection"] ??
+                                  widget.selectedDevice?["winddirection"] ??
+                                  widget.selectedDevice?["NowWindDirection"],
+                              speed: widget.selectedDevice?["WindSpeed"] ??
+                                  widget.selectedDevice?["windspeed"] ??
+                                  widget.selectedDevice?["NowWindSpeed"],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Bottom: label + direction value
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "WIND DIRECTION",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                            color: widget.isDarkMode ? Colors.white60 : Colors.black54,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            () {
+                              final dir = widget.selectedDevice?["WindDirection"] ??
+                                  widget.selectedDevice?["winddirection"] ??
+                                  widget.selectedDevice?["NowWindDirection"];
+                              if (dir == null) return "-- °";
+                              final deg = double.tryParse(dir.toString());
+                              if (deg == null) return "$dir";
+                              const directions = ["N","NE","E","SE","S","SW","W","NW","N"];
+                              final idx = ((deg + 22.5) / 45).floor() % 8;
+                              return "${deg.toStringAsFixed(0)}° ${directions[idx]}";
+                            }(),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: widget.isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

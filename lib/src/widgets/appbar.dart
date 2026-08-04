@@ -9,6 +9,7 @@ import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:ui' as ui;
 
 class AppBarWidget extends StatefulWidget implements PreferredSizeWidget {
   final Future<void> Function()? onRefresh;
@@ -419,16 +420,32 @@ class _AppBarWidgetState extends State<AppBarWidget> {
     bool isMobile = screenWidth < 800;
     bool isTablet = screenWidth >= 800 && screenWidth <= 1024;
 
-    return AppBar(
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      surfaceTintColor: Colors.transparent,
-      iconTheme: const IconThemeData(
-        color: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? const Color(0xFF0B141D).withOpacity(0.55)
+            : const Color(0xFF1976D2).withOpacity(0.65),
+        border: Border(
+          bottom: BorderSide(
+            color: isDarkMode
+                ? Colors.white.withOpacity(0.08)
+                : Colors.black.withOpacity(0.08),
+            width: 1.0,
+          ),
+        ),
       ),
-      backgroundColor:
-          isDarkMode ? const Color(0xFF14212B) : const Color(0xFF1976D2),
-      toolbarHeight: 56,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+          child: AppBar(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            iconTheme: const IconThemeData(
+              color: Colors.white,
+            ),
+            backgroundColor: Colors.transparent,
+            toolbarHeight: 56,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -473,9 +490,33 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                                   ? 28
                                   : 40,
                         ),
-                        SizedBox(width: isMobile ? 10 : (isTablet ? 15 : 20)),
-                        const Text('Cloud Sense Vis',
-                            style: TextStyle(color: Colors.white)),
+                        SizedBox(width: isMobile ? 8 : (isTablet ? 12 : 16)),
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontFamily: 'OpenSans',
+                              fontSize: isMobile
+                                  ? 16
+                                  : isTablet
+                                      ? 18
+                                      : 22,
+                              color: Colors.white,
+                            ),
+                            children: const [
+                              TextSpan(
+                                  text: "CLOUD ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.5)),
+                              TextSpan(
+                                  text: "SENSE",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w300,
+                                      color: Colors.white70,
+                                      letterSpacing: 1.5)),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -491,28 +532,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  /// Products Dropdown
-                  TextButton(
-                    key: productsButtonKey,
-                    onPressed: () =>
-                        _showSensorPopup(context, buttonKey: productsButtonKey),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 4),
-                        Text(
-                          'Products',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: isTablet ? 14 : 16,
-                          ),
-                        ),
-                        Icon(Icons.arrow_drop_down,
-                            color: Colors.white, size: isTablet ? 18 : 20),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: screenWidth <= 1024 ? 12 : 24),
+
 
                   /// Theme Toggle
                   TextButton(
@@ -587,31 +607,11 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                       ),
                     ],
                   ),
-                  SizedBox(width: screenWidth <= 1024 ? 12 : 24),
-
-                  /// User Login / Profile
-                  userProvider.userEmail != null
-                      ? _buildUserProfilePill(
-                          context, isDarkMode, isTablet, userButtonKey)
-                      : TextButton(
-                          key: userButtonKey,
-                          onPressed: () => _showLoginPopup(context),
-                          child: Row(
-                            children: [
-                              Text(
-                                'Login/Signup',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: isTablet ? 14 : 16,
-                                ),
-                              ),
-                              Icon(Icons.arrow_drop_down,
-                                  color: Colors.white,
-                                  size: isTablet ? 18 : 20),
-                            ],
-                          ),
-                        ),
+                  if (userProvider.userEmail != null) ...[
+                    SizedBox(width: screenWidth <= 1024 ? 12 : 24),
+                    _buildUserProfilePill(
+                        context, isDarkMode, isTablet, userButtonKey),
+                  ],
                 ],
               ),
             ),
@@ -656,6 +656,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
             },
           ),
       ],
-    );
+    ),),),);
   }
 }
