@@ -304,52 +304,91 @@ List<Map<String, dynamic>> _buildHardcodedSensors() => _hardcodedCampusSensors
 // =============================================================================
 // Unified color constants
 // =============================================================================
-const Color _kAnnamGreen = Color(0xFF2E7D32); // ANNAM.AI green (all levels)
-const Color _kImdOrange = Color(0xFFE65100); // IMD orange (all levels)
+const Color _kAnnamGreen = Color(0xFF2E7D32);
+const Color _kImdOrange  = Color(0xFFE65100);
 
 // =============================================================================
-// ANNAM.AI sensor marker – green circle with sensor icon
+// ANNAM.AI sensor marker – clean with pulsing ring animation
 // =============================================================================
 class _AnnamAiMarker extends StatelessWidget {
-  const _AnnamAiMarker();
+  final Animation<double>? pulseAnim;
+  const _AnnamAiMarker({this.pulseAnim});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
+    const markerColor = Color(0xFF00C853); // Clean emerald
+    const ringColor = Color(0xFF69F0AE);   // Lighter ring
+
+    Widget core = Container(
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
-        color: _kAnnamGreen,
+        color: markerColor,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))
+          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
-      child: const Icon(Icons.sensors, color: Colors.white, size: 16),
+      child: const Icon(Icons.sensors, color: Colors.white, size: 14),
+    );
+
+    if (pulseAnim == null) return Center(child: core);
+
+    return Center(
+      child: AnimatedBuilder(
+        animation: pulseAnim!,
+        builder: (context, child) {
+          final p = pulseAnim!.value;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer pulse ring
+              Opacity(
+                opacity: (1 - p).clamp(0.0, 0.7),
+                child: Container(
+                  width: 28 + p * 28,
+                  height: 28 + p * 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: ringColor,
+                      width: (2.0 * (1 - p)).clamp(0.5, 2.0),
+                    ),
+                  ),
+                ),
+              ),
+              child!,
+            ],
+          );
+        },
+        child: core,
+      ),
     );
   }
 }
 
 // =============================================================================
-// Cluster bubble widget (shared by state + district clusters)
+// Cluster bubble widget with clean pulsing ring animation
 // =============================================================================
 class _ClusterBubble extends StatelessWidget {
   final int count;
   final Color color;
   final double size;
   final IconData? topIcon;
+  final Animation<double>? pulseAnim;
 
   const _ClusterBubble({
     required this.count,
     required this.color,
     this.size = 44,
     this.topIcon,
+    this.pulseAnim,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    Widget core = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -357,49 +396,119 @@ class _ClusterBubble extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2.5),
         boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 5, offset: Offset(0, 2))
+          BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (topIcon != null)
-            Icon(topIcon, color: Colors.white, size: size * 0.27),
+            Icon(topIcon, color: Colors.white, size: size * 0.28),
           Text(
             '$count',
             style: TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: size * (topIcon != null ? 0.27 : 0.38),
+              fontWeight: FontWeight.w900,
+              fontSize: size * (topIcon != null ? 0.28 : 0.38),
               height: 1.1,
+              shadows: const [Shadow(color: Colors.black45, blurRadius: 3)],
             ),
           ),
         ],
+      ),
+    );
+
+    if (pulseAnim == null) return Center(child: core);
+
+    return Center(
+      child: AnimatedBuilder(
+        animation: pulseAnim!,
+        builder: (context, child) {
+          final p = pulseAnim!.value;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer pulse ring — subtle white/color fade
+              Opacity(
+                opacity: (1 - p).clamp(0.0, 0.55),
+                child: Container(
+                  width: size + p * size * 0.65,
+                  height: size + p * size * 0.65,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: (2.5 * (1 - p)).clamp(0.3, 2.5),
+                    ),
+                  ),
+                ),
+              ),
+              child!,
+            ],
+          );
+        },
+        child: core,
       ),
     );
   }
 }
 
 // =============================================================================
-// IMD sensor marker – orange circle with wb_sunny icon
+// IMD sensor marker – clean with pulsing ring animation
 // =============================================================================
 class _ImdMarker extends StatelessWidget {
-  const _ImdMarker();
+  final Animation<double>? pulseAnim;
+  const _ImdMarker({this.pulseAnim});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
+    const markerColor = Color(0xFFFF6D00); // Clean deep orange
+    const ringColor = Color(0xFFFFAB40);   // Lighter amber ring
+
+    Widget core = Container(
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
-        color: _kImdOrange,
+        color: markerColor,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))
+          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
-      child: const Icon(Icons.wb_sunny, color: Colors.white, size: 16),
+      child: const Icon(Icons.wb_sunny, color: Colors.white, size: 14),
+    );
+
+    if (pulseAnim == null) return Center(child: core);
+
+    return Center(
+      child: AnimatedBuilder(
+        animation: pulseAnim!,
+        builder: (context, child) {
+          final p = pulseAnim!.value;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: (1 - p).clamp(0.0, 0.7),
+                child: Container(
+                  width: 28 + p * 28,
+                  height: 28 + p * 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: ringColor,
+                      width: (2.0 * (1 - p)).clamp(0.5, 2.0),
+                    ),
+                  ),
+                ),
+              ),
+              child!,
+            ],
+          );
+        },
+        child: core,
+      ),
     );
   }
 }
@@ -760,24 +869,26 @@ class _WeatherValueMarker extends StatelessWidget {
   final String displayValue;
   final String unit;
   final Color bgColor;
+  final Animation<double>? pulseAnim;
 
   const _WeatherValueMarker({
     required this.displayValue,
     required this.unit,
     required this.bgColor,
+    this.pulseAnim,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
+    Widget core = Container(
+      width: 38,
+      height: 38,
       decoration: BoxDecoration(
         color: bgColor,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -787,7 +898,7 @@ class _WeatherValueMarker extends StatelessWidget {
             displayValue,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               height: 1.1,
             ),
@@ -801,6 +912,39 @@ class _WeatherValueMarker extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+
+    if (pulseAnim == null) return Center(child: core);
+
+    return Center(
+      child: AnimatedBuilder(
+        animation: pulseAnim!,
+        builder: (context, child) {
+          final p = pulseAnim!.value;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Expanding pulse ring
+              Opacity(
+                opacity: (1 - p).clamp(0.0, 0.65),
+                child: Container(
+                  width: 38 + p * 30,
+                  height: 38 + p * 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: bgColor,
+                      width: (2.5 * (1 - p)).clamp(0.3, 2.5),
+                    ),
+                  ),
+                ),
+              ),
+              child!,
+            ],
+          );
+        },
+        child: core,
       ),
     );
   }
@@ -975,7 +1119,8 @@ class DeviceMapScreen extends StatefulWidget {
   _DeviceMapScreenState createState() => _DeviceMapScreenState();
 }
 
-class _DeviceMapScreenState extends State<DeviceMapScreen> {
+class _DeviceMapScreenState extends State<DeviceMapScreen>
+    with TickerProviderStateMixin {
   // ── Layer 1: In-Memory cache (survives navigation within same session) ─────
   static List<Map<String, dynamic>>? _memCachedDevices;
   static List<Map<String, dynamic>>? _memCachedImd;
@@ -992,6 +1137,10 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
 
   final MapController mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
+
+  // ── Pulse animation for markers ───────────────────────────────────────────
+  AnimationController? _pulseController;
+  Animation<double>? _pulseAnim;
 
   LatLng centerCoordinates = LatLng(22.9734, 78.6569);
   double zoomLevel = 4.5;
@@ -1055,14 +1204,18 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
   void initState() {
     super.initState();
     _loadAllData();
-    // Track hardware keyboard state for Shift-to-zoom logic
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
-    // Auto-refresh weather data every 180 seconds to match the graph section
     _weatherRefreshTimer = Timer.periodic(const Duration(seconds: 180), (_) {
-      if (mounted) {
-        _refreshInBackground();
-      }
+      if (mounted) _refreshInBackground();
     });
+    // Pulse animation — slow, smooth 2-second heartbeat
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: false);
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController!, curve: Curves.easeOut),
+    );
   }
 
   bool _handleKeyEvent(KeyEvent event) {
@@ -1078,6 +1231,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     _weatherRefreshTimer?.cancel();
+    _pulseController?.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -2639,6 +2793,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
   }
 
   // ── Map tile layers ────────────────────────────────────────────────────────
+  // Original Esri World Imagery satellite tiles
   TileLayer _getSatelliteTileLayer() => TileLayer(
         urlTemplate:
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -2710,14 +2865,15 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
             final color = _colorForLayer(_selectedLayer, avg);
             return Marker(
               point: LatLng(cd['latitude'], cd['longitude']),
-              width: 44,
-              height: 44,
+              width: 60,
+              height: 60,
               child: GestureDetector(
                 onTap: () => _showClusterDialog(context, e.key, cd),
                 child: _WeatherValueMarker(
                   displayValue: _formatMarkerValue(_selectedLayer, avg),
                   unit: unit,
                   bgColor: color,
+                  pulseAnim: _pulseAnim,
                 ),
               ),
             );
@@ -2725,15 +2881,16 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
             // Sensor Clusters mode → show count
             return Marker(
               point: LatLng(cd['latitude'], cd['longitude']),
-              width: 44,
-              height: 44,
+              width: 80,
+              height: 80,
               child: GestureDetector(
                 onTap: () => _showClusterDialog(context, e.key, cd),
                 child: _ClusterBubble(
                     count: cd['count'],
                     color: _kAnnamGreen,
                     size: 44,
-                    topIcon: Icons.sensors),
+                    topIcon: Icons.sensors,
+                    pulseAnim: _pulseAnim),
               ),
             );
           }
@@ -2747,15 +2904,16 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
         final cd = e.value;
         return Marker(
           point: LatLng(cd['latitude'], cd['longitude']),
-          width: 44,
-          height: 44,
+          width: 80,
+          height: 80,
           child: GestureDetector(
             onTap: () => _showClusterDialog(context, e.key, cd),
             child: _ClusterBubble(
                 count: cd['count'],
                 color: _kImdOrange,
                 size: 44,
-                topIcon: Icons.wb_sunny),
+                topIcon: Icons.wb_sunny,
+                pulseAnim: _pulseAnim),
           ),
         );
       }).toList();
@@ -2765,12 +2923,15 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
         final cd = e.value;
         return Marker(
           point: LatLng(cd['latitude'], cd['longitude']),
-          width: 36,
-          height: 36,
+          width: 68,
+          height: 68,
           child: GestureDetector(
             onTap: () => _showDistrictDialog(context, cd),
             child: _ClusterBubble(
-                count: cd['count'], color: _kAnnamGreen, size: 36),
+                count: cd['count'],
+                color: _kAnnamGreen,
+                size: 36,
+                pulseAnim: _pulseAnim),
           ),
         );
       }).toList();
@@ -2780,15 +2941,16 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
         final cd = e.value;
         return Marker(
           point: LatLng(cd['latitude'], cd['longitude']),
-          width: 36,
-          height: 36,
+          width: 68,
+          height: 68,
           child: GestureDetector(
             onTap: () => _showDistrictDialog(context, cd),
             child: _ClusterBubble(
                 count: cd['count'],
                 color: _kImdOrange,
                 size: 36,
-                topIcon: Icons.wb_sunny),
+                topIcon: Icons.wb_sunny,
+                pulseAnim: _pulseAnim),
           ),
         );
       }).toList();
@@ -2799,11 +2961,11 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
         return Marker(
           point: LatLng((device['latitude'] as num).toDouble(),
               (device['longitude'] as num).toDouble()),
-          width: 32,
-          height: 32,
+          width: 60,
+          height: 60,
           child: GestureDetector(
             onTap: () => _showCloudSenseDeviceInfoDialog(context, device),
-            child: const _AnnamAiMarker(),
+            child: _AnnamAiMarker(pulseAnim: _pulseAnim),
           ),
         );
       }).toList();
@@ -2814,11 +2976,11 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
         return Marker(
           point: LatLng((device['latitude'] as num).toDouble(),
               (device['longitude'] as num).toDouble()),
-          width: 32,
-          height: 32,
+          width: 60,
+          height: 60,
           child: GestureDetector(
             onTap: () => _showImdDeviceInfoDialog(context, device),
-            child: const _ImdMarker(),
+            child: _ImdMarker(pulseAnim: _pulseAnim),
           ),
         );
       }).toList();
@@ -2851,14 +3013,15 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
           // Valid data → show weather value bubble
           return Marker(
             point: point,
-            width: 42,
-            height: 42,
+            width: 60,
+            height: 60,
             child: GestureDetector(
               onTap: () => _showWeatherTooltipDialog(context, device),
               child: _WeatherValueMarker(
                 displayValue: _formatMarkerValue(_selectedLayer, numVal),
                 unit: unit,
                 bgColor: _colorForLayer(_selectedLayer, numVal),
+                pulseAnim: _pulseAnim,
               ),
             ),
           );
@@ -2897,14 +3060,15 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
           final avg = values.reduce((a, b) => a + b) / values.length;
           return Marker(
             point: point,
-            width: 46,
-            height: 46,
+            width: 60,
+            height: 60,
             child: GestureDetector(
               onTap: () => _showClusterWeatherTooltip(context, e.key, devices),
               child: _WeatherValueMarker(
                 displayValue: _formatMarkerValue(_selectedLayer, avg),
                 unit: unit,
                 bgColor: _colorForLayer(_selectedLayer, avg),
+                pulseAnim: _pulseAnim,
               ),
             ),
           );
@@ -2943,8 +3107,8 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
           final avg = values.reduce((a, b) => a + b) / values.length;
           return Marker(
             point: point,
-            width: 42,
-            height: 42,
+            width: 60,
+            height: 60,
             child: GestureDetector(
               onTap: () {
                 final label = cd['district'] != null
@@ -2956,6 +3120,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
                 displayValue: _formatMarkerValue(_selectedLayer, avg),
                 unit: unit,
                 bgColor: _colorForLayer(_selectedLayer, avg),
+                pulseAnim: _pulseAnim,
               ),
             ),
           );
@@ -3428,7 +3593,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
     final isSelected = _selectedLayer == layer;
     final activeBlue = const Color(0xFF1976D2);
     final isCluster = layer == WeatherLayer.clusters;
-    final activeColor = isCluster ? Colors.green : activeBlue;
+    final activeColor = isDark ? const Color(0xFF40C4FF) : const Color(0xFF1565C0);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -3692,7 +3857,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
     final textColor = isDarkMode ? Colors.white : Colors.black;
     final textSubColor = isDarkMode ? Colors.white70 : Colors.black87;
     final hintColor = isDarkMode ? Colors.white54 : Colors.black54;
-    final borderColor = isDarkMode ? Colors.white24 : Colors.black12;
+    final borderColor = isDarkMode ? const Color(0xFF40C4FF).withOpacity(0.35) : Colors.black12;
 
     final useColumnLayout = isMobile || isTablet;
 
@@ -3705,10 +3870,16 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: borderColor, width: 1.5),
           boxShadow: [
+            if (isDarkMode)
+              BoxShadow(
+                color: const Color(0xFF40C4FF).withOpacity(0.15),
+                blurRadius: 20,
+                spreadRadius: 1,
+              ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -3905,11 +4076,11 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
               child: TextButton.icon(
                 onPressed: _reloadDevices,
                 icon: Icon(Icons.refresh,
-                    color: isDarkMode ? Colors.greenAccent : activeBlue,
+                    color: isDarkMode ? const Color(0xFF40C4FF) : activeBlue,
                     size: 16),
                 label: Text("Reload Data",
                     style: TextStyle(
-                        color: isDarkMode ? Colors.greenAccent : activeBlue,
+                        color: isDarkMode ? const Color(0xFF40C4FF) : activeBlue,
                         fontSize: 12)),
               ),
             ),
@@ -4145,10 +4316,16 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: borderColor, width: 1.5),
                   boxShadow: [
+                    if (isDarkMode)
+                      BoxShadow(
+                        color: const Color(0xFF40C4FF).withOpacity(0.12),
+                        blurRadius: 20,
+                        spreadRadius: 1,
+                      ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withOpacity(0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
                     ),
                   ],
                 ),
@@ -4598,7 +4775,14 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
             ),
           ),
           children: [
+            // Satellite tiles with a very subtle dark overlay
             _getSatelliteTileLayer(),
+            // Slight darkening overlay — makes it look slightly moodier/cooler
+            IgnorePointer(
+              child: Container(
+                color: const Color(0xFF000000).withValues(alpha: 0.22),
+              ),
+            ),
             Opacity(opacity: 0.8, child: _getLabelOverlayLayer()),
             MarkerLayer(
               markers: [

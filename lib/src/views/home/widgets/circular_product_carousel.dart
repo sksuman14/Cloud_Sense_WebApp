@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
-import 'dart:ui' as ui;
 
 class ProductCardData {
   final String title;
@@ -21,6 +21,9 @@ class ProductCardData {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Main section widget
+// ─────────────────────────────────────────────────────────────────────────────
 class ProductSectionV2 extends StatefulWidget {
   const ProductSectionV2({super.key});
 
@@ -28,9 +31,15 @@ class ProductSectionV2 extends StatefulWidget {
   State<ProductSectionV2> createState() => _ProductSectionV2State();
 }
 
-class _ProductSectionV2State extends State<ProductSectionV2> {
+class _ProductSectionV2State extends State<ProductSectionV2>
+    with SingleTickerProviderStateMixin {
   late PageController _pageController;
   int _currentIndex = 0;
+  Timer? _autoScrollTimer;
+
+  // Shimmer animation
+  AnimationController? _shimmerController;
+  Animation<double>? _shimmerAnim;
 
   final List<ProductCardData> _allProducts = [
     ProductCardData(
@@ -109,10 +118,32 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.9);
+
+    // Shimmer loop
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+    _shimmerAnim = Tween<double>(begin: -1.5, end: 1.5).animate(
+      CurvedAnimation(parent: _shimmerController!, curve: Curves.easeInOut),
+    );
+
+    // Auto-scroll every 3.5s
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
+      if (!mounted) return;
+      final next = (_currentIndex + 1) % _allProducts.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel();
+    _shimmerController?.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -135,45 +166,99 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
         viewportFraction: viewportFraction,
         initialPage: _currentIndex,
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oldController.dispose();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
     }
 
     return Column(
       children: [
-        // --- Header Section ---
+        // ── Header ──────────────────────────────────────────────────────────
+        // Category label — same style as "ADVANCED FARM TECHNOLOGY"
         Text(
-          "Our Products",
+          'OUR PRODUCTS',
           style: TextStyle(
             fontFamily: 'OpenSans',
-            fontSize: screenWidth < 600 ? 28 : 38,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isDarkMode
+                ? Colors.blueAccent.shade200
+                : const Color(0xFF1565C0),
+            letterSpacing: 2.5,
+          ),
+        )
+            .animate()
+            .fadeIn(duration: 500.ms)
+            .slideY(begin: -0.3, end: 0, curve: Curves.easeOut),
+
+        const SizedBox(height: 14),
+
+        Text(
+          "Hardware Built for the Field",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: screenWidth < 600 ? 28 : 42,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
             color: isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
           ),
-        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2),
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 100.ms)
+            .slideY(begin: 0.2, end: 0),
 
-        const SizedBox(height: 32),
+        const SizedBox(height: 8),
 
-        // --- Summary Stats ---
+        Text(
+          "Precision sensors & connectivity designed for India's harshest conditions",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: screenWidth < 600 ? 13 : 15,
+            color: isDarkMode ? Colors.white54 : Colors.black54,
+            fontWeight: FontWeight.w400,
+          ),
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 200.ms),
+
+        const SizedBox(height: 28),
+
+        // ── Summary Stats ────────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildStatCard("5", "Products", isDarkMode, screenWidth),
-              const SizedBox(width: 8),
-              _buildStatCard("IP66", "Weatherproof", isDarkMode, screenWidth),
-              const SizedBox(width: 8),
-              _buildStatCard("4G", "Connectivity", isDarkMode, screenWidth),
+              _StatCardItem(
+                value: "5",
+                label: "Products",
+                icon: Icons.inventory_2_outlined,
+                isDark: isDarkMode,
+                screenWidth: screenWidth,
+              ),
+              SizedBox(width: screenWidth < 600 ? 8 : 16),
+              _StatCardItem(
+                value: "IP66",
+                label: "Weatherproof",
+                icon: Icons.shield_outlined,
+                isDark: isDarkMode,
+                screenWidth: screenWidth,
+              ),
+              SizedBox(width: screenWidth < 600 ? 8 : 16),
+              _StatCardItem(
+                value: "4G",
+                label: "Connectivity",
+                icon: Icons.cell_tower_outlined,
+                isDark: isDarkMode,
+                screenWidth: screenWidth,
+              ),
             ],
           ),
         ).animate().fadeIn(delay: 400.ms),
 
-        const SizedBox(height: 60),
+        const SizedBox(height: 48),
 
-        // --- Main Carousel ---
+        // ── Carousel ─────────────────────────────────────────────────────────
         SizedBox(
           height: 520,
           child: PageView.builder(
@@ -182,29 +267,36 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
             itemCount: _allProducts.length,
             onPageChanged: (index) => setState(() => _currentIndex = index),
             itemBuilder: (context, index) {
-              return MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: InkWell(
-                  onTap: () =>
-                      NavigationUtils.navigateTo(context, _allProducts[index].route),
-                  borderRadius: BorderRadius.circular(30),
-                  child: _buildProductCard(_allProducts[index], isDarkMode),
-                ),
-              );
+              return _HoverProductCard(
+                product: _allProducts[index],
+                isDark: isDarkMode,
+                shimmerAnim: _shimmerAnim,
+                onTap: () => NavigationUtils.navigateTo(
+                    context, _allProducts[index].route),
+              )
+                  .animate()
+                  .fadeIn(
+                      duration: 500.ms,
+                      delay: Duration(milliseconds: 80 * index))
+                  .slideY(
+                      begin: 0.12,
+                      end: 0,
+                      duration: 500.ms,
+                      delay: Duration(milliseconds: 80 * index),
+                      curve: Curves.easeOut);
             },
           ),
         ),
 
         const SizedBox(height: 24),
 
-        // --- Navigation Dots & Arrows ---
+        // ── Dots + Arrows ────────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   screenWidth > 1000 ? 3 : _allProducts.length,
                   (index) => AnimatedContainer(
@@ -218,8 +310,8 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                               ? const Color(0xFF40C4FF)
                               : const Color(0xFF0D47A1))
                           : (isDarkMode
-                              ? const Color(0xFF40C4FF).withOpacity(0.3)
-                              : Colors.black.withOpacity(0.15)),
+                              ? const Color(0xFF40C4FF).withValues(alpha: 0.3)
+                              : Colors.black.withValues(alpha: 0.15)),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -228,11 +320,13 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
               Row(
                 children: [
                   _buildNavButton(Icons.chevron_left, () {
+                    _autoScrollTimer?.cancel(); // stop auto on manual swipe
                     _pageController.previousPage(
                         duration: 500.ms, curve: Curves.easeInOut);
                   }, isDarkMode),
                   const SizedBox(width: 12),
                   _buildNavButton(Icons.chevron_right, () {
+                    _autoScrollTimer?.cancel();
                     _pageController.nextPage(
                         duration: 500.ms, curve: Curves.easeInOut);
                   }, isDarkMode),
@@ -242,261 +336,9 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
           ),
         ),
 
-        const SizedBox(height: 40),
-
-
-
-        Icon(
-          Icons.arrow_downward,
-          color: isDarkMode
-              ? Colors.white24
-              : const Color(0xFF0D1B1E).withOpacity(0.2),
-          size: 24,
-        )
-            .animate(onPlay: (controller) => controller.repeat(reverse: true))
-            .moveY(
-                begin: 0, end: 10, duration: 1.seconds, curve: Curves.easeInOut)
-            .fadeIn(),
-        const SizedBox(height: 40),
+        const SizedBox(height: 16),
       ],
     );
-  }
-
-  Widget _buildStatCard(
-      String value, String label, bool isDark, double screenWidth) {
-    final bool isSmall = screenWidth < 600;
-    return Container(
-      width: isSmall ? (screenWidth - 48) / 3 : 160,
-      padding: EdgeInsets.symmetric(
-          vertical: isSmall ? 12 : 24, horizontal: isSmall ? 6 : 12),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.05)
-            : Colors.black.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(isSmall ? 10 : 16),
-        border: Border.all(
-          color: (isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
-              .withOpacity(isDark ? 0.3 : 0.5),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'OpenSans',
-              fontSize: isSmall ? 18 : 28,
-              fontWeight: FontWeight.w800,
-              color: isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'OpenSans',
-              fontSize: isSmall ? 10 : 14,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white54 : Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductCard(ProductCardData product, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isDark
-              ? [
-                  const Color(0xFF0D1F2D).withOpacity(0.8),
-                  const Color(0xFF0D1F2D),
-                ]
-              : [
-                  Colors.white,
-                  const Color(0xFFF1F5F9),
-                ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.4)
-                : Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          )
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white10 : Colors.black12,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.sensors,
-                      color: isDark
-                          ? const Color(0xFF40C4FF)
-                          : const Color(0xFF0D47A1),
-                      size: 24),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: (isDark
-                                ? const Color(0xFF40C4FF)
-                                : const Color(0xFF0D47A1))
-                            .withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    product.category,
-                    style: TextStyle(
-                        fontFamily: 'OpenSans',
-                        color: isDark
-                            ? const Color(0xFF40C4FF)
-                            : const Color(0xFF0D47A1),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              product.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'OpenSans',
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : const Color(0xFF0D1B1E),
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              product.subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.visible,
-              style: TextStyle(
-                fontFamily: 'OpenSans',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white60 : Colors.black87,
-                height: 1.3, // Slightly increased height for better readability
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              flex: 3,
-              child: Center(
-                child: Image.asset(
-                  product.imagePath,
-                  height: 180,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildSpecsGrid(product.specs, isDark),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSpecsGrid(Map<String, String> specs, bool isDark) {
-    final List<MapEntry<String, String>> entries = specs.entries.toList();
-
-    return LayoutBuilder(builder: (context, constraints) {
-      // Use 2 columns on mobile if screen is narrow, else 3
-      final isMobile = constraints.maxWidth < 300;
-      final crossAxisCount = isMobile ? 2 : 3;
-
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: isMobile ? 2.2 : 2.5,
-        ),
-        itemCount: entries.length,
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withOpacity(0.08)
-                  : Colors.white.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color:
-                      isDark ? Colors.white10 : Colors.white.withOpacity(0.5)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    entry.key,
-                    style: TextStyle(
-                        fontFamily: 'OpenSans',
-                        color: isDark
-                            ? const Color(0xFF40C4FF)
-                            : const Color(0xFF1565C0),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        entry.value,
-                        style: TextStyle(
-                            fontFamily: 'OpenSans',
-                            color:
-                                isDark ? Colors.white : const Color(0xFF0D1B1E),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    });
   }
 
   Widget _buildNavButton(IconData icon, VoidCallback onTap, bool isDark) {
@@ -508,12 +350,497 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
           border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
           borderRadius: BorderRadius.circular(12),
           color: isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.black.withOpacity(0.02),
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.02),
         ),
         child: Icon(icon,
             color: isDark ? Colors.white70 : const Color(0xFF0D1B1E), size: 24),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stat card item with hover animation & icons
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatCardItem extends StatefulWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  final bool isDark;
+  final double screenWidth;
+
+  const _StatCardItem({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.isDark,
+    required this.screenWidth,
+  });
+
+  @override
+  State<_StatCardItem> createState() => _StatCardItemState();
+}
+
+class _StatCardItemState extends State<_StatCardItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSmall = widget.screenWidth < 600;
+    final accent = widget.isDark
+        ? const Color(0xFF40C4FF)
+        : const Color(0xFF0D47A1);
+
+    final double cardWidth = isSmall
+        ? (widget.screenWidth - 48) / 3
+        : 180;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: cardWidth,
+        transform: Matrix4.identity()..translate(0.0, _hovered ? -4.0 : 0.0),
+        padding: EdgeInsets.symmetric(
+          vertical: isSmall ? 12 : 20,
+          horizontal: isSmall ? 8 : 16,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(isSmall ? 12 : 18),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: widget.isDark
+                ? [
+                    const Color(0xFF0D1F2D).withValues(alpha: _hovered ? 0.95 : 0.75),
+                    const Color(0xFF0A1628).withValues(alpha: _hovered ? 0.95 : 0.75),
+                  ]
+                : [
+                    Colors.white,
+                    const Color(0xFFF4F8FD),
+                  ],
+          ),
+          border: Border.all(
+            color: accent.withValues(alpha: _hovered ? 0.6 : (widget.isDark ? 0.25 : 0.35)),
+            width: _hovered ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: _hovered ? 0.25 : 0.05),
+              blurRadius: _hovered ? 16 : 8,
+              spreadRadius: _hovered ? 1 : 0,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: widget.isDark ? 0.4 : 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top icon with glowing background container
+            Container(
+              padding: EdgeInsets.all(isSmall ? 6 : 9),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: _hovered ? 0.18 : 0.08),
+                border: Border.all(
+                  color: accent.withValues(alpha: _hovered ? 0.4 : 0.15),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                widget.icon,
+                size: isSmall ? 16 : 22,
+                color: accent,
+              ),
+            ),
+            SizedBox(height: isSmall ? 6 : 10),
+            Text(
+              widget.value,
+              style: TextStyle(
+                fontFamily: 'OpenSans',
+                fontSize: isSmall ? 18 : 26,
+                fontWeight: FontWeight.w800,
+                color: widget.isDark ? Colors.white : const Color(0xFF0D1B1E),
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              widget.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'OpenSans',
+                fontSize: isSmall ? 10 : 13,
+                fontWeight: FontWeight.w600,
+                color: widget.isDark ? accent : const Color(0xFF1565C0),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hover-animated product card
+// ─────────────────────────────────────────────────────────────────────────────
+class _HoverProductCard extends StatefulWidget {
+  final ProductCardData product;
+  final bool isDark;
+  final Animation<double>? shimmerAnim;
+  final VoidCallback onTap;
+
+  const _HoverProductCard({
+    required this.product,
+    required this.isDark,
+    required this.shimmerAnim,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverProductCard> createState() => _HoverProductCardState();
+}
+
+class _HoverProductCardState extends State<_HoverProductCard>
+    with SingleTickerProviderStateMixin {
+  bool _hovered = false;
+  late AnimationController _borderController;
+  late Animation<double> _borderAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _borderController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+    _borderAnim = CurvedAnimation(
+        parent: _borderController, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _borderController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = widget.isDark
+        ? const Color(0xFF40C4FF)
+        : const Color(0xFF0D47A1);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedBuilder(
+          animation: _borderAnim,
+          builder: (context, child) {
+            final glowOpacity = _hovered
+                ? 0.5 + _borderAnim.value * 0.4
+                : 0.15 + _borderAnim.value * 0.15;
+            final borderWidth = _hovered
+                ? 1.5 + _borderAnim.value * 0.8
+                : 1.0 + _borderAnim.value * 0.5;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              transform: Matrix4.identity()
+                ..translate(0.0, _hovered ? -6.0 : 0.0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: widget.isDark
+                      ? [
+                          const Color(0xFF0A1628),
+                          const Color(0xFF0D1F2D),
+                          const Color(0xFF0A1628),
+                        ]
+                      : [
+                          Colors.white,
+                          const Color(0xFFF4F8FD),
+                          Colors.white,
+                        ],
+                ),
+                border: Border.all(
+                  color: accent.withValues(alpha: glowOpacity),
+                  width: borderWidth,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(
+                        alpha: _hovered ? 0.22 : 0.06 + _borderAnim.value * 0.06),
+                    blurRadius: _hovered ? 28 : 14,
+                    spreadRadius: _hovered ? 2 : 0,
+                    offset: const Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                        alpha: widget.isDark ? 0.5 : 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: child,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Top row: icon + category badge ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Icon badge with inner glow
+                    AnimatedContainer(
+                      duration: 300.ms,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: widget.isDark
+                            ? const Color(0xFF40C4FF).withValues(alpha: _hovered ? 0.18 : 0.1)
+                            : Colors.black.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF40C4FF)
+                              .withValues(alpha: _hovered ? 0.5 : 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(Icons.sensors,
+                          color: widget.isDark
+                              ? const Color(0xFF40C4FF)
+                              : const Color(0xFF0D47A1),
+                          size: 22),
+                    ),
+
+                    // Glowing category badge
+                    AnimatedContainer(
+                      duration: 300.ms,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF40C4FF)
+                              .withValues(alpha: _hovered ? 0.7 : 0.4),
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0xFF40C4FF)
+                            .withValues(alpha: _hovered ? 0.12 : 0.05),
+                      ),
+                      child: Text(
+                        widget.product.category,
+                        style: TextStyle(
+                          fontFamily: 'OpenSans',
+                          color: widget.isDark
+                              ? const Color(0xFF40C4FF)
+                              : const Color(0xFF0D47A1),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // ── Title ──
+                Text(
+                  widget.product.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'OpenSans',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: widget.isDark ? Colors.white : const Color(0xFF0D1B1E),
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                // ── Subtitle ──
+                Text(
+                  widget.product.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'OpenSans',
+                    fontSize: 13.5,
+                    color: widget.isDark ? Colors.white70 : Colors.black87,
+                    height: 1.35,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Product Image with shimmer bg ──
+                Expanded(
+                  flex: 3,
+                  child: widget.shimmerAnim != null
+                      ? AnimatedBuilder(
+                          animation: widget.shimmerAnim!,
+                          builder: (context, child) {
+                            final v = widget.shimmerAnim!.value;
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: widget.isDark
+                                      ? [
+                                          const Color(0xFF0D2137),
+                                          const Color(0xFF112840),
+                                          const Color(0xFF0D2137),
+                                        ]
+                                      : [
+                                          const Color(0xFFEEF4FF),
+                                          const Color(0xFFE8F0FE),
+                                          const Color(0xFFEEF4FF),
+                                        ],
+                                  stops: [
+                                    (v - 0.5).clamp(0.0, 1.0),
+                                    v.clamp(0.0, 1.0),
+                                    (v + 0.5).clamp(0.0, 1.0),
+                                  ],
+                                ),
+                              ),
+                              child: child,
+                            );
+                          },
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              transform: Matrix4.identity()
+                                ..scale(_hovered ? 1.06 : 1.0),
+                              child: Image.asset(
+                                widget.product.imagePath,
+                                height: 160,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Image.asset(
+                            widget.product.imagePath,
+                            height: 160,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Specs Grid ──
+                _buildSpecsGrid(widget.product.specs, widget.isDark),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecsGrid(Map<String, String> specs, bool isDark) {
+    final entries = specs.entries.toList();
+    return LayoutBuilder(builder: (context, constraints) {
+      final isMobile = constraints.maxWidth < 300;
+      final crossAxisCount = isMobile ? 2 : 3;
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 6,
+          mainAxisSpacing: 6,
+          childAspectRatio: isMobile ? 2.2 : 2.5,
+        ),
+        itemCount: entries.length,
+        itemBuilder: (context, index) {
+          final entry = entries[index];
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF40C4FF).withValues(alpha: 0.07)
+                  : Colors.white.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF40C4FF).withValues(alpha: 0.18)
+                    : Colors.black.withValues(alpha: 0.07),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    entry.key,
+                    style: TextStyle(
+                      fontFamily: 'OpenSans',
+                      color: isDark
+                          ? const Color(0xFF40C4FF)
+                          : const Color(0xFF1565C0),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        entry.value,
+                        style: TextStyle(
+                          fontFamily: 'OpenSans',
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0D1B1E),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+              .animate(delay: Duration(milliseconds: 60 * index))
+              .fadeIn(duration: 400.ms)
+              .scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1));
+        },
+      );
+    });
   }
 }

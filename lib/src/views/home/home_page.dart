@@ -1470,18 +1470,33 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 60),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 30),
-                          child: Text(
-                            "Nationwide Deployments",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'OpenSans',
-                              fontSize: screenWidth < 600 ? 28 : 38,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                              color: themeProvider.isDarkMode
-                                  ? Colors.white
-                                  : const Color(0xFF0D1B1E),
-                            ),
+                          child: Column(
+                            children: [
+                              Text(
+                                "LIVE COVERAGE & NETWORK",
+                                style: TextStyle(
+                                  fontFamily: 'OpenSans',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode ? Colors.blueAccent.shade200 : const Color(0xFF1565C0),
+                                  letterSpacing: 2.5,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                "Nationwide Deployments",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'OpenSans',
+                                  fontSize: screenWidth < 600 ? 28 : 38,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
+                                  color: themeProvider.isDarkMode
+                                      ? Colors.white
+                                      : const Color(0xFF0D1B1E),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -2131,14 +2146,6 @@ class _HeroSectionState extends State<HeroSection> {
                       ],
                     ).animate().fade(delay: 600.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
                     Spacer(flex: isMobile ? 1 : 1),
-                // Animated Scroll Indicator
-                Icon(
-                  Icons.keyboard_double_arrow_down,
-                  color: Colors.white.withOpacity(0.6),
-                  size: 28,
-                ).animate(onPlay: (controller) => controller.repeat())
-                 .slideY(duration: 1.seconds, begin: 0.0, end: 0.4)
-                 .fade(duration: 1.seconds, begin: 1.0, end: 0.0),
                 const SizedBox(height: 24),
               ],
             ),
