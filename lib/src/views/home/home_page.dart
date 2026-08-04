@@ -1967,6 +1967,17 @@ class _HeroSectionState extends State<HeroSection> {
                       slidePath,
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
+                      color: const Color(0xFF0B141D),
+                      colorBlendMode: BlendMode.darken,
+                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded || frame != null) return child;
+                        return AnimatedOpacity(
+                          opacity: frame == null ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeIn,
+                          child: child,
+                        );
+                      },
                     ),
                   ),
                   // Blurred overlay to create matching blurry space filler (lower blur sigma!)
@@ -2022,6 +2033,15 @@ class _HeroSectionState extends State<HeroSection> {
                               slidePath,
                               fit: BoxFit.contain,
                               alignment: isMobile ? Alignment.center : Alignment.centerRight,
+                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                if (wasSynchronouslyLoaded || frame != null) return child;
+                                return AnimatedOpacity(
+                                  opacity: frame == null ? 0.0 : 1.0,
+                                  duration: const Duration(milliseconds: 400),
+                                  curve: Curves.easeIn,
+                                  child: child,
+                                );
+                              },
                             ),
                           ),
                         ),
