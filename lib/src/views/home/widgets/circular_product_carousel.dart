@@ -141,6 +141,15 @@ class _ProductSectionV2State extends State<ProductSectionV2>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Preload ALL product images immediately so they never blank on first view
+    for (final p in _allProducts) {
+      precacheImage(AssetImage(p.imagePath), context);
+    }
+  }
+
+  @override
   void dispose() {
     _autoScrollTimer?.cancel();
     _shimmerController?.dispose();

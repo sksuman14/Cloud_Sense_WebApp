@@ -1887,6 +1887,15 @@ class _HeroSectionState extends State<HeroSection> {
     _startAutoScroll();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Preload all hero slide images so they appear instantly
+    for (final slide in _slides) {
+      precacheImage(AssetImage(slide['path']!), context);
+    }
+  }
+
   void _startAutoScroll() {
     if (_isAutoScrolling) return;
     _isAutoScrolling = true;
