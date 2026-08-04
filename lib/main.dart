@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:cloud_sense_webapp/config/amplifyconfiguration.dart';
 import 'package:cloud_sense_webapp/src/admin/admin_page.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
@@ -638,6 +638,10 @@ void main() async {
   });
 
   String initialRoute = await determineInitialRoute();
+
+  // ── Boost image cache: prevents repeated decode after navigation ──────────
+  PaintingBinding.instance.imageCache.maximumSize = 1000;            // images
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;  // 200 MB
 
   runApp(
     MultiProvider(
