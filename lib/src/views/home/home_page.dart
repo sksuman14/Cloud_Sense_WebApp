@@ -1862,7 +1862,8 @@ class HeroSection extends StatefulWidget {
 class _HeroSectionState extends State<HeroSection> {
   late PageController _pageController;
   int _currentIndex = 0;
-  bool _isAutoScrolling = false;
+  bool _showArrows = false;       // show nav arrows on hover
+  Timer? _timer;                  // single auto-scroll timer
 
   final List<Map<String, String>> _slides = [
     {"path": "assets/images/site10.jpg", "location": "Udhampur"},
@@ -1884,7 +1885,7 @@ class _HeroSectionState extends State<HeroSection> {
     _pageController = PageController(
       initialPage: _initialVirtualMultiplier * _slides.length,
     );
-    _startAutoScroll();
+    _resetAutoScrollTimer();
   }
 
   @override
@@ -1896,36 +1897,37 @@ class _HeroSectionState extends State<HeroSection> {
     }
   }
 
-  void _startAutoScroll() {
-    if (_isAutoScrolling) return;
-    _isAutoScrolling = true;
-    _scheduleNextScroll();
+  void _resetAutoScrollTimer() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 5), _autoScrollNext);
   }
 
-  void _scheduleNextScroll() {
-    Future.delayed(const Duration(seconds: 6), () {
-      if (!mounted) return;
-      final currentVirtual = _pageController.hasClients && _pageController.page != null
-          ? _pageController.page!.round()
-          : (_initialVirtualMultiplier * _slides.length + _currentIndex);
-      final nextVirtual = currentVirtual + 1;
-      _pageController.animateToPage(
-        nextVirtual,
-        duration: const Duration(milliseconds: 1500),
-        curve: Curves.easeInOut,
-      ).then((_) {
-        if (mounted) {
-          setState(() {
-            _currentIndex = nextVirtual % _slides.length;
-          });
-          _scheduleNextScroll();
-        }
-      });
-    });
+  void _autoScrollNext() {
+    if (!mounted || !_pageController.hasClients) return;
+    final currentVirtual = _pageController.page?.round() ??
+        (_initialVirtualMultiplier * _slides.length + _currentIndex);
+    final nextVirtual = currentVirtual + 1;
+    _pageController.animateToPage(
+      nextVirtual,
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  // Called when user clicks arrows
+  void _onManualNav(int virtualPage) {
+    _timer?.cancel();
+    _pageController.animateToPage(
+      virtualPage,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+    );
+    _resetAutoScrollTimer();
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -1946,15 +1948,18 @@ class _HeroSectionState extends State<HeroSection> {
       width: double.infinity,
       height: isMobile ? 650 : 750,
       color: Colors.black,
-      child: Stack(
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _showArrows = true),
+        onExit: (_) => setState(() => _showArrows = false),
+        child: Stack(
         children: [
-          // 1. Full-Screen Slideshow Background (Tesla Style with blurred sides!)
+          // 1. Full-Screen Slideshow — physics: NeverScrollableScrollPhysics disables drag/swipe
           PageView.builder(
+            physics: const NeverScrollableScrollPhysics(),
             controller: _pageController,
             onPageChanged: (virtualIdx) {
-              setState(() {
-                _currentIndex = virtualIdx % _slides.length;
-              });
+              setState(() => _currentIndex = virtualIdx % _slides.length);
+              _resetAutoScrollTimer();
             },
             itemBuilder: (context, virtualIndex) {
               final slideIndex = virtualIndex % _slides.length;
@@ -2043,28 +2048,31 @@ class _HeroSectionState extends State<HeroSection> {
               );
             },
           ),
-          // 2. Dark Overlay Gradient for Readability
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.65),
-                  Colors.black.withOpacity(0.3),
-                  widget.isDarkMode ? const Color(0xFF0B141D) : const Color(0xFFFFFFFF),
-                ],
-                stops: const [0.0, 0.5, 1.0],
+          // 2. Dark Overlay Gradient for Readability — IgnorePointer so drag works through it
+          IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.65),
+                    Colors.black.withOpacity(0.3),
+                    widget.isDarkMode ? const Color(0xFF0B141D) : const Color(0xFFFFFFFF),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
               ),
             ),
           ),
           // 3. Left-Aligned Content Overlay on Desktop (Tesla Style)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
-            child: Align(
-              alignment: isMobile ? Alignment.center : Alignment.centerLeft,
-              child: SizedBox(
-                width: isMobile ? double.infinity : width * 0.5,
+          IgnorePointer(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
+              child: Align(
+                alignment: isMobile ? Alignment.center : Alignment.centerLeft,
+                child: SizedBox(
+                  width: isMobile ? double.infinity : width * 0.5,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
@@ -2172,6 +2180,7 @@ class _HeroSectionState extends State<HeroSection> {
           ),
         ),
       ),
+      ),
           // 4. Location Badge Overlay at the bottom-left
           Positioned(
             bottom: 24,
@@ -2222,7 +2231,51 @@ class _HeroSectionState extends State<HeroSection> {
               ),
             ),
           ),
+          // 6. Navigation Arrows — LAST in Stack so clickable on top
+          if (_showArrows || isMobile) ...[
+            Positioned(
+              left: isMobile ? 10 : 20,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _onManualNav((_pageController.page?.round() ?? 0) - 1),
+                  child: Container(
+                    width: isMobile ? 38 : 48,
+                    height: isMobile ? 38 : 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withOpacity(0.5),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    ),
+                    child: Icon(Icons.chevron_left, color: Colors.white, size: isMobile ? 24 : 32),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: isMobile ? 10 : 20,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _onManualNav((_pageController.page?.round() ?? 0) + 1),
+                  child: Container(
+                    width: isMobile ? 38 : 48,
+                    height: isMobile ? 38 : 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withOpacity(0.5),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    ),
+                    child: Icon(Icons.chevron_right, color: Colors.white, size: isMobile ? 24 : 32),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
       ),
     );
   }
