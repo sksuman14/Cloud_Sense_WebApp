@@ -7,22 +7,30 @@ class ProductCardData {
   final String title;
   final String subtitle;
   final String category;
+  final String code;
   final String imagePath;
-  final Map<String, String> specs;
+  final List<Map<String, String>> specs;
   final String route;
+  final String highlight;
+  final double imageScale;
+  final Offset imageOffset;
 
   ProductCardData({
     required this.title,
     required this.subtitle,
     required this.category,
+    required this.code,
     required this.imagePath,
     required this.specs,
     required this.route,
+    required this.highlight,
+    this.imageScale = 1.25,
+    this.imageOffset = Offset.zero,
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main section widget
+// Dribbble-Style Overlapping 3D Product Showcase Section
 // ─────────────────────────────────────────────────────────────────────────────
 class ProductSectionV2 extends StatefulWidget {
   const ProductSectionV2({super.key});
@@ -31,119 +39,124 @@ class ProductSectionV2 extends StatefulWidget {
   State<ProductSectionV2> createState() => _ProductSectionV2State();
 }
 
-class _ProductSectionV2State extends State<ProductSectionV2>
-    with SingleTickerProviderStateMixin {
-  late PageController _pageController;
+class _ProductSectionV2State extends State<ProductSectionV2> {
   int _currentIndex = 0;
   Timer? _autoScrollTimer;
-
-  // Shimmer animation
-  AnimationController? _shimmerController;
-  Animation<double>? _shimmerAnim;
 
   final List<ProductCardData> _allProducts = [
     ProductCardData(
       title: "Data Logger",
-      subtitle: "Multi-channel wireless logger with 4G and cloud dashboard.",
-      category: "Connectivity",
+      subtitle: "Reliable data logging & seamless connectivity",
+      category: "CONNECTIVITY",
+      code: "REF: CS-LOG-4G",
       imagePath: "assets/images/dataloggerrender.png",
       route: "/datalogger",
-      specs: {
-        "Supply": "5-16 V DC",
-        "Backup": "25-30 Days",
-        "Connectivity": "4G/LTE/GPS",
-        "Protocol": "HTTP/MQTT/FTP",
-        "IP Rating": "IP65",
-      },
+      highlight: "4G DUAL SIM · IP65 · SOLAR READY",
+      imageScale: 1.35,
+      specs: [
+        {"label": "Supply voltage", "value": "5–16 V DC"},
+        {"label": "Data protocols", "value": "HTTP, HTTPS, MQTT, FTP"},
+        {"label": "Interfaces", "value": "ADC, UART, I2C, SPI, RS232, RS485"},
+        {"label": "Data backup", "value": "25–30 days storage"},
+        {"label": "Connectivity", "value": "4G Dual SIM & GPS"},
+      ],
     ),
     ProductCardData(
       title: "Rain Gauge",
-      subtitle: "Tipping Bucket mechanism for rainfall recording.",
-      category: "Sensor",
+      subtitle: "Tipping bucket rain gauge for precise rainfall measurement",
+      category: "PRECIPITATION",
+      code: "REF: CS-RG-200",
       imagePath: "assets/images/gauge.png",
       route: "/raingauge",
-      specs: {
-        "Resolution": "0.2 / 0.5 mm",
-        "Diameter": "159.5 / 200 mm",
-        "Mechanism": "Tipping Bucket",
-        "Material": "Rugged ABS",
-        "Output": "Digital Pulse",
-      },
+      highlight: "TIPPING BUCKET · REED SWITCH · ABS",
+      imageScale: 1.35,
+      specs: [
+        {"label": "Measurement res.", "value": "0.2 mm / 0.5 mm"},
+        {"label": "Collection area", "value": "200 cm² / 314 cm²"},
+        {"label": "Sensor type", "value": "Magnetic reed switch"},
+        {"label": "Digital output", "value": "Pulse output (Tips × Res)"},
+        {"label": "Material", "value": "UV-resistant high-impact ABS"},
+      ],
     ),
     ProductCardData(
       title: "Ultrasonic Anemometer",
-      subtitle: "Precise wind speed and direction monitoring.",
-      category: "Sensor",
+      subtitle: "Precise wind speed and wind direction monitoring",
+      category: "WIND SENSOR",
+      code: "REF: CS-WIND-360",
       imagePath: "assets/images/ultrasonic.png",
       route: "/windsensor",
-      specs: {
-        "Wind Speed": "0-65 m/s",
-        "Direction": "0-359°",
-        "Resolution": "1°",
-        "Voltage": "2-16 V DC",
-        "Heating": "-40 to +70℃",
-      },
+      highlight: "δ ToF WIND SENSING · RS485 / RS232",
+      imageScale: 1.90, // Zoomed in large
+      imageOffset: const Offset(25.0, 0.0), // Center offset for Ultrasonic
+      specs: [
+        {"label": "Max wind speed", "value": "65 m/s (234 km/h)"},
+        {"label": "Direction coverage", "value": "0°–359°, 1° resolution"},
+        {"label": "Measurement method", "value": "Delta Time-of-Flight (δ ToF)"},
+        {"label": "Input supply voltage", "value": "2 V – 16 V DC"},
+        {"label": "Moving parts", "value": "None — fully solid state"},
+      ],
     ),
     ProductCardData(
-      title: "Integrated Environmental Sensor",
-      subtitle: "Temp, humidity, light & pressure in one compact unit.",
-      category: "Sensor",
+      title: "Temp, Humidity, Light & Pressure",
+      subtitle: "Compact environmental sensing unit for precise measurements",
+      category: "MULTISENSOR",
+      code: "REF: CS-ENV-LUX",
       imagePath: "assets/images/luxpressure.png",
       route: "/atrh",
-      specs: {
-        "Temp Range": "-40 to +85 °C",
-        "Humidity Range": "0-100% RH",
-        "Pressure Range": "300-1100 hPa",
-        "Light Intensity Range": "0-140000 Lux",
-        "Supply": "3.3 V DC",
-      },
+      highlight: "MULTI-PARAMETER · IP65 · I2C",
+      imageScale: 1.70,
+      specs: [
+        {"label": "Supply voltage", "value": "3.3 V DC"},
+        {"label": "Temperature range", "value": "−40 to +85 °C"},
+        {"label": "Humidity range", "value": "0–100% RH"},
+        {"label": "Pressure range", "value": "300–1100 hPa"},
+        {"label": "Light intensity", "value": "0–140 000 Lux"},
+      ],
     ),
     ProductCardData(
-      title: "Temperature and Humidity Probe",
-      subtitle: "Accurate measurements for temperature and humidity.",
-      category: "Sensor",
+      title: "Temperature & Humidity Probe",
+      subtitle: "Accurate measurements for temperature and humidity",
+      category: "PROBE SENSOR",
+      code: "REF: CS-THP-485",
       imagePath: "assets/images/thprobe.png",
       route: "/probe",
-      specs: {
-        "Temp Range": "-40 to +85 °C",
-        "Humidity Range": "0-100% RH",
-        "Accuracy": "±0.1°C / ±3%",
-        "Voltage": "5-12 V DC",
-        "Protocol": "RS485 & 0-1 V",
-      },
+      highlight: "PRECISION SENSING · RS485 / ADC",
+      specs: [
+        {"label": "Supply voltage", "value": "5–12 V DC"},
+        {"label": "Temperature range", "value": "−40 to +85 °C"},
+        {"label": "Humidity range", "value": "0–100% RH"},
+        {"label": "Digital output", "value": "RS485 (Modbus RTU)"},
+        {"label": "Temp accuracy", "value": "±0.1 °C"},
+      ],
     ),
   ];
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.9);
+    _startTimer();
+  }
 
-    // Shimmer loop
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-    _shimmerAnim = Tween<double>(begin: -1.5, end: 1.5).animate(
-      CurvedAnimation(parent: _shimmerController!, curve: Curves.easeInOut),
-    );
-
-    // Auto-scroll every 3.5s
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
+  void _startTimer() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!mounted) return;
-      final next = (_currentIndex + 1) % _allProducts.length;
-      _pageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-      );
+      setState(() {
+        _currentIndex = (_currentIndex + 1) % _allProducts.length;
+      });
+    });
+  }
+
+  void _selectProduct(int index) {
+    _startTimer();
+    setState(() {
+      _currentIndex = index;
     });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Preload ALL product images immediately so they never blank on first view
     for (final p in _allProducts) {
       precacheImage(AssetImage(p.imagePath), context);
     }
@@ -152,704 +165,686 @@ class _ProductSectionV2State extends State<ProductSectionV2>
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
-    _shimmerController?.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
+    final activeProduct = _allProducts[_currentIndex];
 
-    double viewportFraction = 0.9;
-    if (screenWidth > 1000) {
-      viewportFraction = 0.33;
-    } else if (screenWidth > 700) {
-      viewportFraction = 0.5;
-    }
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        vertical: screenWidth < 600 ? 32 : 56,
+        horizontal: screenWidth < 600 ? 16 : 32,
+      ),
+      child: Column(
+        children: [
+          // ── 1. Section Header (Matching ADVANCED FARM TECHNOLOGY styling) ─
+          Text(
+            "OUR HARDWARE LINEUP",
+            style: TextStyle(
+              fontFamily: 'OpenSans',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.blueAccent.shade200 : const Color(0xFF1565C0),
+              letterSpacing: 2.5,
+            ),
+          ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
 
-    if (_pageController.viewportFraction != viewportFraction) {
-      final oldController = _pageController;
-      _pageController = PageController(
-        viewportFraction: viewportFraction,
-        initialPage: _currentIndex,
-      );
-      WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
-    }
+          const SizedBox(height: 12),
 
-    return Column(
-      children: [
-        // ── Header ──────────────────────────────────────────────────────────
-        // Category label — same style as "ADVANCED FARM TECHNOLOGY"
-        Text(
-          'OUR PRODUCTS',
-          style: TextStyle(
-            fontFamily: 'OpenSans',
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: isDarkMode
-                ? Colors.blueAccent.shade200
-                : const Color(0xFF1565C0),
-            letterSpacing: 2.5,
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 500.ms)
-            .slideY(begin: -0.3, end: 0, curve: Curves.easeOut),
+          Text(
+            "Precision Hardware for Field Operations",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'OpenSans',
+              fontSize: screenWidth < 600 ? 26 : 38,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 100.ms).slideY(begin: 0.1, end: 0),
 
-        const SizedBox(height: 14),
+          const SizedBox(height: 8),
 
-        Text(
-          "Hardware Built for the Field",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'OpenSans',
-            fontSize: screenWidth < 600 ? 28 : 42,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            color: isDarkMode ? Colors.white : const Color(0xFF0D1B1E),
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms, delay: 100.ms)
-            .slideY(begin: 0.2, end: 0),
+          Text(
+            "Industrial telemetry & sensors engineered to survive India's harshest weather.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'OpenSans',
+              fontSize: screenWidth < 600 ? 13 : 15,
+              color: isDarkMode ? Colors.white60 : Colors.black54,
+              fontWeight: FontWeight.w400,
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
 
-        const SizedBox(height: 8),
+          const SizedBox(height: 28),
 
-        Text(
-          "Precision sensors & connectivity designed for India's harshest conditions",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'OpenSans',
-            fontSize: screenWidth < 600 ? 13 : 15,
-            color: isDarkMode ? Colors.white54 : Colors.black54,
-            fontWeight: FontWeight.w400,
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms, delay: 200.ms),
-
-        const SizedBox(height: 28),
-
-        // ── Summary Stats ────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _StatCardItem(
-                value: "5",
-                label: "Products",
-                icon: Icons.inventory_2_outlined,
-                isDark: isDarkMode,
-                screenWidth: screenWidth,
-              ),
-              SizedBox(width: screenWidth < 600 ? 8 : 16),
-              _StatCardItem(
-                value: "IP66",
-                label: "Weatherproof",
-                icon: Icons.shield_outlined,
-                isDark: isDarkMode,
-                screenWidth: screenWidth,
-              ),
-              SizedBox(width: screenWidth < 600 ? 8 : 16),
-              _StatCardItem(
-                value: "4G",
-                label: "Connectivity",
-                icon: Icons.cell_tower_outlined,
-                isDark: isDarkMode,
-                screenWidth: screenWidth,
-              ),
-            ],
-          ),
-        ).animate().fadeIn(delay: 400.ms),
-
-        const SizedBox(height: 48),
-
-        // ── Carousel ─────────────────────────────────────────────────────────
-        SizedBox(
-          height: 520,
-          child: PageView.builder(
-            controller: _pageController,
-            padEnds: false,
-            itemCount: _allProducts.length,
-            onPageChanged: (index) => setState(() => _currentIndex = index),
-            itemBuilder: (context, index) {
-              return _HoverProductCard(
-                product: _allProducts[index],
-                isDark: isDarkMode,
-                shimmerAnim: _shimmerAnim,
-                onTap: () => NavigationUtils.navigateTo(
-                    context, _allProducts[index].route),
-              )
-                  .animate()
-                  .fadeIn(
-                      duration: 500.ms,
-                      delay: Duration(milliseconds: 80 * index))
-                  .slideY(
-                      begin: 0.12,
-                      end: 0,
-                      duration: 500.ms,
-                      delay: Duration(milliseconds: 80 * index),
-                      curve: Curves.easeOut);
-            },
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // ── Dots + Arrows ────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: List.generate(
-                  screenWidth > 1000 ? 3 : _allProducts.length,
-                  (index) => AnimatedContainer(
-                    duration: 300.ms,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    height: 8,
-                    width: _currentIndex == index ? 24 : 8,
-                    decoration: BoxDecoration(
-                      color: _currentIndex == index
-                          ? (isDarkMode
-                              ? const Color(0xFF40C4FF)
-                              : const Color(0xFF0D47A1))
-                          : (isDarkMode
-                              ? const Color(0xFF40C4FF).withValues(alpha: 0.3)
-                              : Colors.black.withValues(alpha: 0.15)),
-                      borderRadius: BorderRadius.circular(4),
+          // ── 2. Top Product Selector Pills ──────────────────────────────────
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_allProducts.length, (index) {
+                final isSelected = index == _currentIndex;
+                final prod = _allProducts[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: InkWell(
+                    onTap: () => _selectProduct(index),
+                    borderRadius: BorderRadius.circular(24),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? LinearGradient(
+                                colors: isDarkMode
+                                    ? [const Color(0xFF00B0FF), const Color(0xFF0077C2)]
+                                    : [const Color(0xFF0D47A1), const Color(0xFF1976D2)],
+                              )
+                            : null,
+                        color: isSelected
+                            ? null
+                            : (isDarkMode
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.black.withValues(alpha: 0.04)),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.transparent
+                              : (isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.12)
+                                  : Colors.black.withValues(alpha: 0.1)),
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: (isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                )
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getCategoryIcon(prod.category),
+                            size: 16,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1)),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            prod.title,
+                            style: TextStyle(
+                              fontFamily: 'OpenSans',
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDarkMode ? Colors.white70 : Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-              Row(
-                children: [
-                  _buildNavButton(Icons.chevron_left, () {
-                    _autoScrollTimer?.cancel(); // stop auto on manual swipe
-                    _pageController.previousPage(
-                        duration: 500.ms, curve: Curves.easeInOut);
-                  }, isDarkMode),
-                  const SizedBox(width: 12),
-                  _buildNavButton(Icons.chevron_right, () {
-                    _autoScrollTimer?.cancel();
-                    _pageController.nextPage(
-                        duration: 500.ms, curve: Curves.easeInOut);
-                  }, isDarkMode),
-                ],
-              ),
-            ],
+                );
+              }),
+            ),
+          ).animate().fadeIn(delay: 300.ms),
+
+          const SizedBox(height: 36),
+
+          // ── 3. Main Dribbble 3D Overlapping Card ───────────────────────────
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1050),
+            child: _DribbbleOverlappingProductCard(
+              product: activeProduct,
+              allProducts: _allProducts,
+              currentIndex: _currentIndex,
+              isDark: isDarkMode,
+              onSelectProduct: _selectProduct,
+            ),
           ),
-        ),
-
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-
-  Widget _buildNavButton(IconData icon, VoidCallback onTap, bool isDark) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
-          borderRadius: BorderRadius.circular(12),
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.02),
-        ),
-        child: Icon(icon,
-            color: isDark ? Colors.white70 : const Color(0xFF0D1B1E), size: 24),
+        ],
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stat card item with hover animation & icons
-// ─────────────────────────────────────────────────────────────────────────────
-class _StatCardItem extends StatefulWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  final bool isDark;
-  final double screenWidth;
-
-  const _StatCardItem({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.isDark,
-    required this.screenWidth,
-  });
-
-  @override
-  State<_StatCardItem> createState() => _StatCardItemState();
-}
-
-class _StatCardItemState extends State<_StatCardItem> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isSmall = widget.screenWidth < 600;
-    final accent = widget.isDark
-        ? const Color(0xFF40C4FF)
-        : const Color(0xFF0D47A1);
-
-    final double cardWidth = isSmall
-        ? (widget.screenWidth - 48) / 3
-        : 180;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: cardWidth,
-        transform: Matrix4.identity()..translate(0.0, _hovered ? -4.0 : 0.0),
-        padding: EdgeInsets.symmetric(
-          vertical: isSmall ? 12 : 20,
-          horizontal: isSmall ? 8 : 16,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(isSmall ? 12 : 18),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: widget.isDark
-                ? [
-                    const Color(0xFF0D1F2D).withValues(alpha: _hovered ? 0.95 : 0.75),
-                    const Color(0xFF0A1628).withValues(alpha: _hovered ? 0.95 : 0.75),
-                  ]
-                : [
-                    Colors.white,
-                    const Color(0xFFF4F8FD),
-                  ],
-          ),
-          border: Border.all(
-            color: accent.withValues(alpha: _hovered ? 0.6 : (widget.isDark ? 0.25 : 0.35)),
-            width: _hovered ? 1.5 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: accent.withValues(alpha: _hovered ? 0.25 : 0.05),
-              blurRadius: _hovered ? 16 : 8,
-              spreadRadius: _hovered ? 1 : 0,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: widget.isDark ? 0.4 : 0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top icon with glowing background container
-            Container(
-              padding: EdgeInsets.all(isSmall ? 6 : 9),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: _hovered ? 0.18 : 0.08),
-                border: Border.all(
-                  color: accent.withValues(alpha: _hovered ? 0.4 : 0.15),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                widget.icon,
-                size: isSmall ? 16 : 22,
-                color: accent,
-              ),
-            ),
-            SizedBox(height: isSmall ? 6 : 10),
-            Text(
-              widget.value,
-              style: TextStyle(
-                fontFamily: 'OpenSans',
-                fontSize: isSmall ? 18 : 26,
-                fontWeight: FontWeight.w800,
-                color: widget.isDark ? Colors.white : const Color(0xFF0D1B1E),
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              widget.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'OpenSans',
-                fontSize: isSmall ? 10 : 13,
-                fontWeight: FontWeight.w600,
-                color: widget.isDark ? accent : const Color(0xFF1565C0),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case "CONNECTIVITY":
+        return Icons.cell_tower_outlined;
+      case "PRECIPITATION":
+        return Icons.water_drop_outlined;
+      case "WIND SENSOR":
+        return Icons.air_outlined;
+      case "MULTISENSOR":
+        return Icons.wb_sunny_outlined;
+      case "PROBE SENSOR":
+        return Icons.thermostat_outlined;
+      default:
+        return Icons.hardware_outlined;
+    }
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Hover-animated product card
+// Modern Dribbble 3D Overlapping Card Component with Max Zoomed Product Image
 // ─────────────────────────────────────────────────────────────────────────────
-class _HoverProductCard extends StatefulWidget {
+class _DribbbleOverlappingProductCard extends StatefulWidget {
   final ProductCardData product;
+  final List<ProductCardData> allProducts;
+  final int currentIndex;
   final bool isDark;
-  final Animation<double>? shimmerAnim;
-  final VoidCallback onTap;
+  final ValueChanged<int> onSelectProduct;
 
-  const _HoverProductCard({
+  const _DribbbleOverlappingProductCard({
     required this.product,
+    required this.allProducts,
+    required this.currentIndex,
     required this.isDark,
-    required this.shimmerAnim,
-    required this.onTap,
+    required this.onSelectProduct,
   });
 
   @override
-  State<_HoverProductCard> createState() => _HoverProductCardState();
+  State<_DribbbleOverlappingProductCard> createState() =>
+      _DribbbleOverlappingProductCardState();
 }
 
-class _HoverProductCardState extends State<_HoverProductCard>
-    with SingleTickerProviderStateMixin {
-  bool _hovered = false;
-  late AnimationController _borderController;
-  late Animation<double> _borderAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _borderController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat(reverse: true);
-    _borderAnim = CurvedAnimation(
-        parent: _borderController, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _borderController.dispose();
-    super.dispose();
-  }
+class _DribbbleOverlappingProductCardState
+    extends State<_DribbbleOverlappingProductCard> {
+  bool _imageHovered = false;
+  bool _buttonHovered = false;
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.isDark
-        ? const Color(0xFF40C4FF)
-        : const Color(0xFF0D47A1);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 920;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedBuilder(
-          animation: _borderAnim,
-          builder: (context, child) {
-            final glowOpacity = _hovered
-                ? 0.5 + _borderAnim.value * 0.4
-                : 0.15 + _borderAnim.value * 0.15;
-            final borderWidth = _hovered
-                ? 1.5 + _borderAnim.value * 0.8
-                : 1.0 + _borderAnim.value * 0.5;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+    );
+  }
 
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              transform: Matrix4.identity()
-                ..translate(0.0, _hovered ? -6.0 : 0.0),
+  // ── Desktop 3D Overlapping Layout (Max Zoomed Image) ──────────────────────
+  Widget _buildDesktopLayout() {
+    return Container(
+      key: ValueKey("desktop_${widget.product.code}"),
+      height: 520,
+      margin: const EdgeInsets.all(12),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // ── Right Overlapping Details Background Card ─────────────────────
+          Positioned(
+            left: 360,
+            right: 0,
+            top: 20,
+            bottom: 20,
+            child: Container(
+              padding: const EdgeInsets.only(left: 64, right: 36, top: 32, bottom: 32),
               decoration: BoxDecoration(
+                color: widget.isDark ? const Color(0xFF0F1C2E) : Colors.white,
                 borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: widget.isDark
-                      ? [
-                          const Color(0xFF0A1628),
-                          const Color(0xFF0D1F2D),
-                          const Color(0xFF0A1628),
-                        ]
-                      : [
-                          Colors.white,
-                          const Color(0xFFF4F8FD),
-                          Colors.white,
-                        ],
-                ),
                 border: Border.all(
-                  color: accent.withValues(alpha: glowOpacity),
-                  width: borderWidth,
+                  color: widget.isDark
+                      ? const Color(0xFF40C4FF).withValues(alpha: 0.2)
+                      : Colors.black.withValues(alpha: 0.08),
+                  width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(
-                        alpha: _hovered ? 0.22 : 0.06 + _borderAnim.value * 0.06),
-                    blurRadius: _hovered ? 28 : 14,
-                    spreadRadius: _hovered ? 2 : 0,
-                    offset: const Offset(0, 6),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                        alpha: widget.isDark ? 0.5 : 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    color: widget.isDark
+                        ? Colors.black.withValues(alpha: 0.5)
+                        : Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
-              clipBehavior: Clip.antiAlias,
-              child: child,
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Top row: icon + category badge ──
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Icon badge with inner glow
-                    AnimatedContainer(
-                      duration: 300.ms,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: widget.isDark
-                            ? const Color(0xFF40C4FF).withValues(alpha: _hovered ? 0.18 : 0.1)
-                            : Colors.black.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF40C4FF)
-                              .withValues(alpha: _hovered ? 0.5 : 0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(Icons.sensors,
-                          color: widget.isDark
-                              ? const Color(0xFF40C4FF)
-                              : const Color(0xFF0D47A1),
-                          size: 22),
-                    ),
+              child: _buildProductDetailsContent(),
+            ),
+          ),
 
-                    // Glowing category badge
-                    AnimatedContainer(
-                      duration: 300.ms,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: const Color(0xFF40C4FF)
-                              .withValues(alpha: _hovered ? 0.7 : 0.4),
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        color: const Color(0xFF40C4FF)
-                            .withValues(alpha: _hovered ? 0.12 : 0.05),
-                      ),
-                      child: Text(
-                        widget.product.category,
-                        style: TextStyle(
-                          fontFamily: 'OpenSans',
-                          color: widget.isDark
-                              ? const Color(0xFF40C4FF)
-                              : const Color(0xFF0D47A1),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
+          // ── Left Floating Elevated Image Card (3D Overlapping Front) ──────
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 400,
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _imageHovered = true),
+              onExit: (_) => setState(() => _imageHovered = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                transform: Matrix4.identity()
+                  ..translate(0.0, _imageHovered ? -8.0 : 0.0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: widget.isDark
+                        ? [
+                            const Color(0xFF005082),
+                            const Color(0xFF002F56),
+                            const Color(0xFF07182B),
+                          ]
+                        : [
+                            const Color(0xFFE0F2FE),
+                            const Color(0xFFBAE6FD),
+                            const Color(0xFF7DD3FC),
+                          ],
+                  ),
+                  border: Border.all(
+                    color: widget.isDark
+                        ? const Color(0xFF40C4FF).withValues(alpha: 0.4)
+                        : const Color(0xFF0284C7).withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0284C7))
+                          .withValues(alpha: _imageHovered ? 0.35 : 0.18),
+                      blurRadius: _imageHovered ? 32 : 20,
+                      spreadRadius: _imageHovered ? 2 : 0,
+                      offset: const Offset(0, 12),
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 14),
-
-                // ── Title ──
-                Text(
-                  widget.product.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'OpenSans',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: widget.isDark ? Colors.white : const Color(0xFF0D1B1E),
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 6),
-
-                // ── Subtitle ──
-                Text(
-                  widget.product.subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'OpenSans',
-                    fontSize: 13.5,
-                    color: widget.isDark ? Colors.white70 : Colors.black87,
-                    height: 1.35,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── Product Image with shimmer bg ──
-                Expanded(
-                  flex: 3,
-                  child: widget.shimmerAnim != null
-                      ? AnimatedBuilder(
-                          animation: widget.shimmerAnim!,
-                          builder: (context, child) {
-                            final v = widget.shimmerAnim!.value;
-                            return Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: widget.isDark
-                                      ? [
-                                          const Color(0xFF0D2137),
-                                          const Color(0xFF112840),
-                                          const Color(0xFF0D2137),
-                                        ]
-                                      : [
-                                          const Color(0xFFEEF4FF),
-                                          const Color(0xFFE8F0FE),
-                                          const Color(0xFFEEF4FF),
-                                        ],
-                                  stops: [
-                                    (v - 0.5).clamp(0.0, 1.0),
-                                    v.clamp(0.0, 1.0),
-                                    (v + 0.5).clamp(0.0, 1.0),
-                                  ],
-                                ),
-                              ),
-                              child: child,
-                            );
-                          },
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              transform: Matrix4.identity()
-                                ..scale(_hovered ? 1.06 : 1.0),
-                              child: Image.asset(
-                                widget.product.imagePath,
-                                height: 160,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                        )
-                      : Center(
-                          child: Image.asset(
-                            widget.product.imagePath,
-                            height: 160,
-                            fit: BoxFit.contain,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(26),
+                  child: Stack(
+                    children: [
+                      // Center Hero Image (PERFECTLY CENTERED & ZOOMED)
+                      Positioned.fill(
+                        top: 20,
+                        bottom: 75,
+                        left: 12,
+                        right: 12,
+                        child: Center(
+                          child: AnimatedScale(
+                            alignment: Alignment.center,
+                            scale: _imageHovered
+                                ? widget.product.imageScale * 1.06
+                                : widget.product.imageScale,
+                            duration: const Duration(milliseconds: 250),
+                             child: Transform.translate(
+                               offset: widget.product.imageOffset,
+                               child: Image.asset(
+                                 widget.product.imagePath,
+                                 alignment: Alignment.center,
+                                 fit: BoxFit.contain,
+                                 frameBuilder: (context, child, frame, wasLoaded) {
+                                   if (wasLoaded || frame != null) return child;
+                                   return const Center(
+                                     child: CircularProgressIndicator(strokeWidth: 2),
+                                   );
+                                 },
+                               ),
+                             ),
                           ),
                         ),
+                      ),
+
+                      // Bottom Glassmorphic Thumbnail Bar
+                      Positioned(
+                        bottom: 14,
+                        left: 14,
+                        right: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: (widget.isDark ? Colors.black : Colors.white)
+                                .withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(widget.allProducts.length, (idx) {
+                              final p = widget.allProducts[idx];
+                              final isSelected = idx == widget.currentIndex;
+                              return GestureDetector(
+                                onTap: () => widget.onSelectProduct(idx),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 44,
+                                  height: 44,
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? (widget.isDark
+                                            ? const Color(0xFF40C4FF).withValues(alpha: 0.25)
+                                            : const Color(0xFF0D47A1).withValues(alpha: 0.15))
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? (widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
+                                          : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Image.asset(p.imagePath, fit: BoxFit.contain),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // ── Specs Grid ──
-                _buildSpecsGrid(widget.product.specs, widget.isDark),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildSpecsGrid(Map<String, String> specs, bool isDark) {
-    final entries = specs.entries.toList();
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < 300;
-      final crossAxisCount = isMobile ? 2 : 3;
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 6,
-          mainAxisSpacing: 6,
-          childAspectRatio: isMobile ? 2.2 : 2.5,
+  // ── Mobile / Tablet Stacked Layout ─────────────────────────────────────────
+  Widget _buildMobileLayout() {
+    return Container(
+      key: ValueKey("mobile_${widget.product.code}"),
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: widget.isDark ? const Color(0xFF0F1C2E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: widget.isDark
+              ? const Color(0xFF40C4FF).withValues(alpha: 0.2)
+              : Colors.black.withValues(alpha: 0.08),
         ),
-        itemCount: entries.length,
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top Image Container (Zoomed In)
+          Container(
+            height: 300,
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF40C4FF).withValues(alpha: 0.07)
-                  : Colors.white.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF40C4FF).withValues(alpha: 0.18)
-                    : Colors.black.withValues(alpha: 0.07),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.isDark
+                    ? [const Color(0xFF005082), const Color(0xFF07182B)]
+                    : [const Color(0xFFE0F2FE), const Color(0xFF7DD3FC)],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
               children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    entry.key,
-                    style: TextStyle(
-                      fontFamily: 'OpenSans',
-                      color: isDark
-                          ? const Color(0xFF40C4FF)
-                          : const Color(0xFF1565C0),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
+                Positioned.fill(
+                  top: 16,
+                  bottom: 56,
+                  left: 12,
+                  right: 12,
+                  child: Transform.scale(
+                    scale: widget.product.imageScale * 0.95,
+                    child: Transform.translate(
+                      offset: widget.product.imageOffset,
+                      child: Image.asset(widget.product.imagePath, fit: BoxFit.contain),
                     ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        entry.value,
-                        style: TextStyle(
-                          fontFamily: 'OpenSans',
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF0D1B1E),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+
+                // Thumbnails at bottom
+                Positioned(
+                  bottom: 8,
+                  left: 12,
+                  right: 12,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(widget.allProducts.length, (idx) {
+                        final p = widget.allProducts[idx];
+                        final isSelected = idx == widget.currentIndex;
+                        return GestureDetector(
+                          onTap: () => widget.onSelectProduct(idx),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: 40,
+                            height: 40,
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? (widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Image.asset(p.imagePath, fit: BoxFit.contain),
+                          ),
+                        );
+                      }),
                     ),
                   ),
                 ),
               ],
             ),
-          )
-              .animate(delay: Duration(milliseconds: 60 * index))
-              .fadeIn(duration: 400.ms)
-              .scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1));
-        },
-      );
-    });
+          ),
+
+          // Bottom Product Details
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: _buildProductDetailsContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Product Details Content (Exact data from product_page.dart) ────────────
+  Widget _buildProductDetailsContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Category & SKU Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: widget.isDark
+                    ? const Color(0xFF40C4FF).withValues(alpha: 0.15)
+                    : const Color(0xFF0D47A1).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                widget.product.category,
+                style: TextStyle(
+                  fontFamily: 'OpenSans',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  color: widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        // Product Title
+        Text(
+          widget.product.title,
+          style: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: widget.isDark ? Colors.white : const Color(0xFF0D1B1E),
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // Subtitle (Exact from product_page.dart)
+        Text(
+          widget.product.subtitle,
+          style: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 13,
+            color: widget.isDark ? Colors.white60 : Colors.black54,
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Highlight Rating / Status Banner (Exact eyebrow specs)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: widget.isDark
+                ? const Color(0xFF40C4FF).withValues(alpha: 0.08)
+                : const Color(0xFFE0F2FE),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: widget.isDark
+                  ? const Color(0xFF40C4FF).withValues(alpha: 0.2)
+                  : const Color(0xFF0284C7).withValues(alpha: 0.2),
+            ),
+          ),
+          child: Text(
+            widget.product.highlight,
+            style: TextStyle(
+              fontFamily: 'OpenSans',
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0284C7),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Specifications & Benefits (Exact data from product_page.dart)
+        Text(
+          "SPECIFICATIONS & BENEFITS",
+          style: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.0,
+            color: widget.isDark ? Colors.white38 : Colors.black45,
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Column(
+          children: widget.product.specs.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 16,
+                    color: widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "${entry['label']}: ",
+                    style: TextStyle(
+                      fontFamily: 'OpenSans',
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: widget.isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      entry['value']!,
+                      style: TextStyle(
+                        fontFamily: 'OpenSans',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+
+        const SizedBox(height: 18),
+
+        // CTA Action Button
+        MouseRegion(
+          onEnter: (_) => setState(() => _buttonHovered = true),
+          onExit: (_) => setState(() => _buttonHovered = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            transform: Matrix4.identity()..scale(_buttonHovered ? 1.02 : 1.0),
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () =>
+                  NavigationUtils.navigateTo(context, widget.product.route),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: const Text(
+                "EXPLORE PRODUCT DETAILS",
+                style: TextStyle(
+                  fontFamily: 'OpenSans',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: widget.isDark
+                    ? const Color(0xFF0091EA)
+                    : const Color(0xFF0D47A1),
+                elevation: _buttonHovered ? 8 : 4,
+                shadowColor: (widget.isDark ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
+                    .withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

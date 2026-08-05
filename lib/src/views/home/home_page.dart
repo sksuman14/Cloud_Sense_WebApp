@@ -2095,7 +2095,7 @@ class _HeroSectionState extends State<HeroSection> {
                           ),
                         ],
                       ),
-                    ).animate().fade(delay: 200.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
+                    ),
                     const SizedBox(height: 12),
                     // Subtitle
                     Text(
@@ -2114,7 +2114,7 @@ class _HeroSectionState extends State<HeroSection> {
                           ),
                         ],
                       ),
-                    ).animate().fade(delay: 400.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
+                    ),
                     Spacer(flex: isMobile ? 3 : 1),
                     // CTA Buttons
                     Wrap(
@@ -2171,7 +2171,7 @@ class _HeroSectionState extends State<HeroSection> {
                           ),
                         ),
                       ],
-                    ).animate().fade(delay: 600.ms, duration: 600.ms).slideY(begin: 0.2, end: 0.0),
+                    ),
                     Spacer(flex: isMobile ? 1 : 1),
                 const SizedBox(height: 24),
               ],
