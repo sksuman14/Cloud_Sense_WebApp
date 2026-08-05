@@ -2066,13 +2066,12 @@ class _HeroSectionState extends State<HeroSection> {
             ),
           ),
           // 3. Left-Aligned Content Overlay on Desktop (Tesla Style)
-          IgnorePointer(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
-              child: Align(
-                alignment: isMobile ? Alignment.center : Alignment.centerLeft,
-                child: SizedBox(
-                  width: isMobile ? double.infinity : width * 0.5,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
+            child: Align(
+              alignment: isMobile ? Alignment.center : Alignment.centerLeft,
+              child: SizedBox(
+                width: isMobile ? double.infinity : width * 0.5,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
@@ -2179,7 +2178,6 @@ class _HeroSectionState extends State<HeroSection> {
             ),
           ),
         ),
-      ),
       ),
           // 4. Location Badge Overlay at the bottom-left
           Positioned(
