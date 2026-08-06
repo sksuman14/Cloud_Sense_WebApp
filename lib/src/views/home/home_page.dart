@@ -1290,7 +1290,16 @@ class _HomePageState extends State<HomePage> {
                                                             "rainfalldaily"
                                                           ]);
                                                           final rainfallCumulativeVal = HomeUtils.getCorrectedValue(selectedDevice, [
-                                                            "RainfallCumulative"
+                                                            "RainfallCumulative",
+                                                            "Rainfall_Cumulative",
+                                                            "RainfallComulative",
+                                                            "Rainfall_Comulative",
+                                                            "RainfallDailyComulative",
+                                                            "RainfallHourlyComulative",
+                                                            "RainfallMinutlyComulative",
+                                                            "rainfallcumulative",
+                                                            "rainfalldailycomulative",
+                                                            "rainfallhourlycomulative"
                                                           ]);
                                                           final lightIntensityVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "LightIntensity",

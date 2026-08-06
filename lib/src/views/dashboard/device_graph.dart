@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -2456,16 +2456,30 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
       double? totalRainfall;
       if (p.key.toLowerCase().contains('rain')) {
-        // For AM (CP01) devices: use the last Rainfall_Cumulative value directly.
-        // The API reports a running cumulative total that resets daily,
-        // so the most-recent record always holds the correct cumulative value.
-        // For multi-day ranges, we sum the last Rainfall_Cumulative value seen
-        // per calendar day (each day's final reading = that day's total rain).
-        if (widget.deviceName.startsWith('AM') &&
-            p.key == 'Rainfall' &&
-            _parametersData.containsKey('Rainfall_Cumulative') &&
-            _parametersData['Rainfall_Cumulative']!.isNotEmpty) {
-          final cumulativeData = _parametersData['Rainfall_Cumulative']!;
+        // Find if we have any cumulative dataset in _parametersData (for AWS_62, Kerala, AM, etc.)
+        String? cumulativeKey;
+        if (_parametersData.containsKey(p.key) &&
+            (p.key.toLowerCase().contains('cumul') ||
+                p.key.toLowerCase().contains('comul') ||
+                p.key.toLowerCase().contains('daily'))) {
+          cumulativeKey = p.key;
+        } else {
+          for (final k in _parametersData.keys) {
+            final lk = k.toLowerCase();
+            if (lk.contains('rain') &&
+                (lk.contains('cumul') || lk.contains('comul') || lk.contains('daily'))) {
+              if (_parametersData[k] != null && _parametersData[k]!.isNotEmpty) {
+                cumulativeKey = k;
+                break;
+              }
+            }
+          }
+        }
+
+        if (cumulativeKey != null &&
+            _parametersData[cumulativeKey] != null &&
+            _parametersData[cumulativeKey]!.isNotEmpty) {
+          final cumulativeData = _parametersData[cumulativeKey]!;
 
           if (_lastSelectedRange == 'single') {
             // Single day: just take the last (most recent) cumulative value.
@@ -5745,7 +5759,7 @@ class _MetricSummaryCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    if (isRainfall && current == 0.0)
+                    if (isRainfall)
                       Text(
                         'Total rain: ${totalRainfall?.toStringAsFixed(2) ?? "0.00"} $unit',
                         style: const TextStyle(
