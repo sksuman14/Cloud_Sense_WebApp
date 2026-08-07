@@ -231,7 +231,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     return ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100.0;
   }
 
-// Helper function to calculate total rainfall
+// Helper function to calculate total rainfall from hourly readings
   double _calculateTotalRainfall(List<ChartData> rainData,
       {bool isIncremental = false}) {
     if (rainData.isEmpty) return 0.0;
@@ -240,33 +240,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return rainData.fold(0.0, (sum, data) => sum + data.value);
     }
 
-    final Map<DateTime, double> hourlyTotals = {};
+    // Group by hourly slots (Year-Month-Day-Hour) and take max value per hour slot.
+    // Hourly rainfall accumulates within the hour (e.g. 0.5 -> 1.0 -> 1.0) and resets at next hour (2:00).
+    final Map<String, double> hourlyMaxMap = {};
 
     for (var data in rainData) {
-      DateTime hourEnd = DateTime(
-        data.timestamp.year,
-        data.timestamp.month,
-        data.timestamp.day,
-        data.timestamp.hour,
-        0,
-      );
-      if (data.timestamp.minute > 0) {
-        hourEnd = DateTime(
-          data.timestamp.year,
-          data.timestamp.month,
-          data.timestamp.day,
-          data.timestamp.hour + 1,
-          0,
-        );
-      }
-
-      if (data.timestamp.isAtSameMomentAs(hourEnd) ||
-          data.timestamp.isBefore(hourEnd)) {
-        hourlyTotals[hourEnd] = data.value;
+      final hourSlotKey =
+          '${data.timestamp.year}-${data.timestamp.month.toString().padLeft(2, '0')}-${data.timestamp.day.toString().padLeft(2, '0')}-${data.timestamp.hour.toString().padLeft(2, '0')}';
+      final currentMax = hourlyMaxMap[hourSlotKey] ?? 0.0;
+      if (data.value > currentMax) {
+        hourlyMaxMap[hourSlotKey] = data.value;
       }
     }
 
-    return hourlyTotals.values.fold(0.0, (sum, total) => sum + total);
+    return hourlyMaxMap.values.fold(0.0, (sum, total) => sum + total);
   }
 
 // Helper function to merge raw sensor data with available corrected fields without dropping uncorrected timestamps
@@ -2456,18 +2443,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
       double? totalRainfall;
       if (p.key.toLowerCase().contains('rain')) {
-        // Find if we have any cumulative dataset in _parametersData (for AWS_62, Kerala, AM, etc.)
+        // Step 1: Check if a cumulative rainfall series exists (e.g. Rainfall_Cumulative: 35.0)
         String? cumulativeKey;
         if (_parametersData.containsKey(p.key) &&
-            (p.key.toLowerCase().contains('cumul') ||
-                p.key.toLowerCase().contains('comul') ||
-                p.key.toLowerCase().contains('daily'))) {
+            (p.key.toLowerCase().contains('cumul') || p.key.toLowerCase().contains('comul'))) {
           cumulativeKey = p.key;
         } else {
           for (final k in _parametersData.keys) {
             final lk = k.toLowerCase();
-            if (lk.contains('rain') &&
-                (lk.contains('cumul') || lk.contains('comul') || lk.contains('daily'))) {
+            if (lk.contains('rain') && (lk.contains('cumul') || lk.contains('comul'))) {
               if (_parametersData[k] != null && _parametersData[k]!.isNotEmpty) {
                 cumulativeKey = k;
                 break;
@@ -2480,26 +2464,45 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             _parametersData[cumulativeKey] != null &&
             _parametersData[cumulativeKey]!.isNotEmpty) {
           final cumulativeData = _parametersData[cumulativeKey]!;
-
           if (_lastSelectedRange == 'single') {
-            // Single day: just take the last (most recent) cumulative value.
+            // Single day: directly take the latest/last cumulative value (e.g. 35.0)
             totalRainfall = cumulativeData.last.value;
           } else {
-            // Multi-day range: group cumulative readings by calendar date,
-            // take the LAST value per day (= that day's total), then sum.
+            // Multi-day: sum the last cumulative reading of each day
             final Map<String, double> dailyLast = {};
             for (final d in cumulativeData) {
               final dateKey =
                   '${d.timestamp.year}-${d.timestamp.month.toString().padLeft(2, '0')}-${d.timestamp.day.toString().padLeft(2, '0')}';
-              dailyLast[dateKey] = d.value; // overwrite → keeps last of the day
+              dailyLast[dateKey] = d.value;
             }
-            totalRainfall =
-                dailyLast.values.fold<double>(0.0, (sum, v) => sum + v);
+            totalRainfall = dailyLast.values.fold<double>(0.0, (sum, v) => sum + v);
           }
         } else {
+          // Step 2: Cumulative key not present -> Use Hourly max-reset summation logic
+          String? hourlyKey;
+          if (p.key.toLowerCase().contains('hourly')) {
+            hourlyKey = p.key;
+          } else {
+            for (final k in _parametersData.keys) {
+              final lk = k.toLowerCase();
+              if (lk.contains('rain') && lk.contains('hourly')) {
+                if (_parametersData[k] != null && _parametersData[k]!.isNotEmpty) {
+                  hourlyKey = k;
+                  break;
+                }
+              }
+            }
+          }
+
+          final targetData = (hourlyKey != null &&
+                  _parametersData[hourlyKey] != null &&
+                  _parametersData[hourlyKey]!.isNotEmpty)
+              ? _parametersData[hourlyKey]!
+              : data;
+
           bool isIncremental = widget.deviceName.startsWith('JW');
           totalRainfall =
-              _calculateTotalRainfall(data, isIncremental: isIncremental);
+              _calculateTotalRainfall(targetData, isIncremental: isIncremental);
         }
       }
 
