@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 
 class DeviceParameter {
@@ -97,7 +97,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_Soil/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=SSMet_Soil&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=SSMet_Soil&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -142,7 +142,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/SSMet/custom/1225/C0/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=SSMet_custom_1225&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=SSMet_custom_1225&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -235,7 +235,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_NARL/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_NARL&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_SSMet_NARL&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -266,7 +266,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Polytechnic/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Polytechnic&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_Polytechnic&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -381,7 +381,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Campus/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Campus&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_Campus&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       hasAirQuality: true,
@@ -476,7 +476,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/Awadh_IIT_B/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=Awadh_IIT_B&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=Awadh_IIT_B&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -538,7 +538,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Campus/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Campus&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_Campus&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -571,7 +571,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMET_1225/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMET_1225&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_SSMET_1225&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       hasWeatherForecasting: true,
@@ -605,7 +605,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_0126/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_0126&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_SSMet_0126&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -638,7 +638,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_0226/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_0226&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_SSMet_0226&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -671,7 +671,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_Annam_0426/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_Annam_0426&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_Annam_0426&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -1042,7 +1042,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_KJSCE/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_KJSCE&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_SSMet_KJSCE&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       parameters: [
         DeviceParameter(
             key: 'CurrentTemperature', displayName: 'Temperature', unit: '°C'),
@@ -1102,7 +1102,7 @@ class DeviceConfig {
       monthHistoryApiTemplate:
           'https://d2c53xydfx4tqe.cloudfront.net/WS_SSMet_Railway/{deviceId}/{year}/{monthAbbr}.json',
       threeMonthHistoryApiTemplate:
-          'https://d34lrmn3rtbg3b.cloudfront.net/3_Months_Data_Agg_api?Topic=WS_SSMet_Railway&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
+          'https://0m8uapynak.execute-api.us-east-1.amazonaws.com/default/3_Months_Data_Agg_api?Topic=WS_SSMet_Railway&DeviceId={deviceId}&Window={windowAbbr}&Year={year}',
       hasRainfall: true,
       parameters: [
         DeviceParameter(
