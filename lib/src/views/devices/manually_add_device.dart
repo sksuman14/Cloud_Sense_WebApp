@@ -113,6 +113,7 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
     final hasInput = deviceIdController.text.trim().isNotEmpty;
 
     final List<Map<String, String>> templates = [
+      {'name': 'Annam CP Sensor 📡', 'prefix': 'ANNAM_CP'},
       {'name': 'CPS Sensor 🌡️', 'prefix': 'ANNAM/CPS_'},
       {'name': 'April Weather 📅', 'prefix': 'ANNAM0426_'},
       {'name': 'Jan Weather ❄️', 'prefix': 'ANNAM0126_'},

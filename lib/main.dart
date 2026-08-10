@@ -30,6 +30,9 @@ import 'package:url_strategy/url_strategy.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
+import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_portal_main.dart';
+import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_login_gate_page.dart';
+
 
 // Initialize Flutter local notifications plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -504,6 +507,29 @@ Future<Map<String, dynamic>?> loadQualityArgs() async {
   return null;
 }
 
+Map<String, dynamic>? _globalNowcastingArgs;
+
+Future<void> saveNowcastingArgs(Map<String, dynamic> args) async {
+  _globalNowcastingArgs = args;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('lastNowcastingArgs', jsonEncode(args));
+  } catch (_) {}
+}
+
+Future<Map<String, dynamic>?> loadNowcastingArgs() async {
+  if (_globalNowcastingArgs != null) return _globalNowcastingArgs;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('lastNowcastingArgs');
+    if (data != null) {
+      _globalNowcastingArgs = jsonDecode(data);
+      return _globalNowcastingArgs;
+    }
+  } catch (_) {}
+  return null;
+}
+
 
 Future<Map<String, dynamic>?> loadBuffaloArgs() async {
   try {
@@ -726,14 +752,34 @@ class MyApp extends StatelessWidget {
 
           case '/nowcasting':
             final args = settings.arguments as Map<String, dynamic>?;
-            if (args != null) {
+            if (args != null && (args['deviceName'] ?? '').toString().isNotEmpty) {
+              saveNowcastingArgs(args);
               pageContent = WeatherNowcastingPage(
-                deviceName: args['deviceName'] ?? '',
-                sequentialName: args['sequentialName'] ?? '',
+                deviceName: args['deviceName'] ?? 'ANNAM_CP02',
+                sequentialName: args['sequentialName'] ?? 'Annam Weather Sensor',
               );
             } else {
-              pageContent = const Scaffold(
-                body: Center(child: Text("No arguments provided")),
+              pageContent = FutureBuilder<Map<String, dynamic>?>(
+                future: loadNowcastingArgs(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  final lastArgs = snapshot.data;
+                  final devName = (lastArgs?['deviceName'] ?? '').toString().isNotEmpty
+                      ? lastArgs!['deviceName'].toString()
+                      : 'ANNAM_CP02';
+                  final seqName = (lastArgs?['sequentialName'] ?? '').toString().isNotEmpty
+                      ? lastArgs!['sequentialName'].toString()
+                      : 'Annam Weather Sensor';
+
+                  return WeatherNowcastingPage(
+                    deviceName: devName,
+                    sequentialName: seqName,
+                  );
+                },
               );
             }
             break;
@@ -760,6 +806,11 @@ class MyApp extends StatelessWidget {
           // case "/soilspectra":
           //   pageContent = const ProductPage(sensorIndex: 6);
           //   break;
+          case '/ksdma':
+          case '/citizen-weather':
+          case '/kerala-weather':
+            pageContent = const KsdmaPortalMainPage();
+            break;
           case '/admin':
             // Read from prefs-backed provider OR fall back to saved pref
             final userProvider =
@@ -923,6 +974,12 @@ class MyApp extends StatelessWidget {
                 },
               );
             }
+            break;
+
+          case '/ksdma':
+          case '/citizen-weather':
+          case '/kerala-weather':
+            pageContent = const KsdmaLoginGatePage();
             break;
 
           default:

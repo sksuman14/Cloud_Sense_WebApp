@@ -10,7 +10,7 @@ class DevicePrefixUtils {
     'BF', 'CS', 'TH', 'NH', 'IT', 'FS', 'SM', 'SW', 'SI', 'CF',
     'SV', 'CB', 'WF', 'KD', 'VD', 'PC', 'KR', 'AW', 'GP', 'NA',
     'CP', 'KJ', 'MY', 'DM', 'WJ', 'WF', 'WT', 'WA', 'WM', 'TS',
-    'PS', 'PJ',
+    'PS', 'PJ', 'AM', 'SH', 'WN', 'JW',
   ];
 
   static String getSensorType(String deviceId) {
@@ -35,6 +35,7 @@ class DevicePrefixUtils {
     if (deviceId.startsWith('WA')) return 'April Weather Sensors';
     if (deviceId.startsWith('WT')) return 'Weather OTA Sensors';
     if (deviceId.startsWith('WF')) return 'Feb Weather Sensors';
+    if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
     if (deviceId.startsWith('WM')) return 'Testing Devices';
     if (deviceId.startsWith('SI')) return 'Synthite Industries Private Limited Sensor';
     if (deviceId.startsWith('CF')) return 'Sekhon Biotech Pvt Ltd Farm Sensor';
