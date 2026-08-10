@@ -178,6 +178,8 @@ class HomeUtils {
   }
 
   static const Map<String, String> _hardcodedLocationMap = {
+    'WJ214': 'Dinanagar, Punjab',
+    'ANNAM0126_214': 'Dinanagar, Punjab',
     'WJ262': 'Amritsar, Punjab',
     'WJ240': 'Ghanauli, Rupnagar, Punjab',
     'WJ247': 'Kala Afgana, Gurdaspur, Punjab',
@@ -203,6 +205,17 @@ class HomeUtils {
   static String getFormattedLocation(Map<String, dynamic>? device) {
     if (device == null) return "";
 
+    final rawDeviceId = (device['deviceId'] ?? device['Device_ID'] ?? device['ANNAM_ID'] ?? '').toString();
+    final rawTopic = (device['deviceid#topic'] ?? device['Topic'] ?? '').toString();
+    final internalId = DevicePrefixUtils.getSensorNameFromTopic(rawTopic) ?? rawDeviceId;
+
+    if (_hardcodedLocationMap.containsKey(internalId)) {
+      return _hardcodedLocationMap[internalId]!;
+    }
+    if (_hardcodedLocationMap.containsKey(rawDeviceId)) {
+      return _hardcodedLocationMap[rawDeviceId]!;
+    }
+
     final city = (device['City'] ??
             device['city'] ??
             device['Place'] ??
@@ -224,16 +237,14 @@ class HomeUtils {
       return parts.join(', ');
     }
 
-    final rawTopic =
-        (device['deviceid#topic'] ?? device['Topic'] ?? '').toString();
     if (rawTopic.isNotEmpty) {
-      final internalId = DevicePrefixUtils.getSensorNameFromTopic(rawTopic);
-      if (internalId != null) {
-        if (_hardcodedLocationMap.containsKey(internalId)) {
-          return _hardcodedLocationMap[internalId]!;
+      final topicSensor = DevicePrefixUtils.getSensorNameFromTopic(rawTopic);
+      if (topicSensor != null) {
+        if (_hardcodedLocationMap.containsKey(topicSensor)) {
+          return _hardcodedLocationMap[topicSensor]!;
         }
         // Fallback for TS (Testing) sensors: Rupnagar, Punjab
-        if (DevicePrefixUtils.isAnnamTestingSensor(internalId)) {
+        if (DevicePrefixUtils.isAnnamTestingSensor(topicSensor)) {
           return 'Rupnagar, Punjab';
         }
       }

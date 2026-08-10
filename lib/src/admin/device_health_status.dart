@@ -81,10 +81,39 @@ class DeviceHealthData {
     this.longitude,
   });
 
+  static const Map<String, String> _hardcodedLocationMap = {
+    'WJ214': 'Dinanagar, Punjab',
+    'ANNAM0126_214': 'Dinanagar, Punjab',
+    '214': 'Dinanagar, Punjab',
+    'WJ262': 'Amritsar, Punjab',
+    'WJ240': 'Ghanauli, Rupnagar, Punjab',
+    'WJ247': 'Kala Afgana, Gurdaspur, Punjab',
+    'WJ276': 'Qadian, Gurdaspur, Punjab',
+    'WA013': 'Gajansu Madh, Jammu and Kashmir',
+    'WA027': 'Nandpur, Sambha, Jammu and Kashmir',
+    'WJ224': 'Tarn Taran, Punjab',
+    'WJ466': 'Dasuya, Hoshairpur, Punjab',
+    'WJ080': 'Jaito, Faridkot, Punjab',
+    'WJ231': 'Adampur, Jalandhar, Punjab',
+    'WJ398': 'District Administration Complex, Sector 76, Mohali, Punjab',
+    'IT100': 'IIT Bombay, Maharashtra',
+    'SM003': 'Cachar, Assam',
+    'SW003': 'Bhubaneswar (M.Corp.) P.S., Khordha district, Odisha',
+    'GPS': 'Rupnagar, Punjab',
+    'gps': 'Rupnagar, Punjab',
+    'WJ221': 'Zira tehsil, Firozpur district, Punjab',
+    'NA013': 'Hyderabad, Musheerabad mandal, Telangana',
+    'WJ267': 'Sardulgarh tehsil, Mansa district, Punjab',
+    'WA016': 'Hiranagar, Kathua, Jammu and Kashmir',
+  };
+
   factory DeviceHealthData.fromJson(Map<String, dynamic> json) {
+    final devId = json['deviceId']?.toString() ?? '';
+    final topic = json['deviceId_topic']?.toString() ?? '';
+
     return DeviceHealthData(
-      deviceId: json['deviceId']?.toString() ?? '',
-      deviceIdTopic: json['deviceId_topic']?.toString() ?? '',
+      deviceId: devId,
+      deviceIdTopic: topic,
       imeiNumber: json['IMEINumber']?.toString() ?? '',
       city: json['City'],
       district: json['District'],
@@ -132,8 +161,7 @@ class DeviceHealthData {
           List<String>.from(json['sensor_data']?['missing_parameters'] ?? []),
       isDetailed: json['daily_completeness'] != null,
       latitude: _safeDouble(json['Latitude']) ?? _safeDouble(json['latitude']),
-      longitude:
-          _safeDouble(json['Longitude']) ?? _safeDouble(json['longitude']),
+      longitude: _safeDouble(json['Longitude']) ?? _safeDouble(json['longitude']),
     );
   }
 
@@ -148,11 +176,12 @@ class DeviceHealthData {
     String? signalStatus,
     String? batteryStatus,
     String? sdCardStatus,
-    double? batteryVoltage,
-    int? signalDbm,
-    int? healthScore,
     String? healthStatus,
+    int? healthScore,
     int? lastActiveMinsAgo,
+    int? signalDbm,
+    double? batteryVoltage,
+    bool? sdCardMounted,
     double? avgCompleteness7d,
     int? totalMissing7d,
     int? totalDuplicates7d,
@@ -162,6 +191,7 @@ class DeviceHealthData {
     String? city,
     String? district,
     String? state,
+    String? firmwareVersion,
   }) {
     return DeviceHealthData(
       deviceId: deviceId,
@@ -170,7 +200,7 @@ class DeviceHealthData {
       city: city ?? this.city,
       district: district ?? this.district,
       state: state ?? this.state,
-      firmwareVersion: firmwareVersion,
+      firmwareVersion: firmwareVersion ?? this.firmwareVersion,
       healthScore: healthScore ?? this.healthScore,
       healthStatus: healthStatus ?? this.healthStatus,
       lastActiveMinsAgo: lastActiveMinsAgo ?? this.lastActiveMinsAgo,
@@ -180,7 +210,7 @@ class DeviceHealthData {
       batteryVoltage: batteryVoltage ?? this.batteryVoltage,
       batteryStatus: batteryStatus ?? this.batteryStatus,
       sdCardStatus: sdCardStatus ?? this.sdCardStatus,
-      sdCardMounted: sdCardMounted,
+      sdCardMounted: sdCardMounted ?? this.sdCardMounted,
       avgCompleteness7d: avgCompleteness7d ?? this.avgCompleteness7d,
       totalMissing7d: totalMissing7d ?? this.totalMissing7d,
       totalDuplicates7d: totalDuplicates7d ?? this.totalDuplicates7d,
@@ -196,6 +226,13 @@ class DeviceHealthData {
   }
 
   String get location {
+    final name = displayName;
+    final sensorName = DevicePrefixUtils.getSensorNameFromTopic(deviceIdTopic) ?? deviceId;
+
+    if (_hardcodedLocationMap.containsKey(name)) return _hardcodedLocationMap[name]!;
+    if (_hardcodedLocationMap.containsKey(sensorName)) return _hardcodedLocationMap[sensorName]!;
+    if (_hardcodedLocationMap.containsKey(deviceId)) return _hardcodedLocationMap[deviceId]!;
+
     List<String> parts = [];
     if (city != null && city!.isNotEmpty && city != "null") parts.add(city!);
     if (district != null && district!.isNotEmpty && district != "null")

@@ -46,11 +46,12 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
   Map<String, String> _locationMap = {};
 
   String? _getLocationForSensor(String sensorName) {
+    final hardcoded = _hardcodedLocationMap[sensorName] ?? _hardcodedLocationMap[DevicePrefixUtils.getSensorNameFromTopic(sensorName) ?? ''];
+    if (hardcoded != null) return hardcoded;
+
     final topic = buildTopicFromSensorName(sensorName).toLowerCase();
     final apiLocation = _locationMap[topic];
     if (apiLocation != null && apiLocation.isNotEmpty) return apiLocation;
-    final hardcoded = _hardcodedLocationMap[sensorName];
-    if (hardcoded != null) return hardcoded;
 
     // Fallback for TS (Testing) sensors: Rupnagar, Punjab
     if (DevicePrefixUtils.isAnnamTestingSensor(sensorName)) {
@@ -60,6 +61,8 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
   }
 
   static const Map<String, String> _hardcodedLocationMap = {
+    'WJ214': 'Dinanagar, Punjab',
+    'ANNAM0126_214': 'Dinanagar, Punjab',
     'WJ262': 'Amritsar, Punjab',
     'WJ240': 'Ghanauli, Rupnagar, Punjab',
     'WJ247': 'Kala Afgana, Gurdaspur, Punjab',

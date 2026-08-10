@@ -284,6 +284,24 @@ const List<Map<String, dynamic>> _hardcodedCampusSensors = [
     'state': 'Jammu and Kashmir',
     'topic': 'WS/Campus/WA016'
   },
+  {
+    'deviceId': 'WJ214',
+    'latitude': 32.1431,
+    'longitude': 75.476092,
+    'category': 'Jan Weather Sensor',
+    'place': 'Dinanagar',
+    'state': 'Punjab',
+    'topic': 'WS/SSMet_0126/214'
+  },
+  {
+    'deviceId': 'ANNAM0126_214',
+    'latitude': 32.1431,
+    'longitude': 75.476092,
+    'category': 'Jan Weather Sensor',
+    'place': 'Dinanagar',
+    'state': 'Punjab',
+    'topic': 'WS/SSMet_0126/214'
+  },
 ];
 List<Map<String, dynamic>> _buildHardcodedSensors() => _hardcodedCampusSensors
     .map((s) => <String, dynamic>{
