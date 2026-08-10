@@ -1419,8 +1419,24 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           if (item['corrected_fields'] != null && item['corrected_fields'] is Map) {
             final correctedFields = item['corrected_fields'] as Map;
             final lowerKey = key.toLowerCase();
-            if (correctedFields.containsKey(lowerKey) && correctedFields[lowerKey]['corrected_value'] != null) {
-              final correctedRaw = correctedFields[lowerKey]['corrected_value'];
+            dynamic correctedRaw;
+
+            if (correctedFields.containsKey(lowerKey) &&
+                correctedFields[lowerKey]['corrected_value'] != null) {
+              correctedRaw = correctedFields[lowerKey]['corrected_value'];
+            } else if (lowerKey.contains('rain')) {
+              for (var cfKey in correctedFields.keys) {
+                if (cfKey.toString().toLowerCase().contains('rain')) {
+                  if (correctedFields[cfKey] != null &&
+                      correctedFields[cfKey]['corrected_value'] != null) {
+                    correctedRaw = correctedFields[cfKey]['corrected_value'];
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (correctedRaw != null) {
               final correctedValue = double.tryParse(correctedRaw.toString());
               if (correctedValue != null) {
                 final correctedKey = 'CorrectedField_$key';
@@ -2411,6 +2427,17 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         if (corrected != null && corrected.isNotEmpty) {
           data = _mergeCorrectedData(data, corrected);
         }
+      } else if (p.displayName.toLowerCase().contains('rain') ||
+          p.key.toLowerCase().contains('rain')) {
+        for (final k in _parametersData.keys) {
+          if (k.toLowerCase().contains('correctedfield') &&
+              k.toLowerCase().contains('rain')) {
+            final corrected = _parametersData[k];
+            if (corrected != null && corrected.isNotEmpty) {
+              data = _mergeCorrectedData(data, corrected);
+            }
+          }
+        }
       }
       final current = data.last.value;
 
@@ -2497,11 +2524,22 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             }
           }
 
-          final targetData = (hourlyKey != null &&
+          var targetData = (hourlyKey != null &&
                   _parametersData[hourlyKey] != null &&
                   _parametersData[hourlyKey]!.isNotEmpty)
               ? _parametersData[hourlyKey]!
               : data;
+
+          // Merge corrected rain data into targetData so totalRainfall calculation uses corrected values!
+          for (final k in _parametersData.keys) {
+            if (k.toLowerCase().contains('correctedfield') &&
+                k.toLowerCase().contains('rain')) {
+              final corrected = _parametersData[k];
+              if (corrected != null && corrected.isNotEmpty) {
+                targetData = _mergeCorrectedData(targetData, corrected);
+              }
+            }
+          }
 
           bool isIncremental = widget.deviceName.startsWith('JW');
           totalRainfall =
