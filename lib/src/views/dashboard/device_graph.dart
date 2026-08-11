@@ -243,13 +243,19 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return rainData.fold(0.0, (sum, data) => sum + data.value);
     }
 
-    // Group by hourly slots (Year-Month-Day-Hour) and take max value per hour slot.
-    // Hourly rainfall accumulates within the hour (e.g. 0.5 -> 1.0 -> 1.0) and resets at next hour (2:00).
+    // Group by 2-minute delayed hourly slots:
+    // 09:02:01 to 10:02:00 (e.g., 09:05, 09:50, 10:00, 10:02) all map to the 09:00 hour slot.
     final Map<String, double> hourlyMaxMap = {};
 
     for (var data in rainData) {
+      final dt = data.timestamp;
+
+      // Timestamps up to XX:02:00 (e.g. 10:00, 10:01, 10:02:00) belong to the previous hour slot (09:00 slot).
+      final bool isPrevSlot = dt.minute < 2 || (dt.minute == 2 && dt.second == 0 && dt.millisecond == 0);
+      final slotTime = isPrevSlot ? dt.subtract(const Duration(hours: 1)) : dt;
+
       final hourSlotKey =
-          '${data.timestamp.year}-${data.timestamp.month.toString().padLeft(2, '0')}-${data.timestamp.day.toString().padLeft(2, '0')}-${data.timestamp.hour.toString().padLeft(2, '0')}';
+          '${slotTime.year}-${slotTime.month.toString().padLeft(2, '0')}-${slotTime.day.toString().padLeft(2, '0')}-${slotTime.hour.toString().padLeft(2, '0')}';
       final currentMax = hourlyMaxMap[hourSlotKey] ?? 0.0;
       if (data.value > currentMax) {
         hourlyMaxMap[hourSlotKey] = data.value;

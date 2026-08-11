@@ -31,7 +31,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_portal_main.dart';
-import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_login_gate_page.dart';
 
 
 // Initialize Flutter local notifications plugin
@@ -578,43 +577,13 @@ Future<String> determineInitialRoute() async {
     } catch (_) {}
 
     if (lastRoute != null && lastRoute.isNotEmpty) {
+      if (lastRoute == '/login') return '/ksdma';
       return lastRoute;
     }
-    var currentUser = await Amplify.Auth.getCurrentUser();
-    var userAttributes = await Amplify.Auth.fetchUserAttributes();
-    String? email;
-    String? name;
-    for (var attr in userAttributes) {
-      if (attr.userAttributeKey == AuthUserAttributeKey.email) {
-        email = attr.value;
-      }
-      if (attr.userAttributeKey.key == 'name') {
-        name = attr.value;
-      } else if (attr.userAttributeKey.key == 'preferred_username' && name == null) {
-        name = attr.value;
-      }
-    }
-
-    if (email != null) {
-      await prefs.setString('email', email);
-    }
-    if (name != null) {
-      await prefs.setString('name', name);
-    }
-
-    print(
-        'Determining initial route - User ID: ${currentUser.username}, Email: $email');
-
-    if (DeviceUtils.isSuperAdmin(email)) {
-      return '/';
-    } else if (email == '05agriculture.05@gmail.com') {
-      return '/deviceinfo';
-    } else {
-      return '/';
-    }
+    return '/ksdma';
   } catch (e) {
-    print('No user logged in or error: $e');
-    return '/';
+    print('Defaulting to KSDMA portal: $e');
+    return '/ksdma';
   }
 }
 
@@ -730,8 +699,10 @@ class MyApp extends StatelessWidget {
 
         switch (settings.name) {
           case '/':
-          case '/about-us':
-            pageContent = HomePage();
+          case '/ksdma':
+          case '/citizen-weather':
+          case '/kerala-weather':
+            pageContent = const KsdmaPortalMainPage();
             break;
           case '/login':
             pageContent = SignInSignUpScreen();
@@ -806,11 +777,7 @@ class MyApp extends StatelessWidget {
           // case "/soilspectra":
           //   pageContent = const ProductPage(sensorIndex: 6);
           //   break;
-          case '/ksdma':
-          case '/citizen-weather':
-          case '/kerala-weather':
-            pageContent = const KsdmaPortalMainPage();
-            break;
+
           case '/admin':
             // Read from prefs-backed provider OR fall back to saved pref
             final userProvider =
@@ -976,11 +943,7 @@ class MyApp extends StatelessWidget {
             }
             break;
 
-          case '/ksdma':
-          case '/citizen-weather':
-          case '/kerala-weather':
-            pageContent = const KsdmaLoginGatePage();
-            break;
+
 
           default:
             pageContent = HomePage();
