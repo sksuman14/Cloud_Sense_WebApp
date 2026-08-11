@@ -577,13 +577,13 @@ Future<String> determineInitialRoute() async {
     } catch (_) {}
 
     if (lastRoute != null && lastRoute.isNotEmpty) {
-      if (lastRoute == '/login') return '/ksdma';
+      if (lastRoute == '/login') return '/home';
       return lastRoute;
     }
-    return '/ksdma';
+    return '/home';
   } catch (e) {
-    print('Defaulting to KSDMA portal: $e');
-    return '/ksdma';
+    print('Defaulting to Home page: $e');
+    return '/home';
   }
 }
 
@@ -699,6 +699,9 @@ class MyApp extends StatelessWidget {
 
         switch (settings.name) {
           case '/':
+          case '/home':
+            pageContent = HomePage();
+            break;
           case '/ksdma':
           case '/citizen-weather':
           case '/kerala-weather':
