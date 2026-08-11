@@ -180,7 +180,6 @@ class HomeUtils {
   static const Map<String, String> _hardcodedLocationMap = {
     'WJ214': 'Dinanagar, Punjab',
     'ANNAM0126_214': 'Dinanagar, Punjab',
-    'WJ262': 'Amritsar, Punjab',
     'WJ240': 'Ghanauli, Rupnagar, Punjab',
     'WJ247': 'Kala Afgana, Gurdaspur, Punjab',
     'WJ276': 'Qadian, Gurdaspur, Punjab',
