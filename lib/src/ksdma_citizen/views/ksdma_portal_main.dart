@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../theme/ksdma_theme.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import 'ksdma_public_dashboard_view.dart';
@@ -55,11 +56,11 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
 
               return Scaffold(
                 key: _scaffoldKey,
-                backgroundColor: const Color(0xFFF8FAFC),
+                backgroundColor: KsdmaColors.bg,
                 drawer: isMobile
                     ? Drawer(
                         width: 270,
-                        backgroundColor: const Color(0xFF0F172A),
+                        backgroundColor: KsdmaColors.primaryDark,
                         child: sidebarContent,
                       )
                     : null,
@@ -69,7 +70,7 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                     if (!isMobile)
                       Container(
                         width: 250,
-                        color: const Color(0xFF0F172A),
+                        color: KsdmaColors.primaryDark,
                         child: sidebarContent,
                       ),
 
@@ -82,21 +83,31 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                             height: 56,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             decoration: const BoxDecoration(
-                              color: Colors.white,
-                              border: Border(bottom: BorderSide(color: Colors.black12)),
+                              color: KsdmaColors.primaryDark,
+                              border: Border(bottom: BorderSide(color: Colors.white12)),
                             ),
                             child: Row(
                               children: [
                                 if (isMobile) ...[
                                   IconButton(
                                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                                    icon: const Icon(Icons.menu, color: Color(0xFF0F172A)),
+                                    icon: const Icon(Icons.menu, color: Colors.white),
                                   ),
                                   const SizedBox(width: 4),
                                 ],
 
-                                const Icon(Icons.cloud_queue, color: Colors.blue, size: 20),
-                                const SizedBox(width: 8),
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: KsdmaColors.gold,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.water_drop, color: KsdmaColors.primaryDark, size: 16),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
                                 Builder(
                                   builder: (context) {
                                     final now = DateTime.now();
@@ -114,22 +125,21 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                       children: [
                                         Text(
                                           dateFormatted,
-                                          style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w600),
+                                          style: const TextStyle(fontSize: 11, color: Color(0xFFCFE2DC), fontWeight: FontWeight.w600, fontFamily: 'monospace'),
                                         ),
                                         const SizedBox(width: 8),
                                         if (!isMobile)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                             decoration: BoxDecoration(
-                                              color: Colors.green.shade50,
+                                              color: KsdmaColors.leafTint,
                                               borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.green.shade200),
                                             ),
                                             child: Row(
                                               children: const [
-                                                Icon(Icons.sensors, size: 12, color: Colors.green),
+                                                Icon(Icons.sensors, size: 12, color: KsdmaColors.leaf),
                                                 SizedBox(width: 4),
-                                                Text('Live Sync', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                                Text('Live Sync', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KsdmaColors.leaf)),
                                               ],
                                             ),
                                           ),
@@ -150,28 +160,28 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                     icon: const Icon(Icons.login, size: 14),
                                     label: Text(isMobile ? 'Sign In' : 'Sign In / Register', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2563EB),
-                                      foregroundColor: Colors.white,
+                                      backgroundColor: KsdmaColors.gold,
+                                      foregroundColor: KsdmaColors.primaryDark,
                                       padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 8),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      elevation: 1,
+                                      elevation: 0,
                                     ),
                                   ),
                                 ] else ...[
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: isAdmin ? Colors.purple.shade50 : isOfficer ? Colors.green.shade50 : Colors.blue.shade50,
+                                      color: KsdmaColors.goldTint,
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: isAdmin ? Colors.purple : isOfficer ? Colors.green : Colors.blue),
+                                      border: Border.all(color: KsdmaColors.gold),
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 12, color: isAdmin ? Colors.purple : isOfficer ? Colors.green : Colors.blue),
+                                        Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 12, color: KsdmaColors.goldDark),
                                         const SizedBox(width: 4),
                                         Text(
                                           isAdmin ? 'HQ Admin' : isOfficer ? 'Officer' : 'Volunteer',
-                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isAdmin ? Colors.purple : isOfficer ? Colors.green : Colors.blue),
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KsdmaColors.goldDark),
                                         ),
                                       ],
                                     ),
@@ -180,7 +190,7 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                     const SizedBox(width: 8),
                                     Text(
                                       state.currentUser.fullName.split(' ').first,
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
                                     ),
                                   ],
                                 ],
@@ -219,12 +229,12 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
               Container(
                 width: 36,
                 height: 36,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.red,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(9),
+                  color: KsdmaColors.primary,
                 ),
                 child: const Center(
-                  child: Icon(Icons.shield, color: Colors.white, size: 20),
+                  child: Icon(Icons.shield, color: KsdmaColors.gold, size: 20),
                 ),
               ),
               const SizedBox(width: 10),
@@ -238,7 +248,7 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                     ),
                     Text(
                       'Observation Network',
-                      style: TextStyle(color: Colors.white70, fontSize: 10),
+                      style: TextStyle(color: Color(0xFFB7CFC7), fontSize: 10),
                     ),
                     Text(
                       'Kerala State Disaster Management Authority',
@@ -280,13 +290,13 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                 _buildSubNavItem(13, 'Station View', isActive: _activeMenuIndex == 13, isMobile: isMobile),
               ],
 
-              if (isOfficer || isAdmin)
+              if (isOfficer && !isAdmin)
                 _buildNavItem(3, 'Officer Reports', Icons.bar_chart_outlined, isMobile: isMobile),
 
               _buildNavItem(4, 'Weather Champions', Icons.emoji_events_outlined, isMobile: isMobile),
               _buildNavItem(5, 'Tutorials & Manuals', Icons.book_outlined, isMobile: isMobile),
               
-              if (!isAdmin)
+              if (!isAdmin && !isOfficer)
                 _buildNavItem(6, 'Register Instrument', Icons.add_circle_outline, isMobile: isMobile),
 
               if (isAdmin)
@@ -300,20 +310,20 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
           margin: const EdgeInsets.all(12),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFF142B27),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.white10),
           ),
           child: Column(
             children: [
               Row(
-                children: [
-                  const Icon(Icons.groups, color: Colors.lightBlueAccent, size: 20),
-                  const SizedBox(width: 8),
+                children: const [
+                  Icon(Icons.groups, color: KsdmaColors.gold, size: 18),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Citizen Science Kerala',
-                      style: TextStyle(color: Colors.blue.shade100, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Color(0xFFCFE2DC), fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -327,10 +337,10 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                       if (isMobile) Navigator.pop(context);
                       _handleSignOut(state);
                     },
-                    icon: const Icon(Icons.logout, size: 12, color: Colors.redAccent),
-                    label: const Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.logout, size: 12, color: KsdmaColors.danger),
+                    label: const Text('Sign Out', style: TextStyle(color: KsdmaColors.danger, fontSize: 10, fontWeight: FontWeight.bold)),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.redAccent),
+                      side: const BorderSide(color: KsdmaColors.danger),
                       padding: const EdgeInsets.symmetric(vertical: 6),
                     ),
                   ),
@@ -347,9 +357,10 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                     icon: const Icon(Icons.login, size: 12),
                     label: const Text('Sign In / Register', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
+                      backgroundColor: KsdmaColors.gold,
+                      foregroundColor: KsdmaColors.primaryDark,
                       padding: const EdgeInsets.symmetric(vertical: 6),
+                      elevation: 0,
                     ),
                   ),
                 ),
@@ -378,23 +389,32 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
         }
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 2),
+        margin: const EdgeInsets.only(bottom: 3),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          color: isSelected ? KsdmaColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 18),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? KsdmaColors.gold : Colors.white24,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 17),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.white : const Color(0xFFCFE2DC),
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 ),
               ),
             ),

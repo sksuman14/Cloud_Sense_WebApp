@@ -327,7 +327,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<UserCategory>(
-              initialValue: _signupCategory,
+              value: _signupCategory,
               dropdownColor: isDark ? const Color(0xFF282B3A) : Colors.white,
               decoration: _buildInputDecoration(
                 label: 'Role Category *',
@@ -614,7 +614,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildOfficerTab(bool isDark) {
     final textStyle = TextStyle(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF1F2937));
-    final infoBg = isDark ? const Color(0xFF1E3A8A).withOpacity(0.4) : Colors.blue.shade50;
+    final infoBg = isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.4) : Colors.blue.shade50;
     final infoTextColor = isDark ? const Color(0xFFDBEAFE) : const Color(0xFF1565C0);
 
     return Column(
@@ -680,7 +680,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
               if (context.mounted) {
                 if (error == null) {
                   Navigator.of(context).pop();
-                  widget.onLoginSuccess?.call(7);
+                  widget.onLoginSuccess?.call(_getRoleTargetMenuIndex());
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Authenticated as Officer ${widget.stateService.currentUser.fullName}'), backgroundColor: Colors.blue),
                   );
@@ -695,12 +695,23 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
     );
   }
 
+  int _getRoleTargetMenuIndex() {
+    final u = widget.stateService.currentUser;
+    if (u.role == UserRole.admin || u.category == UserCategory.adminHq || u.fullName.contains('Admin')) {
+      return 7; // Admin Dashboard
+    }
+    if (u.role == UserRole.officer || u.category == UserCategory.districtOfficer || u.fullName.contains('Officer')) {
+      return 3; // Officer Reports
+    }
+    return 0; // Public Dashboard
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ⚙️ ADMIN TAB
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildAdminTab(bool isDark) {
     final textStyle = TextStyle(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF1F2937));
-    final infoBg = isDark ? const Color(0xFF4C1D95).withOpacity(0.4) : Colors.purple.shade50;
+    final infoBg = isDark ? const Color(0xFF4C1D95).withValues(alpha: 0.4) : Colors.purple.shade50;
     final infoTextColor = isDark ? const Color(0xFFF3E8FF) : const Color(0xFF7C3AED);
 
     return Column(
@@ -766,7 +777,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
               if (context.mounted) {
                 if (error == null) {
                   Navigator.of(context).pop();
-                  widget.onLoginSuccess?.call(7);
+                  widget.onLoginSuccess?.call(_getRoleTargetMenuIndex());
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Authenticated as Admin ${widget.stateService.currentUser.fullName}'), backgroundColor: Colors.purple),
                   );

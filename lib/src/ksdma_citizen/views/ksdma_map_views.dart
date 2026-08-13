@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,9 +19,8 @@ class KsdmaMultiMapView extends StatefulWidget {
 
 class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   late MapController _mapController;
-  String _selectedDistrict = 'Alappuzha';
-  String _selectedParam = 'Rainfall';
-  String _selectedTimePeriod = 'Today';
+  String _selectedDistrict = 'All Districts';
+  String _selectedParam = 'All Parameters';
   bool _isSatellite = false;
 
   final Map<String, LatLng> _districtCoords = {
@@ -44,7 +44,6 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   void initState() {
     super.initState();
     _mapController = MapController();
-    // Lazy load: fetch stations only when Map View opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Provider.of<KsdmaStateService>(context, listen: false).fetchStationsIfNeeded();
@@ -58,7 +57,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   }
 
   LatLng _getMapCenter(List<KsdmaStation> approved) {
-    if (widget.level == MapViewLevel.state) {
+    if (widget.level == MapViewLevel.state || widget.level == MapViewLevel.station || _selectedDistrict == 'All Districts') {
       return const LatLng(10.4505, 76.3711);
     }
     if (_districtCoords.containsKey(_selectedDistrict)) {
@@ -76,13 +75,13 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
       case MapViewLevel.state:
         return 7.5;
       case MapViewLevel.district:
-        return 9.5;
+        return 9.2;
       case MapViewLevel.taluk:
-        return 10.8;
+        return 9.8;
       case MapViewLevel.panchayat:
-        return 11.5;
+        return 10.5;
       case MapViewLevel.station:
-        return 12.2;
+        return 8.0;
     }
   }
 
@@ -90,8 +89,61 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
     setState(() {
       _selectedDistrict = newDist;
     });
-    final newCenter = _getMapCenter(approved);
-    _mapController.move(newCenter, _getMapZoom());
+    if (newDist == 'All Districts') {
+      _mapController.move(const LatLng(10.4505, 76.3711), 7.5);
+    } else {
+      final newCenter = _getMapCenter(approved);
+      _mapController.move(newCenter, _getMapZoom());
+    }
+  }
+
+  void _showStationDetailsDialog(BuildContext context, KsdmaStation s, KsdmaStateService state) {
+    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.location_on, color: Color(0xFF2563EB)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${s.stationId} • ${s.district}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Owner: ${s.ownerName} (${s.ownerCategory.label})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            Text('Location: ${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            Text('Instrument: ${s.instrumentType.displayName}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            const Divider(height: 20),
+            const Text('Latest Observation Reading:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+            const SizedBox(height: 6),
+            if (obs != null) ...[
+              if (obs.rainfallMm != null) Text('🌧 Rainfall: ${obs.rainfallMm} mm', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+              if (obs.maxTemperatureC != null) Text('🌡 Max Temp: ${obs.maxTemperatureC} °C', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
+              if (obs.humidityPercent != null) Text('💧 Humidity: ${obs.humidityPercent} %', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+              if (obs.riverWaterLevelM != null) Text('🌊 River Level: ${obs.riverWaterLevelM} m', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D9488))),
+            ] else ...[
+              const Text('No reading submitted today.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF146356), foregroundColor: Colors.white),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -99,12 +151,13 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
     final state = Provider.of<KsdmaStateService>(context);
     final approved = state.stations;
 
-    final dbDistricts = state.districtNames.isNotEmpty
-        ? state.districtNames
-        : _districtCoords.keys.toList();
+    final List<String> allDistrictsList = [
+      'All Districts',
+      ...(state.districtNames.isNotEmpty ? state.districtNames : _districtCoords.keys.toList())
+    ];
 
-    if (!dbDistricts.contains(_selectedDistrict) && dbDistricts.isNotEmpty) {
-      _selectedDistrict = dbDistricts.first;
+    if (_selectedDistrict != 'All Districts' && !allDistrictsList.contains(_selectedDistrict)) {
+      _selectedDistrict = 'All Districts';
     }
 
     final title = widget.level == MapViewLevel.state
@@ -118,27 +171,152 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                     : 'Station View (Live Stations)';
 
     final subtitle = 'Live Monitoring Across ${approved.length} Weather Stations in Kerala';
-
     final center = _getMapCenter(approved);
     final zoom = _getMapZoom();
 
-    // Filter displayed stations for local views
-    final displayedStations = (widget.level == MapViewLevel.state)
+    // 1. District filter (State View and Station View show all stations across Kerala)
+    final distFiltered = (widget.level == MapViewLevel.state || widget.level == MapViewLevel.station || _selectedDistrict == 'All Districts')
         ? approved
         : approved.where((s) => s.district.toLowerCase() == _selectedDistrict.toLowerCase()).toList();
+
+    // Fallback to approved if district filter returned 0 stations so map is NEVER empty
+    final effectiveBaseStations = distFiltered.isNotEmpty ? distFiltered : approved;
+
+    // 2. Working parameter filter (All Parameters, Rainfall, Temperature, River Level, Humidity)
+    final displayedStations = effectiveBaseStations.where((s) {
+      if (_selectedParam == 'All Parameters') return true;
+      if (_selectedParam == 'Rainfall') {
+        return s.instrumentType == InstrumentType.rainGauge ||
+            s.category == StationCategory.aws ||
+            s.instrumentType == InstrumentType.awsAutomaticStation;
+      } else if (_selectedParam == 'Temperature') {
+        return s.instrumentType == InstrumentType.maxMinThermometer ||
+            s.category == StationCategory.aws ||
+            s.instrumentType == InstrumentType.awsAutomaticStation;
+      } else if (_selectedParam == 'Humidity') {
+        return s.instrumentType == InstrumentType.hygrometer ||
+            s.category == StationCategory.aws ||
+            s.instrumentType == InstrumentType.awsAutomaticStation;
+      } else if (_selectedParam == 'River Level') {
+        return s.instrumentType == InstrumentType.riverGauge ||
+            s.category == StationCategory.aws ||
+            s.instrumentType == InstrumentType.awsAutomaticStation;
+      }
+      return true;
+    }).toList();
+
+    // 3. Offset duplicate/overlapping coordinates so ALL markers at identical Lat/Lng are clearly visible & clickable
+    final Map<String, List<KsdmaStation>> coordGroups = {};
+    for (var s in displayedStations) {
+      final key = "${s.latitude.toStringAsFixed(4)}_${s.longitude.toStringAsFixed(4)}";
+      coordGroups.putIfAbsent(key, () => []).add(s);
+    }
+
+    final List<Marker> markersList = [];
+    coordGroups.forEach((key, group) {
+      for (int i = 0; i < group.length; i++) {
+        final s = group[i];
+        double lat = s.latitude;
+        double lng = s.longitude;
+
+        if (group.length > 1) {
+          final angle = (2 * pi * i) / group.length;
+          const offsetRadius = 0.0035; // ~350m spiral offset for clear pin separation
+          lat += offsetRadius * cos(angle);
+          lng += offsetRadius * sin(angle);
+        }
+
+        final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+        final isApproved = s.approvalStatus == ApprovalStatus.approved;
+
+        String valStr = '0.0mm';
+        if (obs != null) {
+          if (_selectedParam == 'Temperature') {
+            valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC}°C' : '—';
+          } else if (_selectedParam == 'Humidity') {
+            valStr = obs.humidityPercent != null ? '${obs.humidityPercent}%' : '—';
+          } else if (_selectedParam == 'River Level') {
+            valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM}m' : '—';
+          } else if (_selectedParam == 'Rainfall') {
+            valStr = obs.rainfallMm != null ? '${obs.rainfallMm}mm' : '0.0mm';
+          } else {
+            // All Parameters: native station reading
+            switch (s.instrumentType) {
+              case InstrumentType.hygrometer:
+                valStr = obs.humidityPercent != null ? '${obs.humidityPercent}%' : '—';
+                break;
+              case InstrumentType.maxMinThermometer:
+                valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC}°C' : '—';
+                break;
+              case InstrumentType.riverGauge:
+                valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM}m' : '—';
+                break;
+              case InstrumentType.rainGauge:
+              case InstrumentType.awsAutomaticStation:
+                valStr = obs.rainfallMm != null ? '${obs.rainfallMm}mm' : '0.0mm';
+                break;
+            }
+          }
+        }
+
+        final accentColor = s.instrumentType == InstrumentType.maxMinThermometer || _selectedParam == 'Temperature'
+            ? const Color(0xFFEA580C)
+            : s.instrumentType == InstrumentType.hygrometer || _selectedParam == 'Humidity'
+                ? const Color(0xFF7C3AED)
+                : s.instrumentType == InstrumentType.riverGauge || _selectedParam == 'River Level'
+                    ? const Color(0xFF0D9488)
+                    : const Color(0xFF2563EB);
+
+        markersList.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: 110,
+            height: 34,
+            child: GestureDetector(
+              onTap: () => _showStationDetailsDialog(context, s, state),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isApproved ? accentColor : Colors.amber, width: 1.5),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.location_on, color: isApproved ? accentColor : Colors.amber, size: 13),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        '${s.stationId}: $valStr',
+                        style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    });
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 950;
 
         final mapWidget = Container(
-          height: isMobile ? 380 : 480,
+          height: isMobile ? 380 : 500,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.black12),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
                 FlutterMap(
@@ -154,76 +332,94 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                           : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.cloudsense.webapp',
                     ),
-                    MarkerLayer(
-                      markers: (displayedStations.isNotEmpty ? displayedStations : approved).map((s) {
-                        final obs = state.getTodayObservation(s.stationId);
-                        final isApproved = s.approvalStatus == ApprovalStatus.approved;
-                        final valStr = obs != null
-                            ? s.instrumentType == InstrumentType.maxMinThermometer
-                                ? '${obs.maxTemperatureC ?? 0.0}°C'
-                                : s.instrumentType == InstrumentType.hygrometer
-                                    ? '${obs.humidityPercent ?? 0.0}%'
-                                    : s.instrumentType == InstrumentType.riverGauge
-                                        ? '${obs.riverWaterLevelM ?? 0.0}m'
-                                        : '${obs.rainfallMm ?? 0.0}mm'
-                            : (isApproved ? '0.0mm' : 'Pending');
-
-                        return Marker(
-                          point: LatLng(s.latitude, s.longitude),
-                          width: 95,
-                          height: 32,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isApproved ? const Color(0xFF38BDF8) : Colors.amber, width: 1.5),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.location_on, color: isApproved ? const Color(0xFF38BDF8) : Colors.amber, size: 12),
-                                const SizedBox(width: 2),
-                                Expanded(
-                                  child: Text(
-                                    '${s.stationId}: $valStr',
-                                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                    MarkerLayer(markers: markersList),
                   ],
                 ),
 
-                // Satellite Toggle
+                // Top Left Overlay Badge
                 Positioned(
-                  top: 12,
-                  right: 12,
+                  top: 10,
+                  left: 10,
                   child: Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                    ),
                     child: Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 14, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${displayedStations.length} Active Pins',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Satellite / Map Layer Toggle (Top Right)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         InkWell(
                           onTap: () => setState(() => _isSatellite = false),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            color: !_isSatellite ? const Color(0xFF2563EB) : Colors.white,
-                            child: Text('Map', style: TextStyle(fontSize: 11, color: !_isSatellite ? Colors.white : Colors.black87)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: !_isSatellite ? const Color(0xFF146356) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text('Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: !_isSatellite ? Colors.white : const Color(0xFF0F172A))),
                           ),
                         ),
                         InkWell(
                           onTap: () => setState(() => _isSatellite = true),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            color: _isSatellite ? const Color(0xFF2563EB) : Colors.white,
-                            child: Text('Satellite', style: TextStyle(fontSize: 11, color: _isSatellite ? Colors.white : Colors.black87)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: _isSatellite ? const Color(0xFF146356) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text('Satellite', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _isSatellite ? Colors.white : const Color(0xFF0F172A))),
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Bottom Map Legend Overlay Bar
+                Positioned(
+                  bottom: 10,
+                  left: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildLegendPill('Rainfall', const Color(0xFF2563EB)),
+                        _buildLegendPill('Humidity', const Color(0xFF7C3AED)),
+                        _buildLegendPill('Temperature', const Color(0xFFEA580C)),
+                        _buildLegendPill('River Level', const Color(0xFF0D9488)),
                       ],
                     ),
                   ),
@@ -234,37 +430,79 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
         );
 
         final summaryWidget = Card(
-          elevation: 1,
+          elevation: 0,
           color: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(14.0),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.level == MapViewLevel.state ? 'Kerala District Summary' : '$_selectedDistrict Station List',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                Row(
+                  children: [
+                    const Icon(Icons.leaderboard_outlined, color: Color(0xFF146356), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.level == MapViewLevel.state ? 'Kerala District Leaderboard' : '$_selectedDistrict Station Readings',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                      ),
+                    ),
+                  ],
                 ),
-                const Divider(height: 16),
+                const Divider(height: 20, color: Color(0xFFE2E8F0)),
                 if (displayedStations.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20.0),
+                    padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Center(
-                      child: Text('No active stations registered for $_selectedDistrict.', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      child: Text('No active stations found for selected filters in $_selectedDistrict.', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     ),
                   )
                 else
                   ...displayedStations.asMap().entries.map((entry) {
                     final idx = entry.key + 1;
                     final s = entry.value;
-                    final obs = state.getTodayObservation(s.stationId);
-                    final valStr = obs != null
-                        ? s.instrumentType == InstrumentType.maxMinThermometer
-                            ? '${obs.maxTemperatureC ?? 0.0} °C'
-                            : '${obs.rainfallMm ?? 0.0} mm'
-                        : '0.0 mm';
-                    return _buildRankRow('$idx', '${s.stationId} (${s.gramaPanchayat.isNotEmpty ? s.gramaPanchayat : s.district})', valStr, const Color(0xFF2563EB));
+                    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+                    String valStr = '0.0 mm';
+                    if (obs != null) {
+                      if (_selectedParam == 'Temperature') {
+                        valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
+                      } else if (_selectedParam == 'Humidity') {
+                        valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
+                      } else if (_selectedParam == 'River Level') {
+                        valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
+                      } else if (_selectedParam == 'Rainfall') {
+                        valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
+                      } else {
+                        switch (s.instrumentType) {
+                          case InstrumentType.hygrometer:
+                            valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
+                            break;
+                          case InstrumentType.maxMinThermometer:
+                            valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
+                            break;
+                          case InstrumentType.riverGauge:
+                            valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
+                            break;
+                          case InstrumentType.rainGauge:
+                          case InstrumentType.awsAutomaticStation:
+                            valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
+                            break;
+                        }
+                      }
+                    }
+
+                    return _buildRankRow(
+                      '$idx',
+                      s.stationId,
+                      '${s.gramaPanchayat.isNotEmpty ? s.gramaPanchayat : s.district}',
+                      valStr,
+                      const Color(0xFF2563EB),
+                      () => _showStationDetailsDialog(context, s, state),
+                    );
                   }),
               ],
             ),
@@ -272,58 +510,58 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
         );
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(18.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Filter Toolbar
+              // 1. Top Filter Toolbar Cards
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6)],
                 ),
                 child: Wrap(
                   spacing: 12,
-                  runSpacing: 8,
+                  runSpacing: 10,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _buildDrop('Parameter', _selectedParam, ['Rainfall', 'Temperature', 'River Level', 'Humidity'], (v) => setState(() => _selectedParam = v)),
-                    _buildDrop('Time Period', _selectedTimePeriod, ['Today', '2 Days', '3 Days', '5 Days'], (v) => setState(() => _selectedTimePeriod = v)),
-                    if (widget.level != MapViewLevel.state && dbDistricts.isNotEmpty)
-                      _buildDrop('District', _selectedDistrict, dbDistricts, (v) => _onDistrictChanged(v, approved)),
+                    _buildFilterCard('Parameter', _selectedParam, ['All Parameters', 'Rainfall', 'Temperature', 'River Level', 'Humidity'], Icons.tune, (v) => setState(() => _selectedParam = v)),
+                    if (widget.level != MapViewLevel.state && widget.level != MapViewLevel.station && allDistrictsList.isNotEmpty)
+                      _buildFilterCard('District', _selectedDistrict, allDistrictsList, Icons.map_outlined, (v) => _onDistrictChanged(v, approved)),
                   ],
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // Title & Breadcrumb
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+              // 2. Section Header
+              Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
               const SizedBox(height: 2),
               Row(
                 children: [
-                  const Text('Home > Map View > ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                  Text(title, style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                  const Text('Home > Map View > ', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  Text(title, style: const TextStyle(fontSize: 11, color: Color(0xFF146356), fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 4),
               Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
-              // Main Map & Summary Layout
+              // 3. Main Map & Summary Grid
               if (isMobile) ...[
                 mapWidget,
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 summaryWidget,
               ] else ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 7, child: mapWidget),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 16),
                     Expanded(flex: 4, child: summaryWidget),
                   ],
                 ),
@@ -335,42 +573,94 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
     );
   }
 
-  Widget _buildDrop(String label, String value, List<String> items, [Function(String)? onChanged]) {
+  Widget _buildFilterCard(String label, String value, List<String> items, IconData icon, Function(String) onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFF146356)),
+          const SizedBox(width: 6),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF334155))),
+          DropdownButton<String>(
+            value: items.contains(value) ? value : items.first,
+            dropdownColor: Colors.white,
+            underline: const SizedBox(),
+            isDense: true,
+            style: const TextStyle(color: Color(0xFF0F172A), fontSize: 11.5, fontWeight: FontWeight.bold),
+            items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+            onChanged: (val) {
+              if (val != null) onChanged(val);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendPill(String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-        DropdownButton<String>(
-          value: items.contains(value) ? value : items.first,
-          underline: const SizedBox(),
-          isDense: true,
-          items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(fontSize: 11)))).toList(),
-          onChanged: (val) {
-            if (val != null && onChanged != null) onChanged(val);
-          },
-        ),
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
       ],
     );
   }
 
-  Widget _buildRankRow(String rank, String title, String val, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                Text('#$rank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey)),
-                const SizedBox(width: 8),
-                Expanded(child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              ],
+  Widget _buildRankRow(String rank, String stationId, String loc, String val, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7.0, horizontal: 4.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text('#$rank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF64748B))),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(stationId, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        Text(loc, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(val, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 11)),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(val, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 11.5)),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
+import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
 void _showZoomDialog(BuildContext context, String imageUrl) {
   if (imageUrl.isEmpty) return;
@@ -134,79 +135,50 @@ class KsdmaVolunteerView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Card
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // Content Head
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const KsdmaEyebrow('Volunteer Home'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Hello, ${user.fullName} 👋',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: KsdmaColors.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Grama Panchayat: ${user.gramaPanchayat.isNotEmpty ? user.gramaPanchayat : "Kunnamangalam"} · ${user.taluk.isNotEmpty ? user.taluk : "Koyilandy"} Taluk · ${user.district.isNotEmpty ? user.district : "Kozhikode"}',
+                    style: const TextStyle(fontSize: 13, color: KsdmaColors.inkSoft),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundImage: NetworkImage(user.avatarUrl!),
+              OutlinedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
+                  );
+                },
+                icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
+                label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: KsdmaColors.goldDark,
+                  side: const BorderSide(color: KsdmaColors.gold, width: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                 ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Hello, ${user.fullName}',
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.amber,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.star, size: 14, color: Colors.black),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${user.badgeTier} BADGE',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Volunteer Observer • ${user.category.label} • ${user.district}, Kerala',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
-                    );
-                  },
-                  icon: const Icon(Icons.workspace_premium, color: Colors.amber),
-                  label: const Text('Download Certificate'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1565C0),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+
+          const SizedBox(height: 20),
 
           // Rejection Alert Banner for Volunteer
           if (myStations.any((s) => s.approvalStatus == ApprovalStatus.rejected)) ...[

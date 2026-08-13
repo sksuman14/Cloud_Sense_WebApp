@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
+import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
 
 class KsdmaRegistrationView extends StatefulWidget {
@@ -296,22 +297,22 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
               mainAxisSpacing: 10,
             ),
             children: [
-              _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', Icons.thunderstorm_outlined),
-              _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Max-Min Thermometer', Icons.thermostat_outlined),
-              _buildInstrumentCard(InstrumentType.hygrometer, 'Wet & Dry Bulb', Icons.water_outlined),
-              _buildInstrumentCard(InstrumentType.riverGauge, 'River Level Gauge', Icons.waves_outlined),
+              _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', '🌧'),
+              _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Max-Min Thermometer', '🌡'),
+              _buildInstrumentCard(InstrumentType.riverGauge, 'River Gauge', '💧'),
+              _buildInstrumentCard(InstrumentType.hygrometer, 'Hygrometer', '💨'),
             ],
           )
         else
           Row(
             children: [
-              Expanded(child: _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', Icons.thunderstorm_outlined)),
+              Expanded(child: _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', '🌧')),
               const SizedBox(width: 12),
-              Expanded(child: _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Maximum-Minimum Thermometer', Icons.thermostat_outlined)),
+              Expanded(child: _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Max-Min Thermometer', '🌡')),
               const SizedBox(width: 12),
-              Expanded(child: _buildInstrumentCard(InstrumentType.hygrometer, 'Wet & Dry Bulb Thermometer\n(Psychrometer)', Icons.water_outlined)),
+              Expanded(child: _buildInstrumentCard(InstrumentType.riverGauge, 'River Level Gauge', '💧')),
               const SizedBox(width: 12),
-              Expanded(child: _buildInstrumentCard(InstrumentType.riverGauge, 'River Level Gauge', Icons.waves_outlined)),
+              Expanded(child: _buildInstrumentCard(InstrumentType.hygrometer, 'Hygrometer', '💨')),
             ],
           ),
 
@@ -847,27 +848,32 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
     );
   }
 
-  Widget _buildInstrumentCard(InstrumentType type, String title, IconData icon) {
+  Widget _buildInstrumentCard(InstrumentType type, String title, String emojiSymbol) {
     final sel = _selectedType == type;
     return GestureDetector(
       onTap: () => setState(() => _selectedType = type),
       child: Container(
-        height: 110,
+        height: 105,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: sel ? const Color(0xFFF0FDF4) : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: sel ? const Color(0xFF16A34A) : Colors.black12, width: sel ? 2 : 1),
+          color: sel ? KsdmaColors.primaryTint : KsdmaColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: sel ? KsdmaColors.primary : KsdmaColors.line, width: sel ? 2 : 1.5),
+          boxShadow: sel ? KsdmaColors.cardShadow : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: sel ? const Color(0xFF16A34A) : Colors.black54, size: 28),
+            Text(emojiSymbol, style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 6),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, fontWeight: sel ? FontWeight.bold : FontWeight.w500, color: sel ? const Color(0xFF15803D) : Colors.black87),
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: sel ? FontWeight.bold : FontWeight.w600,
+                color: sel ? KsdmaColors.primaryDark : KsdmaColors.inkSoft,
+              ),
             ),
           ],
         ),

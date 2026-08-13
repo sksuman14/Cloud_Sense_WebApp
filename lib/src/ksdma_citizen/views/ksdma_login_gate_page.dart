@@ -104,7 +104,7 @@ class _KsdmaLoginGatePageState extends State<KsdmaLoginGatePage>
       UserCategory.generalPublic:   '👤 General Public',
     };
     return DropdownButtonFormField<UserCategory>(
-      initialValue: _volCategory,
+      value: _volCategory,
       decoration: const InputDecoration(
         labelText: 'Category *',
         prefixIcon: Icon(Icons.category_outlined, size: 18),
