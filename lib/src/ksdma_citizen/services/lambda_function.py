@@ -27,6 +27,39 @@ def hash_pass(pwd_str):
         return ''
     return hashlib.sha256(pwd_str.encode('utf-8')).hexdigest()
 
+# =====================================================
+# GLOBAL CONNECTION REUSE — 1 connection per Lambda
+# container, reused across ALL invocations.
+# Reduces RDS connections from N-per-request to
+# 1-per-container, solving connection exhaustion.
+# =====================================================
+_db_con = None
+
+def get_connection():
+    global _db_con
+    try:
+        # Test if existing connection is still alive
+        if _db_con is not None:
+            _db_con.run('SELECT 1')
+            return _db_con
+    except Exception:
+        _db_con = None
+
+    # Create new connection
+    user, password, host, port, database = parse_db_url(DB_URL)
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    _db_con = pg8000.native.Connection(
+        user=user,
+        password=password,
+        host=host,
+        port=port,
+        database=database,
+        ssl_context=ssl_ctx
+    )
+    return _db_con
+
 def lambda_handler(event, context=None):
     headers = {
         'Content-Type': 'application/json'
@@ -129,19 +162,8 @@ def lambda_handler(event, context=None):
                 })
             }
 
-        user, password, host, port, database = parse_db_url(DB_URL)
-        ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-
-        con = pg8000.native.Connection(
-            user=user,
-            password=password,
-            host=host,
-            port=port,
-            database=database,
-            ssl_context=ssl_ctx
-        )
+        # Get reusable global DB connection
+        con = get_connection()
 
         # Self-healing DB Schema Migrations
         try:

@@ -31,6 +31,11 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
   @override
   void initState() {
     super.initState();
+    // Lazy load: fetch observations only when Observation Entry opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Provider.of<KsdmaStateService>(context, listen: false).fetchObservationsIfNeeded();
+    });
     final state = Provider.of<KsdmaStateService>(context, listen: false);
     final todayObs = state.getTodayObservation(widget.stationId);
     if (todayObs != null) {

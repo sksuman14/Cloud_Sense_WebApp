@@ -53,6 +53,18 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     'Wayanad',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    // Lazy load: fetch stations & observations only when Dashboard opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = Provider.of<KsdmaStateService>(context, listen: false);
+      state.fetchStationsIfNeeded();
+      state.fetchObservationsIfNeeded();
+    });
+  }
+
   void _applyFilters(KsdmaStateService state) {
     setState(() {
       _appliedParam = _selectedParam;

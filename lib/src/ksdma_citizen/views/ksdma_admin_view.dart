@@ -17,6 +17,11 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> with SingleTickerProvid
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // Lazy load: fetch stations only when Admin View opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Provider.of<KsdmaStateService>(context, listen: false).fetchStationsIfNeeded();
+    });
   }
 
   void _showZoomDialog(BuildContext context, String imageUrl) {

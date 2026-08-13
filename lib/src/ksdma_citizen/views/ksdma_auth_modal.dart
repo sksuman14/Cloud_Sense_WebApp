@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../views/home/home_theme.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 
@@ -82,11 +83,70 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
     );
   }
 
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData icon,
+    String? hintText,
+    required bool isDark,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: isDark ? Colors.grey.shade300 : const Color(0xFF4B5563),
+      ),
+      hintText: hintText,
+      hintStyle: TextStyle(
+        fontSize: 12,
+        color: isDark ? Colors.grey.shade500 : const Color(0xFF9CA3AF),
+      ),
+      prefixIcon: Icon(
+        icon,
+        size: 18,
+        color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+      ),
+      filled: true,
+      fillColor: isDark ? const Color(0xFF282B3A) : const Color(0xFFF9FAFB),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+          color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+          width: 1.5,
+        ),
+      ),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    try {
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      isDark = themeProvider.isDarkMode;
+    } catch (_) {}
+
+    final dialogBg = isDark ? const Color(0xFF1E202C) : Colors.white;
+    final titleColor = isDark ? Colors.white : const Color(0xFF1F2937);
+    final subtitleColor = isDark ? Colors.grey.shade400 : const Color(0xFF6B7280);
+    final activeTabColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
+    final unselectedTabColor = isDark ? Colors.grey.shade300 : const Color(0xFF4B5563);
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 10,
+      backgroundColor: dialogBg,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: 12,
       child: Container(
         width: 520,
         padding: const EdgeInsets.all(24.0),
@@ -100,37 +160,56 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 Container(
                   width: 42,
                   height: 42,
-                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDC2626),
+                    shape: BoxShape.circle,
+                  ),
                   child: const Center(child: Icon(Icons.shield, color: Colors.white, size: 24)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('KSDMA Weather Network Sign-in', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('Kerala State Disaster Management Authority', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    children: [
+                      Text(
+                        'KSDMA Weather Network Sign-in',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: titleColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Kerala State Disaster Management Authority',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: subtitleColor,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: Icon(Icons.close, color: isDark ? Colors.grey.shade300 : Colors.grey.shade600),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
+            Divider(color: isDark ? Colors.white12 : Colors.grey.shade200, height: 1),
+            const SizedBox(height: 12),
 
             // Auth Role Tabs
             TabBar(
               controller: _tabController,
-              labelColor: const Color(0xFF2563EB),
-              unselectedLabelColor: Colors.black54,
-              indicatorColor: const Color(0xFF2563EB),
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              labelColor: activeTabColor,
+              unselectedLabelColor: unselectedTabColor,
+              indicatorColor: activeTabColor,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
               tabs: const [
                 Tab(text: '🙋 Volunteer'),
                 Tab(text: '🛡️ Officer'),
@@ -141,13 +220,13 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
             const SizedBox(height: 16),
 
             SizedBox(
-              height: _isSignUpMode ? 340 : 270,
+              height: _isSignUpMode ? 360 : 270,
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildVolunteerTab(),
-                  _buildOfficerTab(),
-                  _buildAdminTab(),
+                  _buildVolunteerTab(isDark),
+                  _buildOfficerTab(isDark),
+                  _buildAdminTab(isDark),
                 ],
               ),
             ),
@@ -160,7 +239,10 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   // ═══════════════════════════════════════════════════════════════════════════
   // 🙋 VOLUNTEER TAB (REGISTRATION & LOGIN WITH OTP / PASSWORD)
   // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildVolunteerTab() {
+  Widget _buildVolunteerTab(bool isDark) {
+    final textStyle = TextStyle(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF1F2937));
+    final btnBgColor = isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB);
+
     if (_isSignUpMode) {
       return SingleChildScrollView(
         child: Column(
@@ -169,29 +251,50 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('📝 New Volunteer Registration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1565C0))),
+                Text(
+                  '📝 New Volunteer Registration',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF1565C0),
+                  ),
+                ),
                 TextButton(
                   onPressed: () => setState(() {
                     _isSignUpMode = false;
                     _isRegisterOtpSent = false;
                   }),
-                  child: const Text('Back to Login', style: TextStyle(fontSize: 11)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
+                  ),
+                  child: const Text('Back to Login', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             TextField(
               controller: _signupNameCtrl,
-              decoration: const InputDecoration(labelText: 'Full Name *', prefixIcon: Icon(Icons.person, size: 16), border: OutlineInputBorder(), isDense: true),
+              style: textStyle,
+              decoration: _buildInputDecoration(
+                label: 'Full Name *',
+                icon: Icons.person_outline,
+                isDark: isDark,
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _signupPhoneCtrl,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'Mobile Number *', hintText: 'e.g. 9876543210', prefixIcon: Icon(Icons.phone, size: 16), border: OutlineInputBorder(), isDense: true),
+                    style: textStyle,
+                    decoration: _buildInputDecoration(
+                      label: 'Mobile Number *',
+                      hintText: 'e.g. 9876543210',
+                      icon: Icons.phone_outlined,
+                      isDark: isDark,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -199,42 +302,72 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                   child: TextField(
                     controller: _signupEmailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email Address *', hintText: 'e.g. user@gmail.com', prefixIcon: Icon(Icons.email, size: 16), border: OutlineInputBorder(), isDense: true),
+                    style: textStyle,
+                    decoration: _buildInputDecoration(
+                      label: 'Email Address *',
+                      hintText: 'e.g. user@gmail.com',
+                      icon: Icons.email_outlined,
+                      isDark: isDark,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             TextField(
               controller: _signupPasswordCtrl,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Account Password *', hintText: 'Create a password', prefixIcon: Icon(Icons.lock_outline, size: 16), border: OutlineInputBorder(), isDense: true),
+              style: textStyle,
+              decoration: _buildInputDecoration(
+                label: 'Account Password *',
+                hintText: 'Create a password',
+                icon: Icons.lock_outline,
+                isDark: isDark,
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             DropdownButtonFormField<UserCategory>(
               initialValue: _signupCategory,
-              decoration: const InputDecoration(labelText: 'Role Category *', border: OutlineInputBorder(), isDense: true),
-              items: UserCategory.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label, style: const TextStyle(fontSize: 12)))).toList(),
-              onChanged: (v) { if (v != null) setState(() => _signupCategory = v); },
+              dropdownColor: isDark ? const Color(0xFF282B3A) : Colors.white,
+              decoration: _buildInputDecoration(
+                label: 'Role Category *',
+                icon: Icons.category_outlined,
+                isDark: isDark,
+              ),
+              items: UserCategory.values
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(
+                          c.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _signupCategory = v);
+              },
             ),
             if (_isRegisterOtpSent) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               TextField(
                 controller: _signupOtpCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Enter 6-Digit Registration OTP *',
+                style: textStyle,
+                decoration: _buildInputDecoration(
+                  label: 'Enter 6-Digit Registration OTP *',
                   hintText: 'e.g. 123456',
-                  prefixIcon: Icon(Icons.mark_email_read_outlined, size: 16),
-                  border: OutlineInputBorder(),
-                  isDense: true,
+                  icon: Icons.mark_email_read_outlined,
+                  isDark: isDark,
                 ),
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              height: 40,
+              height: 42,
               child: ElevatedButton(
                 onPressed: () async {
                   if (_signupNameCtrl.text.trim().isEmpty) { _showError('Full Name is mandatory!'); return; }
@@ -293,8 +426,15 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                     }
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-                child: Text(_isRegisterOtpSent ? 'Verify OTP & Create Account' : 'Send Registration OTP', style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: btnBgColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: Text(
+                  _isRegisterOtpSent ? 'Verify OTP & Create Account' : 'Send Registration OTP',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
               ),
             ),
           ],
@@ -308,41 +448,43 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
         TextField(
           controller: _volunteerPhoneController,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Registered Mobile Number or Email Address *',
+          style: textStyle,
+          decoration: _buildInputDecoration(
+            label: 'Registered Mobile Number or Email Address *',
             hintText: 'e.g. 9876543210 or user@gmail.com',
-            prefixIcon: Icon(Icons.person_outline, size: 18),
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            icon: Icons.person_outline,
+            isDark: isDark,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
         if (_usePasswordForLogin) ...[
           TextField(
             controller: _volunteerPassController,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Password *',
+            style: textStyle,
+            decoration: _buildInputDecoration(
+              label: 'Password *',
               hintText: 'Enter your account password',
-              prefixIcon: Icon(Icons.lock_outline, size: 18),
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              icon: Icons.lock_outline,
+              isDark: isDark,
             ),
           ),
         ] else if (_isOtpSent) ...[
           TextField(
             controller: _volunteerOtpController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Enter 6-Digit OTP *',
+            style: textStyle,
+            decoration: _buildInputDecoration(
+              label: 'Enter 6-Digit OTP *',
               hintText: 'e.g. 123456',
-              prefixIcon: Icon(Icons.mark_email_read_outlined, size: 18),
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              icon: Icons.mark_email_read_outlined,
+              isDark: isDark,
             ),
           ),
         ],
+
+        const SizedBox(height: 4),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -352,15 +494,33 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 _usePasswordForLogin = !_usePasswordForLogin;
                 _isOtpSent = false;
               }),
-              icon: Icon(_usePasswordForLogin ? Icons.mobile_friendly : Icons.vpn_key, size: 14),
-              label: Text(_usePasswordForLogin ? 'Login via OTP instead' : 'Login via Password instead', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              icon: Icon(
+                _usePasswordForLogin ? Icons.mobile_friendly : Icons.vpn_key,
+                size: 14,
+                color: isDark ? Colors.grey.shade400 : Colors.blueGrey,
+              ),
+              label: Text(
+                _usePasswordForLogin ? 'Login via OTP instead' : 'Login via Password instead',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.grey.shade300 : Colors.blueGrey.shade700,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () => setState(() {
                 _isSignUpMode = true;
                 _isRegisterOtpSent = false;
               }),
-              child: const Text('➕ Create New Account', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+              child: Text(
+                '➕ Create New Account',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                ),
+              ),
             ),
           ],
         ),
@@ -368,7 +528,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
         const Spacer(),
         SizedBox(
           width: double.infinity,
-          height: 42,
+          height: 44,
           child: ElevatedButton(
             onPressed: () async {
               if (_volunteerPhoneController.text.trim().isEmpty) {
@@ -432,12 +592,16 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: btnBgColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             child: Text(
               _usePasswordForLogin
                   ? 'Sign In with Password'
                   : (_isOtpSent ? 'Verify OTP & Sign In' : 'Send OTP'),
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
         ),
@@ -448,55 +612,66 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   // ═══════════════════════════════════════════════════════════════════════════
   // 🛡️ OFFICER TAB
   // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildOfficerTab() {
+  Widget _buildOfficerTab(bool isDark) {
+    final textStyle = TextStyle(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF1F2937));
+    final infoBg = isDark ? const Color(0xFF1E3A8A).withOpacity(0.4) : Colors.blue.shade50;
+    final infoTextColor = isDark ? const Color(0xFFDBEAFE) : const Color(0xFF1565C0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: infoBg, borderRadius: BorderRadius.circular(10)),
           child: Row(
-            children: const [
-              Icon(Icons.verified_user, color: Color(0xFF1565C0), size: 18),
-              SizedBox(width: 8),
+            children: [
+              Icon(Icons.verified_user, color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1565C0), size: 18),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text('Official Officer Login for District/State disaster management authority.', style: TextStyle(fontSize: 11, color: Color(0xFF1565C0))),
+                child: Text(
+                  'Official Officer Login for District/State disaster management authority.',
+                  style: TextStyle(fontSize: 11, color: infoTextColor, fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         TextField(
           controller: _officerEmailController,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Officer Email ID *',
+          style: textStyle,
+          decoration: _buildInputDecoration(
+            label: 'Officer Email ID *',
             hintText: 'e.g. officer.tvm@ksdma.kerala.gov.in',
-            prefixIcon: Icon(Icons.email_outlined, size: 18),
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            icon: Icons.email_outlined,
+            isDark: isDark,
           ),
         ),
         const SizedBox(height: 10),
         TextField(
           controller: _officerPassController,
           obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Officer Password *',
+          style: textStyle,
+          decoration: _buildInputDecoration(
+            label: 'Officer Password *',
             hintText: '••••••••',
-            prefixIcon: Icon(Icons.lock_outline, size: 18),
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            icon: Icons.lock_outline,
+            isDark: isDark,
           ),
         ),
         const Spacer(),
         SizedBox(
           width: double.infinity,
-          height: 42,
+          height: 44,
           child: ElevatedButton.icon(
             icon: const Icon(Icons.shield, color: Colors.white, size: 18),
-            label: const Text('Sign In as Officer', style: TextStyle(fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1565C0), foregroundColor: Colors.white),
+            label: const Text('Sign In as Officer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? const Color(0xFF2563EB) : const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () async {
               if (_officerEmailController.text.trim().isEmpty) { _showError('Officer Email is mandatory!'); return; }
               if (_officerPassController.text.trim().isEmpty) { _showError('Password is mandatory!'); return; }
@@ -523,55 +698,66 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   // ═══════════════════════════════════════════════════════════════════════════
   // ⚙️ ADMIN TAB
   // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildAdminTab() {
+  Widget _buildAdminTab(bool isDark) {
+    final textStyle = TextStyle(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF1F2937));
+    final infoBg = isDark ? const Color(0xFF4C1D95).withOpacity(0.4) : Colors.purple.shade50;
+    final infoTextColor = isDark ? const Color(0xFFF3E8FF) : const Color(0xFF7C3AED);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: infoBg, borderRadius: BorderRadius.circular(10)),
           child: Row(
-            children: const [
-              Icon(Icons.admin_panel_settings, color: Color(0xFF7C3AED), size: 18),
-              SizedBox(width: 8),
+            children: [
+              Icon(Icons.admin_panel_settings, color: isDark ? const Color(0xFFC084FC) : const Color(0xFF7C3AED), size: 18),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text('Admin accounts must exist in the system. Enter registered HQ admin email to sign in.', style: TextStyle(fontSize: 11, color: Color(0xFF7C3AED))),
+                child: Text(
+                  'Admin accounts must exist in the system. Enter registered HQ admin email to sign in.',
+                  style: TextStyle(fontSize: 11, color: infoTextColor, fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         TextField(
           controller: _adminEmailController,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Master Admin Email ID *',
+          style: textStyle,
+          decoration: _buildInputDecoration(
+            label: 'Master Admin Email ID *',
             hintText: 'e.g. admin@ksdma.kerala.gov.in',
-            prefixIcon: Icon(Icons.admin_panel_settings_outlined, size: 18),
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            icon: Icons.admin_panel_settings_outlined,
+            isDark: isDark,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         TextField(
           controller: _adminPassController,
           obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Master Key / Password *',
+          style: textStyle,
+          decoration: _buildInputDecoration(
+            label: 'Master Key / Password *',
             hintText: '••••••••',
-            prefixIcon: Icon(Icons.key_outlined, size: 18),
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            icon: Icons.key_outlined,
+            isDark: isDark,
           ),
         ),
         const Spacer(),
         SizedBox(
           width: double.infinity,
-          height: 42,
+          height: 44,
           child: ElevatedButton.icon(
             icon: const Icon(Icons.verified_user, color: Colors.white, size: 18),
-            label: const Text('Sign In as Admin HQ', style: TextStyle(fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+            label: const Text('Sign In as Admin HQ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () async {
               if (_adminEmailController.text.trim().isEmpty) { _showError('Admin Email is mandatory!'); return; }
               if (_adminPassController.text.trim().isEmpty) { _showError('Master Key is mandatory!'); return; }

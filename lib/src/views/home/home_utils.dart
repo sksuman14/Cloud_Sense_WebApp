@@ -311,32 +311,33 @@ class HomeUtils {
 
   static String buildTopicFromDisplayId(String displayId) {
     String internalId = displayId;
-    if (displayId.startsWith('ANNAM_CP')) {
+    final lower = displayId.toLowerCase();
+    if (lower.startsWith('annam_cp')) {
       internalId =
-          'AM${displayId.replaceFirst('ANNAM_CP', '').padLeft(2, '0')}';
-    } else if (displayId.startsWith('ANNAM0126_')) {
+          'AM${displayId.substring('annam_cp'.length).padLeft(2, '0')}';
+    } else if (lower.startsWith('annam0126_')) {
       internalId =
-          'WJ${displayId.replaceFirst('ANNAM0126_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('ANNAM0426_')) {
+          'WJ${displayId.substring('annam0126_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('annam0426_')) {
       internalId =
-          'WA${displayId.replaceFirst('ANNAM0426_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('ANNAM/PC_')) {
+          'WA${displayId.substring('annam0426_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('annam/pc_')) {
       internalId =
-          'PC${displayId.replaceFirst('ANNAM/PC_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('ANNAM/Kerala/')) {
+          'PC${displayId.substring('annam/pc_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('annam/kerala/')) {
       internalId =
-          'KR${displayId.replaceFirst('ANNAM/Kerala/', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('AWS_')) {
-      internalId = 'AW${displayId.replaceFirst('AWS_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('ANNAM/GPC_')) {
+          'KR${displayId.substring('annam/kerala/'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('aws_')) {
+      internalId = 'AW${displayId.substring('aws_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('annam/gpc_')) {
       internalId =
-          'GP${displayId.replaceFirst('ANNAM/GPC_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('TS_')) {
-      internalId = 'CP${displayId.replaceFirst('TS_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('WT_')) {
-      internalId = 'WT${displayId.replaceFirst('WT_', '').padLeft(3, '0')}';
-    } else if (displayId.startsWith('ANNAM')) {
-      final idStr = displayId.replaceFirst('ANNAM', '');
+          'GP${displayId.substring('annam/gpc_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('ts_')) {
+      internalId = 'CP${displayId.substring('ts_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('wt_')) {
+      internalId = 'WT${displayId.substring('wt_'.length).padLeft(3, '0')}';
+    } else if (lower.startsWith('annam')) {
+      final idStr = displayId.substring('annam'.length);
       final id = int.tryParse(idStr) ?? 0;
       if (id == 7 || id == 13)
         internalId = 'SW${idStr.padLeft(3, '0')}';

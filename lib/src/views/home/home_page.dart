@@ -1260,14 +1260,16 @@ class _HomePageState extends State<HomePage> {
                                                             "correctedtemp",
                                                             "CurrentTemperature",
                                                             "currenttemperature",
-                                                            "NowTemperature"
+                                                            "NowTemperature",
+                                                            "now_temperature"
                                                           ]);
                                                           final humidityVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "CorrectedHumidity",
                                                             "correctedhumidity",
                                                             "CurrentHumidity",
                                                             "currenthumidity",
-                                                            "NowRelativeHumidity"
+                                                            "NowRelativeHumidity",
+                                                            "now_relative_humidity"
                                                           ]);
                                                           final pressureVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "CurrentPressure",
@@ -1278,12 +1280,15 @@ class _HomePageState extends State<HomePage> {
                                                           final windSpeedVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "WindSpeed",
                                                             "windspeed",
-                                                            "NowWindSpeed"
+                                                            "NowWindSpeed",
+                                                            "now_wind_speed",
+                                                            "average_wind_speed"
                                                           ]);
                                                           final rainfallVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "RainfallHourly",
                                                             "rainfallhourly",
-                                                            "Rainfall"
+                                                            "Rainfall",
+                                                            "rainfall"
                                                           ]);
                                                           final rainfallDailyVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "RainfallDaily",
@@ -1303,13 +1308,16 @@ class _HomePageState extends State<HomePage> {
                                                           ]);
                                                           final lightIntensityVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "LightIntensity",
-                                                            "lightintensity"
+                                                            "lightintensity",
+                                                            "now_light"
                                                           ]);
                                                           final windDirVal = HomeUtils.getCorrectedValue(selectedDevice, [
-                                                                      "WindDirection",
-                                                                      "winddirection",
-                                                                      "NowWindDirection"
-                                                                    ]);
+                                                            "WindDirection",
+                                                            "winddirection",
+                                                            "NowWindDirection",
+                                                            "now_wind_direction",
+                                                            "average_wind_direction"
+                                                          ]);
 
                                                           // Build the shared list of grid items once
                                                           List<Widget> gridItems = [
@@ -1696,16 +1704,21 @@ class _HomePageState extends State<HomePage> {
       // Step 4: Filter eligible devices (must have at least 3 parameters: temp, wind, rain)
       List<Map<String, dynamic>> eligibleDevices = [];
       for (var device in candidates) {
-        // Only corrected temperature counts (sensor-calibrated value)
         bool hasTemp = (device["CorrectedTemp"] != null &&
                 device["CorrectedTemp"].toString().toLowerCase() != 'null') ||
             (device["correctedtemp"] != null &&
-                device["correctedtemp"].toString().toLowerCase() != 'null');
+                device["correctedtemp"].toString().toLowerCase() != 'null') ||
+            (device["CurrentTemperature"] != null &&
+                device["CurrentTemperature"].toString().toLowerCase() != 'null') ||
+            (device["now_temperature"] != null &&
+                device["now_temperature"].toString().toLowerCase() != 'null');
         bool hasWind =
             (device["WindSpeed"]?.toString().toLowerCase() != 'null' &&
                     device["WindSpeed"] != null) ||
                 (device["windspeed"]?.toString().toLowerCase() != 'null' &&
-                    device["windspeed"] != null);
+                    device["windspeed"] != null) ||
+                (device["now_wind_speed"]?.toString().toLowerCase() != 'null' &&
+                    device["now_wind_speed"] != null);
         bool hasRain =
             (device["RainfallHourly"]?.toString().toLowerCase() != 'null' &&
                     device["RainfallHourly"] != null) ||
@@ -1713,7 +1726,13 @@ class _HomePageState extends State<HomePage> {
                     device["rainfallhourly"] != null) ||
                 (device["RainfallHourlyComulative"]?.toString().toLowerCase() !=
                         'null' &&
-                    device["RainfallHourlyComulative"] != null);
+                    device["RainfallHourlyComulative"] != null) ||
+                (device["Rainfall_Cumulative"]?.toString().toLowerCase() != 'null' &&
+                    device["Rainfall_Cumulative"] != null) ||
+                (device["rainfall"]?.toString().toLowerCase() != 'null' &&
+                    device["rainfall"] != null) ||
+                (device["Rainfall"]?.toString().toLowerCase() != 'null' &&
+                    device["Rainfall"] != null);
 
         // Device must have at least 3 parameters (temperature + wind + rain)
         if (hasTemp && hasWind && hasRain) {
@@ -1722,7 +1741,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       debugPrint(
-          "Widget: Found \${eligibleDevices.length} eligible devices (with temp+wind+rain) out of \${candidates.length} candidates");
+          "Widget: Found ${eligibleDevices.length} eligible devices (with temp+wind+rain) out of ${candidates.length} candidates");
 
       // Step 5: Find nearest device among eligible ones
       Map<String, dynamic>? nearest;
@@ -1752,7 +1771,7 @@ class _HomePageState extends State<HomePage> {
               widgetDeviceData["deviceid#topic"]?.toString())
           : 'ANNAM001';
 
-      // Extract ONLY corrected temperature (sensor-calibrated, not raw)
+      // Extract temperature
       double? temp;
       final correctedTemp = widgetDeviceData["CorrectedTemp"];
       if (correctedTemp != null &&
@@ -1760,41 +1779,36 @@ class _HomePageState extends State<HomePage> {
           correctedTemp.toString().toLowerCase() != 'null') {
         temp = double.tryParse(correctedTemp.toString());
       } else {
-        final correctedTempLower = widgetDeviceData["correctedtemp"];
-        if (correctedTempLower != null &&
-            correctedTempLower.toString().trim().isNotEmpty &&
-            correctedTempLower.toString().toLowerCase() != 'null') {
-          temp = double.tryParse(correctedTempLower.toString());
+        final rawTemp = widgetDeviceData["correctedtemp"] ??
+            widgetDeviceData["CurrentTemperature"] ??
+            widgetDeviceData["now_temperature"];
+        if (rawTemp != null &&
+            rawTemp.toString().trim().isNotEmpty &&
+            rawTemp.toString().toLowerCase() != 'null') {
+          temp = double.tryParse(rawTemp.toString());
         }
       }
 
       double? windSpeed;
-      if (widgetDeviceData["WindSpeed"] != null &&
-          widgetDeviceData["WindSpeed"].toString().toLowerCase() != 'null') {
-        windSpeed = double.tryParse(widgetDeviceData["WindSpeed"].toString());
-      } else if (widgetDeviceData["windspeed"] != null &&
-          widgetDeviceData["windspeed"].toString().toLowerCase() != 'null') {
-        windSpeed = double.tryParse(widgetDeviceData["windspeed"].toString());
+      final rawWind = widgetDeviceData["WindSpeed"] ??
+          widgetDeviceData["windspeed"] ??
+          widgetDeviceData["now_wind_speed"] ??
+          widgetDeviceData["average_wind_speed"];
+      if (rawWind != null &&
+          rawWind.toString().toLowerCase() != 'null') {
+        windSpeed = double.tryParse(rawWind.toString());
       }
 
       double? rainfall;
-      if (widgetDeviceData["RainfallHourly"] != null &&
-          widgetDeviceData["RainfallHourly"].toString().toLowerCase() !=
-              'null') {
-        rainfall =
-            double.tryParse(widgetDeviceData["RainfallHourly"].toString());
-      } else if (widgetDeviceData["rainfallhourly"] != null &&
-          widgetDeviceData["rainfallhourly"].toString().toLowerCase() !=
-              'null') {
-        rainfall =
-            double.tryParse(widgetDeviceData["rainfallhourly"].toString());
-      } else if (widgetDeviceData["RainfallHourlyComulative"] != null &&
-          widgetDeviceData["RainfallHourlyComulative"]
-                  .toString()
-                  .toLowerCase() !=
-              'null') {
-        rainfall = double.tryParse(
-            widgetDeviceData["RainfallHourlyComulative"].toString());
+      final rawRain = widgetDeviceData["RainfallHourly"] ??
+          widgetDeviceData["rainfallhourly"] ??
+          widgetDeviceData["RainfallHourlyComulative"] ??
+          widgetDeviceData["Rainfall_Cumulative"] ??
+          widgetDeviceData["rainfall"] ??
+          widgetDeviceData["Rainfall"];
+      if (rawRain != null &&
+          rawRain.toString().toLowerCase() != 'null') {
+        rainfall = double.tryParse(rawRain.toString());
       }
 
       final isOnline =

@@ -44,6 +44,11 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   void initState() {
     super.initState();
     _mapController = MapController();
+    // Lazy load: fetch stations only when Map View opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Provider.of<KsdmaStateService>(context, listen: false).fetchStationsIfNeeded();
+    });
   }
 
   @override

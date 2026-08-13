@@ -16,10 +16,30 @@ class KsdmaStateService extends ChangeNotifier {
   final List<KsdmaObservation> _observations = [];
   final List<KsdmaUser> _champions = [];
 
-  // Locally tracked rejected/approved station IDs — persist across _loadLiveData() re-fetches
+  // Locally tracked rejected/approved station IDs — persist across re-fetches
   // so API timing issues never bring a rejected station back as pending
   final Set<String> _locallyRejectedIds = {};
   final Set<String> _locallyApprovedIds = {};
+
+  // === Lazy Loading State ===
+  // Loading flags — prevent duplicate concurrent fetches
+  bool _stationsLoading = false;
+  bool _observationsLoading = false;
+  bool _championsLoading = false;
+
+  // Last fetch timestamps — 5-minute cache to avoid redundant API calls
+  DateTime? _stationsFetchedAt;
+  DateTime? _observationsFetchedAt;
+  DateTime? _championsFetchedAt;
+
+  static const Duration _cacheValidity = Duration(minutes: 5);
+
+  bool get stationsLoaded => _stations.isNotEmpty;
+  bool get observationsLoaded => _observations.isNotEmpty;
+  bool get championsLoaded => _champions.isNotEmpty;
+  bool get stationsLoading => _stationsLoading;
+  bool get observationsLoading => _observationsLoading;
+  bool get championsLoading => _championsLoading;
 
   // Filter & View State
   String selectedParameter = 'rainfall'; // rainfall, maxTemp, minTemp, humidity, riverLevel
@@ -101,7 +121,9 @@ class KsdmaStateService extends ChangeNotifier {
       badgeTier: 'BRONZE',
     );
     isLoggedIn = false;
-    _loadLiveData();
+    // Fetch stations & observations on startup; champions are lazy
+    fetchStationsIfNeeded();
+    fetchObservationsIfNeeded();
   }
 
   // Restore saved session from SharedPreferences on page refresh (F5)
@@ -139,13 +161,22 @@ class KsdmaStateService extends ChangeNotifier {
     }
   }
 
-  // Load all live data from AWS RDS via Lambda API
-  Future<void> _loadLiveData() async {
+  // ============================================================
+  // LAZY LOADING — Each view calls only the data it needs
+  // ============================================================
+
+  /// Called by Map Views, Dashboard, Admin Station panels
+  Future<void> fetchStationsIfNeeded({bool forceRefresh = false}) async {
+    if (_stationsLoading) return;
+    final isStale = _stationsFetchedAt == null ||
+        DateTime.now().difference(_stationsFetchedAt!) > _cacheValidity;
+    if (!forceRefresh && !isStale && _stations.isNotEmpty) return;
+
+    _stationsLoading = true;
+    notifyListeners();
     try {
       final apiStations = await apiService.fetchStations();
       final pendingStations = await apiService.fetchPendingStations();
-      final apiObs = await apiService.fetchObservations();
-      final apiChampions = await apiService.fetchChampions();
       final apiBoundaries = await apiService.fetchBoundaries();
 
       if (apiBoundaries.isNotEmpty) {
@@ -153,43 +184,26 @@ class KsdmaStateService extends ChangeNotifier {
         _boundaries.addAll(apiBoundaries);
       }
 
-      // Build merged stations list: non-rejected from /stations + pending from /stations/pending
       final Map<String, KsdmaStation> stationMap = {};
-
       for (var s in apiStations) {
         stationMap[s.stationId] = s;
       }
-
-      // Add pending stations not already in map
       for (var p in pendingStations) {
         if (!stationMap.containsKey(p.stationId)) {
           final ownerName = (p.ownerName == 'Volunteer Observer' || p.ownerName.isEmpty) ? currentUser.fullName : p.ownerName;
           final ownerCat = (p.ownerName == 'Volunteer Observer' || p.ownerName.isEmpty) ? currentUser.category : p.ownerCategory;
           stationMap[p.stationId] = KsdmaStation(
-            stationId: p.stationId,
-            ownerUserId: p.ownerUserId,
-            ownerName: ownerName,
-            ownerCategory: ownerCat,
-            category: p.category,
-            instrumentType: p.instrumentType,
-            deviceMake: p.deviceMake,
-            measurementLocation: p.measurementLocation,
-            devicePhotoUrl: p.devicePhotoUrl,
-            latitude: p.latitude,
-            longitude: p.longitude,
-            district: p.district,
-            taluk: p.taluk,
-            gramaPanchayat: p.gramaPanchayat,
-            village: p.village,
-            approvalStatus: p.approvalStatus,
-            rejectionReason: p.rejectionReason,
-            createdAt: p.createdAt,
+            stationId: p.stationId, ownerUserId: p.ownerUserId, ownerName: ownerName,
+            ownerCategory: ownerCat, category: p.category, instrumentType: p.instrumentType,
+            deviceMake: p.deviceMake, measurementLocation: p.measurementLocation,
+            devicePhotoUrl: p.devicePhotoUrl, latitude: p.latitude, longitude: p.longitude,
+            district: p.district, taluk: p.taluk, gramaPanchayat: p.gramaPanchayat,
+            village: p.village, approvalStatus: p.approvalStatus,
+            rejectionReason: p.rejectionReason, createdAt: p.createdAt,
           );
         }
       }
-
-      // Override with local moderation decisions — prevents API timing from bringing
-      // a rejected/approved station back to wrong state before DB sync completes
+      // Apply local moderation overrides
       for (final id in _locallyRejectedIds) {
         if (stationMap.containsKey(id) && stationMap[id]!.approvalStatus != ApprovalStatus.rejected) {
           final s = stationMap[id]!;
@@ -216,28 +230,77 @@ class KsdmaStateService extends ChangeNotifier {
           );
         }
       }
-
       _stations.clear();
       _stations.addAll(stationMap.values);
+      _stationsFetchedAt = DateTime.now();
+    } catch (e) {
+      print('Stations Fetch Notice: $e');
+    } finally {
+      _stationsLoading = false;
+      notifyListeners();
+    }
+  }
 
+  /// Called by Observation Entry, Dashboard charts, Admin data panels
+  Future<void> fetchObservationsIfNeeded({bool forceRefresh = false}) async {
+    if (_observationsLoading) return;
+    final isStale = _observationsFetchedAt == null ||
+        DateTime.now().difference(_observationsFetchedAt!) > _cacheValidity;
+    if (!forceRefresh && !isStale && _observations.isNotEmpty) return;
+
+    _observationsLoading = true;
+    notifyListeners();
+    try {
+      final apiObs = await apiService.fetchObservations();
       if (apiObs.isNotEmpty) {
         _observations.clear();
         _observations.addAll(apiObs);
       }
+      _observationsFetchedAt = DateTime.now();
+    } catch (e) {
+      print('Observations Fetch Notice: $e');
+    } finally {
+      _observationsLoading = false;
+      notifyListeners();
+    }
+  }
 
+  /// Called ONLY by Champions / Leaderboard view
+  Future<void> fetchChampionsIfNeeded({bool forceRefresh = false}) async {
+    if (_championsLoading) return;
+    final isStale = _championsFetchedAt == null ||
+        DateTime.now().difference(_championsFetchedAt!) > _cacheValidity;
+    if (!forceRefresh && !isStale && _champions.isNotEmpty) return;
+
+    _championsLoading = true;
+    notifyListeners();
+    try {
+      final apiChampions = await apiService.fetchChampions();
       if (apiChampions.isNotEmpty) {
         _champions.clear();
         _champions.addAll(apiChampions);
       }
-
-      notifyListeners();
+      _championsFetchedAt = DateTime.now();
     } catch (e) {
-      print('Live Data Sync Notice: $e');
+      print('Champions Fetch Notice: $e');
+    } finally {
+      _championsLoading = false;
+      notifyListeners();
     }
   }
 
+  /// Force-refresh ALL data (used by pull-to-refresh or after major actions)
   Future<void> refreshLiveData() async {
-    await _loadLiveData();
+    await Future.wait([
+      fetchStationsIfNeeded(forceRefresh: true),
+      fetchObservationsIfNeeded(forceRefresh: true),
+      fetchChampionsIfNeeded(forceRefresh: true),
+    ]);
+  }
+
+  /// Legacy alias — used after station approval/rejection/registration
+  Future<void> _loadLiveData() async {
+    await fetchStationsIfNeeded(forceRefresh: true);
   }
 
   // Register & Login Real User via AWS RDS

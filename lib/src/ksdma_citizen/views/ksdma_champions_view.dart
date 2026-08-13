@@ -14,6 +14,16 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
   String _selectedCategory = 'ALL';
 
   @override
+  void initState() {
+    super.initState();
+    // Lazy load: fetch champions only when Champions/Leaderboard view opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Provider.of<KsdmaStateService>(context, listen: false).fetchChampionsIfNeeded();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = Provider.of<KsdmaStateService>(context);
 
