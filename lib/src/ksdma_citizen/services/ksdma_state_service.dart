@@ -121,9 +121,10 @@ class KsdmaStateService extends ChangeNotifier {
       badgeTier: 'BRONZE',
     );
     isLoggedIn = false;
-    // Fetch stations & observations on startup; champions are lazy
+    // Fetch stations, observations & champions on startup
     fetchStationsIfNeeded();
     fetchObservationsIfNeeded();
+    fetchChampionsIfNeeded();
   }
 
   // Restore saved session from SharedPreferences on page refresh (F5)
