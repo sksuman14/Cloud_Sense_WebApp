@@ -110,29 +110,39 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     'SolarRadiation',
   ];
 
-  late Set<String> _selectedFields;
-  late List<String> _displayedFields;
+  // --- Group-based param display (friendly label → underlying field keys) ---
+  List<_ParamGroup> _paramGroups = [];
+  Set<int> _selectedGroups = {}; // indices into _paramGroups
+  // _selectedFields is derived from selected groups for API
+  Set<String> get _selectedFields {
+    final keys = <String>{};
+    for (var i = 0; i < _paramGroups.length; i++) {
+      if (_selectedGroups.contains(i)) keys.addAll(_paramGroups[i].fieldKeys);
+    }
+    return keys;
+  }
 
   @override
   void initState() {
     super.initState();
+    _paramGroups = [];
+
     if (widget.visibleParameters != null &&
         widget.visibleParameters!.isNotEmpty) {
       final config = DeviceConfig.getConfig(widget.deviceName);
-      Set<String> mappedKeys = {};
 
       if (config != null) {
         for (var vis in widget.visibleParameters!) {
+          final groupKeys = <String>{};
+
           if (vis == 'Wind') {
-            // Include all wind-related keys from this config
             for (var p in config.parameters) {
               if (p.displayName.toLowerCase().contains('wind') ||
                   p.key.toLowerCase().contains('wind')) {
-                mappedKeys.add(p.key);
+                groupKeys.add(p.key);
               }
             }
           } else {
-            // Find matching parameter by exactly matching displayName
             for (var p in config.parameters) {
               if (p.displayName == vis) {
                 bool isTemp = (vis.toLowerCase() == 'temperature' ||
@@ -149,16 +159,13 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
                       widget.deviceName.startsWith('WN') ||
                       widget.deviceName.startsWith('GP') ||
                       widget.deviceName.startsWith('PC');
-
                   if (widget.isAdmin) {
-                    mappedKeys.add('CorrectedTemp');
-                    mappedKeys.add(p.key); // Both for admin
+                    groupKeys.add('CorrectedTemp');
+                    groupKeys.add(p.key);
+                  } else if (hasCorrected) {
+                    groupKeys.add('CorrectedTemp');
                   } else {
-                    if (hasCorrected) {
-                      mappedKeys.add('CorrectedTemp');
-                    } else {
-                      mappedKeys.add(p.key); // Fallback to Current for IT, etc.
-                    }
+                    groupKeys.add(p.key);
                   }
                 } else if (isHum) {
                   bool hasCorrected = widget.deviceName.startsWith('SW') ||
@@ -170,43 +177,46 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
                       widget.deviceName.startsWith('WN') ||
                       widget.deviceName.startsWith('GP') ||
                       widget.deviceName.startsWith('PC');
-
                   if (widget.isAdmin) {
-                    mappedKeys.add('CorrectedHumidity');
-                    mappedKeys.add(p.key);
+                    groupKeys.add('CorrectedHumidity');
+                    groupKeys.add(p.key);
+                  } else if (hasCorrected) {
+                    groupKeys.add('CorrectedHumidity');
                   } else {
-                    if (hasCorrected) {
-                      mappedKeys.add('CorrectedHumidity');
-                    } else {
-                      mappedKeys.add(p.key);
-                    }
+                    groupKeys.add(p.key);
                   }
                 } else {
-                  mappedKeys.add(p.key);
+                  groupKeys.add(p.key);
                 }
               }
             }
           }
-        }
 
-        // Display all mapped keys (avoids missing keys not hardcoded in _allFields)
-        _displayedFields = mappedKeys.toList();
+          if (groupKeys.isNotEmpty) {
+            _paramGroups.add(_ParamGroup(displayName: vis, fieldKeys: groupKeys));
+          }
+        }
       } else {
-        // Fallback to strict exact match if config is somehow null
-        _displayedFields = _allFields.where((field) {
+        // Fallback: one group per field from _allFields
+        for (var field in _allFields) {
           final lowerField = field.toLowerCase().replaceAll(' ', '');
           for (var vis in widget.visibleParameters!) {
             if (lowerField == vis.toLowerCase().replaceAll(' ', '')) {
-              return true;
+              _paramGroups.add(_ParamGroup(displayName: vis, fieldKeys: {field}));
+              break;
             }
           }
-          return false;
-        }).toList();
+        }
       }
     } else {
-      _displayedFields = List.from(_allFields);
+      // No visibleParameters — show all fields individually
+      for (var field in _allFields) {
+        _paramGroups.add(_ParamGroup(displayName: field, fieldKeys: {field}));
+      }
     }
-    _selectedFields = Set.from(_displayedFields);
+
+    // All groups selected by default
+    _selectedGroups = Set.from(List.generate(_paramGroups.length, (i) => i));
   }
 
   bool get _supportsFieldSelection {
@@ -293,14 +303,14 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
               Row(
                 children: [
                   TextButton(
-                    onPressed: () => setState(() => _selectedFields.clear()),
+                    onPressed: () => setState(() => _selectedGroups.clear()),
                     style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact),
                     child: const Text('Clear', style: TextStyle(fontSize: 12)),
                   ),
                   TextButton(
-                    onPressed: () => setState(
-                        () => _selectedFields.addAll(_displayedFields)),
+                    onPressed: () => setState(() => _selectedGroups =
+                        Set.from(List.generate(_paramGroups.length, (i) => i))),
                     style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact),
                     child: const Text('All', style: TextStyle(fontSize: 12)),
@@ -317,20 +327,24 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
             ),
             child: ListView.builder(
               padding: EdgeInsets.zero,
-              itemCount: _displayedFields.length,
+              itemCount: _paramGroups.length,
               itemBuilder: (context, index) {
-                final field = _displayedFields[index];
+                final group = _paramGroups[index];
+                final isSelected = _selectedGroups.contains(index);
                 return CheckboxListTile(
-                  title: Text(field, style: const TextStyle(fontSize: 12)),
-                  value: _selectedFields.contains(field),
+                  title: Text(
+                    group.displayName,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  value: isSelected,
                   dense: true,
                   visualDensity: VisualDensity.compact,
                   onChanged: (val) {
                     setState(() {
                       if (val == true) {
-                        _selectedFields.add(field);
+                        _selectedGroups.add(index);
                       } else {
-                        _selectedFields.remove(field);
+                        _selectedGroups.remove(index);
                       }
                     });
                   },
@@ -1011,4 +1025,12 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       _downloadedFileName = fileName;
     });
   }
+}
+
+/// Represents a download parameter group:
+/// one friendly [displayName] that maps to one or more underlying [fieldKeys].
+class _ParamGroup {
+  final String displayName;
+  final Set<String> fieldKeys;
+  const _ParamGroup({required this.displayName, required this.fieldKeys});
 }
