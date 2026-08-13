@@ -160,6 +160,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> with SingleTickerProvid
 
     if (pending.isEmpty) {
       return Card(
+        color: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: const Center(
           child: Column(
@@ -179,6 +180,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> with SingleTickerProvid
       itemBuilder: (context, index) {
         final station = pending[index];
         return Card(
+          color: Colors.white,
           margin: const EdgeInsets.only(bottom: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 2,

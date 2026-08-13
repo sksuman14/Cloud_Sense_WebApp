@@ -160,54 +160,91 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Breadcrumb Header
-          Row(
-            children: const [
-              Text('Home > My Observations > ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              Text('Enter Observation', style: TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 650;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 12.0 : 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Breadcrumb Header
+              Row(
+                children: const [
+                  Text('Home > My Observations > ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text('Enter Observation', style: TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Title
+              const Text('Register New Instrument', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+              const SizedBox(height: 16),
+
+              // Stepper Ribbon
+              if (isMobile)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF2563EB)),
+                            child: Center(child: Text('$_currentStep', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _currentStep == 1 ? 'Instrument Details' : _currentStep == 2 ? 'Location Details' : 'Upload & Review',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      Text('Step $_currentStep of 3', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildStepItem(1, 'Instrument Details', _currentStep == 1, _currentStep > 1),
+                      const Expanded(child: Divider(indent: 10, endIndent: 10)),
+                      _buildStepItem(2, 'Location Details', _currentStep == 2, _currentStep > 2),
+                      const Expanded(child: Divider(indent: 10, endIndent: 10)),
+                      _buildStepItem(3, 'Upload & Review', _currentStep == 3, _currentStep > 3),
+                      const Expanded(child: Divider(indent: 10, endIndent: 10)),
+                      _buildStepItem(4, 'Submit', _currentStep == 4, false),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 20),
+
+              // Step Form Bodies
+              if (_currentStep == 1) _buildStep1Form(isMobile),
+              if (_currentStep == 2) _buildStep2Form(isMobile),
+              if (_currentStep >= 3) _buildReviewSubmitForm(),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // Title
-          const Text('Register New Instrument', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-          const SizedBox(height: 16),
-
-          // 4-Step Wizard Stepper Ribbon (Exact Screenshot 1)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.black12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildStepItem(1, 'Instrument Details', _currentStep == 1, _currentStep > 1),
-                const Expanded(child: Divider(indent: 10, endIndent: 10)),
-                _buildStepItem(2, 'Location Details', _currentStep == 2, _currentStep > 2),
-                const Expanded(child: Divider(indent: 10, endIndent: 10)),
-                _buildStepItem(3, 'Upload & Review', _currentStep == 3, _currentStep > 3),
-                const Expanded(child: Divider(indent: 10, endIndent: 10)),
-                _buildStepItem(4, 'Submit', _currentStep == 4, false),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Step 1 Body Form
-          if (_currentStep == 1) _buildStep1Form(),
-          if (_currentStep == 2) _buildStep2Form(),
-          if (_currentStep >= 3) _buildReviewSubmitForm(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -240,25 +277,43 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
     );
   }
 
-  Widget _buildStep1Form() {
+  Widget _buildStep1Form(bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Select Instrument Type *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
         const SizedBox(height: 12),
 
-        // 4 Selection Cards Grid (Exact Screenshot 1 Layout)
-        Row(
-          children: [
-            Expanded(child: _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', Icons.thunderstorm_outlined)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Maximum-Minimum Thermometer', Icons.thermostat_outlined)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildInstrumentCard(InstrumentType.hygrometer, 'Wet & Dry Bulb Thermometer\n(Psychrometer)', Icons.water_outlined)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildInstrumentCard(InstrumentType.riverGauge, 'River Level Gauge', Icons.waves_outlined)),
-          ],
-        ),
+        // Selection Cards Grid
+        if (isMobile)
+          GridView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 120,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            children: [
+              _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', Icons.thunderstorm_outlined),
+              _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Max-Min Thermometer', Icons.thermostat_outlined),
+              _buildInstrumentCard(InstrumentType.hygrometer, 'Wet & Dry Bulb', Icons.water_outlined),
+              _buildInstrumentCard(InstrumentType.riverGauge, 'River Level Gauge', Icons.waves_outlined),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(child: _buildInstrumentCard(InstrumentType.rainGauge, 'Rain Gauge', Icons.thunderstorm_outlined)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildInstrumentCard(InstrumentType.maxMinThermometer, 'Maximum-Minimum Thermometer', Icons.thermostat_outlined)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildInstrumentCard(InstrumentType.hygrometer, 'Wet & Dry Bulb Thermometer\n(Psychrometer)', Icons.water_outlined)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildInstrumentCard(InstrumentType.riverGauge, 'River Level Gauge', Icons.waves_outlined)),
+            ],
+          ),
 
         const SizedBox(height: 16),
 
@@ -295,85 +350,67 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
         const SizedBox(height: 20),
 
         // Form Fields Row 1
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField('Instrument Name / Nickname *', _nicknameController, hint: 'e.g. Terrace Rain Gauge'),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildTextField('Make / Model ⓘ', _makeModelController, hint: 'e.g. Standard IMD Type'),
-            ),
-          ],
+        _buildFieldPair(
+          isMobile,
+          _buildTextField('Instrument Name / Nickname *', _nicknameController, hint: 'e.g. Terrace Rain Gauge'),
+          _buildTextField('Make / Model ⓘ', _makeModelController, hint: 'e.g. Standard IMD Type'),
         ),
 
         const SizedBox(height: 14),
 
         // Form Fields Row 2
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField(
-                'Installation Date ⓘ',
-                _dateController,
-                suffixIcon: Icons.calendar_today_outlined,
-                readOnly: true,
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      _dateController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-                    });
-                  }
-                },
+        _buildFieldPair(
+          isMobile,
+          _buildTextField(
+            'Installation Date ⓘ',
+            _dateController,
+            suffixIcon: Icons.calendar_today_outlined,
+            readOnly: true,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) {
+                setState(() {
+                  _dateController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                });
+              }
+            },
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Ownership Type ⓘ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.black26),
+                ),
+                child: DropdownButton<String>(
+                  value: _ownershipType,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  items: ['Personal', 'School / Institution', 'Panchayat', 'NGO'].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
+                  onChanged: (v) => setState(() => _ownershipType = v!),
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Ownership Type ⓘ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.black26),
-                    ),
-                    child: DropdownButton<String>(
-                      value: _ownershipType,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      items: ['Personal', 'School / Institution', 'Panchayat', 'NGO'].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
-                      onChanged: (v) => setState(() => _ownershipType = v!),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(height: 14),
 
         // Form Fields Row 3
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField('Mobile Number *', _mobileController, hint: 'e.g. 9876543210'),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildTextField('Email (Optional)', _emailController, hint: 'e.g. user@domain.com'),
-            ),
-          ],
+        _buildFieldPair(
+          isMobile,
+          _buildTextField('Mobile Number *', _mobileController, hint: 'e.g. 9876543210'),
+          _buildTextField('Email (Optional)', _emailController, hint: 'e.g. user@domain.com'),
         ),
 
         const SizedBox(height: 16),
@@ -426,7 +463,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
     );
   }
 
-  Widget _buildStep2Form() {
+  Widget _buildStep2Form(bool isMobile) {
     final state = Provider.of<KsdmaStateService>(context);
     final districtOptions = state.districtNames;
 
@@ -439,55 +476,47 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
       children: [
         const Text('Geographic Location Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('District *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.black26),
-                    ),
-                    child: DropdownButton<String>(
-                      value: districtOptions.contains(_districtController.text) ? _districtController.text : (districtOptions.isNotEmpty ? districtOptions.first : null),
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      items: districtOptions.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12)))).toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _districtController.text = v);
-                        }
-                      },
-                    ),
-                  ),
-                ],
+        _buildFieldPair(
+          isMobile,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('District *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.black26),
+                ),
+                child: DropdownButton<String>(
+                  value: districtOptions.contains(_districtController.text) ? _districtController.text : (districtOptions.isNotEmpty ? districtOptions.first : null),
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  items: districtOptions.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12)))).toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _districtController.text = v);
+                    }
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(child: _buildTextField('Taluk *', _talukController, hint: 'Enter Taluk')),
-          ],
+            ],
+          ),
+          _buildTextField('Taluk *', _talukController, hint: 'Enter Taluk'),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildTextField('Grama Panchayat *', _gpController, hint: 'Enter Grama Panchayat')),
-            const SizedBox(width: 16),
-            Expanded(child: _buildTextField('Village *', _villageController, hint: 'Enter Village')),
-          ],
+        _buildFieldPair(
+          isMobile,
+          _buildTextField('Grama Panchayat *', _gpController, hint: 'Enter Grama Panchayat'),
+          _buildTextField('Village *', _villageController, hint: 'Enter Village'),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildTextField('Latitude (°N)', _latController, hint: 'e.g. 11.2588')),
-            const SizedBox(width: 16),
-            Expanded(child: _buildTextField('Longitude (°E)', _lngController, hint: 'e.g. 75.7804')),
-          ],
+        _buildFieldPair(
+          isMobile,
+          _buildTextField('Latitude (°N)', _latController, hint: 'e.g. 11.2588'),
+          _buildTextField('Longitude (°E)', _lngController, hint: 'e.g. 75.7804'),
         ),
         const SizedBox(height: 20),
         Row(
@@ -872,6 +901,25 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
       default:
         return 'Measure Dry Bulb Temperature and Wet Bulb Temperature. Relative Humidity (%) will be calculated automatically.';
     }
+  }
+
+  Widget _buildFieldPair(bool isMobile, Widget child1, Widget child2) {
+    if (isMobile) {
+      return Column(
+        children: [
+          child1,
+          const SizedBox(height: 12),
+          child2,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: child1),
+        const SizedBox(width: 16),
+        Expanded(child: child2),
+      ],
+    );
   }
 
   Widget _buildTextField(

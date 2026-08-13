@@ -116,7 +116,9 @@ class KsdmaUser {
   final String gramaPanchayat;
   final String village;
   int streakDays;
+  int maxStreak;
   int totalObservations;
+  DateTime? lastObservationDate;
   String badgeTier; // BRONZE, SILVER, GOLD
   String? avatarUrl;
 
@@ -132,7 +134,9 @@ class KsdmaUser {
     this.gramaPanchayat = '',
     this.village = '',
     this.streakDays = 0,
+    this.maxStreak = 0,
     this.totalObservations = 0,
+    this.lastObservationDate,
     this.badgeTier = 'BRONZE',
     this.avatarUrl,
   });

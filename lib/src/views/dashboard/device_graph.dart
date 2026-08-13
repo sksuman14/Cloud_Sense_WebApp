@@ -317,6 +317,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   String _lastSelectedRange = 'single'; // Default to single
 
+  bool get _isDevice250 {
+    final d = widget.deviceName.toLowerCase();
+    return d.contains('250');
+  }
+
   bool isWindDirectionValid(String? windDirection) {
     return windDirection != null && windDirection != "-";
   }
@@ -1429,7 +1434,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             if (correctedFields.containsKey(lowerKey) &&
                 correctedFields[lowerKey]['corrected_value'] != null) {
               correctedRaw = correctedFields[lowerKey]['corrected_value'];
-            } else if (lowerKey.contains('rain')) {
+            } else if (lowerKey.contains('rain') && !_isDevice250) {
               for (var cfKey in correctedFields.keys) {
                 if (cfKey.toString().toLowerCase().contains('rain')) {
                   if (correctedFields[cfKey] != null &&
@@ -2432,8 +2437,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         if (corrected != null && corrected.isNotEmpty) {
           data = _mergeCorrectedData(data, corrected);
         }
-      } else if (p.displayName.toLowerCase().contains('rain') ||
-          p.key.toLowerCase().contains('rain')) {
+      } else if ((p.displayName.toLowerCase().contains('rain') ||
+              p.key.toLowerCase().contains('rain')) &&
+          !_isDevice250) {
         for (final k in _parametersData.keys) {
           if (k.toLowerCase().contains('correctedfield') &&
               k.toLowerCase().contains('rain')) {
@@ -2535,13 +2541,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               ? _parametersData[hourlyKey]!
               : data;
 
-          // Merge corrected rain data into targetData so totalRainfall calculation uses corrected values!
-          for (final k in _parametersData.keys) {
-            if (k.toLowerCase().contains('correctedfield') &&
-                k.toLowerCase().contains('rain')) {
-              final corrected = _parametersData[k];
-              if (corrected != null && corrected.isNotEmpty) {
-                targetData = _mergeCorrectedData(targetData, corrected);
+          // Merge corrected rain data into targetData so totalRainfall calculation uses corrected values (except for device 250)!
+          if (!_isDevice250) {
+            for (final k in _parametersData.keys) {
+              if (k.toLowerCase().contains('correctedfield') &&
+                  k.toLowerCase().contains('rain')) {
+                final corrected = _parametersData[k];
+                if (corrected != null && corrected.isNotEmpty) {
+                  targetData = _mergeCorrectedData(targetData, corrected);
+                }
               }
             }
           }
@@ -3854,7 +3862,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               String? secondaryTitle;
                               if (_isAdmin) {
                                 final correctedField =
-                                    _parametersData['CorrectedField_${p.key}'];
+                                    (_isDevice250 && p.key.toLowerCase().contains('rain'))
+                                        ? null
+                                        : _parametersData['CorrectedField_${p.key}'];
                                 if (correctedField != null &&
                                     correctedField.isNotEmpty) {
                                   secondaryData = correctedField;
@@ -3882,7 +3892,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                 }
                               } else {
                                 final correctedField =
-                                    _parametersData['CorrectedField_${p.key}'];
+                                    (_isDevice250 && p.key.toLowerCase().contains('rain'))
+                                        ? null
+                                        : _parametersData['CorrectedField_${p.key}'];
                                 if (correctedField != null &&
                                     correctedField.isNotEmpty) {
                                   data = _mergeCorrectedData(data, correctedField);

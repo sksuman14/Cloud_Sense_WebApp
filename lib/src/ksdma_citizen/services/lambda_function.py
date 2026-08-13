@@ -374,17 +374,30 @@ def lambda_handler(event, context=None):
 
             # Route 9: GET /api/champions
             elif '/champions' in path and http_method == 'GET':
+                try:
+                    con.run("""
+                        UPDATE volunteer_streaks s
+                        SET total_contributions = (
+                            SELECT COUNT(*) FROM observations o WHERE o.submitted_by_user_id = s.user_id
+                        )
+                        WHERE EXISTS (SELECT 1 FROM observations o WHERE o.submitted_by_user_id = s.user_id);
+                    """)
+                except Exception as update_err:
+                    print("Volunteer Streaks Sync Notice:", update_err)
+
                 rows = con.run("""
                     SELECT u.user_id, u.full_name, u.email, u.mobile_number, u.user_role, u.role_category,
                            COALESCE(s.current_streak, 0) as streak_days,
+                           COALESCE(s.max_streak, COALESCE(s.current_streak, 0)) as max_streak,
                            COALESCE(s.total_contributions, 0) as total_observations,
-                           COALESCE(s.badge, 'BRONZE') as badge_tier
+                           COALESCE(s.badge, 'BRONZE') as badge_tier,
+                           COALESCE(s.last_observation_date, CURRENT_DATE) as last_observation_date
                     FROM kusers u
                     LEFT JOIN volunteer_streaks s ON u.user_id = s.user_id
                     WHERE UPPER(u.user_role) = 'VOLUNTEER' AND LOWER(u.user_id) NOT LIKE '%admin%' AND LOWER(u.role_category) NOT LIKE '%admin%'
                     ORDER BY streak_days DESC, total_observations DESC LIMIT 20;
                 """)
-                cols = ['user_id', 'full_name', 'email', 'mobile_number', 'user_role', 'role_category', 'streak_days', 'total_observations', 'badge_tier']
+                cols = ['user_id', 'full_name', 'email', 'mobile_number', 'user_role', 'role_category', 'streak_days', 'max_streak', 'total_observations', 'badge_tier', 'last_observation_date']
                 champions = [dict(zip(cols, r)) for r in rows]
                 return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'champions': champions}, default=str)}
 

@@ -349,6 +349,13 @@ class KsdmaApiService {
 
   // ─── Mapper Helpers ───────────────────────────────────────────────────────
 
+  int _toInt(dynamic val) {
+    if (val == null) return 0;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    return int.tryParse(val.toString()) ?? 0;
+  }
+
   KsdmaUser _mapRowToUser(Map<String, dynamic> r) {
     final roleStr = (r['user_role'] ?? r['role'] ?? 'VOLUNTEER').toString().toUpperCase();
     final role = roleStr == 'ADMIN'
@@ -358,10 +365,10 @@ class KsdmaApiService {
             : UserRole.volunteer;
 
     return KsdmaUser(
-      userId: r['user_id'] ?? '',
-      fullName: r['full_name'] ?? '',
-      mobileNumber: r['mobile_number'] ?? '',
-      email: r['email'] ?? '',
+      userId: (r['user_id'] ?? '').toString(),
+      fullName: (r['full_name'] ?? '').toString(),
+      mobileNumber: (r['mobile_number'] ?? '').toString(),
+      email: (r['email'] ?? '').toString(),
       role: role,
       category: UserCategory.values.firstWhere(
         (e) => e.name == r['role_category'],
@@ -375,8 +382,10 @@ class KsdmaApiService {
       taluk: '',
       gramaPanchayat: '',
       village: '',
-      streakDays: (r['current_streak'] ?? r['streak_days'] ?? 0) as int,
-      totalObservations: (r['total_contributions'] ?? r['total_observations'] ?? 0) as int,
+      streakDays: _toInt(r['current_streak'] ?? r['streak_days']),
+      maxStreak: _toInt(r['max_streak'] ?? r['current_streak'] ?? r['streak_days']),
+      totalObservations: _toInt(r['total_contributions'] ?? r['total_observations']),
+      lastObservationDate: r['last_observation_date'] != null ? DateTime.tryParse(r['last_observation_date'].toString()) : null,
       badgeTier: (r['badge'] ?? r['badge_tier'] ?? 'BRONZE').toString(),
       avatarUrl: '',
     );

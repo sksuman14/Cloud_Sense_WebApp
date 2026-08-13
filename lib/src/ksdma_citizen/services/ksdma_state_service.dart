@@ -607,14 +607,11 @@ class KsdmaStateService extends ChangeNotifier {
       _observations.add(targetObs);
     }
 
-    // Recalculate streak & total observations count from unique calendar dates
-    final uniqueDates = _observations
-        .where((o) => !o.isRemoved && o.submittedByUserId == userId)
-        .map((o) => "${o.observationDate.year}-${o.observationDate.month}-${o.observationDate.day}")
-        .toSet();
+    final userObs = _observations.where((o) => !o.isRemoved && o.submittedByUserId == userId).toList();
+    final uniqueDates = userObs.map((o) => "${o.observationDate.year}-${o.observationDate.month}-${o.observationDate.day}").toSet();
 
     currentUser.streakDays = uniqueDates.isEmpty ? 1 : uniqueDates.length;
-    currentUser.totalObservations = uniqueDates.isEmpty ? 1 : uniqueDates.length;
+    currentUser.totalObservations = userObs.isNotEmpty ? userObs.length : (uniqueDates.isEmpty ? 1 : uniqueDates.length);
 
     notifyListeners();
 
