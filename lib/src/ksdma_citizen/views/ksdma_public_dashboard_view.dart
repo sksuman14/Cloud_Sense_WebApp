@@ -703,9 +703,12 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         surfaceTintColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          width: 780,
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-          padding: const EdgeInsets.all(20),
+          width: MediaQuery.of(context).size.width * 0.92,
+          constraints: BoxConstraints(
+            maxWidth: 780,
+            maxHeight: MediaQuery.of(context).size.height * 0.88,
+          ),
+          padding: const EdgeInsets.all(16),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -713,44 +716,52 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: KsdmaColors.primaryTint,
-                            borderRadius: BorderRadius.circular(8),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: KsdmaColors.primaryTint,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(_getPinIcon(station), color: KsdmaColors.primary, size: 22),
                           ),
-                          child: Icon(_getPinIcon(station), color: KsdmaColors.primary, size: 24),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
-                                const SizedBox(width: 8),
-                                KsdmaBadgeTag(text: station.instrumentType.displayName),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
+                                    KsdmaBadgeTag(text: station.instrumentType.displayName),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} District',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
                               ],
                             ),
-                            Text(
-                              '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} District',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
-                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
+                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9), visualDensity: VisualDensity.compact),
                     ),
                   ],
                 ),
-                const Divider(height: 24),
+                const Divider(height: 20),
 
                 Card(
                   color: Colors.white,
@@ -878,7 +889,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           _buildMetricCard(
             title: 'Total Stations',
             value: '${activeStations.length}',
-            subtitle: '🌧 $rainCount Rain • 💧 $humCount Humid • 🌡 $tempCount Temp',
+            subtitle: 'Live Network',
             icon: Icons.cell_tower,
             color: const Color(0xFF1565C0),
           ),
@@ -2277,8 +2288,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         if (sub5.isNotEmpty) avg5Day = sub5.reduce((a, b) => a + b) / sub5.length;
       }
 
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
         children: [
           _buildStatBox('Today Humidity', tHum, const Color(0xFF8E24AA)),
           _buildStatBox('Yesterday Humidity', yHum, Colors.black87),
@@ -2294,8 +2307,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       final yMax = yesterdayObs?.maxTemperatureC != null ? '${yesterdayObs!.maxTemperatureC} °C' : '0.0 °C';
       final yMin = yesterdayObs?.minTemperatureC != null ? '${yesterdayObs!.minTemperatureC} °C' : '0.0 °C';
 
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
         children: [
           _buildStatBox('Today Max', tMax, const Color(0xFF1565C0)),
           _buildStatBox('Today Min', tMin, const Color(0xFF0288D1)),
@@ -2321,8 +2336,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         if (sub5.isNotEmpty) max5 = sub5.reduce((a, b) => a > b ? a : b);
       }
 
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
         children: [
           _buildStatBox('Today Level', tRiv, const Color(0xFF00ACC1)),
           _buildStatBox('Yesterday Level', yRiv, Colors.black87),
@@ -2338,8 +2355,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       final cum2 = state.getCumulativeRainfall(station.stationId, 2);
       final cum5 = state.getCumulativeRainfall(station.stationId, 5);
 
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
         children: [
           _buildStatBox('Today Rain', tRain, const Color(0xFF1565C0)),
           _buildStatBox('Yesterday Rain', yRain, Colors.black87),
