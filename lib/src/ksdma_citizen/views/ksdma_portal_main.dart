@@ -178,46 +178,44 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                     ),
                                   ),
                                 ] else ...[
-                                  Flexible(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: KsdmaColors.goldTint,
-                                            borderRadius: BorderRadius.circular(10),
-                                            border: Border.all(color: KsdmaColors.gold),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 10, color: KsdmaColors.goldDark),
-                                              const SizedBox(width: 3),
-                                              Text(
-                                                isAdmin
-                                                    ? 'HQ Admin'
-                                                    : isOfficer
-                                                        ? 'Officer'
-                                                        : 'Volunteer',
-                                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: KsdmaColors.goldDark),
-                                              ),
-                                            ],
-                                          ),
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: KsdmaColors.goldTint,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: KsdmaColors.gold),
                                         ),
-                                        if (state.currentUser.fullName.isNotEmpty) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            state.currentUser.fullName.split(' ').first,
-                                            style: TextStyle(fontSize: isMobile ? 10 : 10.5, fontWeight: FontWeight.bold, color: Colors.white),
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 1,
-                                          ),
-                                        ],
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 10, color: KsdmaColors.goldDark),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              isAdmin
+                                                  ? 'HQ Admin'
+                                                  : isOfficer
+                                                      ? 'Officer'
+                                                      : 'Volunteer',
+                                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: KsdmaColors.goldDark),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (state.currentUser.fullName.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          state.currentUser.fullName.split(' ').first,
+                                          style: TextStyle(fontSize: isMobile ? 10 : 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
                                       ],
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ],

@@ -547,6 +547,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     final aggLabel = effectiveParam == 'rainfall' ? ' $_appliedAggregation' : '';
     final title = '${station.stationId} - ${_getParameterTitle(effectiveParam)}$aggLabel (${_getParameterUnit(effectiveParam)})';
 
+    final todayMidnight = DateTime(todayDate.year, todayDate.month, todayDate.day);
+
     double getValue(KsdmaObservation o) {
       if (isTemp) return o.maxTemperatureC ?? 0.0;
       if (isHum) return o.humidityPercent ?? 0.0;
@@ -565,12 +567,12 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
 
         if (days == 1) {
-          if (obsDate.year == todayDate.year && obsDate.month == todayDate.month && obsDate.day == todayDate.day) {
+          if (obsDate.year == todayMidnight.year && obsDate.month == todayMidnight.month && obsDate.day == todayMidnight.day) {
             sum += getValue(o);
             count++;
           }
         } else {
-          final cutoffDate = todayDate.subtract(Duration(days: days - 1));
+          final cutoffDate = todayMidnight.subtract(Duration(days: days - 1));
           if (!obsDate.isBefore(cutoffDate)) {
             sum += getValue(o);
             count++;
@@ -604,8 +606,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
 
         bool matchDate = (days == 1)
-            ? (obsDate.year == todayDate.year && obsDate.month == todayDate.month && obsDate.day == todayDate.day)
-            : (!obsDate.isBefore(todayDate.subtract(Duration(days: days - 1))));
+            ? (obsDate.year == todayMidnight.year && obsDate.month == todayMidnight.month && obsDate.day == todayMidnight.day)
+            : (!obsDate.isBefore(todayMidnight.subtract(Duration(days: days - 1))));
 
         if (matchDate) {
           if (o.maxTemperatureC != null) {

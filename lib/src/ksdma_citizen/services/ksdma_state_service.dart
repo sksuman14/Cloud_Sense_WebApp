@@ -783,10 +783,14 @@ class KsdmaStateService extends ChangeNotifier {
   }
 
   double getCumulativeRainfall(String stationId, int days) {
-    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final cutoff = todayMidnight.subtract(Duration(days: days - 1));
     double sum = 0.0;
     for (var o in _observations) {
-      if (o.stationId == stationId && !o.isRemoved && o.observationDate.isAfter(cutoff) && o.rainfallMm != null) {
+      final obsLocal = o.observationDate.toLocal();
+      final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
+      if (o.stationId == stationId && !o.isRemoved && !obsDate.isBefore(cutoff) && o.rainfallMm != null) {
         sum += o.rainfallMm!;
       }
     }
