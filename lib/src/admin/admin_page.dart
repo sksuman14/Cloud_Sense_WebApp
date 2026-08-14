@@ -1997,7 +1997,16 @@ class _AdminPageState extends State<AdminPage> {
                   if (district.isNotEmpty) norm(district),
                   if (state.isNotEmpty) norm(state)
                 }.toList();
-                if (parts.isNotEmpty) locationMap[key] = parts.join(', ');
+                if (parts.isNotEmpty) {
+                  final locationStr = parts.join(', ');
+                  locationMap[key] = locationStr;
+                  // Also store under ANNAM_ID-based key for devices like WS_69
+                  final annamId = (item['ANNAM_ID'] ?? '').toString().trim();
+                  final topicPart = rawTopic.contains('#') ? rawTopic.split('#').last : '';
+                  if (annamId.isNotEmpty && topicPart.isNotEmpty) {
+                    locationMap['${annamId.toLowerCase()}#${topicPart.toLowerCase()}'] = locationStr;
+                  }
+                }
                 final interval = (item['Interval'] ?? '').toString().trim();
                 if (interval.isNotEmpty) {
                   tempIntervalMap[key] = interval;
@@ -2032,7 +2041,16 @@ class _AdminPageState extends State<AdminPage> {
                 if (district.isNotEmpty) norm(district),
                 if (state.isNotEmpty) norm(state)
               }.toList();
-              if (parts.isNotEmpty) locationMap[key] = parts.join(', ');
+              if (parts.isNotEmpty) {
+                final locationStr = parts.join(', ');
+                locationMap[key] = locationStr;
+                // Also store under ANNAM_ID-based key for devices like WS_69
+                final annamId = (item['ANNAM_ID'] ?? '').toString().trim();
+                final topicPart = rawTopic.contains('#') ? rawTopic.split('#').last : '';
+                if (annamId.isNotEmpty && topicPart.isNotEmpty) {
+                  locationMap['${annamId.toLowerCase()}#${topicPart.toLowerCase()}'] = locationStr;
+                }
+              }
               final interval = (item['Interval'] ?? '').toString().trim();
               if (interval.isNotEmpty) {
                 tempIntervalMap[key] = interval;

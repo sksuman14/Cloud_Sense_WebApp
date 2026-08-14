@@ -145,7 +145,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               (item['deviceid#topic'] ?? item['deviceId#topic'] ?? '')
                   .toString();
           if (rawTopic.isEmpty) continue;
-          final key = rawTopic.toLowerCase();
           final city = (item['City'] ?? '').toString().trim();
           final district = (item['District'] ?? '').toString().trim();
           final state = (item['State'] ?? '').toString().trim();
@@ -155,7 +154,21 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             if (state.isNotEmpty) state
           }.toList();
           if (parts.isNotEmpty) {
-            tempLocationMap[key] = parts.join(', ');
+            final locationStr = parts.join(', ');
+            // Store under original deviceid#topic key (e.g. "ws_69#ws/punjab/69")
+            tempLocationMap[rawTopic.toLowerCase()] = locationStr;
+
+            // Also store under ANNAM_ID-based key if present
+            // e.g. ANNAM_ID="WS_Punjab_69", Topic="WS/Punjab/69"
+            // → key "ws_punjab_69#ws/punjab/69" which matches buildTopicFromSensorName output
+            final annamId = (item['ANNAM_ID'] ?? '').toString().trim();
+            final topicPart = rawTopic.contains('#')
+                ? rawTopic.split('#').last
+                : '';
+            if (annamId.isNotEmpty && topicPart.isNotEmpty) {
+              final altKey = '${annamId.toLowerCase()}#${topicPart.toLowerCase()}';
+              tempLocationMap[altKey] = locationStr;
+            }
           }
         }
       }
