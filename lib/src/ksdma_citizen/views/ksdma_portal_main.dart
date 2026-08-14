@@ -81,7 +81,7 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                           // Top Header Ribbon
                           Container(
                             height: 56,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16),
                             decoration: const BoxDecoration(
                               color: KsdmaColors.primaryDark,
                               border: Border(bottom: BorderSide(color: Colors.white12)),
@@ -90,24 +90,26 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                               children: [
                                 if (isMobile) ...[
                                   IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
                                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                                    icon: const Icon(Icons.menu, color: Colors.white),
+                                    icon: const Icon(Icons.menu, color: Colors.white, size: 20),
                                   ),
                                   const SizedBox(width: 4),
                                 ],
 
                                 Container(
-                                  width: 28,
-                                  height: 28,
+                                  width: isMobile ? 24 : 28,
+                                  height: isMobile ? 24 : 28,
                                   decoration: BoxDecoration(
                                     color: KsdmaColors.gold,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Center(
-                                    child: Icon(Icons.water_drop, color: KsdmaColors.primaryDark, size: 16),
+                                  child: Center(
+                                    child: Icon(Icons.water_drop, color: KsdmaColors.primaryDark, size: isMobile ? 14 : 16),
                                   ),
                                 ),
-                                const SizedBox(width: 10),
+                                SizedBox(width: isMobile ? 4 : 10),
                                 Builder(
                                   builder: (context) {
                                     final now = DateTime.now();
@@ -119,30 +121,38 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                     final hourStr = hour.toString().padLeft(2, '0');
                                     final minStr = now.minute.toString().padLeft(2, '0');
                                     final amPm = now.hour >= 12 ? 'PM' : 'AM';
-                                    final dateFormatted = '$dayStr $monthStr $yearStr, $hourStr:$minStr $amPm';
+                                    final dateFormatted = isMobile
+                                        ? '$dayStr $monthStr, $hourStr:$minStr $amPm'
+                                        : '$dayStr $monthStr $yearStr, $hourStr:$minStr $amPm';
 
                                     return Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          dateFormatted,
-                                          style: const TextStyle(fontSize: 11, color: Color(0xFFCFE2DC), fontWeight: FontWeight.w600, fontFamily: 'monospace'),
+                                        Flexible(
+                                          child: Text(
+                                            dateFormatted,
+                                            style: TextStyle(fontSize: isMobile ? 9.5 : 11, color: const Color(0xFFCFE2DC), fontWeight: FontWeight.w600, fontFamily: 'monospace'),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        if (!isMobile)
+                                        if (!isMobile) ...[
+                                          const SizedBox(width: 8),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                             decoration: BoxDecoration(
                                               color: KsdmaColors.leafTint,
                                               borderRadius: BorderRadius.circular(6),
                                             ),
-                                            child: Row(
-                                              children: const [
+                                            child: const Row(
+                                              children: [
                                                 Icon(Icons.sensors, size: 12, color: KsdmaColors.leaf),
                                                 SizedBox(width: 4),
                                                 Text('Live Sync', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KsdmaColors.leaf)),
                                               ],
                                             ),
                                           ),
+                                        ],
                                       ],
                                     );
                                   },
@@ -162,41 +172,53 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: KsdmaColors.gold,
                                       foregroundColor: KsdmaColors.primaryDark,
-                                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 8),
+                                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: 8),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       elevation: 0,
                                     ),
                                   ),
                                 ] else ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: KsdmaColors.goldTint,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: KsdmaColors.gold),
-                                    ),
-                                    child: Row(
+                                  Flexible(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 12, color: KsdmaColors.goldDark),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          isAdmin
-                                              ? 'HQ Admin'
-                                              : isOfficer
-                                                  ? 'Officer'
-                                                  : 'Volunteer',
-                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KsdmaColors.goldDark),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: KsdmaColors.goldTint,
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: KsdmaColors.gold),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 10, color: KsdmaColors.goldDark),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                isAdmin
+                                                    ? 'HQ Admin'
+                                                    : isOfficer
+                                                        ? 'Officer'
+                                                        : 'Volunteer',
+                                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: KsdmaColors.goldDark),
+                                              ),
+                                            ],
+                                          ),
                                         ),
+                                        if (state.currentUser.fullName.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            state.currentUser.fullName.split(' ').first,
+                                            style: TextStyle(fontSize: isMobile ? 10 : 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
-                                  if (state.currentUser.fullName.isNotEmpty) ...[
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      state.currentUser.fullName.split(' ').first,
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                                    ),
-                                  ],
                                 ],
                               ],
                             ),
