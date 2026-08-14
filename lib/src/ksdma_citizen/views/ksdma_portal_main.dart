@@ -180,14 +180,18 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                                         Icon(isAdmin ? Icons.security : isOfficer ? Icons.verified_user : Icons.person, size: 12, color: KsdmaColors.goldDark),
                                         const SizedBox(width: 4),
                                         Text(
-                                          isAdmin ? 'HQ Admin' : isOfficer ? 'Officer' : 'Volunteer',
+                                          isAdmin
+                                              ? 'HQ Admin'
+                                              : isOfficer
+                                                  ? 'Officer'
+                                                  : 'Volunteer',
                                           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KsdmaColors.goldDark),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  if (!isMobile) ...[
-                                    const SizedBox(width: 8),
+                                  if (state.currentUser.fullName.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
                                     Text(
                                       state.currentUser.fullName.split(' ').first,
                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),

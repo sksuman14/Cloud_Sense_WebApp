@@ -130,445 +130,617 @@ class KsdmaVolunteerView extends StatelessWidget {
       return false;
     }).toList();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Content Head
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isMobile = constraints.maxWidth < 700;
+        final bool isDesktop = constraints.maxWidth >= 950;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 14.0 : 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const KsdmaEyebrow('Volunteer Home'),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Hello, ${user.fullName} 👋',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      color: KsdmaColors.primaryDark,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Grama Panchayat: ${user.gramaPanchayat.isNotEmpty ? user.gramaPanchayat : "Kunnamangalam"} · ${user.taluk.isNotEmpty ? user.taluk : "Koyilandy"} Taluk · ${user.district.isNotEmpty ? user.district : "Kozhikode"}',
-                    style: const TextStyle(fontSize: 13, color: KsdmaColors.inkSoft),
-                  ),
-                ],
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
-                  );
-                },
-                icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
-                label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: KsdmaColors.goldDark,
-                  side: const BorderSide(color: KsdmaColors.gold, width: 1.5),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Rejection Alert Banner for Volunteer
-          if (myStations.any((s) => s.approvalStatus == ApprovalStatus.rejected)) ...[
-            const SizedBox(height: 16),
-            for (var rs in myStations.where((s) => s.approvalStatus == ApprovalStatus.rejected))
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade400, width: 1.5),
-                ),
-                child: Row(
+              // Content Head
+              if (isMobile) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: Colors.red.shade100, shape: BoxShape.circle),
-                      child: const Icon(Icons.gpp_bad, color: Colors.red, size: 28),
+                    const KsdmaEyebrow('Volunteer Home'),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Hello, ${user.fullName} 👋',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: KsdmaColors.primaryDark,
+                      ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '❌ Station Registration Rejected: ${rs.stationId}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFB91C1C)),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.red.shade200, borderRadius: BorderRadius.circular(6)),
-                                child: const Text('REJECTED BY ADMIN HQ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF7F1D1D))),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Reason for Rejection: ${rs.rejectionReason.isNotEmpty ? rs.rejectionReason : "Reason not specified by Admin HQ"}',
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'If you believe this is an error, please re-check your instrument details or register a new instrument.',
-                            style: TextStyle(fontSize: 11, color: Colors.black54),
-                          ),
-                        ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Grama Panchayat: ${user.gramaPanchayat.isNotEmpty ? user.gramaPanchayat : "Kunnamangalam"} · ${user.taluk.isNotEmpty ? user.taluk : "Koyilandy"} Taluk · ${user.district.isNotEmpty ? user.district : "Kozhikode"}',
+                      style: const TextStyle(fontSize: 12, color: KsdmaColors.inkSoft),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
+                        );
+                      },
+                      icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
+                      label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: KsdmaColors.goldDark,
+                        side: const BorderSide(color: KsdmaColors.gold, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                       ),
                     ),
                   ],
                 ),
-              ),
-          ],
-
-          const SizedBox(height: 24),
-          // Streak & Contribution Stats Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'Continuous Observation Streak',
-                  value: '${user.streakDays} Days',
-                  subtitle: 'Daily 8:00 AM IMD Protocol',
-                  icon: Icons.local_fire_department,
-                  iconColor: Colors.orange,
-                  borderColor: Colors.orange.shade200,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'Total Readings Submitted',
-                  value: '${user.totalObservations}',
-                  subtitle: 'Directly on KSDMA Cloud',
-                  icon: Icons.analytics,
-                  iconColor: Colors.blue,
-                  borderColor: Colors.blue.shade200,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'Registered Weather Devices',
-                  value: '${myStations.length}',
-                  subtitle: 'Rain Gauge, Thermometer',
-                  icon: Icons.sensors,
-                  iconColor: Colors.green,
-                  borderColor: Colors.green.shade200,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 28),
-
-          // Action Section Header with Register Device & Add Reading Buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Your Registered Weather Devices & Today\'s Status',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                  ),
-                  Text(
-                    'Select a device below to enter reading or register a new device',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      final approvedList = myStations.where((s) => s.approvalStatus == ApprovalStatus.approved).toList();
-                      if (approvedList.isNotEmpty) {
-                        onEnterObservation(approvedList.first.stationId);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('🔒 You have no Approved weather stations yet. Please wait for KSDMA Admin HQ approval.'),
-                            backgroundColor: Colors.amber,
-                          ),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.edit_calendar, size: 16),
-                    label: const Text('📝 Submit Today\'s Reading (8:00 AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    onPressed: onRegisterNewDevice,
-                    icon: const Icon(Icons.add_circle, size: 16),
-                    label: const Text('➕ Register New Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Registered Device Cards List
-          if (myStations.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      const Icon(Icons.sensors_off, size: 48, color: Colors.grey),
-                      const SizedBox(height: 12),
-                      const Text('No Weather Devices Registered Yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 6),
-                      const Text('Register your Standard Rain Gauge or Max-Min Thermometer to start contributing.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: onRegisterNewDevice,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Register Instrument Now'),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: myStations.length,
-              itemBuilder: (context, index) {
-                final s = myStations[index];
-                final obsToday = state.getTodayObservation(s.stationId);
-                final isSubmittedToday = obsToday != null;
-
-                return Card(
-                  color: Colors.white,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            if (s.devicePhotoUrl != null && s.devicePhotoUrl!.isNotEmpty) {
-                              _showZoomDialog(context, s.devicePhotoUrl!);
-                            }
-                          },
-                          child: Tooltip(
-                            message: '🔍 Click to Zoom Photo',
-                            child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: Stack(
-                                alignment: Alignment.bottomRight,
-                                children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      image: DecorationImage(
-                                        image: NetworkImage(s.devicePhotoUrl!),
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.all(3),
-                                    margin: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                                    child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                                  ),
-                                ],
-                              ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const KsdmaEyebrow('Volunteer Home'),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Hello, ${user.fullName} 👋',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              color: KsdmaColors.primaryDark,
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Grama Panchayat: ${user.gramaPanchayat.isNotEmpty ? user.gramaPanchayat : "Kunnamangalam"} · ${user.taluk.isNotEmpty ? user.taluk : "Koyilandy"} Taluk · ${user.district.isNotEmpty ? user.district : "Kozhikode"}',
+                            style: const TextStyle(fontSize: 13, color: KsdmaColors.inkSoft),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
+                        );
+                      },
+                      icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
+                      label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: KsdmaColors.goldDark,
+                        side: const BorderSide(color: KsdmaColors.gold, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // Rejection Alert Banner for Volunteer
+              if (myStations.any((s) => s.approvalStatus == ApprovalStatus.rejected)) ...[
+                const SizedBox(height: 16),
+                for (var rs in myStations.where((s) => s.approvalStatus == ApprovalStatus.rejected))
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade400, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: Colors.red.shade100, shape: BoxShape.circle),
+                          child: const Icon(Icons.gpp_bad, color: Colors.red, size: 28),
                         ),
-                        const SizedBox(width: 20),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
-                                    s.stationId,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)),
+                                    '❌ Station Registration Rejected: ${rs.stationId}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFB91C1C)),
                                   ),
-                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: s.approvalStatus == ApprovalStatus.approved
-                                          ? Colors.green.shade100
-                                          : s.approvalStatus == ApprovalStatus.rejected
-                                              ? Colors.red.shade100
-                                              : Colors.amber.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      s.approvalStatus == ApprovalStatus.approved
-                                          ? 'APPROVED & ACTIVE'
-                                          : s.approvalStatus == ApprovalStatus.rejected
-                                              ? '❌ REGISTRATION REJECTED BY ADMIN'
-                                              : '⌛ PENDING ADMIN APPROVAL',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: s.approvalStatus == ApprovalStatus.approved
-                                            ? Colors.green.shade900
-                                            : s.approvalStatus == ApprovalStatus.rejected
-                                                ? Colors.red.shade900
-                                                : Colors.amber.shade900,
-                                      ),
-                                    ),
+                                    decoration: BoxDecoration(color: Colors.red.shade200, borderRadius: BorderRadius.circular(6)),
+                                    child: const Text('REJECTED BY ADMIN HQ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF7F1D1D))),
                                   ),
-                                  if (isSubmittedToday) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.shade100,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '✅ TODAY: ${obsToday.rainfallMm ?? 0.0} mm',
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue),
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
-                                s.instrumentType.displayName,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                'Reason for Rejection: ${rs.rejectionReason.isNotEmpty ? rs.rejectionReason : "Reason not specified by Admin HQ"}',
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                'Location: ${s.gramaPanchayat}, ${s.district} (${s.latitude.toStringAsFixed(4)}° N, ${s.longitude.toStringAsFixed(4)}° E)',
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              const Text(
+                                'If you believe this is an error, please re-check your instrument details or register a new instrument.',
+                                style: TextStyle(fontSize: 11, color: Colors.black54),
                               ),
-                              // Show rejection reason prominently when station is rejected
-                              if (s.approvalStatus == ApprovalStatus.rejected && s.rejectionReason.isNotEmpty) ...[
-                                const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Streak & Contribution Stats Row (Responsive Grid / Stack)
+              if (isDesktop) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Continuous Streak',
+                        value: '${user.streakDays} Days',
+                        subtitle: 'Daily 8:00 AM IMD Protocol',
+                        icon: Icons.local_fire_department,
+                        iconColor: Colors.orange,
+                        borderColor: Colors.orange.shade200,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Readings Submitted',
+                        value: '${user.totalObservations}',
+                        subtitle: 'Directly on KSDMA Cloud',
+                        icon: Icons.analytics,
+                        iconColor: Colors.blue,
+                        borderColor: Colors.blue.shade200,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Weather Devices',
+                        value: '${myStations.length}',
+                        subtitle: 'Rain Gauge, Thermometer',
+                        icon: Icons.sensors,
+                        iconColor: Colors.green,
+                        borderColor: Colors.green.shade200,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Column(
+                  children: [
+                    _buildStatCard(
+                      title: 'Continuous Streak',
+                      value: '${user.streakDays} Days',
+                      subtitle: 'Daily 8:00 AM IMD Protocol',
+                      icon: Icons.local_fire_department,
+                      iconColor: Colors.orange,
+                      borderColor: Colors.orange.shade200,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStatCard(
+                      title: 'Readings Submitted',
+                      value: '${user.totalObservations}',
+                      subtitle: 'Directly on KSDMA Cloud',
+                      icon: Icons.analytics,
+                      iconColor: Colors.blue,
+                      borderColor: Colors.blue.shade200,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStatCard(
+                      title: 'Registered Weather Devices',
+                      value: '${myStations.length}',
+                      subtitle: 'Rain Gauge, Thermometer',
+                      icon: Icons.sensors,
+                      iconColor: Colors.green,
+                      borderColor: Colors.green.shade200,
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 28),
+
+              // Action Section Header with Register Device & Add Reading Buttons
+              if (isDesktop) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Your Registered Weather Devices & Today\'s Status',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                        Text(
+                          'Select a device below to enter reading or register a new device',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            final approvedList = myStations.where((s) => s.approvalStatus == ApprovalStatus.approved).toList();
+                            if (approvedList.isNotEmpty) {
+                              onEnterObservation(approvedList.first.stationId);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('🔒 You have no Approved weather stations yet. Please wait for KSDMA Admin HQ approval.'),
+                                  backgroundColor: Colors.amber,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.edit_calendar, size: 16),
+                          label: const Text('📝 Submit Today\'s Reading (8:00 AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: onRegisterNewDevice,
+                          icon: const Icon(Icons.add_circle, size: 16),
+                          label: const Text('➕ Register New Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Your Registered Weather Devices & Today\'s Status',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Select a device below to enter reading or register a new device',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            final approvedList = myStations.where((s) => s.approvalStatus == ApprovalStatus.approved).toList();
+                            if (approvedList.isNotEmpty) {
+                              onEnterObservation(approvedList.first.stationId);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('🔒 You have no Approved weather stations yet. Please wait for KSDMA Admin HQ approval.'),
+                                  backgroundColor: Colors.amber,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.edit_calendar, size: 15),
+                          label: const Text('📝 Submit Reading (8:00 AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: onRegisterNewDevice,
+                          icon: const Icon(Icons.add_circle, size: 15),
+                          label: const Text('➕ Register Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Registered Device Cards List
+              if (myStations.isEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          const Icon(Icons.sensors_off, size: 48, color: Colors.grey),
+                          const SizedBox(height: 12),
+                          const Text('No Weather Devices Registered Yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 6),
+                          const Text('Register your Standard Rain Gauge or Max-Min Thermometer to start contributing.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: onRegisterNewDevice,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Register Instrument Now'),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: myStations.length,
+                  itemBuilder: (context, index) {
+                    final s = myStations[index];
+                    final obsToday = state.getTodayObservation(s.stationId);
+                    final isSubmittedToday = obsToday != null;
+
+                    Widget buildPhoto() {
+                      return GestureDetector(
+                        onTap: () {
+                          if (s.devicePhotoUrl != null && s.devicePhotoUrl!.isNotEmpty) {
+                            _showZoomDialog(context, s.devicePhotoUrl!);
+                          }
+                        },
+                        child: Tooltip(
+                          message: '🔍 Click to Zoom Photo',
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Stack(
+                              alignment: Alignment.bottomRight,
+                              children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  width: isMobile ? 64 : 80,
+                                  height: isMobile ? 64 : 80,
                                   decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.red.shade200),
+                                    borderRadius: BorderRadius.circular(10),
+                                    image: DecorationImage(
+                                      image: NetworkImage(s.devicePhotoUrl!),
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.info_outline, size: 14, color: Colors.red.shade700),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          'Rejection Reason: ${s.rejectionReason}',
-                                          style: TextStyle(fontSize: 12, color: Colors.red.shade800, fontStyle: FontStyle.italic),
-                                        ),
-                                      ),
-                                    ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  margin: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                                  child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    Widget buildInfo() {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                s.stationId,
+                                style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: s.approvalStatus == ApprovalStatus.approved
+                                      ? Colors.green.shade100
+                                      : s.approvalStatus == ApprovalStatus.rejected
+                                          ? Colors.red.shade100
+                                          : Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  s.approvalStatus == ApprovalStatus.approved
+                                      ? 'APPROVED & ACTIVE'
+                                      : s.approvalStatus == ApprovalStatus.rejected
+                                          ? '❌ REJECTED BY ADMIN'
+                                          : '⌛ PENDING APPROVAL',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: s.approvalStatus == ApprovalStatus.approved
+                                        ? Colors.green.shade900
+                                        : s.approvalStatus == ApprovalStatus.rejected
+                                            ? Colors.red.shade900
+                                            : Colors.amber.shade900,
+                                  ),
+                                ),
+                              ),
+                              if (isSubmittedToday) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '✅ TODAY: ${obsToday.rainfallMm ?? 0.0} mm',
+                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue),
                                   ),
                                 ),
                               ],
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: s.approvalStatus == ApprovalStatus.approved
-                                  ? () => onEnterObservation(s.stationId)
-                                  : () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            s.approvalStatus == ApprovalStatus.rejected
-                                                ? '❌ This station registration was rejected. Reason: ${s.rejectionReason.isNotEmpty ? s.rejectionReason : "Contact Admin HQ"}'
-                                                : '🔒 Station Pending Approval by Admin HQ. Data entry is locked until approved.',
-                                          ),
-                                          backgroundColor: s.approvalStatus == ApprovalStatus.rejected ? Colors.red.shade700 : Colors.amber,
-                                          duration: const Duration(seconds: 5),
-                                        ),
-                                      );
-                                    },
-                              icon: Icon(
-                                s.approvalStatus == ApprovalStatus.approved
-                                    ? (isSubmittedToday ? Icons.check_circle : Icons.edit_note)
-                                    : s.approvalStatus == ApprovalStatus.rejected
-                                        ? Icons.cancel
-                                        : Icons.lock,
-                                size: 18,
+                          const SizedBox(height: 4),
+                          Text(
+                            s.instrumentType.displayName,
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 13 : 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Location: ${s.gramaPanchayat}, ${s.district} (${s.latitude.toStringAsFixed(4)}° N, ${s.longitude.toStringAsFixed(4)}° E)',
+                            style: const TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                          if (s.approvalStatus == ApprovalStatus.rejected && s.rejectionReason.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.red.shade200),
                               ),
-                              label: Text(
-                                s.approvalStatus == ApprovalStatus.approved
-                                    ? (isSubmittedToday ? 'Edit Today\'s Reading' : 'Enter Reading')
-                                    : s.approvalStatus == ApprovalStatus.rejected
-                                        ? 'Registration Rejected'
-                                        : 'Locked (Pending Approval)',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline, size: 14, color: Colors.red.shade700),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Rejection Reason: ${s.rejectionReason}',
+                                      style: TextStyle(fontSize: 11, color: Colors.red.shade800, fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: s.approvalStatus == ApprovalStatus.approved
-                                    ? (isSubmittedToday ? const Color(0xFF0288D1) : const Color(0xFF16A34A))
-                                    : s.approvalStatus == ApprovalStatus.rejected
-                                        ? Colors.red.shade700
-                                        : Colors.grey.shade600,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Observation Window: 08:00 - 09:00 AM IST',
-                              style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
                             ),
                           ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
+                        ],
+                      );
+                    }
+
+                    Widget buildActionButton() {
+                      return Column(
+                        crossAxisAlignment: isMobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.end,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: s.approvalStatus == ApprovalStatus.approved
+                                ? () => onEnterObservation(s.stationId)
+                                : () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          s.approvalStatus == ApprovalStatus.rejected
+                                              ? '❌ This station registration was rejected. Reason: ${s.rejectionReason.isNotEmpty ? s.rejectionReason : "Contact Admin HQ"}'
+                                              : '🔒 Station Pending Approval by Admin HQ. Data entry is locked until approved.',
+                                        ),
+                                        backgroundColor: s.approvalStatus == ApprovalStatus.rejected ? Colors.red.shade700 : Colors.amber,
+                                        duration: const Duration(seconds: 5),
+                                      ),
+                                    );
+                                  },
+                            icon: Icon(
+                              s.approvalStatus == ApprovalStatus.approved
+                                  ? (isSubmittedToday ? Icons.check_circle : Icons.edit_note)
+                                  : s.approvalStatus == ApprovalStatus.rejected
+                                      ? Icons.cancel
+                                      : Icons.lock,
+                              size: 16,
+                            ),
+                            label: Text(
+                              s.approvalStatus == ApprovalStatus.approved
+                                  ? (isSubmittedToday ? 'Edit Today\'s Reading' : 'Enter Reading')
+                                  : s.approvalStatus == ApprovalStatus.rejected
+                                      ? 'Registration Rejected'
+                                      : 'Locked (Pending Approval)',
+                              style: TextStyle(fontSize: isMobile ? 11 : 12),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: s.approvalStatus == ApprovalStatus.approved
+                                  ? (isSubmittedToday ? const Color(0xFF0288D1) : const Color(0xFF16A34A))
+                                  : s.approvalStatus == ApprovalStatus.rejected
+                                      ? Colors.red.shade700
+                                      : Colors.grey.shade600,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Observation Window: 08:00 - 09:00 AM IST',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                            textAlign: isMobile ? TextAlign.center : TextAlign.end,
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Card(
+                      color: Colors.white,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                      child: Padding(
+                        padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
+                        child: isMobile
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      buildPhoto(),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: buildInfo()),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  buildActionButton(),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  buildPhoto(),
+                                  const SizedBox(width: 20),
+                                  Expanded(child: buildInfo()),
+                                  const SizedBox(width: 12),
+                                  buildActionButton(),
+                                ],
+                              ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
