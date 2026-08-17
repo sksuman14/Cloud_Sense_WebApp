@@ -941,6 +941,8 @@ class DeviceConfig {
       prefix: 'KR',
       apiTemplate:
           'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.annamApiKey}',
+      historyApiTemplate:
+          'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=WS_{deviceId}',
       hasWind: true,
       hasRainfall: true,
       parameters: [

@@ -1061,7 +1061,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       } else {
         switch (range) {
           case '7days':
-            startDate = endDate.subtract(const Duration(days: 7));
+            // endDate = yesterday (last complete day), so today's partial data is excluded
+            endDate = DateTime(endDate.year, endDate.month, endDate.day)
+                .subtract(const Duration(days: 1));
+            startDate = endDate.subtract(const Duration(days: 6));
             break;
           case '30days':
             startDate = endDate.subtract(const Duration(days: 30));
@@ -2507,12 +2510,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         // Step 1: Check if a cumulative rainfall series exists (e.g. Rainfall_Cumulative: 35.0)
         String? cumulativeKey;
         if (_parametersData.containsKey(p.key) &&
-            (p.key.toLowerCase().contains('cumul') || p.key.toLowerCase().contains('comul'))) {
+            (p.key.toLowerCase().contains('cumul') ||
+                p.key.toLowerCase().contains('comul') ||
+                p.key.toLowerCase().contains('daily'))) {
           cumulativeKey = p.key;
         } else {
           for (final k in _parametersData.keys) {
             final lk = k.toLowerCase();
-            if (lk.contains('rain') && (lk.contains('cumul') || lk.contains('comul'))) {
+            if (lk.contains('rain') &&
+                (lk.contains('cumul') || lk.contains('comul') || lk.contains('daily'))) {
               if (_parametersData[k] != null && _parametersData[k]!.isNotEmpty) {
                 cumulativeKey = k;
                 break;
@@ -2529,14 +2535,42 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             // Single day: directly take the latest/last cumulative value (e.g. 35.0)
             totalRainfall = cumulativeData.last.value;
           } else {
-            // Multi-day: sum the last cumulative reading of each day
-            final Map<String, double> dailyLast = {};
+            // Multi-day: calculate daily rainfall deltas
+            final Map<String, double> dailyMax = {};
             for (final d in cumulativeData) {
               final dateKey =
                   '${d.timestamp.year}-${d.timestamp.month.toString().padLeft(2, '0')}-${d.timestamp.day.toString().padLeft(2, '0')}';
-              dailyLast[dateKey] = d.value;
+              if (!dailyMax.containsKey(dateKey) || d.value > dailyMax[dateKey]!) {
+                dailyMax[dateKey] = d.value;
+              }
             }
-            totalRainfall = dailyLast.values.fold<double>(0.0, (sum, v) => sum + v);
+            // Exclude today's partial data for multi-day ranges (7days, 30days etc.)
+            final todayKey = () {
+              final now = DateTime.now();
+              return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+            }();
+            dailyMax.remove(todayKey);
+
+            final sortedDates = dailyMax.keys.toList()..sort();
+            double sumRain = 0.0;
+            double prevMax = 0.0;
+
+            for (final date in sortedDates) {
+              final val = dailyMax[date]!;
+              if (val == 0) {
+                prevMax = 0.0;
+                continue;
+              }
+              if (val < prevMax) {
+                // Daily reset occurred (e.g. Kerala/Punjab sensors)
+                sumRain += val;
+              } else {
+                // Continuous running cumulative or progressive daily increase
+                sumRain += (val - prevMax);
+              }
+              prevMax = val;
+            }
+            totalRainfall = sumRain;
           }
         } else {
           // Step 2: Cumulative key not present -> Use Hourly max-reset summation logic
@@ -2575,8 +2609,17 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           }
 
           bool isIncremental = widget.deviceName.startsWith('JW');
+          var finalTargetData = targetData;
+          if (_lastSelectedRange == '7days') {
+            final now = DateTime.now();
+            final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+            finalTargetData = targetData.where((d) {
+              final dStr = '${d.timestamp.year}-${d.timestamp.month.toString().padLeft(2, '0')}-${d.timestamp.day.toString().padLeft(2, '0')}';
+              return dStr != todayStr;
+            }).toList();
+          }
           totalRainfall =
-              _calculateTotalRainfall(targetData, isIncremental: isIncremental);
+              _calculateTotalRainfall(finalTargetData, isIncremental: isIncremental);
         }
       }
 
