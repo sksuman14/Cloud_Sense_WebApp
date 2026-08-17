@@ -949,6 +949,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     int deviceIdNumeric =
         int.tryParse(deviceIdStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
+    // AT (AWS Testing) devices: ANNAM_ID format is "AWS_Testing_{id}"
+    // e.g. AT003 → ANNAM_ID=AWS_Testing_3 (not just "3")
+    if (widget.deviceName.toUpperCase().startsWith('AT') &&
+        RegExp(r'^AT\d+$', caseSensitive: false).hasMatch(widget.deviceName)) {
+      deviceIdStr = 'AWS_Testing_$deviceIdNumeric';
+    }
+
     if (((widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) || widget.deviceName.startsWith('PJ'))) {
       deviceIdStr = deviceIdNumeric.toString();
     }
