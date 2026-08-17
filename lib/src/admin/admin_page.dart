@@ -1286,10 +1286,12 @@ class _AdminPageState extends State<AdminPage> {
       resolvedEmail = prefs.getString('email');
     }
 
+    final isSuper = DeviceUtils.isSuperAdmin(resolvedEmail);
+
     if (mounted) {
       setState(() {
         _currentUserEmail = resolvedEmail;
-        _isRestrictedAdmin = false;
+        _isRestrictedAdmin = !isSuper;
       });
     }
   }

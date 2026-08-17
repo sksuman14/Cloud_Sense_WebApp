@@ -31,6 +31,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_portal_main.dart';
+import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
 
 
 // Initialize Flutter local notifications plugin
@@ -554,6 +555,7 @@ Future<String> determineInitialRoute() async {
     String? lastRoute = prefs.getString('lastRoute');
 
     // ← ADD: verify user is still logged in before trusting lastRoute
+    bool isAuthenticated = false;
     try {
       var userAttributes = await Amplify.Auth.fetchUserAttributes();
       String? email;
@@ -568,19 +570,43 @@ Future<String> determineInitialRoute() async {
           name = attr.value;
         }
       }
-      if (email != null) {
+      if (email != null && email.isNotEmpty) {
         await prefs.setString('email', email); // always refresh email on app start
+        isAuthenticated = true;
       }
       if (name != null) {
         await prefs.setString('name', name);
       }
-    } catch (_) {}
+    } catch (_) {
+      // If Amplify fetch fails, user is not authenticated: clear stale email from prefs!
+      await prefs.remove('email');
+      await prefs.remove('name');
+    }
+
+    const publicRoutes = {
+      '/',
+      '/home',
+      '/login',
+      '/privacy',
+      '/terms',
+      '/ksdma',
+      '/citizen-weather',
+      '/kerala-weather',
+    };
+    if (!isAuthenticated) {
+      // Unauthenticated user should not be restored to non-public routes
+      if (lastRoute != null && !publicRoutes.contains(lastRoute)) {
+        return '/home';
+      }
+    }
+
 
     if (lastRoute != null && lastRoute.isNotEmpty) {
       if (lastRoute == '/login') return '/home';
       return lastRoute;
     }
     return '/home';
+
   } catch (e) {
     print('Defaulting to Home page: $e');
     return '/home';
@@ -717,23 +743,30 @@ class MyApp extends StatelessWidget {
             pageContent = const TermsOfServicePage();
             break;
           case '/accountinfo':
-            pageContent = AccountInfoPage();
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: AccountInfoPage(),
+            );
             break;
           case '/deviceinfo':
-            pageContent = MapPage();
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: MapPage(),
+            );
             break;
 
 
           case '/nowcasting':
             final args = settings.arguments as Map<String, dynamic>?;
+            Widget nowcastingWidget;
             if (args != null && (args['deviceName'] ?? '').toString().isNotEmpty) {
               saveNowcastingArgs(args);
-              pageContent = WeatherNowcastingPage(
+              nowcastingWidget = WeatherNowcastingPage(
                 deviceName: args['deviceName'] ?? 'ANNAM_CP02',
                 sequentialName: args['sequentialName'] ?? 'Annam Weather Sensor',
               );
             } else {
-              pageContent = FutureBuilder<Map<String, dynamic>?>(
+              nowcastingWidget = FutureBuilder<Map<String, dynamic>?>(
                 future: loadNowcastingArgs(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -756,23 +789,43 @@ class MyApp extends StatelessWidget {
                 },
               );
             }
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: nowcastingWidget,
+            );
             break;
 
           case "/probe":
-            pageContent = const ProductPage(sensorIndex: 4);
+            pageContent = const RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: ProductPage(sensorIndex: 4),
+            );
             break;
           case "/atrh":
-            pageContent = const ProductPage(sensorIndex: 3);
+            pageContent = const RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: ProductPage(sensorIndex: 3),
+            );
             break;
           case "/windsensor":
-            pageContent = const ProductPage(sensorIndex: 2);
+            pageContent = const RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: ProductPage(sensorIndex: 2),
+            );
             break;
           case "/raingauge":
-            pageContent = const ProductPage(sensorIndex: 1);
+            pageContent = const RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: ProductPage(sensorIndex: 1),
+            );
             break;
           case "/datalogger":
-            pageContent = const ProductPage(sensorIndex: 0);
+            pageContent = const RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: ProductPage(sensorIndex: 0),
+            );
             break;
+
           // case "/gateway":
           //   pageContent = const ProductPage(sensorIndex: 5);
 
@@ -782,23 +835,30 @@ class MyApp extends StatelessWidget {
           //   break;
 
           case '/admin':
-            // Read from prefs-backed provider OR fall back to saved pref
-            final userProvider =
-                Provider.of<UserProvider>(context, listen: false);
-            // UserProvider._loadUser() is async — email may be null on first frame
-            // So pass it; AdminPage should also check SharedPreferences itself
-            pageContent = AdminPage(adminEmail: userProvider.userEmail);
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.superAdmin,
+              child: Builder(
+                builder: (context) {
+                  final userProvider = Provider.of<UserProvider>(context, listen: false);
+                  return AdminPage(adminEmail: userProvider.userEmail);
+                },
+              ),
+            );
             break;
           case '/admin/health':
-            pageContent = const DeviceHealthStatusPage();
+            pageContent = const RouteGuard(
+              requirement: GuardRequirement.superAdmin,
+              child: DeviceHealthStatusPage(),
+            );
             break;
           case '/admin/health/quality-diagnostics':
             final args = settings.arguments as Map<String, dynamic>?;
             final isDark = themeProvider.isDarkMode;
 
+            Widget diagWidget;
             if (args != null) {
               saveQualityArgs(args);
-              pageContent = QualityDiagnosticsPage(
+              diagWidget = QualityDiagnosticsPage(
                 deviceId: args['deviceId'] ?? '',
                 deviceIdTopic: args['deviceIdTopic'] ?? '',
                 displayName: args['displayName'] ?? '',
@@ -806,7 +866,7 @@ class MyApp extends StatelessWidget {
                 fromAdminPage: args['fromAdminPage'] == true,
               );
             } else {
-              pageContent = FutureBuilder<Map<String, dynamic>?>(
+              diagWidget = FutureBuilder<Map<String, dynamic>?>(
                 future: loadQualityArgs(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -830,20 +890,31 @@ class MyApp extends StatelessWidget {
                 },
               );
             }
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.superAdmin,
+              child: diagWidget,
+            );
             break;
 
           case '/devicelist':
-            pageContent = DataDisplayPage();
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: DataDisplayPage(),
+            );
             break;
           case '/devicemapinfo':
-            pageContent = DeviceMapScreen();
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: DeviceMapScreen(),
+            );
             break;
           case '/devicegraph':
           case '/admin/devicegraph':
             final args = settings.arguments as Map<String, dynamic>?;
+            Widget graphWidget;
             if (args != null) {
               saveGraphArgs(args);
-              pageContent = DeviceGraphPage(
+              graphWidget = DeviceGraphPage(
                 deviceName: args['deviceName'] ?? '',
                 sequentialName: args['sequentialName'],
                 selectedDate: args['selectedDate'],
@@ -853,7 +924,7 @@ class MyApp extends StatelessWidget {
                     'assets/backgroundd.jpg',
               );
             } else {
-              pageContent = FutureBuilder<Map<String, dynamic>?>(
+              graphWidget = FutureBuilder<Map<String, dynamic>?>(
                 future: loadGraphArgs(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -880,17 +951,24 @@ class MyApp extends StatelessWidget {
                 },
               );
             }
+            pageContent = RouteGuard(
+              requirement: settings.name == '/admin/devicegraph'
+                  ? GuardRequirement.superAdmin
+                  : GuardRequirement.authenticatedUser,
+              child: graphWidget,
+            );
             break;
           case '/buffalodata':
             final args = settings.arguments as Map<String, dynamic>?;
+            Widget bufWidget;
             if (args != null) {
-              pageContent = BuffaloData(
+              bufWidget = BuffaloData(
                 startDateTime: args['startDateTime'] ?? DateTime.now(),
                 endDateTime: args['endDateTime'] ?? DateTime.now().add(const Duration(days: 1)),
                 nodeId: args['nodeId'] ?? '',
               );
             } else {
-              pageContent = FutureBuilder<Map<String, dynamic>?>(
+              bufWidget = FutureBuilder<Map<String, dynamic>?>(
                 future: loadBuffaloArgs(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -912,17 +990,22 @@ class MyApp extends StatelessWidget {
                 },
               );
             }
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: bufWidget,
+            );
             break;
           case '/cowdata':
             final args = settings.arguments as Map<String, dynamic>?;
+            Widget cowWidget;
             if (args != null) {
-              pageContent = CowData(
+              cowWidget = CowData(
                 startDateTime: args['startDateTime'] ?? DateTime.now(),
                 endDateTime: args['endDateTime'] ?? DateTime.now().add(const Duration(days: 1)),
                 nodeId: args['nodeId'] ?? '',
               );
             } else {
-              pageContent = FutureBuilder<Map<String, dynamic>?>(
+              cowWidget = FutureBuilder<Map<String, dynamic>?>(
                 future: loadCowArgs(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -944,7 +1027,12 @@ class MyApp extends StatelessWidget {
                 },
               );
             }
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.authenticatedUser,
+              child: cowWidget,
+            );
             break;
+
 
 
 
