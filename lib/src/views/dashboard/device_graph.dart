@@ -2507,7 +2507,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
       double? totalRainfall;
       if (p.key.toLowerCase().contains('rain')) {
-        // Step 1: Check if a cumulative rainfall series exists (e.g. Rainfall_Cumulative: 35.0)
+        // Step 1: Check if a cumulative rainfall series exists (e.g. Rainfall_Cumulative, RainfallDaily)
         String? cumulativeKey;
         if (_parametersData.containsKey(p.key) &&
             (p.key.toLowerCase().contains('cumul') ||
@@ -2530,12 +2530,26 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         if (cumulativeKey != null &&
             _parametersData[cumulativeKey] != null &&
             _parametersData[cumulativeKey]!.isNotEmpty) {
-          final cumulativeData = _parametersData[cumulativeKey]!;
+          var cumulativeData = _parametersData[cumulativeKey]!;
+
+          // Merge corrected rain data into cumulativeData so totalRainfall uses corrected graph values!
+          if (!_isDevice250) {
+            for (final k in _parametersData.keys) {
+              if (k.toLowerCase().contains('correctedfield') &&
+                  k.toLowerCase().contains('rain')) {
+                final corrected = _parametersData[k];
+                if (corrected != null && corrected.isNotEmpty) {
+                  cumulativeData = _mergeCorrectedData(cumulativeData, corrected);
+                }
+              }
+            }
+          }
+
           if (_lastSelectedRange == 'single') {
             // Single day: directly take the latest/last cumulative value (e.g. 35.0)
             totalRainfall = cumulativeData.last.value;
           } else {
-            // Multi-day: calculate daily rainfall deltas
+            // Multi-day: calculate total daily rainfall across all days in range
             final Map<String, double> dailyMax = {};
             for (final d in cumulativeData) {
               final dateKey =
@@ -2544,12 +2558,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                 dailyMax[dateKey] = d.value;
               }
             }
-            // Exclude today's partial data for multi-day ranges (7days, 30days etc.)
-            final todayKey = () {
-              final now = DateTime.now();
-              return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-            }();
-            dailyMax.remove(todayKey);
 
             final sortedDates = dailyMax.keys.toList()..sort();
             double sumRain = 0.0;
@@ -2595,7 +2603,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               ? _parametersData[hourlyKey]!
               : data;
 
-          // Merge corrected rain data into targetData so totalRainfall calculation uses corrected values (except for device 250)!
+          // Merge corrected rain data into targetData so totalRainfall calculation uses corrected values!
           if (!_isDevice250) {
             for (final k in _parametersData.keys) {
               if (k.toLowerCase().contains('correctedfield') &&
@@ -2609,19 +2617,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           }
 
           bool isIncremental = widget.deviceName.startsWith('JW');
-          var finalTargetData = targetData;
-          if (_lastSelectedRange == '7days') {
-            final now = DateTime.now();
-            final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-            finalTargetData = targetData.where((d) {
-              final dStr = '${d.timestamp.year}-${d.timestamp.month.toString().padLeft(2, '0')}-${d.timestamp.day.toString().padLeft(2, '0')}';
-              return dStr != todayStr;
-            }).toList();
-          }
           totalRainfall =
-              _calculateTotalRainfall(finalTargetData, isIncremental: isIncremental);
+              _calculateTotalRainfall(targetData, isIncremental: isIncremental);
         }
       }
+
 
       return Padding(
         key: ValueKey('card_${p.key}'),

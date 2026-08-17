@@ -1,5 +1,6 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/main.dart';
+import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
@@ -71,7 +72,9 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
       if (email != null) {
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         userProvider.setUser(email);
+        RouteGuard.setAuthenticatedUser(email);
         SharedPreferences prefs = await SharedPreferences.getInstance();
+
         await prefs.setString('email', email);
         String? token = await FirebaseMessaging.instance.getToken();
 

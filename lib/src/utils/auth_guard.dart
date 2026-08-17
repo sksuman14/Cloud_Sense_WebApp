@@ -15,11 +15,27 @@ class RouteGuard extends StatefulWidget {
   final Widget child;
   final GuardRequirement requirement;
 
+  // Memory Cache for authentication status to eliminate repeated async checks
+  static String? _cachedEmail;
+  static bool? _cachedIsAuthenticated;
+
   const RouteGuard({
     Key? key,
     required this.child,
     this.requirement = GuardRequirement.superAdmin,
   }) : super(key: key);
+
+  /// Clear memory cache upon user logout or session termination
+  static void clearCache() {
+    _cachedEmail = null;
+    _cachedIsAuthenticated = null;
+  }
+
+  /// Mark session as authenticated in memory (e.g. after successful login)
+  static void setAuthenticatedUser(String email) {
+    _cachedEmail = email.trim().toLowerCase();
+    _cachedIsAuthenticated = true;
+  }
 
   @override
   State<RouteGuard> createState() => _RouteGuardState();
@@ -38,6 +54,34 @@ class _RouteGuardState extends State<RouteGuard> {
   }
 
   Future<void> _checkAuthorization() async {
+    // 1. Check in-memory cache first for instant validation without network delay
+    if (RouteGuard._cachedIsAuthenticated == true &&
+        RouteGuard._cachedEmail != null &&
+        RouteGuard._cachedEmail!.isNotEmpty) {
+      final cachedEmail = RouteGuard._cachedEmail!;
+      if (widget.requirement == GuardRequirement.superAdmin) {
+        final isSuper = DeviceUtils.isSuperAdmin(cachedEmail);
+        if (mounted) {
+          setState(() {
+            _currentUserEmail = cachedEmail;
+            _isChecking = false;
+            _isAuthorized = isSuper;
+            _denialReason = isSuper ? '' : 'not_admin';
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _currentUserEmail = cachedEmail;
+            _isChecking = false;
+            _isAuthorized = true;
+          });
+        }
+      }
+      return;
+    }
+
+    // 2. Cache miss -> perform async check with AWS Amplify Auth
     String? email;
     bool isAmplifyAuthenticated = false;
 
@@ -62,9 +106,9 @@ class _RouteGuardState extends State<RouteGuard> {
       isAmplifyAuthenticated = false;
     }
 
-    // Only fallback to Provider / SharedPreferences IF Amplify Auth verified or if Amplify isn't configured
+    // If Amplify Auth fails, clear stale session data
     if (!isAmplifyAuthenticated) {
-      // User is NOT logged in via Amplify: clear stale email from UserProvider & SharedPreferences!
+      RouteGuard.clearCache();
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('email');
@@ -77,10 +121,10 @@ class _RouteGuardState extends State<RouteGuard> {
       email = null;
     }
 
-
     final normalizedEmail = email?.trim().toLowerCase();
 
     if (normalizedEmail == null || normalizedEmail.isEmpty) {
+      RouteGuard.clearCache();
       debugPrint('[RouteGuard] Access DENIED (Unauthenticated). Requirement: ${widget.requirement}');
       if (mounted) {
         setState(() {
@@ -92,26 +136,19 @@ class _RouteGuardState extends State<RouteGuard> {
       return;
     }
 
+    // Save to memory cache for fast instant access on subsequent route navigations
+    RouteGuard.setAuthenticatedUser(normalizedEmail);
+
     if (widget.requirement == GuardRequirement.superAdmin) {
       final isSuper = DeviceUtils.isSuperAdmin(normalizedEmail);
       debugPrint('[RouteGuard] Email: $normalizedEmail, SuperAdmin: $isSuper');
-      if (isSuper) {
-        if (mounted) {
-          setState(() {
-            _currentUserEmail = normalizedEmail;
-            _isChecking = false;
-            _isAuthorized = true;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _currentUserEmail = normalizedEmail;
-            _isChecking = false;
-            _isAuthorized = false;
-            _denialReason = 'not_admin';
-          });
-        }
+      if (mounted) {
+        setState(() {
+          _currentUserEmail = normalizedEmail;
+          _isChecking = false;
+          _isAuthorized = isSuper;
+          _denialReason = isSuper ? '' : 'not_admin';
+        });
       }
     } else {
       // GuardRequirement.authenticatedUser
@@ -124,8 +161,8 @@ class _RouteGuardState extends State<RouteGuard> {
         });
       }
     }
-
   }
+
 
   @override
   Widget build(BuildContext context) {

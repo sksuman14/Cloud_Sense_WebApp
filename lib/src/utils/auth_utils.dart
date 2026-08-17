@@ -1,6 +1,7 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
+import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,9 @@ class AuthUtils {
   }
 
   static Future<void> handleLogout(BuildContext context) async {
+    // Clear in-memory auth guard cache immediately
+    RouteGuard.clearCache();
+
     // Detect login method BEFORE signing out — session is still active here.
     final isGoogle = await _isGoogleUser();
     print('DEBUG: isGoogleUser = $isGoogle');

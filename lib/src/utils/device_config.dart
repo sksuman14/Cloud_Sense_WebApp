@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 
 class DeviceParameter {
@@ -909,13 +909,13 @@ class DeviceConfig {
         DeviceParameter(
             key: 'now_wind_direction',
             displayName: 'Wind Direction',
-            unit: 'Â°'),
+            unit: '°'),
         DeviceParameter(
             key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s'),
         DeviceParameter(
             key: 'max_wind_direction_gust',
             displayName: 'Max Wind Direction Gust',
-            unit: 'Â°',
+            unit: '°',
             isMetadata: true),
         DeviceParameter(
             key: 'now_pressure', displayName: 'Atm Pressure', unit: 'hPa'),
