@@ -394,7 +394,6 @@ class KsdmaApiService {
         final temp = double.tryParse(d['Temperature']?.toString() ?? '');
         final humidity = double.tryParse(d['Humidity']?.toString() ?? '');
         final rainfall = double.tryParse(d['Rainfall']?.toString() ?? '');
-        final pressure = double.tryParse(d['AtmPressure']?.toString() ?? '');
         final timeStr = d['TimeStamp']?.toString() ?? '';
         final obsDt = DateTime.tryParse(timeStr) ?? DateTime.now();
 
@@ -409,7 +408,7 @@ class KsdmaApiService {
           maxTemperatureC: temp,
           minTemperatureC: temp != null ? double.parse((temp - 3.5).toStringAsFixed(2)) : null,
           humidityPercent: humidity,
-          riverWaterLevelM: pressure != null ? double.parse((pressure / 1000.0).toStringAsFixed(2)) : null,
+          riverWaterLevelM: null, // AWS weather stations do not measure river level
           source: 'WS_NEAREST_SENSORS_API',
         ));
       }

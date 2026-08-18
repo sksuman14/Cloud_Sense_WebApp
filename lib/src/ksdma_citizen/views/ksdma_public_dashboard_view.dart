@@ -1335,9 +1335,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   children: [
                     Expanded(flex: 4, child: _buildDashboardCol1(state, activeStations, isMobile)),
                     const SizedBox(width: 12),
-                    Expanded(flex: 4, child: _buildDashboardCol2(state, activeStations, todayDate)),
+                    Expanded(flex: 4, child: _buildDashboardCol2(state, activeStations, todayDate, isMobile)),
                     const SizedBox(width: 12),
-                    Expanded(flex: 4, child: _buildDashboardCol3(state, activeStations)),
+                    Expanded(flex: 4, child: _buildDashboardCol3(state, activeStations, isMobile)),
                   ],
                 ),
               ] else ...[
@@ -1345,9 +1345,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   children: [
                     _buildDashboardCol1(state, activeStations, isMobile),
                     const SizedBox(height: 14),
-                    _buildDashboardCol2(state, activeStations, todayDate),
+                    _buildDashboardCol2(state, activeStations, todayDate, isMobile),
                     const SizedBox(height: 14),
-                    _buildDashboardCol3(state, activeStations),
+                    _buildDashboardCol3(state, activeStations, isMobile),
                   ],
                 ),
               ],
@@ -1377,7 +1377,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
   Widget _buildDashboardCol1(KsdmaStateService state, List<KsdmaStation> activeStations, bool isMobile) {
     return Container(
-      height: isMobile ? 340 : 470,
+      height: isMobile ? 340 : 620,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1476,8 +1476,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  Widget _buildDashboardCol2(KsdmaStateService state, List<KsdmaStation> activeStations, DateTime todayDate) {
-    return Column(
+  Widget _buildDashboardCol2(KsdmaStateService state, List<KsdmaStation> activeStations, DateTime todayDate, bool isMobile) {
+    final colContent = Column(
       children: [
         // Card 1: Statewide Live Highlights
         Card(
@@ -1513,7 +1513,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       countTemp++;
                       if (obs.maxTemperatureC! > topTempVal) { topTempVal = obs.maxTemperatureC!; topTempStation = s; }
                     }
-                    if ((s.instrumentType == InstrumentType.riverGauge || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) && obs.riverWaterLevelM != null) {
+                    if (s.instrumentType == InstrumentType.riverGauge && obs.riverWaterLevelM != null) {
                       sumRiver += obs.riverWaterLevelM!;
                       countRiver++;
                       if (obs.riverWaterLevelM! > topRiverVal) { topRiverVal = obs.riverWaterLevelM!; topRiverStation = s; }
@@ -1740,160 +1740,175 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           ),
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // Card 2: Latest Observations Table
-        Card(
-          color: Colors.white,
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Latest Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                    InkWell(
-                      onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
-                      child: const Text('View All >', style: TextStyle(fontSize: 11, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                if (activeStations.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Text('No active stations found for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    ),
-                  )
-                else ...[
-                  ...activeStations.take(4).map((s) {
-                    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
-                    String valStr = '0.0 mm';
-                    if (obs != null) {
-                      String effectiveParam = _appliedParam;
-                      if (_appliedParam == 'all') {
-                        switch (s.instrumentType) {
-                          case InstrumentType.hygrometer:
-                            effectiveParam = 'humidity';
-                            break;
-                          case InstrumentType.maxMinThermometer:
-                            effectiveParam = 'maxTemp';
-                            break;
-                          case InstrumentType.riverGauge:
-                            effectiveParam = 'riverLevel';
-                            break;
-                          case InstrumentType.rainGauge:
-                          case InstrumentType.awsAutomaticStation:
-                            effectiveParam = 'rainfall';
-                            break;
-                        }
-                      }
-
-                      if (effectiveParam == 'maxTemp') {
-                        valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
-                      } else if (effectiveParam == 'humidity') {
-                        valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
-                      } else if (effectiveParam == 'riverLevel') {
-                        valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
-                      } else {
-                        valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
-                      }
-                    }
-
-                    String timeStr = '08:00 AM';
-                    if (obs != null) {
-                      final dt = obs.observationDate.toLocal();
-                      final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-                      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-                      final minStr = dt.minute.toString().padLeft(2, '0');
-                      timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
-                    }
-                    final isSelected = _selectedStation?.stationId == s.stationId;
-                    return InkWell(
-                      onTap: () => _showStationDetailsDialog(context, s, state),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.1) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: _buildObsRow(s.stationId, '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}', valStr, timeStr, Colors.blue),
+        Expanded(
+          flex: isMobile ? 0 : 1,
+          child: Card(
+            color: Colors.white,
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Latest Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A))),
+                      InkWell(
+                        onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
+                        child: const Text('View All >', style: TextStyle(fontSize: 10.5, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
                       ),
-                    );
-                  }),
-                  if (activeStations.length > 4) ...[
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () => _showAllLatestObservationsModal(context, state, activeStations),
-                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                        child: Text(
-                          'View All ${activeStations.length} Stations →',
-                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF1565C0), fontWeight: FontWeight.bold),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  if (activeStations.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: Center(
+                        child: Text('No active stations found for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            ...activeStations.take(5).map((s) {
+                              final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+                              String valStr = '0.0 mm';
+                              if (obs != null) {
+                                String effectiveParam = _appliedParam;
+                                if (_appliedParam == 'all') {
+                                  switch (s.instrumentType) {
+                                    case InstrumentType.hygrometer:
+                                      effectiveParam = 'humidity';
+                                      break;
+                                    case InstrumentType.maxMinThermometer:
+                                      effectiveParam = 'maxTemp';
+                                      break;
+                                    case InstrumentType.riverGauge:
+                                      effectiveParam = 'riverLevel';
+                                      break;
+                                    case InstrumentType.rainGauge:
+                                    case InstrumentType.awsAutomaticStation:
+                                      effectiveParam = 'rainfall';
+                                      break;
+                                  }
+                                }
+
+                                if (effectiveParam == 'maxTemp') {
+                                  valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
+                                } else if (effectiveParam == 'humidity') {
+                                  valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
+                                } else if (effectiveParam == 'riverLevel') {
+                                  valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
+                                } else {
+                                  valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
+                                }
+                              }
+
+                              String timeStr = '08:00 AM';
+                              if (obs != null) {
+                                final dt = obs.observationDate.toLocal();
+                                final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+                                final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+                                final minStr = dt.minute.toString().padLeft(2, '0');
+                                timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
+                              }
+                              final isSelected = _selectedStation?.stationId == s.stationId;
+                              return InkWell(
+                                onTap: () => _showStationDetailsDialog(context, s, state),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.1) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: _buildObsRow(s.stationId, '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}', valStr, timeStr, Colors.blue),
+                                ),
+                              );
+                            }),
+                            if (activeStations.length > 4)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2.0),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: TextButton(
+                                    onPressed: () => _showAllLatestObservationsModal(context, state, activeStations),
+                                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
+                                    child: Text(
+                                      'View All ${activeStations.length} Stations →',
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFF1565C0), fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ],
     );
+
+    if (isMobile) return colContent;
+    return SizedBox(height: 620, child: colContent);
   }
 
-  Widget _buildDashboardCol3(KsdmaStateService state, List<KsdmaStation> activeStations) {
-    return Column(
-      children: [
-        // Card 1: Delta Comparison Table
-        Card(
-          color: Colors.white,
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Change with respect to Previous Day', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                const SizedBox(height: 8),
+  Widget _buildDashboardCol3(KsdmaStateService state, List<KsdmaStation> activeStations, bool isMobile) {
+    final cardContent = Card(
+      color: Colors.white,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
+          children: [
+            const Text('Change with respect to Previous Day', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
 
-                // Parameter Sub-tabs with Horizontal Scroll
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildDeltaTabChip('Rainfall', _activeDeltaTab == 'Rainfall', () => setState(() => _activeDeltaTab = 'Rainfall')),
-                      const SizedBox(width: 4),
-                      _buildDeltaTabChip('Temp', _activeDeltaTab == 'Temperature', () => setState(() => _activeDeltaTab = 'Temperature')),
-                      const SizedBox(width: 4),
-                      _buildDeltaTabChip('Humidity', _activeDeltaTab == 'Humidity', () => setState(() => _activeDeltaTab = 'Humidity')),
-                      const SizedBox(width: 4),
-                      _buildDeltaTabChip('River Level', _activeDeltaTab == 'River Level', () => setState(() => _activeDeltaTab = 'River Level')),
-                    ],
-                  ),
+            // Parameter Sub-tabs with Horizontal Scroll
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildDeltaTabChip('Rainfall', _activeDeltaTab == 'Rainfall', () => setState(() => _activeDeltaTab = 'Rainfall')),
+                  const SizedBox(width: 4),
+                  _buildDeltaTabChip('Temp', _activeDeltaTab == 'Temperature', () => setState(() => _activeDeltaTab = 'Temperature')),
+                  const SizedBox(width: 4),
+                  _buildDeltaTabChip('Humidity', _activeDeltaTab == 'Humidity', () => setState(() => _activeDeltaTab = 'Humidity')),
+                  const SizedBox(width: 4),
+                  _buildDeltaTabChip('River Level', _activeDeltaTab == 'River Level', () => setState(() => _activeDeltaTab = 'River Level')),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // District Delta Table inside Scrollable Container
+            if (activeStations.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text('No stations available for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
                 ),
-
-                const SizedBox(height: 8),
-
-                // District Delta Table
-                if (activeStations.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: Text('No stations available for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    ),
-                  )
-                else
-                  Table(
+              )
+            else
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Table(
                     columnWidths: const {
                       0: FlexColumnWidth(2),
                       1: FlexColumnWidth(1.4),
@@ -1974,6 +1989,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                   : 'mm';
 
                           for (var s in distStations) {
+                            if (_activeDeltaTab == 'River Level' && s.instrumentType != InstrumentType.riverGauge) {
+                              continue;
+                            }
                             final tObs = state.getTodayObservation(s.stationId);
                             final yObs = state.getYesterdayObservation(s.stationId);
 
@@ -2010,13 +2028,15 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       }(),
                     ],
                   ),
-              ],
-            ),
-          ),
+                ),
+              ),
+          ],
         ),
-
-      ],
+      ),
     );
+
+    if (isMobile) return cardContent;
+    return SizedBox(height: 620, child: cardContent);
   }
 
   Widget _buildDeltaTabChip(String label, bool isSelected, VoidCallback onTap) {
