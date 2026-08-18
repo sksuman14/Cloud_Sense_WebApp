@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
+import 'package:cloud_sense_webapp/src/views/home/home_utils.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -1551,14 +1552,17 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
           // Rainfall only: populates deviceData['rainfall']. Temperature, humidity,
           // wind, pressure, etc. are set separately below — this logic does not touch them.
           String selectRainfallMetric() {
-            final hourly =
-                formatWeatherMetric(item['RainfallHourly'], 'rainfall');
-            final hourlyCumulative = formatWeatherMetric(
-                item['RainfallHourlyComulative'], 'rainfall');
-            final daily =
-                formatWeatherMetric(item['RainfallDaily'], 'rainfall');
-            final dailyCumulative = formatWeatherMetric(
-                item['RainfallDailyComulative'], 'rainfall');
+            final hourlyVal = HomeUtils.getCorrectedValue(item, ['rainfallhourly', 'RainfallHourly']) ?? item['RainfallHourly'];
+            final hourly = formatWeatherMetric(hourlyVal, 'rainfall');
+
+            final hourlyCumVal = HomeUtils.getCorrectedValue(item, ['rainfallhourlycomulative', 'RainfallHourlyComulative']) ?? item['RainfallHourlyComulative'];
+            final hourlyCumulative = formatWeatherMetric(hourlyCumVal, 'rainfall');
+
+            final dailyVal = HomeUtils.getCorrectedValue(item, ['rainfalldaily', 'RainfallDaily']) ?? item['RainfallDaily'];
+            final daily = formatWeatherMetric(dailyVal, 'rainfall');
+
+            final dailyCumVal = HomeUtils.getCorrectedValue(item, ['rainfalldailycomulative', 'RainfallDailyComulative', 'rainfall_cumulative', 'Rainfall_Cumulative']) ?? item['RainfallDailyComulative'];
+            final dailyCumulative = formatWeatherMetric(dailyCumVal, 'rainfall');
 
             bool isPositive(String v) =>
                 v != 'N/A' && (double.tryParse(v) ?? 0) > 0;
@@ -1989,12 +1993,17 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
   /// Rainfall scalar only (for map); does not affect temp/humidity/wind/pressure.
   String _selectRainfallMetricFromRecord(
       String prefix, Map<String, dynamic> item) {
-    final hourly = _formatMapWeatherMetric(item['RainfallHourly'], 'rainfall');
-    final hourlyCumulative =
-        _formatMapWeatherMetric(item['RainfallHourlyComulative'], 'rainfall');
-    final daily = _formatMapWeatherMetric(item['RainfallDaily'], 'rainfall');
-    final dailyCumulative =
-        _formatMapWeatherMetric(item['RainfallDailyComulative'], 'rainfall');
+    final hourlyVal = HomeUtils.getCorrectedValue(item, ['rainfallhourly', 'RainfallHourly']) ?? item['RainfallHourly'];
+    final hourly = _formatMapWeatherMetric(hourlyVal, 'rainfall');
+
+    final hourlyCumVal = HomeUtils.getCorrectedValue(item, ['rainfallhourlycomulative', 'RainfallHourlyComulative']) ?? item['RainfallHourlyComulative'];
+    final hourlyCumulative = _formatMapWeatherMetric(hourlyCumVal, 'rainfall');
+
+    final dailyVal = HomeUtils.getCorrectedValue(item, ['rainfalldaily', 'RainfallDaily']) ?? item['RainfallDaily'];
+    final daily = _formatMapWeatherMetric(dailyVal, 'rainfall');
+
+    final dailyCumVal = HomeUtils.getCorrectedValue(item, ['rainfalldailycomulative', 'RainfallDailyComulative', 'rainfall_cumulative', 'Rainfall_Cumulative']) ?? item['RainfallDailyComulative'];
+    final dailyCumulative = _formatMapWeatherMetric(dailyCumVal, 'rainfall');
 
     bool isPositive(String v) => v != 'N/A' && (double.tryParse(v) ?? 0) > 0;
 

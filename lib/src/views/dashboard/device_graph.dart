@@ -2507,18 +2507,17 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
       double? totalRainfall;
       if (p.key.toLowerCase().contains('rain')) {
-        // Step 1: Check if a cumulative rainfall series exists (e.g. Rainfall_Cumulative, RainfallDaily)
+        // Step 1: Check if a cumulative rainfall series exists (e.g. Rainfall_Cumulative: 35.0)
         String? cumulativeKey;
         if (_parametersData.containsKey(p.key) &&
             (p.key.toLowerCase().contains('cumul') ||
-                p.key.toLowerCase().contains('comul') ||
-                p.key.toLowerCase().contains('daily'))) {
+                p.key.toLowerCase().contains('comul'))) {
           cumulativeKey = p.key;
         } else {
           for (final k in _parametersData.keys) {
             final lk = k.toLowerCase();
             if (lk.contains('rain') &&
-                (lk.contains('cumul') || lk.contains('comul') || lk.contains('daily'))) {
+                (lk.contains('cumul') || lk.contains('comul'))) {
               if (_parametersData[k] != null && _parametersData[k]!.isNotEmpty) {
                 cumulativeKey = k;
                 break;
@@ -2559,26 +2558,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               }
             }
 
-            final sortedDates = dailyMax.keys.toList()..sort();
-            double sumRain = 0.0;
-            double prevMax = 0.0;
-
-            for (final date in sortedDates) {
-              final val = dailyMax[date]!;
-              if (val == 0) {
-                prevMax = 0.0;
-                continue;
-              }
-              if (val < prevMax) {
-                // Daily reset occurred (e.g. Kerala/Punjab sensors)
-                sumRain += val;
-              } else {
-                // Continuous running cumulative or progressive daily increase
-                sumRain += (val - prevMax);
-              }
-              prevMax = val;
-            }
-            totalRainfall = sumRain;
+            // Sum each day's maximum cumulative reading across all days in range
+            totalRainfall = dailyMax.values.fold<double>(0.0, (sum, val) => sum + val);
           }
         } else {
           // Step 2: Cumulative key not present -> Use Hourly max-reset summation logic
@@ -3952,6 +3933,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     secondaryData = corrected;
                                     secondaryTitle = 'Corrected Humidity';
                                   }
+                                } else if ((p.displayName.toLowerCase().contains('rain') ||
+                                        p.key.toLowerCase().contains('rain')) &&
+                                    !_isDevice250) {
+                                  for (final k in _parametersData.keys) {
+                                    if (k.toLowerCase().contains('correctedfield') &&
+                                        k.toLowerCase().contains('rain')) {
+                                      final corrected = _parametersData[k];
+                                      if (corrected != null && corrected.isNotEmpty) {
+                                        secondaryData = corrected;
+                                        secondaryTitle = 'Corrected ${p.displayName}';
+                                        break;
+                                      }
+                                    }
+                                  }
                                 }
                               } else {
                                 final correctedField =
@@ -3978,6 +3973,18 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   if (corrected != null &&
                                       corrected.isNotEmpty) {
                                     data = _mergeCorrectedData(data, corrected);
+                                  }
+                                } else if ((p.displayName.toLowerCase().contains('rain') ||
+                                        p.key.toLowerCase().contains('rain')) &&
+                                    !_isDevice250) {
+                                  for (final k in _parametersData.keys) {
+                                    if (k.toLowerCase().contains('correctedfield') &&
+                                        k.toLowerCase().contains('rain')) {
+                                      final corrected = _parametersData[k];
+                                      if (corrected != null && corrected.isNotEmpty) {
+                                        data = _mergeCorrectedData(data, corrected);
+                                      }
+                                    }
                                   }
                                 }
                               }
