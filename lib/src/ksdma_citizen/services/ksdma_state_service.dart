@@ -41,6 +41,8 @@ class KsdmaStateService extends ChangeNotifier {
   bool get observationsLoading => _observationsLoading;
   bool get championsLoading => _championsLoading;
 
+  Map<String, dynamic>? getWsDeviceRaw(String deviceId) => apiService.getWsDeviceRaw(deviceId);
+
   // Filter & View State
   String selectedParameter = 'rainfall'; // rainfall, maxTemp, minTemp, humidity, riverLevel
   String selectedStationCategory = 'ALL'; // ALL, MANUAL, AWS

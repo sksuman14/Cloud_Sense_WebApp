@@ -12,6 +12,7 @@ import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
+import 'ksdma_aws_station_detail_view.dart';
 
 class KsdmaPublicDashboardView extends StatefulWidget {
   final Function(int tabIndex)? onNavigate;
@@ -520,6 +521,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildStationChartBox(BuildContext context, KsdmaStateService state, KsdmaStation station, DateTime todayDate) {
     String effectiveParam = _appliedParam;
     if (_appliedParam == 'all') {
@@ -697,7 +699,217 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
+  Widget _buildLiveMetricTile(String label, String value, IconData icon, Color color, Color bg) {
+    return Container(
+      width: 155,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showStationDetailsDialog(BuildContext context, KsdmaStation station, KsdmaStateService state) {
+    final bool isAwsStation = station.category == StationCategory.aws ||
+        station.instrumentType == InstrumentType.awsAutomaticStation ||
+        station.stationId.startsWith('WS_');
+
+    if (isAwsStation) {
+      final obs = state.getTodayObservation(station.stationId) ?? state.getLatestObservation(station.stationId);
+      final wsRaw = state.getWsDeviceRaw(station.stationId);
+
+      final String tempStr = wsRaw?['Temperature'] != null 
+          ? '${wsRaw!['Temperature']} °C' 
+          : (obs?.maxTemperatureC != null ? '${obs!.maxTemperatureC} °C' : 'N/A');
+          
+      final String humStr = wsRaw?['Humidity'] != null 
+          ? '${wsRaw!['Humidity']} %' 
+          : (obs?.humidityPercent != null ? '${obs!.humidityPercent} %' : 'N/A');
+          
+      final String rainStr = wsRaw?['Rainfall'] != null 
+          ? '${wsRaw!['Rainfall']} mm' 
+          : (obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '0.0 mm');
+          
+      final String pressStr = wsRaw?['AtmPressure'] != null 
+          ? '${wsRaw!['AtmPressure']} hPa' 
+          : (obs?.riverWaterLevelM != null ? '${obs!.riverWaterLevelM} m' : 'N/A');
+          
+      final String windSpdStr = wsRaw?['WindSpeed'] != null ? '${wsRaw!['WindSpeed']} m/s' : 'N/A';
+      final String windDirStr = wsRaw?['WindDirection'] != null ? '${wsRaw!['WindDirection']}°' : 'N/A';
+      final String windGustStr = wsRaw?['WindGust'] != null ? '${wsRaw!['WindGust']} m/s' : 'N/A';
+      final String timeStr = wsRaw?['TimeStamp']?.toString() ?? (obs != null ? '${obs.observationDate.toIso8601String().split('T')[0]} ${obs.observationTime.hour.toString().padLeft(2, '0')}:${obs.observationTime.minute.toString().padLeft(2, '0')}' : 'Live');
+
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.92,
+            constraints: const BoxConstraints(maxWidth: 680),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: KsdmaColors.primaryTint,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(_getPinIcon(station), color: KsdmaColors.primary, size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A))),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFF86EFAC)),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.sensors, size: 12, color: Color(0xFF16A34A)),
+                                          SizedBox(width: 4),
+                                          Text('LIVE AWS DATA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} District • Lat: ${station.latitude.toStringAsFixed(4)}, Lng: ${station.longitude.toStringAsFixed(4)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9), visualDensity: VisualDensity.compact),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('⚡ Live AWS Telemetry & Sensors', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    Text('Updated: $timeStr', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _buildLiveMetricTile('Rainfall', rainStr, Icons.water_drop, const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
+                    _buildLiveMetricTile('Temperature', tempStr, Icons.thermostat, const Color(0xFFEA580C), const Color(0xFFFFEDD5)),
+                    _buildLiveMetricTile('Humidity', humStr, Icons.opacity, const Color(0xFF7C3AED), const Color(0xFFF3E8FF)),
+                    _buildLiveMetricTile('Atm. Pressure', pressStr, Icons.speed, const Color(0xFF0D9488), const Color(0xFFCCFBF1)),
+                    _buildLiveMetricTile('Wind Speed', windSpdStr, Icons.air, const Color(0xFF0288D1), const Color(0xFFE0F2FE)),
+                    _buildLiveMetricTile('Wind Direction', windDirStr, Icons.explore, const Color(0xFFD97706), const Color(0xFFFEF3C7)),
+                    _buildLiveMetricTile('Wind Gust', windGustStr, Icons.cyclone, const Color(0xFF475569), const Color(0xFFF1F5F9)),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ChangeNotifierProvider<KsdmaStateService>.value(
+                              value: state,
+                              child: KsdmaAwsStationDetailView(stationId: station.stationId),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.bar_chart, size: 16),
+                      label: const Text('Show Detail Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF2563EB),
+                        side: const BorderSide(color: Color(0xFF2563EB)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // For NON-AWS manual stations: show the original dialog with Graph & Stat Boxes
+    _showManualStationGraphDialog(context, station, state);
+  }
+
+  void _showManualStationGraphDialog(BuildContext context, KsdmaStation station, KsdmaStateService state) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -2269,6 +2481,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildStationStatBoxes(KsdmaStateService state, KsdmaStation station) {
     final todayObs = state.getTodayObservation(station.stationId);
     final yesterdayObs = state.getYesterdayObservation(station.stationId);

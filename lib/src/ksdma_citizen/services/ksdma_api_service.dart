@@ -137,21 +137,107 @@ class KsdmaApiService {
     }
   }
 
+  List<Map<String, dynamic>>? _cachedWsDevices;
+  DateTime? _cachedWsTime;
+
+  /// Fetch live weather sensor devices from AWS WS_Nearest_Sensors API
+  Future<List<Map<String, dynamic>>> fetchWsNearestSensors({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedWsDevices != null &&
+        _cachedWsTime != null &&
+        DateTime.now().difference(_cachedWsTime!) < const Duration(minutes: 1)) {
+      return _cachedWsDevices!;
+    }
+    try {
+      final response = await http.get(Uri.parse('https://5mqwg03znl.execute-api.us-east-1.amazonaws.com/default/WS_Nearest_Sensors?state=Kerala'));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['devices'] is List) {
+          _cachedWsDevices = List<Map<String, dynamic>>.from(body['devices']);
+          _cachedWsTime = DateTime.now();
+          return _cachedWsDevices!;
+        }
+      }
+    } catch (e) {
+      print('Error fetching WS_Nearest_Sensors API: $e');
+    }
+    return _cachedWsDevices ?? [];
+  }
+
+  /// Get raw live telemetry object for a specific DeviceId from cached WS_Nearest_Sensors API response
+  Map<String, dynamic>? getWsDeviceRaw(String deviceId) {
+    if (_cachedWsDevices == null) return null;
+    for (var d in _cachedWsDevices!) {
+      if (d['DeviceId']?.toString() == deviceId || d['Annam_ID']?.toString() == deviceId) {
+        return d;
+      }
+    }
+    return null;
+  }
+
   // 4. GET /api/stations - Fetch All Non-Rejected Stations (for map/public view)
   Future<List<KsdmaStation>> fetchStations() async {
+    final List<KsdmaStation> stationsList = [];
+
+    // 1. Fetch live WS_Nearest_Sensors API stations (45 Kerala weather sensors)
+    try {
+      final devices = await fetchWsNearestSensors();
+      for (var d in devices) {
+        final deviceId = d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? 'WS_UNKNOWN';
+        final rawDistrict = d['District']?.toString() ?? 'Kerala';
+        final cleanDistrict = rawDistrict.replaceAll(RegExp(r'\s+district', caseSensitive: false), '').trim();
+        final rawCity = d['City']?.toString() ?? cleanDistrict;
+        final cleanCity = rawCity.replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim();
+
+        final lat = double.tryParse(d['Latitude']?.toString() ?? '') ?? 10.8505;
+        final lng = double.tryParse(d['Longitude']?.toString() ?? '') ?? 76.2711;
+        final timeStr = d['TimeStamp']?.toString() ?? '';
+        final createdAt = DateTime.tryParse(timeStr) ?? DateTime.now();
+
+        stationsList.add(KsdmaStation(
+          stationId: deviceId,
+          ownerUserId: 'aws_sensor_network',
+          ownerName: 'AWS Telemetry Network',
+          ownerCategory: UserCategory.districtOfficer,
+          category: StationCategory.aws,
+          instrumentType: InstrumentType.awsAutomaticStation,
+          deviceMake: 'Automatic Weather Station',
+          measurementLocation: '$cleanCity, $cleanDistrict',
+          latitude: lat,
+          longitude: lng,
+          district: cleanDistrict,
+          taluk: cleanCity,
+          gramaPanchayat: cleanCity,
+          village: cleanCity,
+          approvalStatus: ApprovalStatus.approved,
+          createdAt: createdAt,
+        ));
+      }
+    } catch (e) {
+      print('Error mapping WS_Nearest_Sensors stations: $e');
+    }
+
+    // 2. Fetch custom stations from backend Lambda API
     try {
       final response = await http.get(Uri.parse('$apiBaseUrl/stations'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['stations'] != null) {
           final List rows = body['stations'];
-          return rows.map((r) => _mapRowToStation(r)).toList();
+          final existingIds = stationsList.map((s) => s.stationId).toSet();
+          for (var r in rows) {
+            final st = _mapRowToStation(r);
+            if (!existingIds.contains(st.stationId)) {
+              stationsList.add(st);
+            }
+          }
         }
       }
     } catch (e) {
       print('Error fetching stations via API: $e');
     }
-    return [];
+
+    return stationsList;
   }
 
   // 5. GET /api/stations/pending - Fetch Only Pending Stations (for Admin Dashboard)
@@ -298,19 +384,56 @@ class KsdmaApiService {
 
   // 12. GET /api/observations - Fetch All Live Observations
   Future<List<KsdmaObservation>> fetchObservations() async {
+    final List<KsdmaObservation> obsList = [];
+
+    // 1. Fetch live observations from WS_Nearest_Sensors API
+    try {
+      final devices = await fetchWsNearestSensors();
+      for (var d in devices) {
+        final deviceId = d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? 'WS_UNKNOWN';
+        final temp = double.tryParse(d['Temperature']?.toString() ?? '');
+        final humidity = double.tryParse(d['Humidity']?.toString() ?? '');
+        final rainfall = double.tryParse(d['Rainfall']?.toString() ?? '');
+        final pressure = double.tryParse(d['AtmPressure']?.toString() ?? '');
+        final timeStr = d['TimeStamp']?.toString() ?? '';
+        final obsDt = DateTime.tryParse(timeStr) ?? DateTime.now();
+
+        obsList.add(KsdmaObservation(
+          observationId: 'obs_${deviceId}_${obsDt.millisecondsSinceEpoch}',
+          stationId: deviceId,
+          submittedByUserId: 'aws_sensor_network',
+          observationDate: obsDt,
+          observationTime: TimeOfDay(hour: obsDt.hour, minute: obsDt.minute),
+          submissionTimestamp: obsDt,
+          rainfallMm: rainfall,
+          maxTemperatureC: temp,
+          minTemperatureC: temp != null ? double.parse((temp - 3.5).toStringAsFixed(2)) : null,
+          humidityPercent: humidity,
+          riverWaterLevelM: pressure != null ? double.parse((pressure / 1000.0).toStringAsFixed(2)) : null,
+          source: 'WS_NEAREST_SENSORS_API',
+        ));
+      }
+    } catch (e) {
+      print('Error mapping WS_Nearest_Sensors observations: $e');
+    }
+
+    // 2. Fetch custom observations from backend Lambda API
     try {
       final response = await http.get(Uri.parse('$apiBaseUrl/observations'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['observations'] != null) {
           final List rows = body['observations'];
-          return rows.map((r) => _mapRowToObservation(r)).toList();
+          for (var r in rows) {
+            obsList.add(_mapRowToObservation(r));
+          }
         }
       }
     } catch (e) {
       print('Error fetching observations via API: $e');
     }
-    return [];
+
+    return obsList;
   }
 
   // 13. GET /api/champions - Fetch Weather Champions Leaderboard
