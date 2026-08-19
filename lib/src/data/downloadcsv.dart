@@ -619,7 +619,7 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final amEndDate = amDateFmt.format(_endDate!);
       final paddedDeviceId = deviceId.padLeft(2, '0');
       apiUrl =
-          'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP$paddedDeviceId&startdate=$amStartDate&enddate=$amEndDate&key=Annam@2025&mode=download';
+          'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP$paddedDeviceId&startdate=$amStartDate&enddate=$amEndDate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('PS')) {
       final krDateFmt = DateFormat('dd-MM-yyyy');
       final krStartDate = krDateFmt.format(_startDate!);

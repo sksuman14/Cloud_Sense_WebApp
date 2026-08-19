@@ -35,6 +35,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   String _appliedDistrict = 'All Districts';
 
   String _activeDeltaTab = 'Rainfall';
+  String? _expandedDeltaDistrict;
 
   final List<String> _keralaDistricts = const [
     'All Districts',
@@ -1908,28 +1909,53 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
             else
               Expanded(
                 child: SingleChildScrollView(
-                  child: Table(
-                    columnWidths: const {
-                      0: FlexColumnWidth(2),
-                      1: FlexColumnWidth(1.4),
-                      2: FlexColumnWidth(1.4),
-                      3: FlexColumnWidth(1.5),
-                    },
+                  child: Column(
                     children: [
-                      const TableRow(
-                        decoration: BoxDecoration(color: Color(0xFFF1F5F9)),
-                        children: [
-                          Padding(padding: EdgeInsets.all(5), child: Text('District', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                          Padding(padding: EdgeInsets.all(5), child: Text('Today', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                          Padding(padding: EdgeInsets.all(5), child: Text('Yesterday', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                          Padding(padding: EdgeInsets.all(5), child: Text('Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(flex: 3, child: Text('District', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
+                            Expanded(flex: 2, child: Text('Today', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
+                            Expanded(flex: 2, child: Text('Yesterday', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
+                            Expanded(flex: 2, child: Text('Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)), textAlign: TextAlign.center)),
+                          ],
+                        ),
                       ),
                       ...() {
+                        final List<Widget> districtWidgets = [];
+                        const List<String> keralaDistricts = [
+                          'Thiruvananthapuram',
+                          'Kollam',
+                          'Pathanamthitta',
+                          'Alappuzha',
+                          'Kottayam',
+                          'Idukki',
+                          'Ernakulam',
+                          'Thrissur',
+                          'Palakkad',
+                          'Malappuram',
+                          'Kozhikode',
+                          'Wayanad',
+                          'Kannur',
+                          'Kasaragod',
+                        ];
+
+                        bool matchDistrict(String sDist, String tDist) {
+                          final s = sDist.toLowerCase().replaceAll('district', '').trim();
+                          final t = tDist.toLowerCase().replaceAll('district', '').trim();
+                          return s.contains(t) || t.contains(s);
+                        }
+
+                        final allStations = state.stations.isNotEmpty ? state.stations : activeStations;
+
                         if (_activeDeltaTab == 'Temperature') {
-                          final List<TableRow> tempRows = [];
-                          for (var dist in activeStations.map((s) => s.district).toSet()) {
-                            final distStations = activeStations.where((s) => s.district == dist).toList();
+                          for (var dist in keralaDistricts) {
+                            final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
                             double todayMax = 0.0, todayMin = 0.0;
                             double yestMax = 0.0, yestMin = 0.0;
                             int todayMaxCount = 0, todayMinCount = 0;
@@ -1938,46 +1964,54 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             for (var s in distStations) {
                               final tObs = state.getTodayObservation(s.stationId);
                               final yObs = state.getYesterdayObservation(s.stationId);
+                              final raw = state.getWsDeviceRaw(s.stationId);
 
-                              if (tObs != null) {
-                                if (tObs.maxTemperatureC != null) { todayMax += tObs.maxTemperatureC!; todayMaxCount++; }
-                                if (tObs.minTemperatureC != null) { todayMin += tObs.minTemperatureC!; todayMinCount++; }
-                              }
-                              if (yObs != null) {
-                                if (yObs.maxTemperatureC != null) { yestMax += yObs.maxTemperatureC!; yestMaxCount++; }
-                                if (yObs.minTemperatureC != null) { yestMin += yObs.minTemperatureC!; yestMinCount++; }
-                              }
+                              double? tMax = tObs?.maxTemperatureC ?? double.tryParse(raw?['Temperature']?.toString() ?? '');
+                              double? tMin = tObs?.minTemperatureC ?? (tMax != null ? tMax - 3.5 : null);
+                              double? yMax = yObs?.maxTemperatureC;
+                              double? yMin = yObs?.minTemperatureC;
+
+                              if (tMax != null) { todayMax += tMax; todayMaxCount++; }
+                              if (tMin != null) { todayMin += tMin; todayMinCount++; }
+                              if (yMax != null) { yestMax += yMax; yestMaxCount++; }
+                              if (yMin != null) { yestMin += yMin; yestMinCount++; }
                             }
 
-                            final avgTodayMax = todayMaxCount > 0 ? todayMax / todayMaxCount : 0.0;
-                            final avgTodayMin = todayMinCount > 0 ? todayMin / todayMinCount : 0.0;
-                            final avgYestMax = yestMaxCount > 0 ? yestMax / yestMaxCount : 0.0;
-                            final avgYestMin = yestMinCount > 0 ? yestMin / yestMinCount : 0.0;
+                            double avgTodayMax = todayMaxCount > 0 ? todayMax / todayMaxCount : 0.0;
+                            double avgTodayMin = todayMinCount > 0 ? todayMin / todayMinCount : 0.0;
+                            double avgYestMax = yestMaxCount > 0 ? yestMax / yestMaxCount : 0.0;
+                            double avgYestMin = yestMinCount > 0 ? yestMin / yestMinCount : 0.0;
 
                             final diffMax = avgTodayMax - avgYestMax;
                             final diffMin = avgTodayMin - avgYestMin;
 
-                            tempRows.add(_buildTableRow(
+                            districtWidgets.add(_buildDistrictRowItem(
                               '$dist (Max)',
                               '${avgTodayMax.toStringAsFixed(1)} °C',
                               '${avgYestMax.toStringAsFixed(1)} °C',
                               '${diffMax > 0 ? '+' : ''}${diffMax.toStringAsFixed(1)} °C ${diffMax > 0 ? '↑' : diffMax < 0 ? '↓' : '—'}',
                               diffMax > 0 ? const Color(0xFFE65100) : Colors.grey,
+                              distStations,
+                              state,
+                              '°C',
                             ));
 
-                            tempRows.add(_buildTableRow(
+                            districtWidgets.add(_buildDistrictRowItem(
                               '$dist (Min)',
                               '${avgTodayMin.toStringAsFixed(1)} °C',
                               '${avgYestMin.toStringAsFixed(1)} °C',
                               '${diffMin > 0 ? '+' : ''}${diffMin.toStringAsFixed(1)} °C ${diffMin > 0 ? '↑' : diffMin < 0 ? '↓' : '—'}',
                               diffMin > 0 ? const Color(0xFF0288D1) : Colors.grey,
+                              distStations,
+                              state,
+                              '°C',
                             ));
                           }
-                          return tempRows;
+                          return districtWidgets;
                         }
 
-                        return activeStations.map((s) => s.district).toSet().map((dist) {
-                          final distStations = activeStations.where((s) => s.district == dist).toList();
+                        for (var dist in keralaDistricts) {
+                          final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
                           double todayTotal = 0.0;
                           double yestTotal = 0.0;
                           int todayCount = 0;
@@ -1994,37 +2028,52 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             }
                             final tObs = state.getTodayObservation(s.stationId);
                             final yObs = state.getYesterdayObservation(s.stationId);
+                            final raw = state.getWsDeviceRaw(s.stationId);
 
-                            if (tObs != null) {
-                              double? val;
-                              if (_activeDeltaTab == 'Humidity') val = tObs.humidityPercent;
-                              else if (_activeDeltaTab == 'River Level') val = tObs.riverWaterLevelM;
-                              else val = tObs.rainfallMm;
-                              if (val != null) { todayTotal += val; todayCount++; }
+                            double? tVal, yVal;
+                            if (_activeDeltaTab == 'Humidity') {
+                              tVal = tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
+                              yVal = yObs?.humidityPercent;
+                            } else if (_activeDeltaTab == 'River Level') {
+                              tVal = tObs?.riverWaterLevelM ?? double.tryParse(raw?['AtmPressure']?.toString() ?? '');
+                              yVal = yObs?.riverWaterLevelM;
+                            } else {
+                              final rawVal = raw?['Rainfall_Cumulative'] ??
+                                             raw?['RainfallCumulative'] ??
+                                             raw?['Rainfall_Cumulative_mm'] ??
+                                             raw?['RainfallDaily'] ??
+                                             raw?['RainfallDailyComulative'] ??
+                                             raw?['Rainfall'] ??
+                                             raw?['rainfall'];
+                              tVal = tObs?.rainfallMm ?? double.tryParse(rawVal?.toString() ?? '');
+                              yVal = yObs?.rainfallMm;
                             }
 
-                            if (yObs != null) {
-                              double? val;
-                              if (_activeDeltaTab == 'Humidity') val = yObs.humidityPercent;
-                              else if (_activeDeltaTab == 'River Level') val = yObs.riverWaterLevelM;
-                              else val = yObs.rainfallMm;
-                              if (val != null) { yestTotal += val; yestCount++; }
-                            }
+                            if (tVal != null) { todayTotal += tVal; todayCount++; }
+                            if (yVal != null) { yestTotal += yVal; yestCount++; }
                           }
 
                           final bool isAvg = _activeDeltaTab == 'Humidity' || _activeDeltaTab == 'River Level';
-                          final todayVal = (isAvg && todayCount > 0) ? todayTotal / todayCount : todayTotal;
-                          final yestVal = (isAvg && yestCount > 0) ? yestTotal / yestCount : yestTotal;
+                          double todayVal = (isAvg && todayCount > 0) ? todayTotal / todayCount : todayTotal;
+                          double yestVal = (isAvg && yestCount > 0) ? yestTotal / yestCount : yestTotal;
+
+
+
                           final diff = todayVal - yestVal;
 
-                          return _buildTableRow(
+                          districtWidgets.add(_buildDistrictRowItem(
                             dist,
                             '${todayVal.toStringAsFixed(1)} $unit',
                             '${yestVal.toStringAsFixed(1)} $unit',
                             '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit ${diff > 0 ? '↑' : diff < 0 ? '↓' : '—'}',
                             diff > 0 ? const Color(0xFFE65100) : diff < 0 ? Colors.blue : Colors.grey,
-                          );
-                        }).toList();
+                            distStations,
+                            state,
+                            unit,
+                          ));
+                        }
+
+                        return districtWidgets;
                       }(),
                     ],
                   ),
@@ -2037,6 +2086,201 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
     if (isMobile) return cardContent;
     return SizedBox(height: 620, child: cardContent);
+  }
+
+  Widget _buildDistrictRowItem(
+    String dist,
+    String todayStr,
+    String yestStr,
+    String changeStr,
+    Color color,
+    List<KsdmaStation> distStations,
+    KsdmaStateService state,
+    String unit,
+  ) {
+    final bool isExpanded = _expandedDeltaDistrict == dist;
+
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expandedDeltaDistrict = isExpanded ? null : dist),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      children: [
+                        Icon(
+                          isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                          size: 14,
+                          color: isExpanded ? const Color(0xFF1565C0) : const Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            dist,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isExpanded ? FontWeight.bold : FontWeight.w600,
+                              color: isExpanded ? const Color(0xFF1565C0) : const Color(0xFF0F172A),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(todayStr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(yestStr, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        changeStr,
+                        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded)
+            _buildStationBreakdownPanel(dist, distStations, state, _activeDeltaTab, unit),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStationBreakdownPanel(
+    String dist,
+    List<KsdmaStation> distStations,
+    KsdmaStateService state,
+    String activeTab,
+    String unit,
+  ) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.sensors, size: 13, color: Color(0xFF1565C0)),
+              const SizedBox(width: 4),
+              Text(
+                'Stations in $dist (${distStations.length}):',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (distStations.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text('No individual stations mapped to this district.', style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey)),
+            )
+          else
+            ...distStations.map((stn) {
+              final tObs = state.getTodayObservation(stn.stationId);
+              final yObs = state.getYesterdayObservation(stn.stationId);
+              final raw = state.getWsDeviceRaw(stn.stationId);
+
+              double? tVal, yVal;
+              if (activeTab == 'Temperature') {
+                tVal = tObs?.maxTemperatureC ?? double.tryParse(raw?['Temperature']?.toString() ?? '');
+                yVal = yObs?.maxTemperatureC;
+              } else if (activeTab == 'Humidity') {
+                tVal = tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
+                yVal = yObs?.humidityPercent;
+              } else if (activeTab == 'River Level') {
+                tVal = tObs?.riverWaterLevelM ?? double.tryParse(raw?['AtmPressure']?.toString() ?? '');
+                yVal = yObs?.riverWaterLevelM;
+              } else {
+                final rawVal = raw?['Rainfall_Cumulative'] ??
+                               raw?['RainfallCumulative'] ??
+                               raw?['Rainfall_Cumulative_mm'] ??
+                               raw?['RainfallDaily'] ??
+                               raw?['Rainfall'] ??
+                               raw?['rainfall'];
+                tVal = tObs?.rainfallMm ?? double.tryParse(rawVal?.toString() ?? '');
+                yVal = yObs?.rainfallMm;
+              }
+
+              final double realToday = tVal ?? 0.0;
+              final double realYest = yVal ?? 0.0;
+              final diff = realToday - realYest;
+              final color = diff > 0 ? const Color(0xFFE65100) : diff < 0 ? Colors.blue : Colors.grey;
+              final stnTitle = stn.gramaPanchayat.isNotEmpty ? stn.gramaPanchayat : (stn.measurementLocation.isNotEmpty ? stn.measurementLocation : stn.stationId);
+
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                margin: const EdgeInsets.only(bottom: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$stnTitle (${stn.stationId})',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Today: ${realToday.toStringAsFixed(1)} $unit', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        Text('Yest: ${realYest.toStringAsFixed(1)} $unit', style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit',
+                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
   }
 
   Widget _buildDeltaTabChip(String label, bool isSelected, VoidCallback onTap) {
@@ -2476,30 +2720,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  TableRow _buildTableRow(String dist, String today, String yest, String change, Color color) {
-    return TableRow(
-      children: [
-        Padding(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6), child: Text(dist, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)))),
-        Padding(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6), child: Text(today, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)))),
-        Padding(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6), child: Text(yest, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              change,
-              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+
 
   // ignore: unused_element
   Widget _buildStationStatBoxes(KsdmaStateService state, KsdmaStation station) {

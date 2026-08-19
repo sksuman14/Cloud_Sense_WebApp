@@ -712,8 +712,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
       if (_krRainGuageSizeController.text.isNotEmpty) dataPayload["RainGuageSize"] = num.tryParse(_krRainGuageSizeController.text) ?? 0.5;
       if (_krBacklogFileCounterController.text.isNotEmpty) dataPayload["BacklogFileCounter"] = num.tryParse(_krBacklogFileCounterController.text) ?? 10;
       if (_krSimCardApnController.text.isNotEmpty) dataPayload["SetSimCardAPN"] = _krSimCardApnController.text;
-      dataPayload["ResetSystemTime"] = _krResetSystemTime;
-      dataPayload["restart"] = _krRestart;
+      if (_krResetSystemTime) dataPayload["ResetSystemTime"] = true;
+      if (_krRestart) dataPayload["restart"] = true;
 
       payload = {
         "config": true,
@@ -734,8 +734,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
       if (_krFileUploadCounterController.text.isNotEmpty) dataPayload["BacklogFileCounter"] = num.tryParse(_krFileUploadCounterController.text) ?? 10;
       if (_krBacklogFileCounterController.text.isNotEmpty) dataPayload["BacklogFileCounter"] = num.tryParse(_krBacklogFileCounterController.text) ?? 10;
       if (_krSimCardApnController.text.isNotEmpty) dataPayload["SetSimCardAPN"] = _krSimCardApnController.text;
-      dataPayload["ResetSystemTime"] = _krResetSystemTime;
-      dataPayload["restart"] = _krRestart;
+      if (_krResetSystemTime) dataPayload["ResetSystemTime"] = true;
+      if (_krRestart) dataPayload["restart"] = true;
 
       payload = {
         "config": true,

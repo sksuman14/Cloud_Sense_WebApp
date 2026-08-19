@@ -596,10 +596,17 @@ class KsdmaStateService extends ChangeNotifier {
         .length;
   }
 
+  bool _matchStationId(String a, String b) {
+    if (a == b) return true;
+    final cleanA = a.startsWith('WS_') ? a.substring(3) : a;
+    final cleanB = b.startsWith('WS_') ? b.substring(3) : b;
+    return cleanA == cleanB;
+  }
+
   KsdmaObservation? getTodayObservation(String stationId) {
     final now = DateTime.now();
     final list = _observations.where((o) {
-      if (o.stationId != stationId || o.isRemoved) return false;
+      if (!_matchStationId(o.stationId, stationId) || o.isRemoved) return false;
       final d = o.observationDate.toLocal();
       return d.year == now.year && d.month == now.month && d.day == now.day;
     }).toList();
@@ -608,7 +615,7 @@ class KsdmaStateService extends ChangeNotifier {
   }
 
   KsdmaObservation? getLatestObservation(String stationId) {
-    final list = _observations.where((o) => o.stationId == stationId && !o.isRemoved).toList();
+    final list = _observations.where((o) => _matchStationId(o.stationId, stationId) && !o.isRemoved).toList();
     if (list.isEmpty) return null;
     return list.last;
   }
@@ -625,7 +632,7 @@ class KsdmaStateService extends ChangeNotifier {
   KsdmaObservation? getYesterdayObservation(String stationId) {
     final yest = DateTime.now().subtract(const Duration(days: 1));
     final list = _observations.where((o) =>
-      o.stationId == stationId &&
+      _matchStationId(o.stationId, stationId) &&
       !o.isRemoved &&
       o.observationDate.year == yest.year &&
       o.observationDate.month == yest.month &&
