@@ -193,12 +193,12 @@ class KsdmaObservation {
   final DateTime submissionTimestamp;
   final String source; // WEB_FORM, CSV_BULK_UPLOAD
 
-  // Parameter readings
   final double? rainfallMm;
   final double? maxTemperatureC;
   final double? minTemperatureC;
   final double? riverWaterLevelM;
-  final double? humidityPercent;
+  final double? humidityPercent; // Maximum Humidity
+  final double? avgHumidityPercent; // Average Humidity
 
   // Moderation state
   bool isRemoved;
@@ -218,6 +218,7 @@ class KsdmaObservation {
     this.minTemperatureC,
     this.riverWaterLevelM,
     this.humidityPercent,
+    this.avgHumidityPercent,
     this.isRemoved = false,
     this.removalReason,
     this.removedByAdminId,

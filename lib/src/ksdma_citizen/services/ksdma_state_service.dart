@@ -643,25 +643,30 @@ class KsdmaStateService extends ChangeNotifier {
   }
 
   void removeObservation(String observationId, String reason) {
-    final idx = _observations.indexWhere((o) => o.observationId == observationId);
-    if (idx != -1) {
-      final old = _observations[idx];
-      _observations[idx] = KsdmaObservation(
-        observationId: old.observationId,
-        stationId: old.stationId,
-        submittedByUserId: old.submittedByUserId,
-        observationDate: old.observationDate,
-        observationTime: old.observationTime,
-        submissionTimestamp: old.submissionTimestamp,
-        rainfallMm: old.rainfallMm,
-        maxTemperatureC: old.maxTemperatureC,
-        minTemperatureC: old.minTemperatureC,
-        riverWaterLevelM: old.riverWaterLevelM,
-        humidityPercent: old.humidityPercent,
-        source: old.source,
-        isRemoved: true,
-      );
-      apiService.deleteObservation(observationId, reason);
+    bool foundAny = false;
+    for (int i = 0; i < _observations.length; i++) {
+      final o = _observations[i];
+      if (o.observationId == observationId || o.stationId == observationId) {
+        _observations[i] = KsdmaObservation(
+          observationId: o.observationId,
+          stationId: o.stationId,
+          submittedByUserId: o.submittedByUserId,
+          observationDate: o.observationDate,
+          observationTime: o.observationTime,
+          submissionTimestamp: o.submissionTimestamp,
+          rainfallMm: o.rainfallMm,
+          maxTemperatureC: o.maxTemperatureC,
+          minTemperatureC: o.minTemperatureC,
+          riverWaterLevelM: o.riverWaterLevelM,
+          humidityPercent: o.humidityPercent,
+          source: o.source,
+          isRemoved: true,
+        );
+        apiService.deleteObservation(o.observationId, reason);
+        foundAny = true;
+      }
+    }
+    if (foundAny) {
       notifyListeners();
     }
   }

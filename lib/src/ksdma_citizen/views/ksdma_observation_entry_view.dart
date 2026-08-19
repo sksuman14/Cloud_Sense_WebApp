@@ -53,6 +53,16 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
       final state = Provider.of<KsdmaStateService>(context, listen: false);
       final station = state.stations.firstWhere((s) => s.stationId == widget.stationId);
 
+      if (station.category == StationCategory.aws || station.stationId.startsWith('WS_')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🤖 Automated Weather Station (AWS) - Telemetry is received directly from IoT hardware sensors. Manual editing is disabled.'),
+            backgroundColor: Colors.amber,
+          ),
+        );
+        return;
+      }
+
       if (station.approvalStatus != ApprovalStatus.approved) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

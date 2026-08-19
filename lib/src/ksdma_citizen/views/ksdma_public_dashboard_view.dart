@@ -1505,7 +1505,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       if (obs.rainfallMm! > topRainVal) { topRainVal = obs.rainfallMm!; topRainStation = s; }
                     }
                     if ((s.instrumentType == InstrumentType.hygrometer || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) && obs.humidityPercent != null) {
-                      sumHum += obs.humidityPercent!;
+                      final double humForAvg = obs.avgHumidityPercent ?? obs.humidityPercent!;
+                      sumHum += humForAvg;
                       countHum++;
                       if (obs.humidityPercent! > topHumVal) { topHumVal = obs.humidityPercent!; topHumStation = s; }
                     }
@@ -1521,7 +1522,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                     }
                   }
 
-                  final avgRain = countRain > 0 ? sumRain / countRain : 0.0;
                   final avgHum = countHum > 0 ? sumHum / countHum : 0.0;
                   final avgTemp = countTemp > 0 ? sumTemp / countTemp : 0.0;
                   final avgRiver = countRiver > 0 ? sumRiver / countRiver : 0.0;
@@ -1572,7 +1572,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                 paramTitle: '🌧 Rainfall',
                                 topStation: topRainStation,
                                 topVal: topRainStation != null ? '${topRainVal.toStringAsFixed(1)} mm' : 'N/A',
-                                avgVal: '${avgRain.toStringAsFixed(1)} mm',
+                                avgVal: '${sumRain.toStringAsFixed(1)} mm',
+                                avgLabel: 'State Total',
                                 stationCountText: '$countRain reporting',
                                 accentColor: const Color(0xFF3E7CB1),
                                 onTap: topRainStation != null ? () => _showStationDetailsDialog(context, topRainStation!, state) : null,
@@ -2033,8 +2034,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
                             double? tVal, yVal;
                             if (_activeDeltaTab == 'Humidity') {
-                              tVal = tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
-                              yVal = yObs?.humidityPercent;
+                              tVal = tObs?.avgHumidityPercent ?? tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
+                              yVal = yObs?.avgHumidityPercent ?? yObs?.humidityPercent;
                             } else if (_activeDeltaTab == 'River Level') {
                               tVal = tObs?.riverWaterLevelM;
                               yVal = yObs?.riverWaterLevelM;
@@ -2229,8 +2230,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   yVal = yObs?.maxTemperatureC;
                 }
               } else if (activeTab == 'Humidity') {
-                tVal = tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
-                yVal = yObs?.humidityPercent;
+                tVal = tObs?.avgHumidityPercent ?? tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
+                yVal = yObs?.avgHumidityPercent ?? yObs?.humidityPercent;
               } else if (activeTab == 'River Level') {
                 tVal = tObs?.riverWaterLevelM;
                 yVal = yObs?.riverWaterLevelM;
@@ -2416,6 +2417,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     required String avgVal,
     required String stationCountText,
     required Color accentColor,
+    String avgLabel = 'State Avg',
     IconData? icon,
     VoidCallback? onTap,
   }) {
@@ -2487,7 +2489,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('State Avg', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
+                      Text(avgLabel, style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerRight,

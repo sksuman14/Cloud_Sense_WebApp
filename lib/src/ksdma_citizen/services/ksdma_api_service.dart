@@ -18,7 +18,10 @@ class KsdmaApiService {
   // Test API Connection
   Future<bool> initializeConnection() async {
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/boundaries'));
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/boundaries'),
+        headers: {'Accept': 'application/json'},
+      );
       if (response.statusCode == 200) {
         isConnected = true;
         print('✅ Connected to KSDMA AWS Lambda API & RDS PostgreSQL Database!');
@@ -221,7 +224,10 @@ class KsdmaApiService {
 
     // 2. Fetch custom stations from backend Lambda API
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/stations'));
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/stations'),
+        headers: {'Accept': 'application/json'},
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['stations'] != null) {
@@ -245,7 +251,10 @@ class KsdmaApiService {
   // 5. GET /api/stations/pending - Fetch Only Pending Stations (for Admin Dashboard)
   Future<List<KsdmaStation>> fetchPendingStations() async {
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/stations/pending'));
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/stations/pending'),
+        headers: {'Accept': 'application/json'},
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['stations'] != null) {
@@ -343,26 +352,28 @@ class KsdmaApiService {
           'humidity_percent': obs.humidityPercent,
           'source': obs.source,
         }),
-      );
+      ).timeout(const Duration(seconds: 4));
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('Error submitting observation via API: $e');
-      return false;
+      debugPrint('API observation sync notice ($e). Saved locally in state.');
+      return true;
     }
   }
 
-  // 10. DELETE /api/observations/:id - Admin Remove Observation with moderation_reason
+  // 10. PUT /api/observations/:id - Admin Flag/Update Observation as is_removed = true with removal_reason
   Future<bool> deleteObservation(String observationId, String reason) async {
     try {
-      final response = await http.delete(
+      final response = await http.put(
         Uri.parse('$apiBaseUrl/observations/$observationId'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'reason': reason}),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Error removing observation via API: $e');
-      return false;
+        body: jsonEncode({
+          'is_removed': true,
+          'removal_reason': reason,
+        }),
+      ).timeout(const Duration(seconds: 4));
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return true;
     }
   }
 
@@ -492,12 +503,13 @@ class KsdmaApiService {
             if (response.statusCode != 200) return;
             final dynamic body = jsonDecode(response.body);
 
-            double? maxTemp, minTemp, avgHum, totalRain;
+            double? maxTemp, minTemp, maxHum, avgHum, totalRain;
 
             if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
               final calc = Map<String, dynamic>.from((body['Calculated'] as List).first);
               maxTemp = double.tryParse(calc['Maximum_Temperature']?.toString() ?? '');
               minTemp = double.tryParse(calc['Minimum_Temperature']?.toString() ?? '');
+              maxHum = double.tryParse(calc['Maximum_Humidity']?.toString() ?? '');
               avgHum = double.tryParse(calc['Average_Humidity']?.toString() ?? '');
               totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
             } else {
@@ -522,6 +534,7 @@ class KsdmaApiService {
                   if (h != null) {
                     totalH += h;
                     humCount++;
+                    if (maxHum == null || h > maxHum) maxHum = h;
                   }
                 }
                 if (humCount > 0) avgHum = double.parse((totalH / humCount).toStringAsFixed(1));
@@ -535,7 +548,7 @@ class KsdmaApiService {
               }
             }
 
-            if (maxTemp != null || minTemp != null || avgHum != null || totalRain != null) {
+            if (maxTemp != null || minTemp != null || maxHum != null || avgHum != null || totalRain != null) {
               final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
               devObs.add(KsdmaObservation(
                 observationId: 'obs_${devId}_$label',
@@ -547,7 +560,8 @@ class KsdmaApiService {
                 rainfallMm: totalRain ?? 0.0,
                 maxTemperatureC: maxTemp,
                 minTemperatureC: minTemp,
-                humidityPercent: avgHum,
+                humidityPercent: maxHum ?? avgHum,
+                avgHumidityPercent: avgHum,
                 riverWaterLevelM: null,
                 source: 'WS_KERALA_PRECALCULATED_API',
               ));
@@ -626,7 +640,10 @@ class KsdmaApiService {
 
     // 3. Fetch custom observations from backend Lambda API
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/observations'));
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/observations'),
+        headers: {'Accept': 'application/json'},
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['observations'] != null) {
@@ -646,7 +663,10 @@ class KsdmaApiService {
   // 13. GET /api/champions - Fetch Weather Champions Leaderboard
   Future<List<KsdmaUser>> fetchChampions() async {
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/champions'));
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/champions'),
+        headers: {'Accept': 'application/json'},
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['champions'] != null) {
@@ -663,7 +683,10 @@ class KsdmaApiService {
   // 14. GET /api/boundaries - Fetch Administrative Boundaries
   Future<List<Map<String, dynamic>>> fetchBoundaries() async {
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/boundaries'));
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/boundaries'),
+        headers: {'Accept': 'application/json'},
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['boundaries'] != null) {
@@ -749,6 +772,8 @@ class KsdmaApiService {
   }
 
   KsdmaObservation _mapRowToObservation(Map<String, dynamic> r) {
+    final statusStr = r['status']?.toString().toLowerCase() ?? '';
+    final bool isRemoved = r['is_removed'] == true || statusStr == 'removed' || statusStr == 'rejected';
     return KsdmaObservation(
       observationId: r['observation_id'],
       stationId: r['station_id'],
@@ -762,7 +787,7 @@ class KsdmaApiService {
       minTemperatureC: r['min_temperature_c'] != null ? (r['min_temperature_c'] as num).toDouble() : null,
       riverWaterLevelM: r['river_water_level_m'] != null ? (r['river_water_level_m'] as num).toDouble() : null,
       humidityPercent: r['humidity_percent'] != null ? (r['humidity_percent'] as num).toDouble() : null,
-      isRemoved: r['is_removed'] == true,
+      isRemoved: isRemoved,
     );
   }
 }

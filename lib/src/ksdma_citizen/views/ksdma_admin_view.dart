@@ -77,7 +77,9 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
   Widget build(BuildContext context) {
     final state = Provider.of<KsdmaStateService>(context);
     final pending = state.pendingStations;
-    final activeObsCount = state.observations.where((o) => !o.isRemoved).length;
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final activeObsCount = state.observations.where((o) => !o.isRemoved && !o.observationDate.isBefore(todayStart)).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -504,6 +506,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
 
     final activeObs = state.observations.where((o) {
       if (o.isRemoved) return false;
+
       if (_selectedModerationDateRange == 'Today') {
         return !o.observationDate.isBefore(todayStart);
       } else if (_selectedModerationDateRange == 'Yesterday') {
