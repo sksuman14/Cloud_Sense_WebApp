@@ -596,11 +596,11 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       apiUrl =
           'https://eu81fynn70.execute-api.us-east-1.amazonaws.com/default/WS_Punjab_API?ANNAM_ID=WS_Punjab_$deviceId&startdate=$pjStartDate&enddate=$pjEndDate&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('KR')) {
-      final krDateFmt = DateFormat('yyyy-MM-dd');
+      final krDateFmt = DateFormat('dd-MM-yyyy');
       final krStartDate = krDateFmt.format(_startDate!);
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&key=${ApiKeys.annamApiKey}&mode=download';
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$krStartDate&enddate=$krEndDate&annam_id=WS_$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('AW')) {
       final krDateFmt = DateFormat('yyyy-MM-dd');
       final krStartDate = krDateFmt.format(_startDate!);

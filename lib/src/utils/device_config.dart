@@ -940,7 +940,7 @@ class DeviceConfig {
     'KR': DeviceTypeConfig(
       prefix: 'KR',
       apiTemplate:
-          'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=WS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.annamApiKey}',
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate={startdate}&enddate={enddate}&annam_id=WS_{deviceId}&key=${ApiKeys.annamApiKey}&mode=view',
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=WS_{deviceId}',
       monthHistoryApiTemplate:

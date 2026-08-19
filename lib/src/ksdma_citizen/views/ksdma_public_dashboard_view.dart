@@ -401,7 +401,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             separatorBuilder: (_, __) => const Divider(height: 1),
                             itemBuilder: (context, idx) {
                               final s = filtered[idx];
-                              final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+                              final obs = state.getTodayObservation(s.stationId);
 
                               final chips = <Widget>[];
                               final isAws = s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
@@ -1496,7 +1496,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   int countRain = 0, countHum = 0, countTemp = 0, countRiver = 0;
 
                   for (var s in activeStations) {
-                    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+                    final obs = state.getTodayObservation(s.stationId);
                     if (obs == null) continue;
 
                     if ((s.instrumentType == InstrumentType.rainGauge || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) && obs.rainfallMm != null) {
@@ -1639,7 +1639,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   if (!isCapable) continue;
                   capableStationsCount++;
 
-                  final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+                  final obs = state.getTodayObservation(s.stationId);
                   if (obs != null) {
                     double? val;
                     if (isTemp) val = obs.maxTemperatureC;
@@ -1780,7 +1780,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                         child: Column(
                           children: [
                             ...activeStations.take(5).map((s) {
-                              final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+                              final obs = state.getTodayObservation(s.stationId);
                               String valStr = '0.0 mm';
                               if (obs != null) {
                                 String effectiveParam = _appliedParam;
@@ -1966,8 +1966,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                               final yObs = state.getYesterdayObservation(s.stationId);
                               final raw = state.getWsDeviceRaw(s.stationId);
 
-                              double? tMax = tObs?.maxTemperatureC ?? double.tryParse(raw?['Temperature']?.toString() ?? '');
-                              double? tMin = tObs?.minTemperatureC ?? (tMax != null ? tMax - 3.5 : null);
+                              final rawTemp = double.tryParse(raw?['now_temperature']?.toString() ?? raw?['Maximum_Temperature']?.toString() ?? raw?['Temperature']?.toString() ?? '');
+                              double? tMax = tObs?.maxTemperatureC ?? rawTemp;
+                              double? tMin = tObs?.minTemperatureC;
                               double? yMax = yObs?.maxTemperatureC;
                               double? yMin = yObs?.minTemperatureC;
 
@@ -2035,7 +2036,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                               tVal = tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
                               yVal = yObs?.humidityPercent;
                             } else if (_activeDeltaTab == 'River Level') {
-                              tVal = tObs?.riverWaterLevelM ?? double.tryParse(raw?['AtmPressure']?.toString() ?? '');
+                              tVal = tObs?.riverWaterLevelM;
                               yVal = yObs?.riverWaterLevelM;
                             } else {
                               final rawVal = raw?['Rainfall_Cumulative'] ??
@@ -2178,6 +2179,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     String activeTab,
     String unit,
   ) {
+    final targetStations = activeTab == 'River Level'
+        ? distStations.where((s) => s.instrumentType == InstrumentType.riverGauge).toList()
+        : distStations;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 8),
@@ -2195,32 +2200,39 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               const Icon(Icons.sensors, size: 13, color: Color(0xFF1565C0)),
               const SizedBox(width: 4),
               Text(
-                'Stations in $dist (${distStations.length}):',
+                'Stations in $dist (${targetStations.length}):',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          if (distStations.isEmpty)
+
+          if (targetStations.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
               child: Text('No individual stations mapped to this district.', style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey)),
             )
           else
-            ...distStations.map((stn) {
+            ...targetStations.map((stn) {
               final tObs = state.getTodayObservation(stn.stationId);
               final yObs = state.getYesterdayObservation(stn.stationId);
               final raw = state.getWsDeviceRaw(stn.stationId);
 
               double? tVal, yVal;
               if (activeTab == 'Temperature') {
-                tVal = tObs?.maxTemperatureC ?? double.tryParse(raw?['Temperature']?.toString() ?? '');
-                yVal = yObs?.maxTemperatureC;
+                final bool isMinRow = dist.contains('(Min)');
+                if (isMinRow) {
+                  tVal = tObs?.minTemperatureC;
+                  yVal = yObs?.minTemperatureC;
+                } else {
+                  tVal = tObs?.maxTemperatureC;
+                  yVal = yObs?.maxTemperatureC;
+                }
               } else if (activeTab == 'Humidity') {
                 tVal = tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
                 yVal = yObs?.humidityPercent;
               } else if (activeTab == 'River Level') {
-                tVal = tObs?.riverWaterLevelM ?? double.tryParse(raw?['AtmPressure']?.toString() ?? '');
+                tVal = tObs?.riverWaterLevelM;
                 yVal = yObs?.riverWaterLevelM;
               } else {
                 final rawVal = raw?['Rainfall_Cumulative'] ??

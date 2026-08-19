@@ -425,6 +425,26 @@ class KsdmaApiService {
     return null;
   }
 
+  double? _extractTemperature(Map item) {
+    final raw = item['now_temperature'] ?? item['temperature'];
+    if (raw == null) return null;
+    final val = double.tryParse(raw.toString().trim());
+    if (val != null && val > -50 && val < 70 && val != 0.0) {
+      return val;
+    }
+    return null;
+  }
+
+  double? _extractHumidity(Map item) {
+    final raw = item['now_relative_humidity'] ??
+                item['Maximum_Relative_Humidity'] ??
+                item['Humidity'] ??
+                item['humidity'] ??
+                item['now_humidity'];
+    if (raw == null) return null;
+    return double.tryParse(raw.toString().trim());
+  }
+
   double? _extractRainfall(Map item) {
     final raw = item['Rainfall_Cumulative'] ??
                 item['RainfallCumulative'] ??
@@ -438,17 +458,17 @@ class KsdmaApiService {
     return double.tryParse(raw?.toString() ?? '');
   }
 
-  /// Fetch Today's and Yesterday's full AWS telemetry via WS_Kerala_API
-  /// Calculates real 24h Cumulative Rainfall, Max/Min Temp, and Average Humidity for both Today and Yesterday.
+  /// Fetch Today's and Yesterday's full AWS telemetry via new pre-calculated keraladata API
+  /// Uses server-calculated Maximum_Temperature, Minimum_Temperature, Average_Humidity, and Total_Rainfall
   Future<List<KsdmaObservation>> fetchTodayAndYesterdayAwsObservations(List<String> deviceIds) async {
     final List<KsdmaObservation> awsObsList = [];
     final now = DateTime.now();
-    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final todayStr = DateFormat('dd-MM-yyyy').format(now);
     final yesterday = now.subtract(const Duration(days: 1));
-    final yestStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    final yestStr = DateFormat('dd-MM-yyyy').format(yesterday);
 
-    // Batch requests in chunks of 6 to fit browser HTTP connection pool limits
-    const chunkSize = 6;
+    // Batch requests in chunks of 12 for fast parallel loading
+    const chunkSize = 12;
     for (int i = 0; i < deviceIds.length; i += chunkSize) {
       final chunk = deviceIds.sublist(i, i + chunkSize > deviceIds.length ? deviceIds.length : i + chunkSize);
       final futures = chunk.map((devId) async {
@@ -457,130 +477,85 @@ class KsdmaApiService {
           final formattedDevId = 'WS_$cleanNum';
           final encodedKey = Uri.encodeComponent(ApiKeys.annamApiKey);
 
-          final String urlYest = 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=$formattedDevId&startdate=$yestStr&enddate=$yestStr&key=$encodedKey';
-          final String urlToday = 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=$formattedDevId&startdate=$todayStr&enddate=$todayStr&key=$encodedKey';
+          final String urlYest = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$yestStr&enddate=$yestStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
+          final String urlToday = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$todayStr&enddate=$todayStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
 
           final responses = await Future.wait([
-            http.get(Uri.parse(urlYest)).timeout(const Duration(seconds: 12)),
-            http.get(Uri.parse(urlToday)).timeout(const Duration(seconds: 12)),
+            http.get(Uri.parse(urlYest)).timeout(const Duration(seconds: 25)),
+            http.get(Uri.parse(urlToday)).timeout(const Duration(seconds: 25)),
           ]);
 
           final List<KsdmaObservation> devObs = [];
 
-          // 1. Process Yesterday Response
-          final resYest = responses[0];
-          if (resYest.statusCode == 200) {
-            final dynamic body = jsonDecode(resYest.body);
-            List items = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
-            if (items.isNotEmpty) {
-              items.sort((a, b) {
-                final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-                final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-                return dtA.compareTo(dtB);
-              });
-              double? maxTemp, minTemp, peakRain;
-              double totalHum = 0;
-              int humCount = 0;
+          // Helper to extract observation from Calculated or items
+          void parseAndAddObservation(http.Response response, DateTime targetDate, String label) {
+            if (response.statusCode != 200) return;
+            final dynamic body = jsonDecode(response.body);
 
-              for (var item in items) {
-                final t = double.tryParse(item['Temperature']?.toString() ?? '');
-                if (t != null) {
-                  if (maxTemp == null || t > maxTemp) maxTemp = t;
-                  if (minTemp == null || t < minTemp) minTemp = t;
+            double? maxTemp, minTemp, avgHum, totalRain;
+
+            if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+              final calc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+              maxTemp = double.tryParse(calc['Maximum_Temperature']?.toString() ?? '');
+              minTemp = double.tryParse(calc['Minimum_Temperature']?.toString() ?? '');
+              avgHum = double.tryParse(calc['Average_Humidity']?.toString() ?? '');
+              totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
+            } else {
+              // Fallback to item-by-item parsing if Calculated field is missing
+              List items = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
+              if (items.isNotEmpty) {
+                items.sort((a, b) {
+                  final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                  final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                  return dtA.compareTo(dtB);
+                });
+                double totalH = 0;
+                int humCount = 0;
+
+                for (var item in items) {
+                  final t = _extractTemperature(item);
+                  if (t != null) {
+                    if (maxTemp == null || t > maxTemp) maxTemp = t;
+                    if (minTemp == null || t < minTemp) minTemp = t;
+                  }
+                  final h = _extractHumidity(item);
+                  if (h != null) {
+                    totalH += h;
+                    humCount++;
+                  }
                 }
-                final h = double.tryParse(item['Humidity']?.toString() ?? '');
-                if (h != null) {
-                  totalHum += h;
-                  humCount++;
+                if (humCount > 0) avgHum = double.parse((totalH / humCount).toStringAsFixed(1));
+                for (int idx = items.length - 1; idx >= 0; idx--) {
+                  final r = _extractRainfall(items[idx]);
+                  if (r != null) {
+                    totalRain = r;
+                    break;
+                  }
                 }
               }
+            }
 
-              // Extract last available cumulative rainfall for Yesterday
-              for (int idx = items.length - 1; idx >= 0; idx--) {
-                final r = _extractRainfall(items[idx]);
-                if (r != null) {
-                  peakRain = r;
-                  break;
-                }
-              }
-
-              double? avgHum = humCount > 0 ? double.parse((totalHum / humCount).toStringAsFixed(1)) : null;
-              final obsDt = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59);
-
+            if (maxTemp != null || minTemp != null || avgHum != null || totalRain != null) {
+              final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
               devObs.add(KsdmaObservation(
-                observationId: 'obs_${devId}_yesterday',
+                observationId: 'obs_${devId}_$label',
                 stationId: devId,
                 submittedByUserId: 'aws_sensor_network',
-                observationDate: yesterday,
-                observationTime: const TimeOfDay(hour: 23, minute: 59),
+                observationDate: targetDate,
+                observationTime: TimeOfDay(hour: targetDate.hour, minute: targetDate.minute),
                 submissionTimestamp: obsDt,
-                rainfallMm: peakRain ?? 0.0,
+                rainfallMm: totalRain ?? 0.0,
                 maxTemperatureC: maxTemp,
                 minTemperatureC: minTemp,
                 humidityPercent: avgHum,
                 riverWaterLevelM: null,
-                source: 'WS_KERALA_HISTORICAL_API',
+                source: 'WS_KERALA_PRECALCULATED_API',
               ));
             }
           }
 
-          // 2. Process Today Response
-          final resToday = responses[1];
-          if (resToday.statusCode == 200) {
-            final dynamic body = jsonDecode(resToday.body);
-            List items = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
-            if (items.isNotEmpty) {
-              items.sort((a, b) {
-                final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-                final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-                return dtA.compareTo(dtB);
-              });
-              final lastItem = items.last;
-              double? maxTemp, minTemp, peakRain;
-              double totalHum = 0;
-              int humCount = 0;
-
-              for (var item in items) {
-                final t = double.tryParse(item['Temperature']?.toString() ?? '');
-                if (t != null) {
-                  if (maxTemp == null || t > maxTemp) maxTemp = t;
-                  if (minTemp == null || t < minTemp) minTemp = t;
-                }
-                final h = double.tryParse(item['Humidity']?.toString() ?? '');
-                if (h != null) {
-                  totalHum += h;
-                  humCount++;
-                }
-              }
-
-              // Extract last available cumulative rainfall for Today
-              for (int idx = items.length - 1; idx >= 0; idx--) {
-                final r = _extractRainfall(items[idx]);
-                if (r != null) {
-                  peakRain = r;
-                  break;
-                }
-              }
-
-              double? avgHum = humCount > 0 ? double.parse((totalHum / humCount).toStringAsFixed(1)) : null;
-              final lastDt = _parseTimeStamp(lastItem['TimeStamp']) ?? now;
-
-              devObs.add(KsdmaObservation(
-                observationId: 'obs_${devId}_today_${lastDt.millisecondsSinceEpoch}',
-                stationId: devId,
-                submittedByUserId: 'aws_sensor_network',
-                observationDate: lastDt,
-                observationTime: TimeOfDay(hour: lastDt.hour, minute: lastDt.minute),
-                submissionTimestamp: lastDt,
-                rainfallMm: peakRain ?? 0.0,
-                maxTemperatureC: maxTemp,
-                minTemperatureC: minTemp,
-                humidityPercent: avgHum,
-                riverWaterLevelM: null,
-                source: 'WS_KERALA_HISTORICAL_API',
-              ));
-            }
-          }
+          parseAndAddObservation(responses[0], yesterday, 'yesterday');
+          parseAndAddObservation(responses[1], now, 'today');
 
           return devObs;
         } catch (e) {
