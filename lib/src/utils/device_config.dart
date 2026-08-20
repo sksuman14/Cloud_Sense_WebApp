@@ -851,7 +851,7 @@ class DeviceConfig {
     'AM': DeviceTypeConfig(
       prefix: 'AM',
       apiTemplate:
-          'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP{deviceIdPadded2}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=Annam@2025',
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata?startdate={startdate}&enddate={enddate}&annam_id=ANNAM_CP{deviceIdPadded2}&key=Annam@2025&mode=view',
       hasWind: true,
       hasRainfall: true,
       hasWeatherForecasting: true,
@@ -895,7 +895,7 @@ class DeviceConfig {
     'PJ': DeviceTypeConfig(
       prefix: 'PJ',
       apiTemplate:
-          'https://eu81fynn70.execute-api.us-east-1.amazonaws.com/default/WS_Punjab_API?ANNAM_ID=WS_Punjab_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}&key=${ApiKeys.annamApiKey}',
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/punjabdata?startdate={startdate}&enddate={enddate}&annam_id=WS_Punjab_{deviceId}&key=${ApiKeys.annamApiKey}&mode=view',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -993,7 +993,7 @@ class DeviceConfig {
     'AW': DeviceTypeConfig(
       prefix: 'AW',
       apiTemplate:
-          'https://ag25teqhvi.execute-api.us-east-1.amazonaws.com/default/AWS_Api_Function?ANNAM_ID=AWS_{deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}',
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata?startdate={startdate}&enddate={enddate}&annam_id=AWS_{deviceId}&key=${ApiKeys.annamApiKey}&mode=view',
       hasWind: true,
       hasRainfall: true,
       parameters: [
@@ -1223,7 +1223,7 @@ class DeviceConfig {
     'AT': DeviceTypeConfig(
       prefix: 'AT',
       apiTemplate:
-          'https://2xdgr2sgud.execute-api.us-east-1.amazonaws.com/default/AWS_Testing_API?ANNAM_ID={deviceId}&startdate={startdate_yyyy_mm_dd}&enddate={enddate_yyyy_mm_dd}',
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata?startdate={startdate}&enddate={enddate}&annam_id={deviceId}&key=${ApiKeys.annamApiKey}&mode=view',
       hasWind: true,
       hasRainfall: true,
       parameters: [

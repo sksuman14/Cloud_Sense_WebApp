@@ -819,13 +819,16 @@ class DevicePrefixUtils {
       case 'IT':
         return 'https://hg6lmrdyee.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Awadh_IITB';
       case 'AM':
-        return 'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function';
+        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata';
+      case 'PJ':
+        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/punjabdata';
       case 'WT':
         return 'https://uqevvzptx7.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_API_Weather_Sensor';
       case 'KR':
-        return 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API';
+        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata';
       case 'AW':
-        return 'https://ag25teqhvi.execute-api.us-east-1.amazonaws.com/default/AWS_Api_Function';
+      case 'AT':
+        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata';
       case 'SH':
         return 'https://915gy7u30a.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Shobha';
       default:

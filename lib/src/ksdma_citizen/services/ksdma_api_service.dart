@@ -33,36 +33,69 @@ class KsdmaApiService {
     return false;
   }
 
-  // 0. POST /api/send-otp - Request OTP via Backend AWS API
-  Future<String?> requestOtp({required String identifier, String email = '', String mobileNumber = ''}) async {
+  String? jwtToken;
+
+  Map<String, String> get authHeaders => {
+    'Content-Type': 'application/json',
+    if (jwtToken != null && jwtToken!.isNotEmpty) 'Authorization': 'Bearer $jwtToken',
+  };
+
+  // 0. POST /api/send-otp - Request Password Reset OTP via AWS API
+  Future<Map<String, dynamic>> requestPasswordReset(String identifier) async {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/send-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'identifier': identifier,
-          'email': email.isNotEmpty ? email : (identifier.contains('@') ? identifier : ''),
-          'mobile_number': mobileNumber.isNotEmpty ? mobileNumber : (!identifier.contains('@') ? identifier : ''),
+          'identifier': identifier.trim(),
+          'email': identifier.contains('@') ? identifier.trim() : '',
+          'mobile_number': !identifier.contains('@') ? identifier.trim() : '',
         }),
       );
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> body = jsonDecode(response.body);
-        if (body['success'] == true && body['otp'] != null) {
-          return body['otp'].toString();
-        }
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return {'success': true, 'message': body['message'] ?? 'OTP sent successfully.'};
       }
+      return {'success': false, 'message': body['message'] ?? 'Failed to send OTP.'};
     } catch (e) {
-      print('Error requesting OTP via API: $e');
+      print('Error requesting reset OTP: $e');
+      return {'success': false, 'message': 'Network error. Please try again.'};
     }
-    return null;
   }
 
-  // 1. POST /api/register - Register New User
-  Future<KsdmaUser?> registerUser({
+  // 0.8 POST /api/reset-password - Verify OTP and Reset Password
+  Future<Map<String, dynamic>> resetPassword({
+    required String identifier,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'identifier': identifier.trim(),
+          'otp': otp.trim(),
+          'new_password': newPassword.trim(),
+        }),
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return {'success': true, 'message': body['message'] ?? 'Password reset successful.'};
+      }
+      return {'success': false, 'message': body['message'] ?? 'Invalid or expired OTP.'};
+    } catch (e) {
+      print('Error resetting password: $e');
+      return {'success': false, 'message': 'Network error. Please try again.'};
+    }
+  }
+
+  // 1. POST /api/register - Register New User with Password & receive JWT Token
+  Future<Map<String, dynamic>> registerUser({
     required String fullName,
     required String mobileNumber,
     required String email,
-    String password = '',
+    required String password,
     UserRole role = UserRole.volunteer,
     required UserCategory category,
   }) async {
@@ -82,22 +115,34 @@ class KsdmaApiService {
           'role_category': category.name,
         }),
       );
+      final Map<String, dynamic> body = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['user'] != null) {
-          return _mapRowToUser(body['user']);
+          if (body['token'] != null) {
+            jwtToken = body['token'].toString();
+          }
+          return {
+            'success': true,
+            'user': _mapRowToUser(body['user']),
+            'token': jwtToken,
+          };
         }
-      } else {
-        print('⚠️ Register API Error status: ${response.statusCode}, body: ${response.body}');
       }
+      return {
+        'success': false,
+        'message': body['message'] ?? 'Registration failed. Please try again.',
+      };
     } catch (e) {
       print('❌ Error registering user via API: $e');
+      return {'success': false, 'message': 'Server unreachable. Please try again.'};
     }
-    return null;
   }
 
-  // 2. POST /api/login - Login via Mobile Number
-  Future<KsdmaUser?> loginUserWithPhone(String identifier) async {
+  // 2. POST /api/login - Production Password Login with JWT Token Generation
+  Future<Map<String, dynamic>> loginUserWithCredentials({
+    required String identifier,
+    required String password,
+  }) async {
     try {
       final isEmail = identifier.contains('@');
       final cleanNum = isEmail ? '' : identifier.replaceAll(RegExp(r'\D'), '');
@@ -107,33 +152,44 @@ class KsdmaApiService {
         body: jsonEncode({
           'mobile_number': !isEmail ? (cleanNum.isNotEmpty ? cleanNum : identifier) : '',
           'email': isEmail ? identifier.trim() : '',
+          'password': password,
         }),
       );
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> body = jsonDecode(response.body);
-        if (body['success'] == true && body['user'] != null) {
-          return _mapRowToUser(body['user']);
+      final Map<String, dynamic> body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true && body['user'] != null) {
+        if (body['token'] != null) {
+          jwtToken = body['token'].toString();
         }
-      } else {
-        print('⚠️ Login API Error status: ${response.statusCode}, body: ${response.body}');
+        return {
+          'success': true,
+          'user': _mapRowToUser(body['user']),
+          'token': jwtToken,
+        };
       }
+      return {
+        'success': false,
+        'message': body['message'] ?? 'Invalid credentials. Please check your password.',
+      };
     } catch (e) {
       print('❌ Error logging in user via API: $e');
+      return {'success': false, 'message': 'Server unreachable. Please try again.'};
     }
-    return null;
   }
 
   // 3. POST /api/login - Officer / Admin Email Login
-  Future<Map<String, dynamic>> loginUserWithEmail(String email, String role) async {
+  Future<Map<String, dynamic>> loginUserWithEmail(String email, String role, {String password = ''}) async {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'role': role}),
+        body: jsonEncode({'email': email, 'role': role, 'password': password}),
       );
       final Map<String, dynamic> body = jsonDecode(response.body);
       if (response.statusCode == 200 && body['success'] == true && body['user'] != null) {
-        return {'success': true, 'user': _mapRowToUser(body['user'])};
+        if (body['token'] != null) {
+          jwtToken = body['token'].toString();
+        }
+        return {'success': true, 'user': _mapRowToUser(body['user']), 'token': jwtToken};
       }
       return {'success': false, 'message': body['message'] ?? 'Login failed.'};
     } catch (e) {
@@ -561,7 +617,7 @@ class KsdmaApiService {
                 maxTemperatureC: maxTemp,
                 minTemperatureC: minTemp,
                 humidityPercent: maxHum ?? avgHum,
-                avgHumidityPercent: avgHum,
+      
                 riverWaterLevelM: null,
                 source: 'WS_KERALA_PRECALCULATED_API',
               ));

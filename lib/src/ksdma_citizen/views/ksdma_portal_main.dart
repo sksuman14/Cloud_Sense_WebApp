@@ -30,10 +30,15 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
   bool _isMapViewExpanded = true;
   String? _targetObservationStationId;
 
+  bool _hasInitializedInitialMenu = false;
+
   @override
   void initState() {
     super.initState();
     _activeMenuIndex = widget.initialMenuIndex;
+    if (widget.initialMenuIndex != 0) {
+      _hasInitializedInitialMenu = true;
+    }
   }
 
   @override
@@ -47,6 +52,18 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
           final isAdmin = userRole == UserRole.admin || userCategory == UserCategory.adminHq || state.currentUser.fullName.contains('Admin');
           final isOfficer = userRole == UserRole.officer || userCategory == UserCategory.districtOfficer || state.currentUser.fullName.contains('Officer');
           final isVolunteer = !isAdmin && !isOfficer;
+
+          // Perform initial menu targeting ONCE on load, so user can freely click "Dashboard" (0) later
+          if (!_hasInitializedInitialMenu && state.isLoggedIn) {
+            _hasInitializedInitialMenu = true;
+            if (widget.initialMenuIndex == 0) {
+              if (isAdmin) {
+                _activeMenuIndex = 7; // Admin HQ Dashboard default on initial load
+              } else if (isOfficer) {
+                _activeMenuIndex = 3; // Officer Reports default on initial load
+              }
+            }
+          }
 
           return LayoutBuilder(
             builder: (context, constraints) {

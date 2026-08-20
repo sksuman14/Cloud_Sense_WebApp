@@ -38,12 +38,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   final _adminEmailController = TextEditingController();
   final _adminPassController = TextEditingController();
 
-  bool _isOtpSent = false;
-  bool _usePasswordForLogin = false;
   bool _isSignUpMode = false;
-  bool _isRegisterOtpSent = false;
-  String? _serverLoginOtp;
-  String? _serverRegisterOtp;
 
   // Volunteer registration controllers
   final _signupNameCtrl = TextEditingController();
@@ -262,7 +257,6 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 TextButton(
                   onPressed: () => setState(() {
                     _isSignUpMode = false;
-                    _isRegisterOtpSent = false;
                   }),
                   style: TextButton.styleFrom(
                     foregroundColor: isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
@@ -350,20 +344,6 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 if (v != null) setState(() => _signupCategory = v);
               },
             ),
-            if (_isRegisterOtpSent) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _signupOtpCtrl,
-                keyboardType: TextInputType.number,
-                style: textStyle,
-                decoration: _buildInputDecoration(
-                  label: 'Enter 6-Digit Registration OTP *',
-                  hintText: 'e.g. 123456',
-                  icon: Icons.mark_email_read_outlined,
-                  isDark: isDark,
-                ),
-              ),
-            ],
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -372,57 +352,27 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 onPressed: () async {
                   if (_signupNameCtrl.text.trim().isEmpty) { _showError('Full Name is mandatory!'); return; }
                   if (_signupPhoneCtrl.text.trim().isEmpty) { _showError('Mobile Number is mandatory!'); return; }
-                  if (_signupEmailCtrl.text.trim().isEmpty) { _showError('Email Address is mandatory for Email OTP verification!'); return; }
+                  if (_signupEmailCtrl.text.trim().isEmpty) { _showError('Email Address is mandatory!'); return; }
                   if (_signupPasswordCtrl.text.trim().isEmpty) { _showError('Password is mandatory!'); return; }
 
-                  if (!_isRegisterOtpSent) {
-                    final phoneTarget = _signupPhoneCtrl.text.trim();
-                    final emailTarget = _signupEmailCtrl.text.trim();
-                    final generatedOtp = await widget.stateService.apiService.requestOtp(
-                      identifier: emailTarget.isNotEmpty ? emailTarget : phoneTarget,
-                      email: emailTarget,
-                      mobileNumber: phoneTarget,
-                    );
-                    setState(() {
-                      _isRegisterOtpSent = true;
-                      _serverRegisterOtp = generatedOtp ?? '123456';
-                    });
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('📱 6-Digit Verification OTP sent successfully to $emailTarget'),
-                          backgroundColor: Colors.blue.shade900,
-                          duration: const Duration(seconds: 5),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                    return;
-                  }
-
-                  if (_signupOtpCtrl.text.trim().length != 6 && _signupOtpCtrl.text.trim() != _serverRegisterOtp) {
-                    _showError('Please enter valid 6-Digit Verification OTP sent to your Email!');
-                    return;
-                  }
-
-                  final success = await widget.stateService.registerAndLoginUser(
+                  final result = await widget.stateService.registerAndLoginUser(
                     fullName: _signupNameCtrl.text.trim(),
                     mobileNumber: _signupPhoneCtrl.text.trim(),
-                    email: _signupEmailCtrl.text.trim().isNotEmpty ? _signupEmailCtrl.text.trim() : '${_signupPhoneCtrl.text.trim()}@ksdma.kerala.gov.in',
+                    email: _signupEmailCtrl.text.trim(),
                     password: _signupPasswordCtrl.text.trim(),
                     role: UserRole.volunteer,
                     category: _signupCategory,
                   );
 
                   if (context.mounted) {
-                    if (success) {
+                    if (result['success'] == true) {
                       Navigator.of(context).pop();
                       widget.onLoginSuccess?.call(0);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✅ User registered successfully & logged in!'), backgroundColor: Colors.green),
+                        const SnackBar(content: Text('✅ Account created & logged in successfully!'), backgroundColor: Colors.green),
                       );
                     } else {
-                      _showError('Registration failed. Please try again.');
+                      _showError(result['message'] ?? 'Registration failed. Please try again.');
                     }
                   }
                 },
@@ -431,9 +381,9 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: Text(
-                  _isRegisterOtpSent ? 'Verify OTP & Create Account' : 'Send Registration OTP',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                child: const Text(
+                  'Create Account & Sign In',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
             ),
@@ -442,6 +392,172 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
       );
     }
 
+    return _buildVolunteerLoginForm(isDark, textStyle, btnBgColor);
+  }
+
+  void _showForgotPasswordDialog(BuildContext context, bool isDark) {
+    final identifierCtrl = TextEditingController(text: _volunteerPhoneController.text);
+    final otpCtrl = TextEditingController();
+    final newPassCtrl = TextEditingController();
+    bool isOtpSent = false;
+    bool isLoading = false;
+    String statusMsg = '';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1E202E) : Colors.white,
+              title: Row(
+                children: [
+                  const Icon(Icons.lock_reset, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Reset Password',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (statusMsg.isNotEmpty) ...[
+                      Text(
+                        statusMsg,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: statusMsg.startsWith('✅') ? Colors.green : Colors.amber.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    TextField(
+                      controller: identifierCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
+                      decoration: _buildInputDecoration(
+                        label: 'Registered Email Address *',
+                        hintText: 'e.g. user@gmail.com',
+                        icon: Icons.email_outlined,
+                        isDark: isDark,
+                      ),
+                    ),
+                    if (isOtpSent) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: otpCtrl,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
+                        decoration: _buildInputDecoration(
+                          label: '6-Digit Reset OTP *',
+                          hintText: 'Check Email Inbox / Spam',
+                          icon: Icons.mark_email_read_outlined,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: newPassCtrl,
+                        obscureText: true,
+                        style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
+                        decoration: _buildInputDecoration(
+                          label: 'New Password *',
+                          hintText: 'Enter new password',
+                          icon: Icons.lock_outline,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          if (identifierCtrl.text.trim().isEmpty) {
+                            setDialogState(() => statusMsg = 'Please enter your Registered Email Address!');
+                            return;
+                          }
+                          if (!identifierCtrl.text.trim().contains('@')) {
+                            setDialogState(() => statusMsg = 'Please enter a valid Email Address!');
+                            return;
+                          }
+                          if (!isOtpSent) {
+                            setDialogState(() {
+                              isLoading = true;
+                              statusMsg = 'Sending Reset OTP to Email...';
+                            });
+                            final res = await widget.stateService.apiService.requestPasswordReset(identifierCtrl.text.trim());
+                            setDialogState(() {
+                              isLoading = false;
+                              if (res['success'] == true) {
+                                isOtpSent = true;
+                                statusMsg = '✅ Reset OTP sent! Please check your Email Inbox.';
+                              } else {
+                                statusMsg = res['message'] ?? 'Failed to send OTP.';
+                              }
+                            });
+                          } else {
+                            if (otpCtrl.text.trim().isEmpty || newPassCtrl.text.trim().isEmpty) {
+                              setDialogState(() => statusMsg = 'OTP and New Password are required!');
+                              return;
+                            }
+                            setDialogState(() {
+                              isLoading = true;
+                              statusMsg = 'Updating Password...';
+                            });
+                            final res = await widget.stateService.apiService.resetPassword(
+                              identifier: identifierCtrl.text.trim(),
+                              otp: otpCtrl.text.trim(),
+                              newPassword: newPassCtrl.text.trim(),
+                            );
+                            setDialogState(() => isLoading = false);
+                            if (res['success'] == true) {
+                              if (context.mounted) {
+                                Navigator.of(dialogCtx).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('✅ ${res['message']}'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } else {
+                              setDialogState(() => statusMsg = res['message'] ?? 'Failed to reset password.');
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(isOtpSent ? 'Set New Password' : 'Send Reset OTP'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildVolunteerLoginForm(bool isDark, TextStyle textStyle, Color btnBgColor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -457,61 +573,41 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
           ),
         ),
         const SizedBox(height: 10),
-
-        if (_usePasswordForLogin) ...[
-          TextField(
-            controller: _volunteerPassController,
-            obscureText: true,
-            style: textStyle,
-            decoration: _buildInputDecoration(
-              label: 'Password *',
-              hintText: 'Enter your account password',
-              icon: Icons.lock_outline,
-              isDark: isDark,
-            ),
+        TextField(
+          controller: _volunteerPassController,
+          obscureText: true,
+          style: textStyle,
+          decoration: _buildInputDecoration(
+            label: 'Password *',
+            hintText: 'Enter your account password',
+            icon: Icons.lock_outline,
+            isDark: isDark,
           ),
-        ] else if (_isOtpSent) ...[
-          TextField(
-            controller: _volunteerOtpController,
-            keyboardType: TextInputType.number,
-            style: textStyle,
-            decoration: _buildInputDecoration(
-              label: 'Enter 6-Digit OTP *',
-              hintText: 'e.g. 123456',
-              icon: Icons.mark_email_read_outlined,
-              isDark: isDark,
-            ),
-          ),
-        ],
-
+        ),
         const SizedBox(height: 4),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             TextButton.icon(
-              onPressed: () => setState(() {
-                _usePasswordForLogin = !_usePasswordForLogin;
-                _isOtpSent = false;
-              }),
+              onPressed: () => _showForgotPasswordDialog(context, isDark),
               icon: Icon(
-                _usePasswordForLogin ? Icons.mobile_friendly : Icons.vpn_key,
+                Icons.lock_reset,
                 size: 14,
-                color: isDark ? Colors.grey.shade400 : Colors.blueGrey,
+                color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
               ),
               label: Text(
-                _usePasswordForLogin ? 'Login via OTP instead' : 'Login via Password instead',
+                'Forgot Password?',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.grey.shade300 : Colors.blueGrey.shade700,
+                  color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
                 ),
               ),
             ),
             TextButton(
               onPressed: () => setState(() {
                 _isSignUpMode = true;
-                _isRegisterOtpSent = false;
               }),
               child: Text(
                 '➕ Create New Account',
@@ -532,63 +628,31 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
           child: ElevatedButton(
             onPressed: () async {
               if (_volunteerPhoneController.text.trim().isEmpty) {
-                _showError('Mobile Number is mandatory!');
+                _showError('Mobile Number or Email is mandatory!');
+                return;
+              }
+              if (_volunteerPassController.text.trim().isEmpty) {
+                _showError('Password is mandatory!');
                 return;
               }
 
-              if (_usePasswordForLogin) {
-                if (_volunteerPassController.text.trim().isEmpty) {
-                  _showError('Password is mandatory!');
-                  return;
-                }
-                final success = await widget.stateService.loginUserWithPhone(_volunteerPhoneController.text.trim());
-                if (context.mounted) {
-                  if (success) {
-                    Navigator.of(context).pop();
-                    widget.onLoginSuccess?.call(0);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Logged in successfully as ${widget.stateService.currentUser.fullName}'), backgroundColor: Colors.green),
-                    );
-                  } else {
-                    _showError('Account not found for this Email / Mobile Number. Please click "+ Create New Account" to register!');
-                  }
-                }
-              } else {
-                if (!_isOtpSent) {
-                  final target = _volunteerPhoneController.text.trim();
-                  final generatedOtp = await widget.stateService.apiService.requestOtp(identifier: target);
-                  setState(() {
-                    _isOtpSent = true;
-                    _serverLoginOtp = generatedOtp ?? '1234';
-                  });
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('📱 Login Verification OTP sent successfully to $target'),
-                        backgroundColor: Colors.blue.shade900,
-                        duration: const Duration(seconds: 4),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                  return;
+              final result = await widget.stateService.loginUserWithCredentials(
+                identifier: _volunteerPhoneController.text.trim(),
+                password: _volunteerPassController.text.trim(),
+              );
+
+              if (context.mounted) {
+                if (result['success'] == true) {
+                  Navigator.of(context).pop();
+                  widget.onLoginSuccess?.call(0);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Logged in successfully as ${widget.stateService.currentUser.fullName}'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 } else {
-                  if (_volunteerOtpController.text.trim().length != 6 && _volunteerOtpController.text.trim() != _serverLoginOtp) {
-                    _showError('Please enter valid 6-Digit Login OTP sent to your Email!');
-                    return;
-                  }
-                  final success = await widget.stateService.loginUserWithPhone(_volunteerPhoneController.text.trim());
-                  if (context.mounted) {
-                    if (success) {
-                      Navigator.of(context).pop();
-                      widget.onLoginSuccess?.call(0);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Logged in successfully as ${widget.stateService.currentUser.fullName}'), backgroundColor: Colors.green),
-                      );
-                    } else {
-                      _showError('Account not found for this Email / Mobile Number. Please click "+ Create New Account" to register!');
-                    }
-                  }
+                  _showError(result['message'] ?? 'Login failed. Please check your password or register.');
                 }
               }
             },
@@ -597,11 +661,9 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text(
-              _usePasswordForLogin
-                  ? 'Sign In with Password'
-                  : (_isOtpSent ? 'Verify OTP & Sign In' : 'Send OTP'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            child: const Text(
+              'Sign In with Password',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
         ),
@@ -676,7 +738,11 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
               if (_officerEmailController.text.trim().isEmpty) { _showError('Officer Email is mandatory!'); return; }
               if (_officerPassController.text.trim().isEmpty) { _showError('Password is mandatory!'); return; }
 
-              final error = await widget.stateService.loginUserWithEmail(_officerEmailController.text.trim(), 'OFFICER');
+              final error = await widget.stateService.loginUserWithEmail(
+                _officerEmailController.text.trim(),
+                'OFFICER',
+                password: _officerPassController.text.trim(),
+              );
               if (context.mounted) {
                 if (error == null) {
                   Navigator.of(context).pop();
@@ -773,7 +839,11 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
               if (_adminEmailController.text.trim().isEmpty) { _showError('Admin Email is mandatory!'); return; }
               if (_adminPassController.text.trim().isEmpty) { _showError('Master Key is mandatory!'); return; }
 
-              final error = await widget.stateService.loginUserWithEmail(_adminEmailController.text.trim(), 'ADMIN');
+              final error = await widget.stateService.loginUserWithEmail(
+                _adminEmailController.text.trim(),
+                'ADMIN',
+                password: _adminPassController.text.trim(),
+              );
               if (context.mounted) {
                 if (error == null) {
                   Navigator.of(context).pop();

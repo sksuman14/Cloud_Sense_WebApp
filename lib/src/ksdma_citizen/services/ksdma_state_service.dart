@@ -135,17 +135,33 @@ class KsdmaStateService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final savedName = prefs.getString('ksdma_user_name');
       final savedCategoryStr = prefs.getString('ksdma_user_category');
+      final savedRoleStr = prefs.getString('ksdma_user_role');
+      final savedToken = prefs.getString('ksdma_jwt_token');
+
+      if (savedToken != null && savedToken.isNotEmpty) {
+        apiService.jwtToken = savedToken;
+      }
 
       if (savedName != null && savedName.isNotEmpty && savedCategoryStr != null) {
         final cat = UserCategory.values.firstWhere(
           (e) => e.name == savedCategoryStr,
           orElse: () => UserCategory.generalPublic,
         );
+        final role = UserRole.values.firstWhere(
+          (e) => e.name == savedRoleStr,
+          orElse: () {
+            if (cat == UserCategory.adminHq || savedName.contains('Admin')) return UserRole.admin;
+            if (cat == UserCategory.districtOfficer || savedName.contains('Officer')) return UserRole.officer;
+            return UserRole.volunteer;
+          },
+        );
+
         currentUser = KsdmaUser(
           userId: prefs.getString('ksdma_user_id') ?? '',
           fullName: savedName,
           mobileNumber: prefs.getString('ksdma_user_phone') ?? '',
           email: prefs.getString('ksdma_user_email') ?? '',
+          role: role,
           category: cat,
           district: prefs.getString('ksdma_user_district') ?? '',
           taluk: prefs.getString('ksdma_user_taluk') ?? '',
@@ -306,16 +322,16 @@ class KsdmaStateService extends ChangeNotifier {
     await fetchStationsIfNeeded(forceRefresh: true);
   }
 
-  // Register & Login Real User via AWS RDS
-  Future<bool> registerAndLoginUser({
+  // Register & Login Real User via AWS RDS with JWT Token
+  Future<Map<String, dynamic>> registerAndLoginUser({
     required String fullName,
     required String mobileNumber,
     required String email,
-    String password = '',
+    required String password,
     UserRole role = UserRole.volunteer,
     required UserCategory category,
   }) async {
-    final user = await apiService.registerUser(
+    final result = await apiService.registerUser(
       fullName: fullName,
       mobileNumber: mobileNumber,
       email: email,
@@ -324,7 +340,8 @@ class KsdmaStateService extends ChangeNotifier {
       category: category,
     );
 
-    if (user != null) {
+    if (result['success'] == true && result['user'] != null) {
+      final user = result['user'] as KsdmaUser;
       currentUser = user;
       isLoggedIn = true;
       if (!_champions.any((c) => c.userId == user.userId)) {
@@ -334,43 +351,66 @@ class KsdmaStateService extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('ksdma_user_name', user.fullName);
         await prefs.setString('ksdma_user_category', user.category.name);
+        await prefs.setString('ksdma_user_role', user.role.name);
         await prefs.setString('ksdma_user_id', user.userId);
         await prefs.setString('ksdma_user_email', user.email);
         await prefs.setString('ksdma_user_phone', user.mobileNumber);
+        if (result['token'] != null) {
+          await prefs.setString('ksdma_jwt_token', result['token'].toString());
+        }
       } catch (_) {}
       notifyListeners();
       _loadLiveData();
-      return true;
+      return {'success': true, 'user': user};
     }
-    return false;
+    return {'success': false, 'message': result['message'] ?? 'Registration failed.'};
   }
 
-  Future<bool> loginUserWithPhone(String mobileNumber) async {
-    final user = await apiService.loginUserWithPhone(mobileNumber);
-    if (user != null) {
+  // Password Login with JWT Token Storage
+  Future<Map<String, dynamic>> loginUserWithCredentials({
+    required String identifier,
+    required String password,
+  }) async {
+    final result = await apiService.loginUserWithCredentials(
+      identifier: identifier,
+      password: password,
+    );
+    if (result['success'] == true && result['user'] != null) {
+      final user = result['user'] as KsdmaUser;
       currentUser = user;
       isLoggedIn = true;
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('ksdma_user_name', user.fullName);
         await prefs.setString('ksdma_user_category', user.category.name);
+        await prefs.setString('ksdma_user_role', user.role.name);
         await prefs.setString('ksdma_user_id', user.userId);
         await prefs.setString('ksdma_user_email', user.email);
         await prefs.setString('ksdma_user_phone', user.mobileNumber);
+        if (result['token'] != null) {
+          await prefs.setString('ksdma_jwt_token', result['token'].toString());
+        }
       } catch (_) {}
       notifyListeners();
-      return true;
+      return {'success': true, 'user': user};
     }
-    return false;
+    return {'success': false, 'message': result['message'] ?? 'Login failed. Invalid password.'};
   }
 
-  /// Officer / Admin login — checks DB or falls back to Officer/Admin profile seamlessly
-  Future<String?> loginUserWithEmail(String email, String role) async {
-    final cleanEmail = email.trim();
+  Future<bool> loginUserWithPhone(String mobileNumber, {String password = ''}) async {
+    final result = await loginUserWithCredentials(identifier: mobileNumber, password: password);
+    return result['success'] == true;
+  }
 
-    // 1. Try remote DB login first
+  /// Officer / Admin login — strictly verifies DB credentials & password
+  Future<String?> loginUserWithEmail(String email, String role, {String password = ''}) async {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      return 'Email address is required.';
+    }
+
     try {
-      final result = await apiService.loginUserWithEmail(cleanEmail, role);
+      final result = await apiService.loginUserWithEmail(cleanEmail, role, password: password);
       if (result['success'] == true && result['user'] != null) {
         currentUser = result['user'] as KsdmaUser;
         isLoggedIn = true;
@@ -378,73 +418,21 @@ class KsdmaStateService extends ChangeNotifier {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('ksdma_user_name', currentUser.fullName);
           await prefs.setString('ksdma_user_category', currentUser.category.name);
+          await prefs.setString('ksdma_user_role', currentUser.role.name);
           await prefs.setString('ksdma_user_id', currentUser.userId);
           await prefs.setString('ksdma_user_email', currentUser.email);
           await prefs.setString('ksdma_user_phone', currentUser.mobileNumber);
+          if (result['token'] != null) {
+            await prefs.setString('ksdma_jwt_token', result['token'].toString());
+          }
         } catch (_) {}
         notifyListeners();
         return null; // null = success
       }
-    } catch (_) {}
-
-    // 2. Fallback for Officer / Admin logins so user is never blocked by DB state
-    if (role == 'OFFICER' || cleanEmail.isEmpty || cleanEmail.toLowerCase().contains('officer') || cleanEmail.toLowerCase().contains('ksdma')) {
-      currentUser = KsdmaUser(
-        userId: 'usr_officer_demo',
-        fullName: 'District Officer (Trivandrum)',
-        mobileNumber: '+919447794288',
-        email: cleanEmail.isNotEmpty ? cleanEmail : 'officer.tvm@ksdma.kerala.gov.in',
-        role: UserRole.officer,
-        category: UserCategory.districtOfficer,
-        district: 'Thiruvananthapuram',
-        taluk: 'Trivandrum',
-        gramaPanchayat: 'Kudappanakunnu',
-        village: 'Kudappanakunnu',
-        streakDays: 0,
-        totalObservations: 0,
-        badgeTier: 'GOLD',
-        avatarUrl: '',
-      );
-      isLoggedIn = true;
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('ksdma_user_name', currentUser.fullName);
-        await prefs.setString('ksdma_user_category', currentUser.category.name);
-        await prefs.setString('ksdma_user_id', currentUser.userId);
-        await prefs.setString('ksdma_user_email', currentUser.email);
-      } catch (_) {}
-      notifyListeners();
-      return null;
-    } else if (role == 'ADMIN' || cleanEmail.toLowerCase().contains('admin')) {
-      currentUser = KsdmaUser(
-        userId: 'usr_admin_demo',
-        fullName: 'KSDMA State Admin HQ',
-        mobileNumber: '+919447794288',
-        email: cleanEmail.isNotEmpty ? cleanEmail : 'admin@ksdma.kerala.gov.in',
-        role: UserRole.admin,
-        category: UserCategory.adminHq,
-        district: 'Thiruvananthapuram',
-        taluk: 'Trivandrum',
-        gramaPanchayat: 'Kudappanakunnu',
-        village: 'Kudappanakunnu',
-        streakDays: 0,
-        totalObservations: 0,
-        badgeTier: 'PLATINUM',
-        avatarUrl: '',
-      );
-      isLoggedIn = true;
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('ksdma_user_name', currentUser.fullName);
-        await prefs.setString('ksdma_user_category', currentUser.category.name);
-        await prefs.setString('ksdma_user_id', currentUser.userId);
-        await prefs.setString('ksdma_user_email', currentUser.email);
-      } catch (_) {}
-      notifyListeners();
-      return null;
+      return result['message'] ?? 'Invalid officer/admin credentials. Please check your email & password.';
+    } catch (e) {
+      return 'Server unreachable. Please check your network connection.';
     }
-
-    return 'Login failed. Please try again.';
   }
 
   void logout() async {
@@ -454,20 +442,30 @@ class KsdmaStateService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('ksdma_user_name');
       await prefs.remove('ksdma_user_category');
+      await prefs.remove('ksdma_user_role');
       await prefs.remove('ksdma_user_id');
       await prefs.remove('ksdma_user_email');
       await prefs.remove('ksdma_user_phone');
+      await prefs.remove('ksdma_jwt_token');
     } catch (_) {}
     notifyListeners();
   }
 
   // Switch User Role & Persist to SharedPreferences
   void switchUserRole(UserCategory category, String name) async {
+    UserRole role = UserRole.volunteer;
+    if (category == UserCategory.adminHq || name.contains('Admin')) {
+      role = UserRole.admin;
+    } else if (category == UserCategory.districtOfficer || name.contains('Officer')) {
+      role = UserRole.officer;
+    }
+
     currentUser = KsdmaUser(
       userId: 'usr_active_${category.name}',
       fullName: name,
       mobileNumber: '',
       email: '${name.toLowerCase().replaceAll(" ", ".")}@ksdma.kerala.gov.in',
+      role: role,
       category: category,
       district: '',
       taluk: '',
@@ -485,6 +483,7 @@ class KsdmaStateService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('ksdma_user_name', name);
       await prefs.setString('ksdma_user_category', category.name);
+      await prefs.setString('ksdma_user_role', role.name);
       await prefs.setString('ksdma_user_id', currentUser.userId);
       await prefs.setString('ksdma_user_email', currentUser.email);
     } catch (e) {
@@ -502,8 +501,10 @@ class KsdmaStateService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('ksdma_user_name');
       await prefs.remove('ksdma_user_category');
+      await prefs.remove('ksdma_user_role');
       await prefs.remove('ksdma_user_id');
       await prefs.remove('ksdma_user_email');
+      await prefs.remove('ksdma_jwt_token');
     } catch (_) {}
     notifyListeners();
   }

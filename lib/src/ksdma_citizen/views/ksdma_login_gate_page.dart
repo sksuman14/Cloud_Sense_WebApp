@@ -341,14 +341,15 @@ class _KsdmaLoginGatePageState extends State<KsdmaLoginGatePage>
                   final email = _volEmailCtrl.text.trim().isNotEmpty
                       ? _volEmailCtrl.text.trim()
                       : '${_volPhoneCtrl.text.trim()}@ksdma.kerala.gov.in';
-                  final success = await state.registerAndLoginUser(
+                  final result = await state.registerAndLoginUser(
                     fullName: _volNameCtrl.text.trim(),
                     mobileNumber: _volPhoneCtrl.text.trim(),
                     email: email,
+                    password: '123456',
                     role: UserRole.volunteer,
                     category: _volCategory,
                   );
-                  if (success && context.mounted) {
+                  if (result['success'] == true && context.mounted) {
                     setState(() { _targetInitialTab = 0; _isLoggedIn = true; });
                   }
                 },

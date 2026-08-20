@@ -507,6 +507,11 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
     final activeObs = state.observations.where((o) {
       if (o.isRemoved) return false;
 
+      // Do NOT show read-only automated WS (AWS) hardware sensors in the edit/flag dropdown
+      if (o.stationId.toUpperCase().startsWith('WS') || o.source.toUpperCase().contains('AWS')) {
+        return false;
+      }
+
       if (_selectedModerationDateRange == 'Today') {
         return !o.observationDate.isBefore(todayStart);
       } else if (_selectedModerationDateRange == 'Yesterday') {

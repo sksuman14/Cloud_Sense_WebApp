@@ -590,11 +590,11 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       apiUrl =
           'https://bne596pwxi.execute-api.us-east-1.amazonaws.com/default/WS_Shobha_Api?ANNAM_ID=WS_Shobha_$deviceId&startdate=$shStartDate&enddate=$shEndDate&mode=download';
     } else if (widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) {
-      final pjDateFmt = DateFormat('yyyy-MM-dd');
+      final pjDateFmt = DateFormat('dd-MM-yyyy');
       final pjStartDate = pjDateFmt.format(_startDate!);
       final pjEndDate = pjDateFmt.format(_endDate!);
       apiUrl =
-          'https://eu81fynn70.execute-api.us-east-1.amazonaws.com/default/WS_Punjab_API?ANNAM_ID=WS_Punjab_$deviceId&startdate=$pjStartDate&enddate=$pjEndDate&key=${ApiKeys.annamApiKey}&mode=download';
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/punjabdata?startdate=$pjStartDate&enddate=$pjEndDate&annam_id=WS_Punjab_$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('KR')) {
       final krDateFmt = DateFormat('dd-MM-yyyy');
       final krStartDate = krDateFmt.format(_startDate!);
@@ -602,24 +602,24 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       apiUrl =
           'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$krStartDate&enddate=$krEndDate&annam_id=WS_$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('AW')) {
-      final krDateFmt = DateFormat('yyyy-MM-dd');
+      final krDateFmt = DateFormat('dd-MM-yyyy');
       final krStartDate = krDateFmt.format(_startDate!);
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
-          'https://ag25teqhvi.execute-api.us-east-1.amazonaws.com/default/AWS_Api_Function?ANNAM_ID=AWS_$deviceId&startdate=$krStartDate&enddate=$krEndDate&mode=download';
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata?startdate=$krStartDate&enddate=$krEndDate&annam_id=AWS_$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('AT')) {
-      final atDateFmt = DateFormat('yyyy-MM-dd');
+      final atDateFmt = DateFormat('dd-MM-yyyy');
       final atStartDate = atDateFmt.format(_startDate!);
       final atEndDate = atDateFmt.format(_endDate!);
       apiUrl =
-          'https://2xdgr2sgud.execute-api.us-east-1.amazonaws.com/default/AWS_Testing_API?ANNAM_ID=$deviceId&startdate=$atStartDate&enddate=$atEndDate&mode=download';
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata?startdate=$atStartDate&enddate=$atEndDate&annam_id=$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('AM')) {
-      final amDateFmt = DateFormat('yyyy-MM-dd');
+      final amDateFmt = DateFormat('dd-MM-yyyy');
       final amStartDate = amDateFmt.format(_startDate!);
       final amEndDate = amDateFmt.format(_endDate!);
       final paddedDeviceId = deviceId.padLeft(2, '0');
       apiUrl =
-          'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function?ANNAM_ID=ANNAM_CP$paddedDeviceId&startdate=$amStartDate&enddate=$amEndDate&key=${ApiKeys.annamApiKey}&mode=download';
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata?startdate=$amStartDate&enddate=$amEndDate&annam_id=ANNAM_CP$paddedDeviceId&key=${ApiKeys.annamApiKey}&mode=download';
     } else if (widget.deviceName.startsWith('PS')) {
       final krDateFmt = DateFormat('dd-MM-yyyy');
       final krStartDate = krDateFmt.format(_startDate!);

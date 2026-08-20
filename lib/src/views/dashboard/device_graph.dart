@@ -1043,14 +1043,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       [DateTime? selectedDate]) async {
     setState(() {
       _isLoading = true;
-// Clear previous errors
-      _parametersData.clear();
-      _csvRows.clear();
-
-      // Reset consolidated status variables
-      _lastBatteries.clear();
-      _lastSignalStrengths.clear();
-      _lastSDCardStatuses.clear();
     });
 
     try {
