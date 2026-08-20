@@ -532,11 +532,19 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     });
     // --- END OF NEW PART ---
 
-    // Set up the periodic timer to reload data every 180 seconds
+    // Set up periodic timer: auto-refresh ONLY for Live Data (single range for today) silently in background
     _reloadTimer = Timer.periodic(const Duration(seconds: 180), (timer) {
       if (!_isLoading) {
-        // We check _isLoading to prevent a new reload if one is already in progress
-        _reloadData(range: _lastSelectedRange);
+        final now = DateTime.now();
+        final bool isToday = _selectedDay == null ||
+            (_selectedDay!.year == now.year &&
+                _selectedDay!.month == now.month &&
+                _selectedDay!.day == now.day);
+
+        // Only auto-refresh if user is currently viewing Live Data (Today)
+        if (_lastSelectedRange == 'single' && isToday) {
+          _reloadData(range: 'single', selectedDate: _selectedDay, isSilent: true);
+        }
       } else {
         print("Skipping periodic reload, a fetch is already in progress.");
       }
@@ -2327,72 +2335,75 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   // 🟢 REPLACE your old _reloadData function with this new one:
 
-  void _reloadData({String range = 'single', DateTime? selectedDate}) async {
-    // 1. Set internal loading state & START the animation
-    // We start this *before* showing the dialog so the icon is already spinning
-    setState(() {
-      _isLoading = true; // This will disable the refresh button
-      _selectedParam = null;
-      _isParamHovering.updateAll((key, value) => false);
-      _rotationController.repeat(); // <-- Starts the spinning
-    });
+  void _reloadData({String range = 'single', DateTime? selectedDate, bool isSilent = false}) async {
+    // 1. Set internal loading state & START the animation if not silent
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true; // This will disable the refresh button
+        _selectedParam = null;
+        _isParamHovering.updateAll((key, value) => false);
+        _rotationController.repeat(); // <-- Starts the spinning
+      });
 
-    // 2. Show the new loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false, // User can't dismiss it
-      builder: (BuildContext context) {
-        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-        return Dialog(
-          backgroundColor:
-              isDarkMode ? const Color(0xFF14212B) : Colors.grey[200],
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Use the same rotating refresh icon from the app bar
-                RotationTransition(
-                  turns:
-                      Tween(begin: 0.0, end: 1.0).animate(_rotationController),
-                  child: Icon(
-                    Icons.refresh,
-                    color: isDarkMode ? Colors.white70 : Colors.black87,
-                    size: 28, // A bit larger for the dialog
+      // 2. Show the loading dialog only for manual refresh
+      showDialog(
+        context: context,
+        barrierDismissible: false, // User can't dismiss it
+        builder: (BuildContext context) {
+          final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+          return Dialog(
+            backgroundColor:
+                isDarkMode ? const Color(0xFF14212B) : Colors.grey[200],
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RotationTransition(
+                    turns:
+                        Tween(begin: 0.0, end: 1.0).animate(_rotationController),
+                    child: Icon(
+                      Icons.refresh,
+                      color: isDarkMode ? Colors.white70 : Colors.black87,
+                      size: 28,
+                    ),
                   ),
-                ),
-                SizedBox(width: 24),
-                // Use a Column for two lines of text
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Fetching your data...",
-                      style: TextStyle(
-                        fontSize: 17, // Slightly larger
-                        fontWeight: FontWeight.bold, // Bolder
-                        color: isDarkMode ? Colors.white : Colors.black,
+                  const SizedBox(width: 24),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Fetching your data...",
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      "Please wait a moment.", // Added "some more" text
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDarkMode ? Colors.white70 : Colors.black87,
+                      const SizedBox(height: 4),
+                      Text(
+                        "Please wait a moment.",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    } else {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     // 3. Run fetch operations
     try {
@@ -2402,11 +2413,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       ]);
     } catch (e) {
       print("Error during parallel reload: $e");
-      // Optionally show an error SnackBar here
     } finally {
-      // 4. Hide loading dialog AND stop animation
+      // 4. Hide loading dialog if shown AND stop animation
       if (mounted) {
-        Navigator.of(context).pop(); // This closes the dialog
+        if (!isSilent) {
+          Navigator.of(context).pop(); // This closes the dialog
+        }
         setState(() {
           _isLoading = false; // Re-enable refresh button
           _rotationController.stop(canceled: true);
