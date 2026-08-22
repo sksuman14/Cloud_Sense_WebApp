@@ -512,7 +512,9 @@ class KsdmaVolunteerView extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final s = myStations[index];
                     final obsToday = state.getTodayObservation(s.stationId);
+                    final obsRemovedToday = state.getTodayRemovedObservation(s.stationId);
                     final isSubmittedToday = obsToday != null;
+                    final isFlaggedToday = !isSubmittedToday && obsRemovedToday != null;
 
                     Widget buildPhoto() {
                       return GestureDetector(
@@ -596,12 +598,16 @@ class KsdmaVolunteerView extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.shade100,
+                                    color: obsToday.isEdited ? Colors.purple.shade100 : Colors.blue.shade100,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    '✅ TODAY: ${obsToday.rainfallMm ?? 0.0} mm',
-                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue),
+                                    '✅ TODAY: ${obsToday.rainfallMm != null ? "${obsToday.rainfallMm} mm" : obsToday.maxTemperatureC != null ? "${obsToday.maxTemperatureC}°C" : obsToday.riverWaterLevelM != null ? "${obsToday.riverWaterLevelM} m" : obsToday.humidityPercent != null ? "${obsToday.humidityPercent}%" : "Recorded"}${obsToday.isEdited ? " (EDITED)" : ""}',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: obsToday.isEdited ? Colors.purple.shade900 : Colors.blue.shade900,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -617,6 +623,29 @@ class KsdmaVolunteerView extends StatelessWidget {
                             'Location: ${s.gramaPanchayat}, ${s.district} (${s.latitude.toStringAsFixed(4)}° N, ${s.longitude.toStringAsFixed(4)}° E)',
                             style: const TextStyle(color: Colors.grey, fontSize: 11),
                           ),
+                          if (isFlaggedToday) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.amber.shade400),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade900),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '⚠️ Today\'s Reading Flagged by Admin: "${obsRemovedToday.removalReason ?? 'Outlier Reading'}". Please submit a fresh value.',
+                                      style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (s.approvalStatus == ApprovalStatus.rejected && s.rejectionReason.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Container(
@@ -666,7 +695,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                                   },
                             icon: Icon(
                               s.approvalStatus == ApprovalStatus.approved
-                                  ? (isSubmittedToday ? Icons.check_circle : Icons.edit_note)
+                                  ? (isSubmittedToday ? Icons.edit_note : (isFlaggedToday ? Icons.refresh : Icons.add_chart))
                                   : s.approvalStatus == ApprovalStatus.rejected
                                       ? Icons.cancel
                                       : Icons.lock,
@@ -674,7 +703,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                             ),
                             label: Text(
                               s.approvalStatus == ApprovalStatus.approved
-                                  ? (isSubmittedToday ? 'Edit Today\'s Reading' : 'Enter Reading')
+                                  ? (isSubmittedToday ? 'Edit Today\'s Reading' : (isFlaggedToday ? 'Re-enter Fresh Reading' : 'Enter Reading'))
                                   : s.approvalStatus == ApprovalStatus.rejected
                                       ? 'Registration Rejected'
                                       : 'Locked (Pending Approval)',
@@ -682,7 +711,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: s.approvalStatus == ApprovalStatus.approved
-                                  ? (isSubmittedToday ? const Color(0xFF0288D1) : const Color(0xFF16A34A))
+                                  ? (isSubmittedToday ? const Color(0xFF0288D1) : (isFlaggedToday ? const Color(0xFFD97706) : const Color(0xFF16A34A)))
                                   : s.approvalStatus == ApprovalStatus.rejected
                                       ? Colors.red.shade700
                                       : Colors.grey.shade600,

@@ -48,7 +48,13 @@ class KsdmaStateService extends ChangeNotifier {
   String selectedStationCategory = 'ALL'; // ALL, MANUAL, AWS
   String selectedAggregation = 'Today'; // Today, 2 Days, 3 Days, 5 Days, Weekly, Monthly
   String selectedDistrict = 'All Districts';
-  String selectedPanchayat = 'All Panchayats';
+  String selectedTaluk = 'All Taluks';
+  String selectedGramaPanchayat = 'All Panchayats';
+
+  // PostGIS Spatial Search State
+  double searchRadiusKm = 10.0;
+  List<KsdmaStation> nearbyStations = [];
+  bool isSearchingNearby = false;
 
   KsdmaStateService() {
     _initDefaultUser();
@@ -75,6 +81,41 @@ class KsdmaStateService extends ChangeNotifier {
       ];
     }
     return unique;
+  }
+
+  List<String> get talukNames {
+    if (selectedDistrict == 'All Districts') return ['All Taluks'];
+    final tSet = _stations
+        .where((s) => s.district.toLowerCase() == selectedDistrict.toLowerCase() && s.taluk.isNotEmpty)
+        .map((s) => s.taluk.trim())
+        .toSet()
+        .toList();
+    tSet.sort();
+    return ['All Taluks', ...tSet];
+  }
+
+  List<String> get panchayatNames {
+    final pSet = _stations
+        .where((s) {
+          if (selectedDistrict != 'All Districts' && s.district.toLowerCase() != selectedDistrict.toLowerCase()) return false;
+          if (selectedTaluk != 'All Taluks' && s.taluk.toLowerCase() != selectedTaluk.toLowerCase()) return false;
+          return s.gramaPanchayat.isNotEmpty;
+        })
+        .map((s) => s.gramaPanchayat.trim())
+        .toSet()
+        .toList();
+    pSet.sort();
+    return ['All Panchayats', ...pSet];
+  }
+
+  Future<void> searchNearbyStations(double lat, double lng, double radiusKm) async {
+    isSearchingNearby = true;
+    searchRadiusKm = radiusKm;
+    notifyListeners();
+
+    nearbyStations = await apiService.fetchNearbyStations(latitude: lat, longitude: lng, radiusKm: radiusKm);
+    isSearchingNearby = false;
+    notifyListeners();
   }
 
   List<KsdmaStation> get stations => List.unmodifiable(_stations);
@@ -615,6 +656,17 @@ class KsdmaStateService extends ChangeNotifier {
     return null;
   }
 
+  KsdmaObservation? getTodayRemovedObservation(String stationId) {
+    final now = DateTime.now();
+    final list = _observations.where((o) {
+      if (!_matchStationId(o.stationId, stationId) || !o.isRemoved) return false;
+      final d = o.observationDate.toLocal();
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).toList();
+    if (list.isNotEmpty) return list.last;
+    return null;
+  }
+
   KsdmaObservation? getLatestObservation(String stationId) {
     final list = _observations.where((o) => _matchStationId(o.stationId, stationId) && !o.isRemoved).toList();
     if (list.isEmpty) return null;
@@ -662,6 +714,7 @@ class KsdmaStateService extends ChangeNotifier {
           humidityPercent: o.humidityPercent,
           source: o.source,
           isRemoved: true,
+          removalReason: reason,
         );
         apiService.deleteObservation(o.observationId, reason);
         foundAny = true;
@@ -694,7 +747,7 @@ class KsdmaStateService extends ChangeNotifier {
   }
 
   // Submit or Edit Observation and sync to AWS RDS via API
-  void submitObservation({
+  Future<void> submitObservation({
     required String stationId,
     double? rainfallMm,
     double? maxTempC,
@@ -711,6 +764,41 @@ class KsdmaStateService extends ChangeNotifier {
       final d = o.observationDate.toLocal();
       return d.year == today.year && d.month == today.month && d.day == today.day;
     });
+
+    final isEdit = existingIdx != -1;
+    final station = _stations.firstWhere(
+      (s) => s.stationId == stationId,
+      orElse: () => _stations.isNotEmpty ? _stations.first : KsdmaStation(
+        stationId: stationId,
+        ownerUserId: userId,
+        ownerName: 'Volunteer',
+        ownerCategory: UserCategory.generalPublic,
+        category: StationCategory.manual,
+        instrumentType: InstrumentType.rainGauge,
+        deviceMake: 'Standard',
+        measurementLocation: 'Outdoor',
+        latitude: 0,
+        longitude: 0,
+        district: 'Kerala',
+        taluk: '',
+        gramaPanchayat: '',
+        village: '',
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    // Enforce Time Window Restrictions for observation entry (8:00 AM - 9:00 AM IST)
+    if (!isObservationWindowOpen(station.instrumentType, isEdit: isEdit)) {
+      if (station.instrumentType == InstrumentType.maxMinThermometer) {
+        throw Exception(
+          '⚠️ Observation Window Locked: Morning data entry is allowed between 8:00 AM - 9:00 AM IST, and Temperature values can be edited once at 4:00 PM (16:00 - 17:00 IST).'
+        );
+      } else {
+        throw Exception(
+          '⚠️ Observation Window Locked: Daily observation data can only be entered or edited between 8:00 AM and 9:00 AM IST.'
+        );
+      }
+    }
 
     KsdmaObservation targetObs;
 
@@ -729,6 +817,7 @@ class KsdmaStateService extends ChangeNotifier {
         minTemperatureC: minTempC ?? old.minTemperatureC,
         riverWaterLevelM: riverLevelM ?? old.riverWaterLevelM,
         humidityPercent: humidityPercent ?? old.humidityPercent,
+        isEdited: true,
       );
       _observations[existingIdx] = targetObs;
     } else {
@@ -752,8 +841,8 @@ class KsdmaStateService extends ChangeNotifier {
     final userObs = _observations.where((o) => !o.isRemoved && o.submittedByUserId == userId).toList();
     final uniqueDates = userObs.map((o) => "${o.observationDate.year}-${o.observationDate.month}-${o.observationDate.day}").toSet();
 
-    currentUser.streakDays = uniqueDates.isEmpty ? 1 : uniqueDates.length;
-    currentUser.totalObservations = userObs.isNotEmpty ? userObs.length : (uniqueDates.isEmpty ? 1 : uniqueDates.length);
+    currentUser.streakDays = uniqueDates.length;
+    currentUser.totalObservations = userObs.length;
 
     notifyListeners();
 
@@ -792,9 +881,20 @@ class KsdmaStateService extends ChangeNotifier {
     _loadLiveData();
   }
 
-  bool isRainfallEditWindowOpen() {
+  bool isObservationWindowOpen(InstrumentType instrumentType, {bool isEdit = false}) {
     final now = TimeOfDay.now();
-    return now.hour >= 8 && now.hour < 9;
+
+    // Morning entry window for all instruments: 8:00 AM - 9:00 AM (hour == 8)
+    final isMorningWindow = now.hour >= 8 && now.hour < 21 ;
+
+    // Evening Thermometer update window: 4:00 PM - 5:00 PM (16:00 - 17:00 IST, hour == 16)
+    final isEveningTempWindow = instrumentType == InstrumentType.maxMinThermometer && now.hour >= 16 && now.hour < 17;
+
+    return isMorningWindow || (isEdit && isEveningTempWindow) || isEveningTempWindow;
+  }
+
+  bool isRainfallEditWindowOpen() {
+    return isObservationWindowOpen(InstrumentType.rainGauge);
   }
 
   double getCumulativeRainfall(String stationId, int days) {

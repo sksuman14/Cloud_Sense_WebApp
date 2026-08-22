@@ -160,15 +160,9 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
 
                     final userObs = state.observations.where((o) => !o.isRemoved && o.submittedByUserId == user.userId).toList();
 
-                    final int actualObsCount = userObs.length;
-                    final int uniqueDaysCount = userObs
-                        .map((o) => "${o.observationDate.year}-${o.observationDate.month}-${o.observationDate.day}")
-                        .toSet()
-                        .length;
-
-                    final int displayStreak = user.streakDays > 0 ? user.streakDays : (uniqueDaysCount > 0 ? uniqueDaysCount : 1);
+                    final int displayStreak = user.streakDays;
                     final int displayMaxStreak = user.maxStreak > 0 ? user.maxStreak : displayStreak;
-                    final int displayTotalReadings = actualObsCount > 0 ? actualObsCount : (user.totalObservations > 0 ? user.totalObservations : displayStreak);
+                    final int displayTotalReadings = user.totalObservations > 0 ? user.totalObservations : userObs.length;
 
                     return Card(
                       color: Colors.white,

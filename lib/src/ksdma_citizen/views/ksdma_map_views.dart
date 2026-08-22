@@ -733,7 +733,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Filter Toolbar Cards
+              // 1. Top Cascading Administrative Toolbar & PostGIS Radius Tool
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -743,13 +743,107 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                   boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6)],
                 ),
                 child: Wrap(
-                  spacing: 12,
+                  spacing: 10,
                   runSpacing: 10,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _buildFilterCard('Parameter', _selectedParam, ['All Parameters', 'Rainfall', 'Temperature', 'River Level', 'Humidity'], Icons.tune, (v) => setState(() => _selectedParam = v)),
-                    if (widget.level != MapViewLevel.state && widget.level != MapViewLevel.station && allDistrictsList.isNotEmpty)
-                      _buildFilterCard('District', _selectedDistrict, allDistrictsList, Icons.map_outlined, (v) => _onDistrictChanged(v, approved)),
+                    // Parameter Filter
+                    _buildFilterCard(
+                      'Parameter',
+                      _selectedParam,
+                      ['All Parameters', 'Rainfall', 'Temperature', 'River Level', 'Humidity'],
+                      Icons.tune,
+                      (v) => setState(() => _selectedParam = v),
+                    ),
+
+                    // Tier 1: District Filter
+                    _buildFilterCard(
+                      'District',
+                      state.selectedDistrict,
+                      allDistrictsList,
+                      Icons.map_outlined,
+                      (v) {
+                        setState(() {
+                          state.selectedDistrict = v;
+                          state.selectedTaluk = 'All Taluks';
+                          state.selectedGramaPanchayat = 'All Panchayats';
+                          _selectedDistrict = v;
+                        });
+                        _onDistrictChanged(v, approved);
+                      },
+                    ),
+
+                    // Tier 2: Taluk Filter
+                    _buildFilterCard(
+                      'Taluk',
+                      state.selectedTaluk,
+                      state.talukNames,
+                      Icons.location_city,
+                      (v) {
+                        setState(() {
+                          state.selectedTaluk = v;
+                          state.selectedGramaPanchayat = 'All Panchayats';
+                        });
+                        final talukStations = approved.where((s) => s.taluk.toLowerCase() == v.toLowerCase()).toList();
+                        if (talukStations.isNotEmpty) {
+                          _mapController.move(LatLng(talukStations.first.latitude, talukStations.first.longitude), 10.2);
+                        }
+                      },
+                    ),
+
+                    // Tier 3: Grama Panchayat Filter
+                    _buildFilterCard(
+                      'Grama Panchayat',
+                      state.selectedGramaPanchayat,
+                      state.panchayatNames,
+                      Icons.home_work_outlined,
+                      (v) {
+                        setState(() {
+                          state.selectedGramaPanchayat = v;
+                        });
+                        final gpStations = approved.where((s) => s.gramaPanchayat.toLowerCase() == v.toLowerCase()).toList();
+                        if (gpStations.isNotEmpty) {
+                          _mapController.move(LatLng(gpStations.first.latitude, gpStations.first.longitude), 11.5);
+                        }
+                      },
+                    ),
+
+                    // PostGIS Radius Search Slider Button
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF93C5FD)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.radar, size: 14, color: Color(0xFF2563EB)),
+                          const SizedBox(width: 6),
+                          const Text('PostGIS Radius: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1E40AF))),
+                          DropdownButton<double>(
+                            value: state.searchRadiusKm,
+                            dropdownColor: Colors.white,
+                            underline: const SizedBox(),
+                            isDense: true,
+                            style: const TextStyle(color: Color(0xFF1E3A8A), fontSize: 11.5, fontWeight: FontWeight.bold),
+                            items: const [
+                              DropdownMenuItem(value: 5.0, child: Text('5 km')),
+                              DropdownMenuItem(value: 10.0, child: Text('10 km')),
+                              DropdownMenuItem(value: 25.0, child: Text('25 km')),
+                              DropdownMenuItem(value: 50.0, child: Text('50 km')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                final centerLatLng = _getMapCenter(approved);
+                                state.searchNearbyStations(centerLatLng.latitude, centerLatLng.longitude, val);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

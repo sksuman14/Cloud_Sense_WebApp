@@ -17,33 +17,80 @@ class KsdmaOfficerView extends StatefulWidget {
 
 class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
   String _selectedTableParam = 'all';
+  String _selectedTableDistrict = 'All Districts';
   String _exportParameter = 'All';
   String _exportDistrict = 'All Districts';
   String _exportDateRange = 'All Time Historical';
   String _exportFormat = 'CSV';
 
-  void _generateAndDownloadDataset(KsdmaStateService state) {
-    final observations = state.observations.where((o) => !o.isRemoved).toList();
-    final StringBuffer csv = StringBuffer();
-
+  Future<void> _generateAndDownloadDataset(KsdmaStateService state) async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final sevenDaysAgo = todayStart.subtract(const Duration(days: 7));
     final thirtyDaysAgo = todayStart.subtract(const Duration(days: 30));
+    final ninetyDaysAgo = todayStart.subtract(const Duration(days: 90));
 
-    csv.writeln(
-      'Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m),Source'
-    );
+    DateTime startDate = todayStart;
+    if (_exportDateRange == 'Past 7 Days') {
+      startDate = sevenDaysAgo;
+    } else if (_exportDateRange == 'Past 30 Days') {
+      startDate = thirtyDaysAgo;
+    } else if (_exportDateRange == 'All Time Historical') {
+      startDate = ninetyDaysAgo;
+    }
+
+    final observations = List<KsdmaObservation>.from(state.observations.where((o) => !o.isRemoved));
+
+    // If historical range selected, fetch full date range telemetry for AWS sensors directly from AWS KeralaData API
+    if (_exportDateRange != 'Today Only') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⏳ Fetching $_exportDateRange AWS sensor telemetry & daily averages...'),
+          backgroundColor: const Color(0xFF0F766E),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      final awsDeviceIds = state.stations.where((s) => s.stationId.startsWith('WS_')).map((s) => s.stationId).toList();
+      if (awsDeviceIds.isNotEmpty) {
+        try {
+          final rangeObs = await state.apiService.fetchAwsObservationsForDateRange(awsDeviceIds, startDate, now);
+          if (rangeObs.isNotEmpty) {
+            final fetchedAwsIds = rangeObs.map((o) => o.stationId).toSet();
+            observations.removeWhere((o) => fetchedAwsIds.contains(o.stationId) && o.source.contains('AWS'));
+            observations.addAll(rangeObs);
+          }
+        } catch (e) {
+          debugPrint('Error fetching range observations: $e');
+        }
+      }
+    }
+
+    final StringBuffer csv = StringBuffer();
+
+    // Dynamic CSV Header based on selected parameter (Source column removed)
+    if (_exportParameter == 'Rainfall') {
+      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Rainfall (mm)');
+    } else if (_exportParameter == 'Temperature') {
+      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)');
+    } else if (_exportParameter == 'RiverLevel') {
+      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,River Level (m)');
+    } else if (_exportParameter == 'Humidity') {
+      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Humidity (%)');
+    } else {
+      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
+    }
 
     int count = 0;
     for (var o in observations) {
       final stnList = state.stations.where((s) => s.stationId == o.stationId).toList();
       final stn = stnList.isNotEmpty ? stnList.first : null;
 
-      final district = stn?.district ?? 'Kerala';
+      final district = stn?.district ?? '';
       final panchayat = stn?.gramaPanchayat ?? '';
       final instType = stn?.instrumentType.displayName ?? 'Manual Station';
 
+      // Strictly filter by selected District
       if (_exportDistrict != 'All Districts' && district.toLowerCase().trim() != _exportDistrict.toLowerCase().trim()) {
         continue;
       }
@@ -60,9 +107,18 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
       final dateStr = "${o.observationDate.year}-${o.observationDate.month.toString().padLeft(2, '0')}-${o.observationDate.day.toString().padLeft(2, '0')}";
       final timeStr = "${o.observationTime.hour.toString().padLeft(2, '0')}:${o.observationTime.minute.toString().padLeft(2, '0')}";
 
-      csv.writeln(
-        '"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""},"${o.source}"'
-      );
+      // Dynamic Row Content (Source column removed completely)
+      if (_exportParameter == 'Rainfall') {
+        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""}');
+      } else if (_exportParameter == 'Temperature') {
+        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""}');
+      } else if (_exportParameter == 'RiverLevel') {
+        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.riverWaterLevelM ?? ""}');
+      } else if (_exportParameter == 'Humidity') {
+        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.humidityPercent ?? ""}');
+      } else {
+        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""}');
+      }
       count++;
     }
 
@@ -93,6 +149,9 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
     final approvedStations = state.approvedStations.isNotEmpty ? state.approvedStations : state.stations;
 
     final filteredTableStations = approvedStations.where((s) {
+      if (_selectedTableDistrict != 'All Districts' && s.district.toLowerCase().trim() != _selectedTableDistrict.toLowerCase().trim()) {
+        return false;
+      }
       if (_selectedTableParam == 'rainfall') {
         return s.instrumentType == InstrumentType.rainGauge || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
       }
@@ -184,6 +243,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
   }
 
   Widget _buildTableCard(KsdmaStateService state, List<KsdmaStation> stations) {
+    final districtList = ['All Districts', ...state.stations.map((s) => s.district).where((d) => d.trim().isNotEmpty).toSet()];
     return Card(
       color: Colors.white,
       elevation: 1,
@@ -208,24 +268,64 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
             ),
             const SizedBox(height: 12),
 
-            // Parameter Filter Bar for Table
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  const Text('Filter Parameter: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(width: 4),
-                  _buildTableFilterChip('All Parameters', 'all'),
-                  const SizedBox(width: 6),
-                  _buildTableFilterChip('🌧 Rainfall', 'rainfall'),
-                  const SizedBox(width: 6),
-                  _buildTableFilterChip('💧 Humidity', 'humidity'),
-                  const SizedBox(width: 6),
-                  _buildTableFilterChip('🌡 Temperature', 'maxTemp'),
-                  const SizedBox(width: 6),
-                  _buildTableFilterChip('🌊 River Level', 'riverLevel'),
-                ],
-              ),
+            // District & Parameter Filter Bar for Table
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('District: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(width: 4),
+                    Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: districtList.contains(_selectedTableDistrict) ? _selectedTableDistrict : 'All Districts',
+                          dropdownColor: Colors.white,
+                          style: const TextStyle(color: Color(0xFF0F172A), fontSize: 11.5, fontWeight: FontWeight.bold),
+                          icon: const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF475569)),
+                          items: districtList.map((d) => DropdownMenuItem(
+                            value: d,
+                            child: Text(d == 'All Districts' ? 'All 14 Districts (Statewide)' : '$d District'),
+                          )).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _selectedTableDistrict = val);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const Text('Parameter: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      const SizedBox(width: 4),
+                      _buildTableFilterChip('All Parameters', 'all'),
+                      const SizedBox(width: 6),
+                      _buildTableFilterChip('🌧 Rainfall', 'rainfall'),
+                      const SizedBox(width: 6),
+                      _buildTableFilterChip('💧 Humidity', 'humidity'),
+                      const SizedBox(width: 6),
+                      _buildTableFilterChip('🌡 Temperature', 'maxTemp'),
+                      const SizedBox(width: 6),
+                      _buildTableFilterChip('🌊 River Level', 'riverLevel'),
+                    ],
+                  ),
+                ),
+              ],
             ),
 
             const Divider(height: 24, color: Color(0xFFE2E8F0)),
@@ -392,7 +492,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
   }
 
   Widget _buildExportPanel(KsdmaStateService state) {
-    final districtList = ['All Districts', ...state.stations.map((s) => s.district).toSet()];
+    final districtList = ['All Districts', ...state.stations.map((s) => s.district).where((d) => d.trim().isNotEmpty).toSet()];
 
     return Card(
       color: Colors.white,
@@ -439,7 +539,9 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
                 DropdownMenuItem(value: 'RiverLevel', child: Text('River Water Levels')),
                 DropdownMenuItem(value: 'Humidity', child: Text('Humidity Logs')),
               ],
-              onChanged: (val) => setState(() => _exportParameter = val!),
+              onChanged: (val) {
+                if (val != null) setState(() => _exportParameter = val);
+              },
             ),
 
             const SizedBox(height: 14),
@@ -459,7 +561,9 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               items: districtList.map((d) => DropdownMenuItem(value: d, child: Text(d == 'All Districts' ? 'All 14 Districts (Statewide)' : '$d District'))).toList(),
-              onChanged: (val) => setState(() => _exportDistrict = val!),
+              onChanged: (val) {
+                if (val != null) setState(() => _exportDistrict = val);
+              },
             ),
 
             const SizedBox(height: 14),
@@ -484,7 +588,9 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
                 DropdownMenuItem(value: 'Past 7 Days', child: Text('Past 7 Days Observations')),
                 DropdownMenuItem(value: 'Past 30 Days', child: Text('Past 30 Days Observations')),
               ],
-              onChanged: (val) => setState(() => _exportDateRange = val!),
+              onChanged: (val) {
+                if (val != null) setState(() => _exportDateRange = val);
+              },
             ),
 
             const SizedBox(height: 14),

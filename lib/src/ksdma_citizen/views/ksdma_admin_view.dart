@@ -1,3 +1,5 @@
+// ignore: deprecated_member_use
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
@@ -14,6 +16,11 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
   String _selectedModerationReason = 'Outlier';
   String _selectedModerationDateRange = 'Today';
   String? _selectedObsId;
+
+  String? _selectedUploadStationId;
+  String? _selectedFileName;
+  String? _uploadedCsvContent;
+  bool _isProcessingUpload = false;
 
   @override
   void initState() {
@@ -81,6 +88,10 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
     final todayStart = DateTime(now.year, now.month, now.day);
     final activeObsCount = state.observations.where((o) => !o.isRemoved && !o.observationDate.isBefore(todayStart)).length;
 
+    final activeStationsCount = state.stations.where((s) => s.approvalStatus == ApprovalStatus.approved).length;
+    final rejectedStationsCount = state.stations.where((s) => s.approvalStatus == ApprovalStatus.rejected).length;
+    final stationSubtext = rejectedStationsCount > 0 ? '$rejectedStationsCount Rejected' : '';
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 900;
@@ -127,7 +138,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                   runSpacing: 12,
                   children: [
                     _buildTopStatCard('${pending.length}', 'Pending Registrations', const Color(0xFFD97706), Icons.hourglass_top, constraints.maxWidth),
-                    _buildTopStatCard('${state.stations.length}', 'Total Stations', const Color(0xFF2563EB), Icons.sensors, constraints.maxWidth),
+                    _buildTopStatCard('$activeStationsCount', 'Active Stations', const Color(0xFF2563EB), Icons.sensors, constraints.maxWidth, sublabel: stationSubtext),
                     _buildTopStatCard('$activeObsCount', 'Today\'s Observations', const Color(0xFF059669), Icons.assignment_turned_in, constraints.maxWidth),
                     _buildTopStatCard('Good', 'Data Quality', const Color(0xFF0D9488), Icons.verified, constraints.maxWidth),
                   ],
@@ -137,7 +148,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                   children: [
                     Expanded(child: _buildTopStatCard('${pending.length}', 'Pending Registrations', const Color(0xFFD97706), Icons.hourglass_top, 0)),
                     const SizedBox(width: 14),
-                    Expanded(child: _buildTopStatCard('${state.stations.length}', 'Total Stations', const Color(0xFF2563EB), Icons.sensors, 0)),
+                    Expanded(child: _buildTopStatCard('$activeStationsCount', 'Active Stations', const Color(0xFF2563EB), Icons.sensors, 0, sublabel: stationSubtext)),
                     const SizedBox(width: 14),
                     Expanded(child: _buildTopStatCard('$activeObsCount', 'Today\'s Observations', const Color(0xFF059669), Icons.assignment_turned_in, 0)),
                     const SizedBox(width: 14),
@@ -183,10 +194,10 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
     );
   }
 
-  Widget _buildTopStatCard(String value, String label, Color accentColor, IconData icon, double maxWidth) {
+  Widget _buildTopStatCard(String value, String label, Color accentColor, IconData icon, double maxWidth, {String? sublabel}) {
     return Container(
       width: maxWidth > 0 ? (maxWidth - 52) / 2 : null,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -230,6 +241,19 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (sublabel != null && sublabel.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    sublabel,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFDC2626),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
@@ -424,6 +448,22 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
   }
 
   Widget _buildBulkUploadCard(KsdmaStateService state) {
+    // 1. Filter out AWS stations & Rejected/Pending stations — only show Approved Active volunteer stations
+    final volunteerStations = state.stations
+        .where((s) => !s.stationId.startsWith('WS_') && s.category != StationCategory.aws && s.approvalStatus == ApprovalStatus.approved)
+        .toList();
+
+    if (_selectedUploadStationId == null || !volunteerStations.any((s) => s.stationId == _selectedUploadStationId)) {
+      if (volunteerStations.isNotEmpty) {
+        _selectedUploadStationId = volunteerStations.first.stationId;
+      }
+    }
+
+    final targetStation = volunteerStations.firstWhere(
+      (s) => s.stationId == _selectedUploadStationId,
+      orElse: () => volunteerStations.isNotEmpty ? volunteerStations.first : state.stations.first,
+    );
+
     return Card(
       color: Colors.white,
       elevation: 0,
@@ -436,35 +476,95 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Bulk upload (WhatsApp readings)',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
+            Row(
+              children: const [
+                Icon(Icons.upload_file, color: Color(0xFFD97706), size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Bulk upload (WhatsApp / Volunteer Data)',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            const Text(
+              'Select a registered volunteer station to import historical CSV/Excel data with strict instrument & sanity validation.',
+              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 14),
+
+            // Dropdown to pick Target Volunteer Station
+            const Text('Select Target Volunteer Device / Station:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E293B))),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: volunteerStations.any((s) => s.stationId == _selectedUploadStationId) ? _selectedUploadStationId : (volunteerStations.isNotEmpty ? volunteerStations.first.stationId : null),
+              dropdownColor: Colors.white,
+              style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFD97706))),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: volunteerStations.map((stn) => DropdownMenuItem(
+                value: stn.stationId,
+                child: Text(
+                  '${stn.stationId} — ${stn.instrumentType.displayName} (${stn.district}${stn.gramaPanchayat.isNotEmpty ? ", " + stn.gramaPanchayat : ""})',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedUploadStationId = val);
+              },
+            ),
+
+            const SizedBox(height: 14),
 
             // Dashed Drag & Drop Container
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.cloud_upload_outlined, size: 36, color: Color(0xFF64748B)),
-                  SizedBox(height: 8),
-                  Text(
-                    'Drop Excel/CSV or tap to choose file',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                    textAlign: TextAlign.center,
+            InkWell(
+              onTap: () => _pickAndReadFile(targetStation),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: _selectedFileName != null ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _selectedFileName != null ? const Color(0xFF16A34A) : const Color(0xFFCBD5E1),
+                    width: 1.5,
                   ),
-                ],
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      _selectedFileName != null ? Icons.task_alt : Icons.cloud_upload_outlined,
+                      size: 34,
+                      color: _selectedFileName != null ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _selectedFileName ?? 'Drop CSV/Excel file or tap to choose file',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _selectedFileName != null ? const Color(0xFF15803D) : const Color(0xFF475569),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_selectedFileName != null)
+                      const Text(
+                        'Tap again to change file',
+                        style: TextStyle(fontSize: 10, color: Color(0xFF166534)),
+                      ),
+                  ],
+                ),
               ),
             ),
 
@@ -473,29 +573,272 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
             SizedBox(
               width: double.infinity,
               height: 42,
-              child: ElevatedButton(
-                onPressed: () {
-                  final count = state.bulkUploadObservations([
-                    {'stationId': 'RG-2345', 'rainfallMm': 28.5},
-                    {'stationId': 'TM-1002', 'maxTempC': 33.0, 'minTempC': 25.0},
-                  ]);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Bulk Upload Successful! $count Observation records imported.')),
-                  );
-                },
+              child: ElevatedButton.icon(
+                onPressed: _isProcessingUpload ? null : () => _processAndSubmitCsv(state, targetStation),
+                icon: _isProcessingUpload
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.file_upload, size: 18),
+                label: Text(
+                  _isProcessingUpload ? 'Validating & Uploading...' : 'Validate & Upload Dataset',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD97706),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Upload', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _pickAndReadFile(KsdmaStation targetStation) {
+    try {
+      final uploadInput = html.FileUploadInputElement()..accept = '.csv,.txt,.xlsx';
+      uploadInput.click();
+
+      uploadInput.onChange.listen((e) {
+        final files = uploadInput.files;
+        if (files != null && files.isNotEmpty) {
+          final file = files[0];
+          final reader = html.FileReader();
+          reader.readAsText(file);
+          reader.onLoadEnd.listen((e) {
+            final content = reader.result as String;
+            setState(() {
+              _selectedFileName = file.name;
+              _uploadedCsvContent = content;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('📄 File "${file.name}" loaded successfully! Ready for validation & upload.'),
+                backgroundColor: const Color(0xFF2563EB),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('File picker notice: $e');
+    }
+  }
+
+  Future<void> _processAndSubmitCsv(KsdmaStateService state, KsdmaStation targetStation) async {
+    if (_uploadedCsvContent == null || _uploadedCsvContent!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Please choose a CSV/Excel file first before tapping Upload.'),
+          backgroundColor: Color(0xFFD97706),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isProcessingUpload = true);
+
+    try {
+      if (targetStation.approvalStatus != ApprovalStatus.approved) {
+        throw Exception('Operation Blocked: Station "${targetStation.stationId}" is REJECTED or Pending. Data upload is strictly restricted to Active Approved Stations only.');
+      }
+
+      final lines = _uploadedCsvContent!.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty).toList();
+      if (lines.isEmpty) {
+        throw Exception('CSV file is empty!');
+      }
+
+      // 1. Identify Columns from Header
+      final headerCols = lines[0].split(',').map((c) => c.trim().replaceAll('"', '').toLowerCase()).toList();
+
+      int stnIdIdx = headerCols.indexWhere((c) => c.contains('station') || c.contains('device') || (c.contains('id') && !c.contains('date')));
+      int instTypeIdx = headerCols.indexWhere((c) => c.contains('instrument') || (c.contains('type') && !c.contains('boundary')));
+      int dateIdx = headerCols.indexWhere((c) => c.contains('date'));
+      int timeIdx = headerCols.indexWhere((c) => c.contains('time'));
+      int rainIdx = headerCols.indexWhere((c) => c.contains('rain'));
+      int maxTempIdx = headerCols.indexWhere((c) => c.contains('max') || (c.contains('temp') && !c.contains('min')));
+      int minTempIdx = headerCols.indexWhere((c) => c.contains('min'));
+      int humIdx = headerCols.indexWhere((c) => c.contains('hum'));
+      int riverIdx = headerCols.indexWhere((c) => c.contains('river') || c.contains('level'));
+
+      // 2. Instrument Type Validation Check
+      bool hasRain = rainIdx != -1;
+      bool hasTemp = maxTempIdx != -1 || minTempIdx != -1;
+      bool hasRiver = riverIdx != -1;
+
+      // Check if CSV data matches target station instrument type
+      if (targetStation.instrumentType == InstrumentType.rainGauge) {
+        if (hasRiver || (hasTemp && !hasRain)) {
+          throw Exception('Instrument Mismatch Error: Station "${targetStation.stationId}" is registered as a Rain Gauge. CSV contains River Level or Temperature columns!');
+        }
+      } else if (targetStation.instrumentType == InstrumentType.riverGauge) {
+        if (hasRain || hasTemp) {
+          throw Exception('Instrument Mismatch Error: Station "${targetStation.stationId}" is registered as a River Gauge. CSV contains Rainfall or Temperature columns!');
+        }
+      } else if (targetStation.instrumentType == InstrumentType.maxMinThermometer) {
+        if (hasRain || hasRiver) {
+          throw Exception('Instrument Mismatch Error: Station "${targetStation.stationId}" is registered as a Thermometer. CSV contains Rainfall or River Level columns!');
+        }
+      } else if (targetStation.instrumentType == InstrumentType.hygrometer) {
+        if (hasRain || hasRiver || hasTemp) {
+          throw Exception('Instrument Mismatch Error: Station "${targetStation.stationId}" is registered as a Hygrometer. CSV contains mismatched parameter data!');
+        }
+      }
+
+      final Map<String, KsdmaObservation> dailyObsMap = {};
+      int lineNo = 1;
+
+      for (int i = 1; i < lines.length; i++) {
+        lineNo = i + 1;
+        final rawLine = lines[i].trim();
+        if (rawLine.isEmpty) continue;
+
+        final row = rawLine.split(',').map((c) => c.trim().replaceAll('"', '')).toList();
+
+        // 1. Station ID Mismatch Check (If CSV contains Station/Device ID column)
+        if (stnIdIdx != -1 && stnIdIdx < row.length) {
+          final rowStnId = row[stnIdIdx].trim();
+          if (rowStnId.isNotEmpty && rowStnId.toLowerCase() != targetStation.stationId.toLowerCase()) {
+            throw Exception('Station Mismatch Error (Row $lineNo): CSV row contains Station ID "$rowStnId", but you selected "${targetStation.stationId}" in the dropdown! Please select the matching station or update your CSV.');
+          }
+        }
+
+        // 2. Instrument Type Mismatch Check (If CSV contains Instrument Type column)
+        if (instTypeIdx != -1 && instTypeIdx < row.length) {
+          final rowInstType = row[instTypeIdx].trim().toLowerCase();
+          if (rowInstType.isNotEmpty) {
+            final targetTypeStr = targetStation.instrumentType.displayName.toLowerCase();
+            if (!targetTypeStr.contains(rowInstType) && !rowInstType.contains(targetTypeStr.split(' ')[0])) {
+              throw Exception('Instrument Mismatch Error (Row $lineNo): CSV row specifies Instrument "$rowInstType", but target station "${targetStation.stationId}" is registered as "${targetStation.instrumentType.displayName}"!');
+            }
+          }
+        }
+
+        // Extract Date
+        String dateStr = dateIdx != -1 && dateIdx < row.length ? row[dateIdx] : '';
+        DateTime? obsDate;
+        if (dateStr.isNotEmpty) {
+          try {
+            obsDate = DateTime.tryParse(dateStr);
+            if (obsDate == null && dateStr.contains('/')) {
+              final parts = dateStr.split('/');
+              if (parts.length == 3) {
+                obsDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+              }
+            }
+          } catch (_) {}
+        }
+        obsDate ??= DateTime.now();
+
+        final dateKey = "${obsDate.year}-${obsDate.month.toString().padLeft(2, '0')}-${obsDate.day.toString().padLeft(2, '0')}";
+
+        // Extract Time
+        String timeStr = timeIdx != -1 && timeIdx < row.length ? row[timeIdx] : '08:00';
+        TimeOfDay obsTime = const TimeOfDay(hour: 8, minute: 0);
+        if (timeStr.contains(':')) {
+          final tParts = timeStr.split(':');
+          obsTime = TimeOfDay(hour: int.tryParse(tParts[0]) ?? 8, minute: int.tryParse(tParts[1]) ?? 0);
+        }
+
+        // Extract Parameter Values
+        double? rainfall = rainIdx != -1 && rainIdx < row.length ? double.tryParse(row[rainIdx]) : null;
+        double? maxTemp = maxTempIdx != -1 && maxTempIdx < row.length ? double.tryParse(row[maxTempIdx]) : null;
+        double? minTemp = minTempIdx != -1 && minTempIdx < row.length ? double.tryParse(row[minTempIdx]) : null;
+        double? humidity = humIdx != -1 && humIdx < row.length ? double.tryParse(row[humIdx]) : null;
+        double? riverLevel = riverIdx != -1 && riverIdx < row.length ? double.tryParse(row[riverIdx]) : null;
+
+        // Sanity Range Checks
+        if (rainfall != null && (rainfall < 0.0 || rainfall > 500.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): Rainfall value ($rainfall mm) is unrealistic! Allowed range: 0 to 500 mm.');
+        }
+        if (maxTemp != null && (maxTemp < 5.0 || maxTemp > 50.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): Max Temperature ($maxTemp °C) is unrealistic! Must be between 5°C and 50°C.');
+        }
+        if (minTemp != null && (minTemp < 5.0 || minTemp > 50.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): Min Temperature ($minTemp °C) is unrealistic! Must be between 5°C and 50°C.');
+        }
+        if (humidity != null && (humidity < 0.0 || humidity > 100.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): Humidity ($humidity %) is invalid! Must be between 0% and 100%.');
+        }
+        if (riverLevel != null && (riverLevel < 0.0 || riverLevel > 100.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): River Level ($riverLevel m) is unrealistic! Must be between 0 and 100 m.');
+        }
+
+        // Instrument Field Guard: Clear mismatched non-null values if present in unexpected columns
+        if (targetStation.instrumentType == InstrumentType.rainGauge) {
+          riverLevel = null; maxTemp = null; minTemp = null; humidity = null;
+        } else if (targetStation.instrumentType == InstrumentType.riverGauge) {
+          rainfall = null; maxTemp = null; minTemp = null; humidity = null;
+        } else if (targetStation.instrumentType == InstrumentType.maxMinThermometer) {
+          rainfall = null; riverLevel = null; humidity = null;
+        } else if (targetStation.instrumentType == InstrumentType.hygrometer) {
+          rainfall = null; riverLevel = null; maxTemp = null; minTemp = null;
+        }
+
+        final obs = KsdmaObservation(
+          observationId: 'OBS_${targetStation.stationId}_${obsDate.year}_${obsDate.month}_${obsDate.day}',
+          stationId: targetStation.stationId,
+          submittedByUserId: targetStation.ownerUserId,
+          observationDate: obsDate,
+          observationTime: obsTime,
+          submissionTimestamp: DateTime(obsDate.year, obsDate.month, obsDate.day, obsTime.hour, obsTime.minute),
+          rainfallMm: rainfall,
+          maxTemperatureC: maxTemp,
+          minTemperatureC: minTemp,
+          humidityPercent: humidity,
+          riverWaterLevelM: riverLevel,
+          source: 'BULK_CSV_UPLOAD',
+        );
+
+        // One Observation Per Day Check: Overwrites duplicate same-day rows with the latest valid row
+        dailyObsMap[dateKey] = obs;
+      }
+
+      if (dailyObsMap.isEmpty) {
+        throw Exception('No valid data rows found in CSV!');
+      }
+
+      int count = 0;
+      for (var obs in dailyObsMap.values) {
+        state.submitObservation(
+          stationId: obs.stationId,
+          rainfallMm: obs.rainfallMm,
+          maxTempC: obs.maxTemperatureC,
+          minTempC: obs.minTemperatureC,
+          riverLevelM: obs.riverWaterLevelM,
+          humidityPercent: obs.humidityPercent,
+        );
+        await state.apiService.submitObservation(obs);
+        count++;
+      }
+
+      setState(() {
+        _selectedFileName = null;
+        _uploadedCsvContent = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Bulk Upload Successful! $count unique daily observation records saved to database for station ${targetStation.stationId}.'),
+          backgroundColor: const Color(0xFF15803D),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      final errClean = e.toString().replaceAll('Exception:', '').trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errClean),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } finally {
+      setState(() => _isProcessingUpload = false);
+    }
   }
 
   Widget _buildDataModerationCard(KsdmaStateService state) {

@@ -48,7 +48,11 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
     }
   }
 
-  void _submitData() {
+  bool _isSubmitting = false;
+
+  Future<void> _submitData() async {
+    if (_isSubmitting) return;
+
     if (_formKey.currentState!.validate()) {
       final state = Provider.of<KsdmaStateService>(context, listen: false);
       final station = state.stations.firstWhere((s) => s.stationId == widget.stationId);
@@ -68,6 +72,33 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
           const SnackBar(
             content: Text('🔒 Station Pending Approval - You cannot enter observation data until KSDMA Admin HQ approves this instrument.'),
             backgroundColor: Colors.amber,
+          ),
+        );
+        return;
+      }
+
+      // Check Time Window for Volunteers (Admin Exempt)
+      final isEdit = state.getTodayObservation(widget.stationId) != null;
+      if (!state.isObservationWindowOpen(station.instrumentType, isEdit: isEdit)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: const [
+                Icon(Icons.lock_clock, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Observation Entry Locked'),
+              ],
+            ),
+            content: Text(
+              station.instrumentType == InstrumentType.maxMinThermometer
+                  ? 'Volunteers can enter morning data between 8:00 AM - 9:00 AM IST, and edit Temperature values once at 4:00 PM (16:00 - 17:00 IST).'
+                  : 'Volunteers can only enter or edit daily observations between 8:00 AM and 9:00 AM IST. (Admin HQ can enter anytime).'
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+            ],
           ),
         );
         return;
@@ -99,8 +130,10 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
       double? riverLevel = station.instrumentType == InstrumentType.riverGauge ? double.tryParse(_riverLevelCtrl.text) : null;
       double? humidity = (station.instrumentType == InstrumentType.hygrometer || _humidityCtrl.text.isNotEmpty) ? double.tryParse(_humidityCtrl.text) : null;
 
+      setState(() => _isSubmitting = true);
+
       try {
-        state.submitObservation(
+        await state.submitObservation(
           stationId: widget.stationId,
           rainfallMm: rainfall,
           maxTempC: maxTemp,
@@ -109,31 +142,39 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
           humidityPercent: humidity,
         );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Observation Data Submitted Successfully & Published Live on Dashboard!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        widget.onSubmitted();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Observation Data Saved Successfully to AWS Database & Published Live!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          widget.onSubmitted();
+        }
       } catch (e) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            title: Row(
-              children: const [
-                Icon(Icons.lock_clock, color: Colors.red),
-                SizedBox(width: 8),
-                Text('Edit Window Closed'),
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Row(
+                children: const [
+                  Icon(Icons.error_outline, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Submission Failed'),
+                ],
+              ),
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
               ],
             ),
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
-            ],
-          ),
-        );
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+        }
       }
     }
   }
@@ -146,8 +187,9 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
       orElse: () => state.stations.first,
     );
 
-    final isRainfall = station.instrumentType == InstrumentType.rainGauge;
-    final isEditWindowOpen = state.isRainfallEditWindowOpen();
+    final todayObs = state.getTodayObservation(widget.stationId);
+    final isEdit = todayObs != null;
+    final isWindowOpen = state.isObservationWindowOpen(station.instrumentType, isEdit: isEdit);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -195,50 +237,55 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
                 ),
                 const Divider(height: 28),
 
-                // Strict 8 AM - 9 AM Time Window Notice for Rainfall
-                if (isRainfall)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isEditWindowOpen ? Colors.green.shade50 : Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isEditWindowOpen ? Colors.green : Colors.amber),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isEditWindowOpen ? Icons.access_time_filled : Icons.error_outline,
-                          color: isEditWindowOpen ? Colors.green.shade800 : Colors.amber.shade900,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isEditWindowOpen
-                                    ? 'Rainfall Observation Edit Window OPEN (8:00 AM - 9:00 AM IST)'
-                                    : 'Rainfall Edit Window (8:00 AM - 9:00 AM IST Rule)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: isEditWindowOpen ? Colors.green.shade900 : Colors.amber.shade900,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                isEditWindowOpen
-                                    ? 'You can record or update today\'s rainfall observation.'
-                                    : 'As per IMD protocol, rainfall editing is permitted between 8:00 AM and 9:00 AM. After 9:00 AM, data for today is locked.',
-                                style: const TextStyle(fontSize: 11, color: Colors.black87),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                // Time Window Protocol Status Banner
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isWindowOpen ? Colors.green.shade50 : Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isWindowOpen ? Colors.green : Colors.amber.shade700,
                     ),
                   ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isWindowOpen ? Icons.access_time_filled : Icons.lock_clock,
+                        color: isWindowOpen ? Colors.green.shade800 : Colors.amber.shade900,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isWindowOpen
+                                  ? (station.instrumentType == InstrumentType.maxMinThermometer && TimeOfDay.now().hour == 16
+                                      ? '🟢 Evening Temperature Edit Window OPEN (4:00 PM - 5:00 PM IST)'
+                                      : '🟢 Morning Observation Entry Window OPEN (8:00 AM - 9:00 AM IST)')
+                                  : '🔒 Observation Entry Locked (8:00 AM - 9:00 AM Rule)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isWindowOpen ? Colors.green.shade900 : Colors.amber.shade900,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isWindowOpen
+                                  ? 'You can record or update today\'s observed weather parameters.'
+                                  : (station.instrumentType == InstrumentType.maxMinThermometer
+                                      ? 'Daily observations can be recorded between 8:00 AM - 9:00 AM IST, and Temperature values can be edited once at 4:00 PM (16:00 - 17:00 IST).'
+                                      : 'Daily observations can only be entered or edited between 8:00 AM and 9:00 AM IST.'),
+                              style: const TextStyle(fontSize: 11, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
                 // Time of Observation Selector
                 Row(
@@ -367,14 +414,18 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: _submitData,
-                    icon: const Icon(Icons.cloud_upload, color: Colors.white),
-                    label: const Text(
-                      'SUBMIT OBSERVATION DATA',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    onPressed: _isSubmitting ? null : _submitData,
+                    icon: _isSubmitting
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Icon(isWindowOpen ? Icons.cloud_upload : Icons.lock_clock, color: Colors.white),
+                    label: Text(
+                      _isSubmitting
+                          ? 'SAVING TO DATABASE...'
+                          : (isWindowOpen ? 'SUBMIT OBSERVATION DATA' : 'WINDOW LOCKED (ENTRY CLOSED)'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0288D1),
+                      backgroundColor: isWindowOpen ? const Color(0xFF0288D1) : const Color(0xFF94A3B8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),

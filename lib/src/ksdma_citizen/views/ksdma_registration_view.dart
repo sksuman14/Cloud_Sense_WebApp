@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
+import '../services/ksdma_api_service.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
 
@@ -35,9 +37,94 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
   late final TextEditingController _villageController;
   late final TextEditingController _latController;
   late final TextEditingController _lngController;
-  final TextEditingController _photoUrlController = TextEditingController(
-    text: 'https://images.unsplash.com/photo-1590055531615-f16d36ffe8ec?auto=format&fit=crop&w=400&q=80',
-  );
+  late final TextEditingController _photoUrlController;
+
+  bool _isLocatingGPS = false;
+
+  Future<void> _autoDetectGPSLocation() async {
+    setState(() => _isLocatingGPS = true);
+    try {
+      final pos = await html.window.navigator.geolocation.getCurrentPosition();
+      final lat = (pos.coords?.latitude ?? 10.8505).toDouble();
+      final lng = (pos.coords?.longitude ?? 76.2711).toDouble();
+
+      setState(() {
+        _latController.text = lat.toStringAsFixed(4);
+        _lngController.text = lng.toStringAsFixed(4);
+      });
+
+      await _syncPostGISLocation();
+    } catch (e) {
+      print('HTML5 Geolocation Error: $e');
+      _showError('📍 Please allow Location Permission in your browser URL bar.');
+    } finally {
+      if (mounted) setState(() => _isLocatingGPS = false);
+    }
+  }
+
+  Future<void> _syncPostGISLocation() async {
+    final lat = double.tryParse(_latController.text.trim());
+    final lng = double.tryParse(_lngController.text.trim());
+    if (lat == null || lng == null) {
+      _showError('⚠️ Enter valid Latitude and Longitude to sync PostGIS!');
+      return;
+    }
+
+    try {
+      final api = KsdmaApiService();
+      final geoRes = await api.reverseGeocodeLocation(lat, lng);
+
+      if (geoRes != null) {
+        final dist = geoRes['district'] ?? '';
+        final taluk = geoRes['taluk'] ?? '';
+        final gp = geoRes['grama_panchayat'] ?? '';
+
+        if (dist == 'Outside Kerala' || geoRes['is_in_kerala'] == 'false') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ Coordinates (${lat.toStringAsFixed(4)}°N, ${lng.toStringAsFixed(4)}°E) lie outside Kerala state boundaries!'),
+                backgroundColor: Colors.orange.shade800,
+              ),
+            );
+          }
+          return;
+        }
+
+        final districts = KeralaAdminData.getDistricts();
+        if (districts.contains(dist)) {
+          setState(() {
+            _districtController.text = dist;
+            final taluks = KeralaAdminData.getTaluks(dist);
+            if (taluks.contains(taluk)) {
+              _talukController.text = taluk;
+            } else if (taluks.isNotEmpty) {
+              _talukController.text = taluks.first;
+            }
+
+            final gps = KeralaAdminData.getPanchayats(dist, _talukController.text);
+            if (gps.contains(gp)) {
+              _gpController.text = gp;
+            } else if (gps.isNotEmpty) {
+              _gpController.text = gps.first;
+            }
+            _villageController.text = _gpController.text;
+          });
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚡ PostGIS Dynamic Geolocation Sync: ${_districtController.text} → ${_talukController.text} → ${_gpController.text}'),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+      }
+    } catch (e) {
+      _showError('PostGIS Sync Error: $e');
+    }
+  }
 
   String _maskPhone(String phone) {
     final clean = phone.trim();
@@ -68,6 +155,9 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
 
     _latController = TextEditingController(text: '10.8505');
     _lngController = TextEditingController(text: '76.2711');
+    _photoUrlController = TextEditingController(
+      text: 'https://images.unsplash.com/photo-1590055531615-f16d36ffe8ec?auto=format&fit=crop&w=400&q=80',
+    );
   }
 
   @override
@@ -384,20 +474,22 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Ownership Type ⓘ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+              const Text('Ownership Type ⓘ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.black26),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
                 ),
                 child: DropdownButton<String>(
                   value: _ownershipType,
                   isExpanded: true,
+                  dropdownColor: Colors.white,
                   underline: const SizedBox(),
-                  items: ['Personal', 'School / Institution', 'Panchayat', 'NGO'].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
+                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
+                  items: ['Personal', 'School / Institution', 'Panchayat', 'NGO'].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold)))).toList(),
                   onChanged: (v) => setState(() => _ownershipType = v!),
                 ),
               ),
@@ -425,7 +517,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
               activeColor: const Color(0xFF2563EB),
             ),
             const Expanded(
-              child: Text('I confirm that I will take observations as per IMD standard methods. *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+              child: Text('I confirm that I will take observations as per IMD standard methods. *', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
             ),
           ],
         ),
@@ -465,59 +557,202 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
   }
 
   Widget _buildStep2Form(bool isMobile) {
-    final state = Provider.of<KsdmaStateService>(context);
-    final districtOptions = state.districtNames;
+    final districtOptions = KeralaAdminData.getDistricts();
 
-    if (_districtController.text.isEmpty && districtOptions.isNotEmpty) {
-      _districtController.text = districtOptions.first;
+    if (_districtController.text.isEmpty || !districtOptions.contains(_districtController.text)) {
+      _districtController.text = 'Kozhikode';
+    }
+
+    final talukOptions = KeralaAdminData.getTaluks(_districtController.text);
+    if (_talukController.text.isEmpty || !talukOptions.contains(_talukController.text)) {
+      _talukController.text = talukOptions.isNotEmpty ? talukOptions.first : '';
+    }
+
+    final gpOptions = KeralaAdminData.getPanchayats(_districtController.text, _talukController.text);
+    if (_gpController.text.isEmpty || !gpOptions.contains(_gpController.text)) {
+      _gpController.text = gpOptions.isNotEmpty ? gpOptions.first : '';
+    }
+
+    if (_villageController.text.isEmpty) {
+      _villageController.text = _gpController.text;
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Geographic Location Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Geographic Location Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: const Text('✓ Kerala Boundary Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+            ),
+          ],
+        ),
         const SizedBox(height: 14),
+
+        // Row 1: Cascading District & Taluk Dropdowns
         _buildFieldPair(
           isMobile,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('District *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+              const Text('District *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.black26),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
                 ),
                 child: DropdownButton<String>(
-                  value: districtOptions.contains(_districtController.text) ? _districtController.text : (districtOptions.isNotEmpty ? districtOptions.first : null),
+                  value: districtOptions.contains(_districtController.text) ? _districtController.text : districtOptions.first,
                   isExpanded: true,
+                  dropdownColor: Colors.white,
                   underline: const SizedBox(),
-                  items: districtOptions.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12)))).toList(),
+                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
+                  items: districtOptions.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold)))).toList(),
                   onChanged: (v) {
                     if (v != null) {
-                      setState(() => _districtController.text = v);
+                      setState(() {
+                        _districtController.text = v;
+                        final newTaluks = KeralaAdminData.getTaluks(v);
+                        _talukController.text = newTaluks.isNotEmpty ? newTaluks.first : '';
+                        final newPanchayats = KeralaAdminData.getPanchayats(v, _talukController.text);
+                        _gpController.text = newPanchayats.isNotEmpty ? newPanchayats.first : '';
+                        _villageController.text = _gpController.text;
+                      });
                     }
                   },
                 ),
               ),
             ],
           ),
-          _buildTextField('Taluk *', _talukController, hint: 'Enter Taluk'),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Taluk *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: DropdownButton<String>(
+                  value: talukOptions.contains(_talukController.text) ? _talukController.text : (talukOptions.isNotEmpty ? talukOptions.first : null),
+                  isExpanded: true,
+                  dropdownColor: Colors.white,
+                  underline: const SizedBox(),
+                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
+                  items: talukOptions.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold)))).toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _talukController.text = v;
+                        final newPanchayats = KeralaAdminData.getPanchayats(_districtController.text, v);
+                        _gpController.text = newPanchayats.isNotEmpty ? newPanchayats.first : '';
+                        _villageController.text = _gpController.text;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
+
+        // Row 2: Cascading Grama Panchayat & Village
         _buildFieldPair(
           isMobile,
-          _buildTextField('Grama Panchayat *', _gpController, hint: 'Enter Grama Panchayat'),
-          _buildTextField('Village *', _villageController, hint: 'Enter Village'),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Grama Panchayat *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: DropdownButton<String>(
+                  value: gpOptions.contains(_gpController.text) ? _gpController.text : (gpOptions.isNotEmpty ? gpOptions.first : null),
+                  isExpanded: true,
+                  dropdownColor: Colors.white,
+                  underline: const SizedBox(),
+                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
+                  items: gpOptions.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold)))).toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _gpController.text = v;
+                        _villageController.text = v;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          _buildTextField('Village / Ward *', _villageController, hint: 'e.g. Village Name'),
         ),
         const SizedBox(height: 12),
+
+        // Row 3: Latitude, Longitude & Auto Location Map Button
         _buildFieldPair(
           isMobile,
-          _buildTextField('Latitude (°N)', _latController, hint: 'e.g. 11.2588'),
-          _buildTextField('Longitude (°E)', _lngController, hint: 'e.g. 75.7804'),
+          _buildTextField('Latitude (°N) *', _latController, hint: 'e.g. 11.2588'),
+          _buildTextField('Longitude (°E) *', _lngController, hint: 'e.g. 75.7804'),
+        ),
+        const SizedBox(height: 12),
+
+        // 1-Click GPS Auto-Detect & PostGIS Sync Action Bar
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F9FF),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFBAE6FD)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isLocatingGPS ? null : _autoDetectGPSLocation,
+                  icon: _isLocatingGPS
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.my_location, size: 16),
+                  label: Text(_isLocatingGPS ? 'Detecting Location...' : '📍 Auto-Detect GPS Location', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _syncPostGISLocation,
+                icon: const Icon(Icons.alt_route, size: 16, color: Color(0xFF0369A1)),
+                label: const Text('⚡ Sync PostGIS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1))),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF0284C7)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 20),
         Row(
@@ -528,7 +763,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: () {
                   if (_districtController.text.trim().isEmpty) {
                     _showError('⚠️ District is mandatory!');
@@ -542,14 +777,25 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
                     _showError('⚠️ Grama Panchayat is mandatory!');
                     return;
                   }
-                  if (_villageController.text.trim().isEmpty) {
-                    _showError('⚠️ Village is mandatory!');
+
+                  // Option 3: PostGIS Coordinates Boundary Validation
+                  final lat = double.tryParse(_latController.text.trim());
+                  final lng = double.tryParse(_lngController.text.trim());
+                  if (lat == null || lng == null) {
+                    _showError('⚠️ Please enter valid numeric Latitude and Longitude coordinates.');
                     return;
                   }
+                  final coordErr = KeralaAdminData.validateCoordinates(lat, lng);
+                  if (coordErr != null) {
+                    _showError(coordErr);
+                    return;
+                  }
+
                   setState(() => _currentStep = 3);
                 },
+                icon: const Icon(Icons.verified, size: 16),
+                label: const Text('Validate & Next: Photo Upload', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-                child: const Text('Next: Upload Photo & Review', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -939,26 +1185,30 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569))),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
         const SizedBox(height: 6),
         SizedBox(
-          height: 38,
+          height: 40,
           child: TextField(
             controller: controller,
             readOnly: readOnly,
             onTap: onTap,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
             decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
               hintText: hint,
+              hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.normal),
               suffixIcon: suffixIcon != null
                   ? IconButton(
-                      icon: Icon(suffixIcon, size: 16),
+                      icon: Icon(suffixIcon, size: 16, color: const Color(0xFF475569)),
                       onPressed: onTap,
                     )
                   : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Colors.black26)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFF2563EB))),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5)),
             ),
           ),
         ),

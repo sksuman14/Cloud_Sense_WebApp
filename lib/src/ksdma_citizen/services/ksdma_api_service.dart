@@ -304,6 +304,49 @@ class KsdmaApiService {
     return stationsList;
   }
 
+  /// PostGIS Accelerated Radius Search: GET /api/stations/nearby
+  Future<List<KsdmaStation>> fetchNearbyStations({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 10.0,
+  }) async {
+    try {
+      final url = Uri.parse('$apiBaseUrl/stations/nearby?lat=$latitude&lng=$longitude&radius_km=$radiusKm');
+      final response = await http.get(url, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['success'] == true && body['stations'] != null) {
+          final List rows = body['stations'];
+          return rows.map((r) => _mapRowToStation(r)).toList();
+        }
+      }
+    } catch (e) {
+      print('Error fetching nearby stations via PostGIS API: $e');
+    }
+    return [];
+  }
+
+  /// PostGIS Accelerated Reverse-Geocoding: GET /api/stations/reverse-geocode
+  Future<Map<String, String>?> reverseGeocodeLocation(double lat, double lng) async {
+    try {
+      final url = Uri.parse('$apiBaseUrl/stations/reverse-geocode?lat=$lat&lng=$lng');
+      final response = await http.get(url, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          return {
+            'district': body['district']?.toString() ?? '',
+            'taluk': body['taluk']?.toString() ?? '',
+            'grama_panchayat': body['grama_panchayat']?.toString() ?? '',
+          };
+        }
+      }
+    } catch (e) {
+      print('Error in PostGIS Reverse Geocoding: $e');
+    }
+    return null;
+  }
+
   // 5. GET /api/stations/pending - Fetch Only Pending Stations (for Admin Dashboard)
   Future<List<KsdmaStation>> fetchPendingStations() async {
     try {
@@ -355,14 +398,17 @@ class KsdmaApiService {
     }
   }
 
-  // 7. POST /api/approve - Admin Approve Station
+   // 7. POST /api/approve - Admin Approve Station
   Future<bool> approveStation(String stationId) async {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/approve'),
-        headers: {'Content-Type': 'application/json'},
+        headers: authHeaders,   // ✅ FIXED: was {'Content-Type': 'application/json'}
         body: jsonEncode({'station_id': stationId, 'admin_id': 'usr_admin_hq'}),
       );
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        print('❌ Approve Unauthorized: ${response.body}');
+      }
       return response.statusCode == 200;
     } catch (e) {
       print('Error approving station via API: $e');
@@ -370,18 +416,21 @@ class KsdmaApiService {
     }
   }
 
-  // 8. POST /api/reject - Admin Reject Station (saves rejection_reason in stations table)
+  // 8. POST /api/reject - Admin Reject Station
   Future<bool> rejectStation(String stationId, {String reason = 'Rejected by Admin HQ'}) async {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/reject'),
-        headers: {'Content-Type': 'application/json'},
+        headers: authHeaders,   // ✅ FIXED: was {'Content-Type': 'application/json'}
         body: jsonEncode({
           'station_id': stationId,
           'admin_id': 'usr_admin_hq',
           'rejection_reason': reason,
         }),
       );
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        print('❌ Reject Unauthorized: ${response.body}');
+      }
       return response.statusCode == 200;
     } catch (e) {
       print('Error rejecting station via API: $e');
@@ -407,6 +456,10 @@ class KsdmaApiService {
           'river_water_level_m': obs.riverWaterLevelM,
           'humidity_percent': obs.humidityPercent,
           'source': obs.source,
+          'is_removed': obs.isRemoved,
+          'removal_reason': obs.removalReason,
+          'is_edited': obs.isEdited,
+          'status': obs.isRemoved ? 'removed' : 'approved',
         }),
       ).timeout(const Duration(seconds: 4));
       return response.statusCode == 200 || response.statusCode == 201;
@@ -417,13 +470,14 @@ class KsdmaApiService {
   }
 
   // 10. PUT /api/observations/:id - Admin Flag/Update Observation as is_removed = true with removal_reason
-  Future<bool> deleteObservation(String observationId, String reason) async {
+   Future<bool> deleteObservation(String observationId, String reason) async {
     try {
       final response = await http.put(
         Uri.parse('$apiBaseUrl/observations/$observationId'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'is_removed': true,
+          'status': 'removed',
           'removal_reason': reason,
         }),
       ).timeout(const Duration(seconds: 4));
@@ -643,6 +697,137 @@ class KsdmaApiService {
     return awsObsList;
   }
 
+  /// Fetch full date range AWS telemetry with daily precalculated summary & averages
+  Future<List<KsdmaObservation>> fetchAwsObservationsForDateRange(List<String> deviceIds, DateTime startDate, DateTime endDate) async {
+    final List<KsdmaObservation> awsObsList = [];
+    final startStr = DateFormat('dd-MM-yyyy').format(startDate);
+    final endStr = DateFormat('dd-MM-yyyy').format(endDate);
+
+    const chunkSize = 10;
+    for (int i = 0; i < deviceIds.length; i += chunkSize) {
+      final chunk = deviceIds.sublist(i, i + chunkSize > deviceIds.length ? deviceIds.length : i + chunkSize);
+      final futures = chunk.map((devId) async {
+        try {
+          final cleanNum = devId.replaceAll('WS_', '').trim();
+          final formattedDevId = 'WS_$cleanNum';
+          final encodedKey = Uri.encodeComponent(ApiKeys.annamApiKey);
+
+          final String urlRange = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$startStr&enddate=$endStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
+          final response = await http.get(Uri.parse(urlRange)).timeout(const Duration(seconds: 30));
+
+          if (response.statusCode != 200) return <KsdmaObservation>[];
+
+          final dynamic body = jsonDecode(response.body);
+          final List<KsdmaObservation> devObs = [];
+
+          List items = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
+
+          if (items.isNotEmpty) {
+            final Map<String, List<dynamic>> groupedByDay = {};
+            for (var item in items) {
+              final dt = _parseTimeStamp(item['TimeStamp']);
+              if (dt != null) {
+                final dayKey = DateFormat('yyyy-MM-dd').format(dt);
+                groupedByDay.putIfAbsent(dayKey, () => []).add(item);
+              }
+            }
+
+            groupedByDay.forEach((dayKey, dayItems) {
+              try {
+                final targetDate = DateFormat('yyyy-MM-dd').parse(dayKey);
+                double? maxTemp, minTemp, maxHum, avgHum, totalRain;
+                double totalH = 0;
+                int humCount = 0;
+
+                for (var item in dayItems) {
+                  final t = _extractTemperature(item);
+                  if (t != null) {
+                    if (maxTemp == null || t > maxTemp) maxTemp = t;
+                    if (minTemp == null || t < minTemp) minTemp = t;
+                  }
+                  final h = _extractHumidity(item);
+                  if (h != null) {
+                    totalH += h;
+                    humCount++;
+                    if (maxHum == null || h > maxHum) maxHum = h;
+                  }
+                }
+                if (humCount > 0) avgHum = double.parse((totalH / humCount).toStringAsFixed(1));
+
+                for (int idx = dayItems.length - 1; idx >= 0; idx--) {
+                  final r = _extractRainfall(dayItems[idx]);
+                  if (r != null) {
+                    totalRain = r;
+                    break;
+                  }
+                }
+
+                final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
+                devObs.add(KsdmaObservation(
+                  observationId: 'obs_${devId}_${dayKey}',
+                  stationId: devId,
+                  submittedByUserId: 'aws_sensor_network',
+                  observationDate: targetDate,
+                  observationTime: const TimeOfDay(hour: 23, minute: 59),
+                  submissionTimestamp: obsDt,
+                  rainfallMm: totalRain ?? 0.0,
+                  maxTemperatureC: maxTemp,
+                  minTemperatureC: minTemp,
+                  humidityPercent: avgHum ?? maxHum,
+                  riverWaterLevelM: null,
+                  source: 'WS_KERALA_PRECALCULATED_API',
+                ));
+              } catch (e) {
+                print('Error grouping AWS day: $e');
+              }
+            });
+          } else if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+            for (var calcItem in (body['Calculated'] as List)) {
+              final calc = Map<String, dynamic>.from(calcItem);
+              final dateVal = calc['Date']?.toString() ?? calc['date']?.toString() ?? calc['TimeStamp']?.toString() ?? '';
+              DateTime targetDate = endDate;
+              if (dateVal.isNotEmpty) {
+                targetDate = DateTime.tryParse(dateVal) ?? _parseTimeStamp(dateVal) ?? endDate;
+              }
+
+              final maxTemp = double.tryParse(calc['Maximum_Temperature']?.toString() ?? '');
+              final minTemp = double.tryParse(calc['Minimum_Temperature']?.toString() ?? '');
+              final maxHum = double.tryParse(calc['Maximum_Humidity']?.toString() ?? '');
+              final avgHum = double.tryParse(calc['Average_Humidity']?.toString() ?? '');
+              final totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
+
+              final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
+              devObs.add(KsdmaObservation(
+                observationId: 'obs_${devId}_${targetDate.year}_${targetDate.month}_${targetDate.day}',
+                stationId: devId,
+                submittedByUserId: 'aws_sensor_network',
+                observationDate: targetDate,
+                observationTime: const TimeOfDay(hour: 23, minute: 59),
+                submissionTimestamp: obsDt,
+                rainfallMm: totalRain ?? 0.0,
+                maxTemperatureC: maxTemp,
+                minTemperatureC: minTemp,
+                humidityPercent: avgHum ?? maxHum,
+                riverWaterLevelM: null,
+                source: 'WS_KERALA_PRECALCULATED_API',
+              ));
+            }
+          }
+          return devObs;
+        } catch (e) {
+          debugPrint('Error fetching AWS range history for $devId: $e');
+          return <KsdmaObservation>[];
+        }
+      });
+
+      final results = await Future.wait(futures);
+      for (var list in results) {
+        awsObsList.addAll(list);
+      }
+    }
+    return awsObsList;
+  }
+
   // 12. GET /api/observations - Fetch All Live & Historical Observations
   Future<List<KsdmaObservation>> fetchObservations() async {
     final List<KsdmaObservation> obsList = [];
@@ -813,10 +998,10 @@ class KsdmaApiService {
       devicePhotoUrl: r['device_photo_url'] ?? 'https://images.unsplash.com/photo-1590055531615-f16d36ffe8ec?auto=format&fit=crop&w=400&q=80',
       latitude: (r['latitude'] as num).toDouble(),
       longitude: (r['longitude'] as num).toDouble(),
-      district: r['district'],
-      taluk: r['taluk'],
-      gramaPanchayat: r['grama_panchayat'],
-      village: r['village'],
+      district: r['district']?.toString() ?? 'Kozhikode',
+      taluk: r['taluk']?.toString() ?? '',
+      gramaPanchayat: r['grama_panchayat']?.toString() ?? '',
+      village: r['village']?.toString() ?? '',
       approvalStatus: r['approval_status'] == 'approved'
           ? ApprovalStatus.approved
           : r['approval_status'] == 'rejected'
@@ -843,7 +1028,9 @@ class KsdmaApiService {
       minTemperatureC: r['min_temperature_c'] != null ? (r['min_temperature_c'] as num).toDouble() : null,
       riverWaterLevelM: r['river_water_level_m'] != null ? (r['river_water_level_m'] as num).toDouble() : null,
       humidityPercent: r['humidity_percent'] != null ? (r['humidity_percent'] as num).toDouble() : null,
+      isEdited: r['is_edited'] == true || r['is_edited'] == 'true',
       isRemoved: isRemoved,
+      removalReason: r['removal_reason']?.toString(),
     );
   }
 }
