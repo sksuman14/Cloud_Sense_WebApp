@@ -44,3 +44,7 @@ app.*.map.json
 
 # API Keys
 lib/src/utils/api_keys.dart
+
+# Scratch working directory
+scratch/
+
