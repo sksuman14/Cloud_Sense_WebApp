@@ -32,6 +32,8 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_portal_main.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
+import 'package:upgrader/upgrader.dart';
+
 
 
 // Initialize Flutter local notifications plugin
@@ -825,7 +827,7 @@ class MyApp extends StatelessWidget {
               child: ProductPage(sensorIndex: 0),
             );
             break;
-
+// extraproducts
           // case "/gateway":
           //   pageContent = const ProductPage(sensorIndex: 5);
 
@@ -1045,8 +1047,17 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
       },
+      builder: (context, child) {
+        return UpgradeAlert(
+          upgrader: Upgrader(
+            debugLogging: false,
+          ),
+          child: child ?? const SizedBox(),
+        );
+      },
       navigatorObservers: [routeObserver, LastRouteObserver()],
     );
+
   }
 }
 
