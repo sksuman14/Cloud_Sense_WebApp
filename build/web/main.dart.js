@@ -16902,75 +16902,76 @@ cto(a){var s
 if(a.length<2)return""
 s=B.b.al(a,0,2)
 return B.c.n(B.J7,s)?s:"RS"},
-c6l(a){var s,r,q,p,o,n,m="^\\d+",l="0"
+c6l(a){var s,r,q,p,o,n,m="WS_SHOBHA_",l="WS_SOBHA_",k="^\\d+",j="0"
 a=B.b.a9(a).toUpperCase()
-if(B.b.H(a,"WS_SHOBHA_")){s=B.b.by(a,10)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["SH"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM0126_")){s=B.b.by(a,10)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["WJ"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM_CP")){s=B.b.by(a,8)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["AM"+B.b.b6(q,2,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM0226_")){s=B.b.by(a,10)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["WF"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM/CPS_")){s=B.b.by(a,10)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["PS"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM0426_")){s=B.b.by(a,10)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["WA"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}q=B.b.H(a,"ANNAM0526_")
-if(q||B.b.H(a,"TS0526_")){s=B.b.by(a,q?10:7)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["WM"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}p=A.aP("\\d+$",!0,!1,!1).dl(a)
+s=B.b.H(a,m)
+if(s||B.b.H(a,l)){r=B.b.by(a,(s?m:l).length)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["SH"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM0126_")){r=B.b.by(a,10)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["WJ"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM_CP")){r=B.b.by(a,8)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["AM"+B.b.b6(s,2,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM0226_")){r=B.b.by(a,10)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["WF"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM/CPS_")){r=B.b.by(a,10)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["PS"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM0426_")){r=B.b.by(a,10)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["WA"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}s=B.b.H(a,"ANNAM0526_")
+if(s||B.b.H(a,"TS0526_")){r=B.b.by(a,s?10:7)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["WM"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}p=A.aP("\\d+$",!0,!1,!1).dl(a)
 if(p==null)return A.a([],t.s)
-q=p.b[0]
-q.toString
-o=B.b.b6(q,3,l)
-n=A.du(q,null)
+s=p.b[0]
+s.toString
+o=B.b.b6(s,3,j)
+n=A.du(s,null)
 if(n==null)n=0
 if(B.b.H(a,"TS_"))return A.a(["WT"+o,"CP"+o],t.s)
 if(B.b.H(a,"DM_"))return A.a(["DM"+o],t.s)
-if(B.b.H(a,"AWS_TESTING_")){s=B.b.by(a,12)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["AT"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"WINDS_"))return A.a(["WN"+o],t.s)
-if(B.b.H(a,"JIO_WINDS_")){s=B.b.by(a,10)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["JW"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"JW_")){s=B.b.by(a,3)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["JW"+B.b.b6(q,3,l)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM1"))return A.a(["NA"+o,"KJ"+o,"SM"+o,"SW"+o],t.s)
+if(B.b.H(a,"AWS_TESTING_")){r=B.b.by(a,12)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["AT"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"WINDS_"))return A.a(["WN"+o],t.s)
+if(B.b.H(a,"JIO_WINDS_")){r=B.b.by(a,10)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["JW"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"JW_")){r=B.b.by(a,3)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["JW"+B.b.b6(s,3,j)],t.s)}return A.a([],t.s)}if(B.b.H(a,"ANNAM1"))return A.a(["NA"+o,"KJ"+o,"SM"+o,"SW"+o],t.s)
 else if(B.b.H(a,"ANNAM2"))return A.a(["CP"+o,"WT"+o],t.s)
 else if(B.b.H(a,"ANNAM3"))return A.a(["IT"+o],t.s)
 else if(B.b.H(a,"ANNAM4")||B.b.H(a,"ANNAM/PC_"))return A.a(["PC"+o],t.s)
-else if(B.b.H(a,"ANNAM/PUNJAB/")||B.b.H(a,"WS_PUNJAB_")||B.b.H(a,"PJWS_")){r=A.aP("\\d+$",!0,!1,!1).dl(a)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["PJ"+q],t.s)}return A.a(["PJ"+o],t.s)}else if(B.b.H(a,"ANNAM6")||B.b.H(a,"ANNAM/KERALA/")){if(B.b.H(a,"ANNAM/KERALA/WS_")){s=B.b.by(a,16)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["KRWS_"+q],t.s)}}return A.a(["KR"+o],t.s)}else if(B.b.H(a,"AWS_")){s=B.b.by(a,4)
-r=A.aP(m,!0,!1,!1).dl(s)
-if(r!=null){q=r.b[0]
-q.toString
-return A.a(["AW"+B.b.b6(q,3,l)],t.s)}return A.a(["AW"+o],t.s)}else if(B.b.H(a,"ANNAM5")||B.b.H(a,"ANNAM/GPC_"))return A.a(["GP"+o],t.s)
+else if(B.b.H(a,"ANNAM/PUNJAB/")||B.b.H(a,"WS_PUNJAB_")||B.b.H(a,"PJWS_")){q=A.aP("\\d+$",!0,!1,!1).dl(a)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["PJ"+s],t.s)}return A.a(["PJ"+o],t.s)}else if(B.b.H(a,"ANNAM6")||B.b.H(a,"ANNAM/KERALA/")){if(B.b.H(a,"ANNAM/KERALA/WS_")){r=B.b.by(a,16)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["KRWS_"+s],t.s)}}return A.a(["KR"+o],t.s)}else if(B.b.H(a,"AWS_")){r=B.b.by(a,4)
+q=A.aP(k,!0,!1,!1).dl(r)
+if(q!=null){s=q.b[0]
+s.toString
+return A.a(["AW"+B.b.b6(s,3,j)],t.s)}return A.a(["AW"+o],t.s)}else if(B.b.H(a,"ANNAM5")||B.b.H(a,"ANNAM/GPC_"))return A.a(["GP"+o],t.s)
 else if(B.b.H(a,"ANNAM")){if(n===1)return A.a(["CP001"],t.s)
 if(n===7)return A.a(["SW007"],t.s)
 if(n===13)return A.a(["SW013"],t.s)
@@ -49694,7 +49695,7 @@ if(B.b.H(a,"CP"))return"IIT Ropar Campus Sensor"
 if(B.b.H(a,"DM"))return"Demo Sensor"
 if(B.b.H(a,"WN"))return"Winds Weather Sensor"
 if(B.b.H(a,"JW"))return"Partnership Sensors"
-if(B.b.H(a,"SH"))return"Shobha Sensor"
+if(B.b.H(a,"SH"))return"Sobha Sensor"
 if(B.b.H(a,"AT"))return"AWS Testing Sensor"
 if(B.b.H(a,"PS"))return"CPS Sensor"
 return"Rain Sensor"},
@@ -49784,10 +49785,10 @@ r=$.clO()
 q=A.bR(s,r,"")
 p=r.a8x(s)
 if(p==null)p=""
-if(B.b.H(s,"SH")){r=A.aP(l,!0,!1,!1)
+if(B.b.H(s,"SH")||B.b.H(s,"WS_SHOBHA")||B.b.H(s,"WS_SOBHA")){r=A.aP(l,!0,!1,!1)
 o=A.bR(q,r,"")
 n=A.du(o,m)
-return n!=null?"WS_Shobha_"+A.i(n):"WS_Shobha_"+o}if(B.b.H(s,"WJ"))return"ANNAM0126_"+q
+return n!=null?"WS_Sobha_"+A.i(n):"WS_Sobha_"+o}if(B.b.H(s,"WJ"))return"ANNAM0126_"+q
 if(B.b.H(s,"WF"))return"ANNAM0226_"+q
 if(B.b.H(s,"WA"))return"ANNAM0426_"+q
 if(B.b.H(s,"WM"))return"TS0526_"+q
@@ -49969,7 +49970,7 @@ if(B.b.n(a,"WS/SSMet_0126"))return B.aE7
 if(B.b.n(a,"Annam_0426"))return B.aEO
 if(B.b.n(a,"Annam_0526"))return B.aE5
 s=a.toLowerCase()
-if(B.b.n(s,"shobha"))return B.aEp
+if(B.b.n(s,"shobha")||B.b.n(s,"sobha"))return B.aEp
 if(B.b.n(s,"ws_winds/jio_logger")||B.b.n(s,"jio_logger"))return B.aEo
 if(B.b.n(s,"winds_wn")||B.b.n(s,"winds/")||B.b.n(s,"winds_"))return B.aEa
 if(B.b.n(a,"Weather/sensor"))return B.aEg
@@ -103058,7 +103059,7 @@ m=c.a.c
 if(B.b.H(m.toUpperCase(),"JW"))m="JW Device Configuration"
 else if(B.b.H(m.toUpperCase(),"KR"))m="Kerala Device Configuration"
 else if(B.b.H(m.toUpperCase(),"AW"))m="AWS Device Configuration"
-else if(B.b.H(m.toUpperCase(),a))m="Shobha Device Configuration"
+else if(B.b.H(m.toUpperCase(),a))m="Sobha Device Configuration"
 else m=B.b.H(m.toUpperCase(),"WT")?"WT Device Configuration":"Device Configuration"
 l=c.RG
 m=A.m(m,b,b,b,b,A.z(b,b,l,b,b,b,b,b,b,b,b,c.ry?22:24,b,b,B.r,b,b,!0,b,b,b,b,b,b,b,b),b,b,b)
@@ -106491,7 +106492,7 @@ if(q.length===0)return A.y(["isValid",!1],t.N,t.z)
 s=A.c6l(q)
 r=s.length!==0?B.c.ga8(s):q
 return A.y(["isValid",A.c6j(r),"sensorType",A.c6i(r),"displayId",A.fr(r),"targetId",r],t.N,t.z)},
-L(a5){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g="isValid",f=A.Q(a5).ax.a===B.C,e=f?B.bf:B.az,d=f?B.bY:B.d,c=f?B.d:B.H,b=f?B.I:B.N,a=f?A.A(10,B.d.j()>>>16&255,B.d.j()>>>8&255,B.d.j()&255):A.A(5,B.f.j()>>>16&255,B.f.j()>>>8&255,B.f.j()&255),a0=i.d,a1=i.b2z(a0.a.a),a2=B.b.a9(a0.a.a),a3=t.N,a4=A.a([A.y(["name","Annam CP Sensor \ud83d\udce1","prefix","ANNAM_CP"],a3,a3),A.y(["name","CPS Sensor \ud83c\udf21\ufe0f","prefix","ANNAM/CPS_"],a3,a3),A.y(["name","April Weather \ud83d\udcc5","prefix","ANNAM0426_"],a3,a3),A.y(["name","Jan Weather \u2744\ufe0f","prefix","ANNAM0126_"],a3,a3),A.y(["name","Feb Weather \ud83c\udf27\ufe0f","prefix","ANNAM0226_"],a3,a3),A.y(["name","AWS Weather \u26c5","prefix","AWS_"],a3,a3),A.y(["name","Soil Sensor \ud83c\udf31","prefix","SS"],a3,a3),A.y(["name","Water Quality \ud83d\udca7","prefix","WQ"],a3,a3),A.y(["name","Chlorine \ud83e\uddea","prefix","CL"],a3,a3),A.y(["name","IIT Bombay \ud83c\udfdb\ufe0f","prefix","IT"],a3,a3),A.y(["name","Shobha \ud83c\udfe0","prefix","WS_Shobha_"],a3,a3),A.y(["name","Testing Device \ud83d\udee0\ufe0f","prefix","ANNAM0526_"],a3,a3)],t.SN)
+L(a5){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g="isValid",f=A.Q(a5).ax.a===B.C,e=f?B.bf:B.az,d=f?B.bY:B.d,c=f?B.d:B.H,b=f?B.I:B.N,a=f?A.A(10,B.d.j()>>>16&255,B.d.j()>>>8&255,B.d.j()&255):A.A(5,B.f.j()>>>16&255,B.f.j()>>>8&255,B.f.j()&255),a0=i.d,a1=i.b2z(a0.a.a),a2=B.b.a9(a0.a.a),a3=t.N,a4=A.a([A.y(["name","Annam CP Sensor \ud83d\udce1","prefix","ANNAM_CP"],a3,a3),A.y(["name","CPS Sensor \ud83c\udf21\ufe0f","prefix","ANNAM/CPS_"],a3,a3),A.y(["name","April Weather \ud83d\udcc5","prefix","ANNAM0426_"],a3,a3),A.y(["name","Jan Weather \u2744\ufe0f","prefix","ANNAM0126_"],a3,a3),A.y(["name","Feb Weather \ud83c\udf27\ufe0f","prefix","ANNAM0226_"],a3,a3),A.y(["name","AWS Weather \u26c5","prefix","AWS_"],a3,a3),A.y(["name","Soil Sensor \ud83c\udf31","prefix","SS"],a3,a3),A.y(["name","Water Quality \ud83d\udca7","prefix","WQ"],a3,a3),A.y(["name","Chlorine \ud83e\uddea","prefix","CL"],a3,a3),A.y(["name","IIT Bombay \ud83c\udfdb\ufe0f","prefix","IT"],a3,a3),A.y(["name","Sobha \ud83c\udfe0","prefix","WS_Shobha_"],a3,a3),A.y(["name","Testing Device \ud83d\udee0\ufe0f","prefix","ANNAM0526_"],a3,a3)],t.SN)
 a3=A.H(16)
 s=A.H(16)
 r=A.aN(f?B.bq:A.A(20,B.f.j()>>>16&255,B.f.j()>>>8&255,B.f.j()&255),1)

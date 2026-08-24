@@ -56,7 +56,7 @@ class DevicePrefixUtils {
     if (deviceId.startsWith('DM')) return 'Demo Sensor';
     if (deviceId.startsWith('WN')) return 'Winds Weather Sensor';
     if (deviceId.startsWith('JW')) return 'Partnership Sensors';
-    if (deviceId.startsWith('SH')) return 'Shobha Sensor';
+    if (deviceId.startsWith('SH')) return 'Sobha Sensor';
     if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
     if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
     if (deviceId.startsWith('PS')) return 'CPS Sensor';
@@ -236,11 +236,11 @@ class DevicePrefixUtils {
     final digits = upper.replaceAll(_prefixRegex, '');
     final prefix = _prefixRegex.stringMatch(upper) ?? '';
 
-    // NEW: SH sensors (Shobha) -> WS_Shobha_
-    if (upper.startsWith('SH')) {
+    // NEW: SH sensors (Sobha) -> WS_Sobha_
+    if (upper.startsWith('SH') || upper.startsWith('WS_SHOBHA') || upper.startsWith('WS_SOBHA')) {
       final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'WS_Shobha_$num' : 'WS_Shobha_$cleanDigits';
+      return num != null ? 'WS_Sobha_$num' : 'WS_Sobha_$cleanDigits';
     }
 
     // 1. WJ sensors (Jan Weather 0126) -> ANNAM0126_
@@ -624,7 +624,7 @@ class DevicePrefixUtils {
       return (category: 'Testing Devices', prefix: 'WM');
     }
     final lowerTopic = topic.toLowerCase();
-    if (lowerTopic.contains('shobha')) {
+    if (lowerTopic.contains('shobha') || lowerTopic.contains('sobha')) {
       return (category: 'Partnership', prefix: 'SH');
     }
     if (lowerTopic.contains('ws_winds/jio_logger') ||

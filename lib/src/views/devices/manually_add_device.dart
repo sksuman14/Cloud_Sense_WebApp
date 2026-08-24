@@ -123,7 +123,7 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
       {'name': 'Water Quality 💧', 'prefix': 'WQ'},
       {'name': 'Chlorine 🧪', 'prefix': 'CL'},
       {'name': 'IIT Bombay 🏛️', 'prefix': 'IT'},
-      {'name': 'Shobha 🏠', 'prefix': 'WS_Shobha_'},
+      {'name': 'Sobha 🏠', 'prefix': 'WS_Shobha_'},
       {'name': 'Testing Device 🛠️', 'prefix': 'ANNAM0526_'},
     ];
 

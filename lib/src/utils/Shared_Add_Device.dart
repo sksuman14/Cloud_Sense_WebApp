@@ -150,9 +150,10 @@ class DeviceUtils {
   static List<String> getPossibleInternalIDs(String input) {
     input = input.trim().toUpperCase();
 
-    // ── Handle WS_SHOBHA_NNN format (Shobha sensors display name) ─────────────
-    if (input.startsWith('WS_SHOBHA_')) {
-      final suffix = input.substring('WS_SHOBHA_'.length);
+    // ── Handle WS_SHOBHA_NNN or WS_SOBHA_NNN format (Sobha sensors display name) ─────────────
+    if (input.startsWith('WS_SHOBHA_') || input.startsWith('WS_SOBHA_')) {
+      final prefix = input.startsWith('WS_SHOBHA_') ? 'WS_SHOBHA_' : 'WS_SOBHA_';
+      final suffix = input.substring(prefix.length);
       final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
       if (digitsOnly != null) {
         final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');

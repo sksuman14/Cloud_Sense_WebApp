@@ -189,7 +189,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                           : _isAWDevice
                               ? "AWS Device Configuration"
                               : _isSHDevice
-                                  ? "Shobha Device Configuration"
+                                  ? "Sobha Device Configuration"
                                   : _isWTDevice
                                       ? "WT Device Configuration"
                                       : "Device Configuration",
