@@ -1,5 +1,5 @@
 // ignore: deprecated_member_use
-import 'dart:html' as html;
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
