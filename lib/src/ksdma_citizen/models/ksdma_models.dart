@@ -118,6 +118,7 @@ class KsdmaUser {
   int streakDays;
   int maxStreak;
   int totalObservations;
+  int todayReadings;
   DateTime? lastObservationDate;
   String badgeTier; // BRONZE, SILVER, GOLD
   String? avatarUrl;
@@ -136,6 +137,7 @@ class KsdmaUser {
     this.streakDays = 0,
     this.maxStreak = 0,
     this.totalObservations = 0,
+    this.todayReadings = 0,
     this.lastObservationDate,
     this.badgeTier = 'BRONZE',
     this.avatarUrl,

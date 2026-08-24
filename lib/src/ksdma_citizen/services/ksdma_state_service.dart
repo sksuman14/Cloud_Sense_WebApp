@@ -674,99 +674,11 @@ class KsdmaStateService extends ChangeNotifier {
   }
 
   Map<String, int> getVolunteerStats(KsdmaUser user) {
-    final userStationIds = _stations
-        .where((s) =>
-            s.ownerUserId == user.userId ||
-            (user.mobileNumber.isNotEmpty &&
-                (s.ownerUserId.contains(user.mobileNumber) ||
-                    s.ownerUserId == 'usr_${user.mobileNumber}')) ||
-            (user.fullName.isNotEmpty &&
-                s.ownerName.toLowerCase().trim() == user.fullName.toLowerCase().trim()) ||
-            s.ownerUserId == 'usr_active_volunteer')
-        .map((s) => s.stationId)
-        .toSet();
-
-    final userObs = _observations.where((o) {
-      if (o.isRemoved) return false;
-      if (o.submittedByUserId == user.userId ||
-          (user.mobileNumber.isNotEmpty && o.submittedByUserId.contains(user.mobileNumber)) ||
-          userStationIds.contains(o.stationId)) {
-        return true;
-      }
-      return false;
-    }).toList();
-
-    final int totalReadings = userObs.length;
-
-    final dates = userObs.map((o) {
-      final d = o.observationDate.toLocal();
-      return DateTime(d.year, d.month, d.day);
-    }).toSet().toList()..sort((a, b) => b.compareTo(a));
-
-    int currentStreak = 0;
-    int maxStreak = 0;
-
-    if (dates.isNotEmpty) {
-      final now = DateTime.now().toLocal();
-      final today = DateTime(now.year, now.month, now.day);
-      final yesterday = today.subtract(const Duration(days: 1));
-
-      final latest = dates.first;
-      if (!latest.isBefore(yesterday)) {
-        currentStreak = 1;
-        DateTime current = latest;
-        for (int i = 1; i < dates.length; i++) {
-          final prevDate = dates[i];
-          final expectedPrev = current.subtract(const Duration(days: 1));
-          if (prevDate.year == expectedPrev.year &&
-              prevDate.month == expectedPrev.month &&
-              prevDate.day == expectedPrev.day) {
-            currentStreak++;
-            current = prevDate;
-          } else if (prevDate == current) {
-            continue;
-          } else {
-            break;
-          }
-        }
-      }
-
-      int tempMax = 1;
-      int tempStreak = 1;
-      DateTime tempCurrent = dates.first;
-      for (int i = 1; i < dates.length; i++) {
-        final prevDate = dates[i];
-        final expectedPrev = tempCurrent.subtract(const Duration(days: 1));
-        if (prevDate.year == expectedPrev.year &&
-            prevDate.month == expectedPrev.month &&
-            prevDate.day == expectedPrev.day) {
-          tempStreak++;
-          tempCurrent = prevDate;
-          if (tempStreak > tempMax) tempMax = tempStreak;
-        } else if (prevDate == tempCurrent) {
-          continue;
-        } else {
-          tempStreak = 1;
-          tempCurrent = prevDate;
-        }
-      }
-      maxStreak = tempMax > currentStreak ? tempMax : currentStreak;
-    }
-
-    if (user.streakDays > currentStreak) {
-      currentStreak = user.streakDays;
-    }
-    if (user.maxStreak > maxStreak) {
-      maxStreak = user.maxStreak;
-    }
-    if (maxStreak < currentStreak) {
-      maxStreak = currentStreak;
-    }
-
     return {
-      'streak': currentStreak,
-      'maxStreak': maxStreak,
-      'totalReadings': totalReadings,
+      'streak': user.streakDays,
+      'maxStreak': user.maxStreak > 0 ? user.maxStreak : user.streakDays,
+      'totalReadings': user.totalObservations,
+      'todayReadings': user.todayReadings,
     };
   }
 

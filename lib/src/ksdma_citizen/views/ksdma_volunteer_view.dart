@@ -132,7 +132,7 @@ class KsdmaVolunteerView extends StatelessWidget {
     }).toList();
 
     final int displayStreak = userStats['streak']!;
-    final int todayReadingsCount = myStations.where((s) => state.getTodayObservation(s.stationId) != null).length;
+    final int todayReadingsCount = userStats['todayReadings']! > 0 ? userStats['todayReadings']! : myStations.where((s) => state.getTodayObservation(s.stationId) != null).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {

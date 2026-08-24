@@ -979,6 +979,7 @@ class KsdmaApiService {
       streakDays: _toInt(r['current_streak'] ?? r['streak_days']),
       maxStreak: _toInt(r['max_streak'] ?? r['current_streak'] ?? r['streak_days']),
       totalObservations: _toInt(r['total_contributions'] ?? r['total_observations']),
+      todayReadings: _toInt(r['today_readings'] ?? r['today_observations']),
       lastObservationDate: r['last_observation_date'] != null ? DateTime.tryParse(r['last_observation_date'].toString()) : null,
       badgeTier: (r['badge'] ?? r['badge_tier'] ?? 'BRONZE').toString(),
       avatarUrl: '',

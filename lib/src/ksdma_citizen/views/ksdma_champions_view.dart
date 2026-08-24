@@ -28,6 +28,7 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
     final state = Provider.of<KsdmaStateService>(context);
 
     final champions = state.champions.where((c) {
+      if (_selectedCategory == 'PUBLIC') return c.category == UserCategory.generalPublic;
       if (_selectedCategory == 'SCHOOLS') return c.category == UserCategory.schoolStudent;
       if (_selectedCategory == 'FARMERS') return c.category == UserCategory.farmer;
       if (_selectedCategory == 'FISHERMEN') return c.category == UserCategory.fisherman;
@@ -91,6 +92,13 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
                     backgroundColor: Colors.white,
                     selectedColor: const Color(0xFF1565C0),
                     onSelected: (_) => setState(() => _selectedCategory = 'ALL'),
+                  ),
+                  FilterChip(
+                    label: Text('👥 General Public', style: TextStyle(color: _selectedCategory == 'PUBLIC' ? Colors.white : const Color(0xFF0F172A), fontWeight: FontWeight.w600, fontSize: 12)),
+                    selected: _selectedCategory == 'PUBLIC',
+                    backgroundColor: Colors.white,
+                    selectedColor: const Color(0xFF1565C0),
+                    onSelected: (_) => setState(() => _selectedCategory = 'PUBLIC'),
                   ),
                   FilterChip(
                     label: Text('🏫 Schools & Students', style: TextStyle(color: _selectedCategory == 'SCHOOLS' ? Colors.white : const Color(0xFF0F172A), fontWeight: FontWeight.w600, fontSize: 12)),
