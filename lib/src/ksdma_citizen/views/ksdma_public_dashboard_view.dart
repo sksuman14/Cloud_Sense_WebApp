@@ -1188,32 +1188,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       icon: Icons.tune,
                       isMobile: isMobile,
                     ),
-                    _buildToolbarDropdown(
-                      'Aggregation',
-                      DropdownButton<String>(
-                        value: _selectedAggregation,
-                        style: TextStyle(
-                          color: _selectedParam == 'rainfall' ? const Color(0xFF0F172A) : Colors.grey,
-                          fontSize: isMobile ? 11 : 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        dropdownColor: Colors.white,
-                        iconEnabledColor: _selectedParam == 'rainfall' ? const Color(0xFF0F172A) : Colors.grey,
-                        underline: const SizedBox(),
-                        isDense: true,
-                        items: [
-                          DropdownMenuItem(value: 'Cumulative', child: Text('Cumulative', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                          DropdownMenuItem(value: 'Average', child: Text('Average', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                        ],
-                        onChanged: _selectedParam == 'rainfall'
-                            ? (val) {
-                                if (val != null) setState(() => _selectedAggregation = val);
-                              }
-                            : null,
-                      ),
-                      icon: Icons.assessment_outlined,
-                      isMobile: isMobile,
-                    ),
+
                     _buildToolbarDropdown(
                       'District',
                       DropdownButton<String>(

@@ -121,6 +121,7 @@ class KsdmaVolunteerView extends StatelessWidget {
     }
 
     final user = state.currentUser;
+    final userStats = state.getVolunteerStats(user);
 
     final myStations = state.stations.where((s) {
       if (s.ownerUserId == user.userId) return true;
@@ -129,6 +130,9 @@ class KsdmaVolunteerView extends StatelessWidget {
       if (s.ownerUserId == 'usr_active_volunteer' || s.ownerUserId == 'usr_anon') return true;
       return false;
     }).toList();
+
+    final int displayStreak = userStats['streak']!;
+    final int todayReadingsCount = myStations.where((s) => state.getTodayObservation(s.stationId) != null).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -227,63 +231,7 @@ class KsdmaVolunteerView extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Rejection Alert Banner for Volunteer
-              if (myStations.any((s) => s.approvalStatus == ApprovalStatus.rejected)) ...[
-                const SizedBox(height: 16),
-                for (var rs in myStations.where((s) => s.approvalStatus == ApprovalStatus.rejected))
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.shade400, width: 1.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: Colors.red.shade100, shape: BoxShape.circle),
-                          child: const Icon(Icons.gpp_bad, color: Colors.red, size: 28),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    '❌ Station Registration Rejected: ${rs.stationId}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFB91C1C)),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.red.shade200, borderRadius: BorderRadius.circular(6)),
-                                    child: const Text('REJECTED BY ADMIN HQ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF7F1D1D))),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Reason for Rejection: ${rs.rejectionReason.isNotEmpty ? rs.rejectionReason : "Reason not specified by Admin HQ"}',
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'If you believe this is an error, please re-check your instrument details or register a new instrument.',
-                                style: TextStyle(fontSize: 11, color: Colors.black54),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+
 
               const SizedBox(height: 24),
 
@@ -294,7 +242,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                     Expanded(
                       child: _buildStatCard(
                         title: 'Continuous Streak',
-                        value: '${user.streakDays} Days',
+                        value: '$displayStreak Days',
                         subtitle: 'Daily 8:00 AM IMD Protocol',
                         icon: Icons.local_fire_department,
                         iconColor: Colors.orange,
@@ -304,9 +252,9 @@ class KsdmaVolunteerView extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildStatCard(
-                        title: 'Readings Submitted',
-                        value: '${user.totalObservations}',
-                        subtitle: 'Directly on KSDMA Cloud',
+                        title: 'Today\'s Readings',
+                        value: '$todayReadingsCount',
+                        subtitle: 'Submitted Today (IMD Window)',
                         icon: Icons.analytics,
                         iconColor: Colors.blue,
                         borderColor: Colors.blue.shade200,
@@ -330,7 +278,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                   children: [
                     _buildStatCard(
                       title: 'Continuous Streak',
-                      value: '${user.streakDays} Days',
+                      value: '$displayStreak Days',
                       subtitle: 'Daily 8:00 AM IMD Protocol',
                       icon: Icons.local_fire_department,
                       iconColor: Colors.orange,
@@ -338,9 +286,9 @@ class KsdmaVolunteerView extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     _buildStatCard(
-                      title: 'Readings Submitted',
-                      value: '${user.totalObservations}',
-                      subtitle: 'Directly on KSDMA Cloud',
+                      title: 'Today\'s Readings',
+                      value: '$todayReadingsCount',
+                      subtitle: 'Submitted Today (IMD Window)',
                       icon: Icons.analytics,
                       iconColor: Colors.blue,
                       borderColor: Colors.blue.shade200,
@@ -360,7 +308,7 @@ class KsdmaVolunteerView extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // Action Section Header with Register Device & Add Reading Buttons
+              // Action Section Header with Register Device Button
               if (isDesktop) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -378,44 +326,16 @@ class KsdmaVolunteerView extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            final approvedList = myStations.where((s) => s.approvalStatus == ApprovalStatus.approved).toList();
-                            if (approvedList.isNotEmpty) {
-                              onEnterObservation(approvedList.first.stationId);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('🔒 You have no Approved weather stations yet. Please wait for KSDMA Admin HQ approval.'),
-                                  backgroundColor: Colors.amber,
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.edit_calendar, size: 16),
-                          label: const Text('📝 Submit Today\'s Reading (8:00 AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton.icon(
-                          onPressed: onRegisterNewDevice,
-                          icon: const Icon(Icons.add_circle, size: 16),
-                          label: const Text('➕ Register New Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ],
+                    ElevatedButton.icon(
+                      onPressed: onRegisterNewDevice,
+                      icon: const Icon(Icons.add_circle, size: 16),
+                      label: const Text('➕ Register New Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ],
                 ),
@@ -433,45 +353,16 @@ class KsdmaVolunteerView extends StatelessWidget {
                       style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            final approvedList = myStations.where((s) => s.approvalStatus == ApprovalStatus.approved).toList();
-                            if (approvedList.isNotEmpty) {
-                              onEnterObservation(approvedList.first.stationId);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('🔒 You have no Approved weather stations yet. Please wait for KSDMA Admin HQ approval.'),
-                                  backgroundColor: Colors.amber,
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.edit_calendar, size: 15),
-                          label: const Text('📝 Submit Reading (8:00 AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: onRegisterNewDevice,
-                          icon: const Icon(Icons.add_circle, size: 15),
-                          label: const Text('➕ Register Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ],
+                    ElevatedButton.icon(
+                      onPressed: onRegisterNewDevice,
+                      icon: const Icon(Icons.add_circle, size: 15),
+                      label: const Text('➕ Register Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ],
                 ),

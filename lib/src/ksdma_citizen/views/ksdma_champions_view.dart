@@ -157,12 +157,11 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
                   itemCount: champions.length,
                   itemBuilder: (context, index) {
                     final user = champions[index];
+                    final userStats = state.getVolunteerStats(user);
 
-                    final userObs = state.observations.where((o) => !o.isRemoved && o.submittedByUserId == user.userId).toList();
-
-                    final int displayStreak = user.streakDays;
-                    final int displayMaxStreak = user.maxStreak > 0 ? user.maxStreak : displayStreak;
-                    final int displayTotalReadings = user.totalObservations > 0 ? user.totalObservations : userObs.length;
+                    final int displayStreak = userStats['streak']!;
+                    final int displayMaxStreak = userStats['maxStreak']!;
+                    final int displayTotalReadings = userStats['totalReadings']!;
 
                     return Card(
                       color: Colors.white,
