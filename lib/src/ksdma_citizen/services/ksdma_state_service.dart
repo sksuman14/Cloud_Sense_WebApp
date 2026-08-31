@@ -83,6 +83,90 @@ class KsdmaStateService extends ChangeNotifier {
     return unique;
   }
 
+  /// Dynamic District Center coordinates from PostgreSQL `administrative_boundaries` DB table
+  ({double lat, double lng}) getDistrictCenterFromDb(String district) {
+    for (var b in _boundaries) {
+      final name = (b['district_name'] ?? b['name'] ?? '').toString().trim();
+      if (name.toLowerCase() == district.toLowerCase().trim()) {
+        final lat = double.tryParse(b['latitude']?.toString() ?? '');
+        final lng = double.tryParse(b['longitude']?.toString() ?? '');
+        if (lat != null && lng != null) {
+          return (lat: lat, lng: lng);
+        }
+      }
+    }
+    return KeralaAdminData.getDistrictCenter(district);
+  }
+
+  /// Dynamic Nearest District lookup from PostgreSQL `administrative_boundaries` DB table
+  String findNearestDistrictFromDb(double lat, double lng) {
+    if (_boundaries.isEmpty) return KeralaAdminData.findNearestDistrict(lat, lng);
+
+    String nearest = 'Kozhikode';
+    double minDistance = double.infinity;
+    for (var b in _boundaries) {
+      final name = (b['district_name'] ?? b['name'] ?? '').toString().trim();
+      final bLat = double.tryParse(b['latitude']?.toString() ?? '');
+      final bLng = double.tryParse(b['longitude']?.toString() ?? '');
+      if (name.isNotEmpty && bLat != null && bLng != null) {
+        final dLat = bLat - lat;
+        final dLng = bLng - lng;
+        final distSq = dLat * dLat + dLng * dLng;
+        if (distSq < minDistance) {
+          minDistance = distSq;
+          nearest = name;
+        }
+      }
+    }
+    return nearest;
+  }
+
+  Map<String, Map<String, List<String>>> _adminHierarchy = {};
+  Map<String, Map<String, List<String>>> get adminHierarchy => _adminHierarchy;
+
+  List<String> getTaluksForDistrict(String district) {
+    final tSet = _boundaries
+        .where((b) =>
+            b['boundary_type'] == 'taluk' &&
+            (b['district_name'] ?? '').toString().toLowerCase() == district.toLowerCase().trim())
+        .map((b) => (b['taluk_name'] ?? b['name'] ?? '').toString().trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList();
+    if (tSet.isNotEmpty) {
+      tSet.sort();
+      return tSet;
+    }
+    if (_adminHierarchy.containsKey(district)) {
+      final keys = _adminHierarchy[district]!.keys.toList();
+      keys.sort();
+      return keys;
+    }
+    return [];
+  }
+
+  List<String> getPanchayatsForTaluk(String district, String taluk) {
+    final pSet = _boundaries
+        .where((b) =>
+            b['boundary_type'] == 'panchayat' &&
+            (b['district_name'] ?? '').toString().toLowerCase() == district.toLowerCase().trim() &&
+            (b['taluk_name'] ?? '').toString().toLowerCase() == taluk.toLowerCase().trim())
+        .map((b) => (b['panchayat_name'] ?? b['name'] ?? '').toString().trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList();
+    if (pSet.isNotEmpty) {
+      pSet.sort();
+      return pSet;
+    }
+    if (_adminHierarchy.containsKey(district) && _adminHierarchy[district]!.containsKey(taluk)) {
+      final list = List<String>.from(_adminHierarchy[district]![taluk]!);
+      list.sort();
+      return list;
+    }
+    return [];
+  }
+
   List<String> get talukNames {
     if (selectedDistrict == 'All Districts') return ['All Taluks'];
     final tSet = _stations
@@ -238,10 +322,15 @@ class KsdmaStateService extends ChangeNotifier {
       final apiStations = await apiService.fetchStations();
       final pendingStations = await apiService.fetchPendingStations();
       final apiBoundaries = await apiService.fetchBoundaries();
+      final dynamicHierarchy = await apiService.fetchAdminHierarchy();
 
       if (apiBoundaries.isNotEmpty) {
         _boundaries.clear();
         _boundaries.addAll(apiBoundaries);
+      }
+
+      if (dynamicHierarchy.isNotEmpty) {
+        _adminHierarchy = dynamicHierarchy;
       }
 
       final Map<String, KsdmaStation> stationMap = {};

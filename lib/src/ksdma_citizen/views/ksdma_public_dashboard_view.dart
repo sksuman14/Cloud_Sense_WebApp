@@ -1374,7 +1374,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               options: MapOptions(
                 initialCenter: activeStations.isNotEmpty
                     ? LatLng(activeStations.first.latitude, activeStations.first.longitude)
-                    : const LatLng(10.8505, 76.2711),
+                    : const LatLng(10.5276, 76.2144),
                 initialZoom: _appliedDistrict == 'All Districts' ? 7.2 : 9.0,
               ),
               children: [

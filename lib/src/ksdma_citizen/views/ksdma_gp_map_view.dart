@@ -93,7 +93,9 @@ class _KsdmaGpMapViewState extends State<KsdmaGpMapView> {
                     options: MapOptions(
                       initialCenter: gpStations.isNotEmpty
                           ? LatLng(gpStations.first.latitude, gpStations.first.longitude)
-                          : const LatLng(10.8505, 76.2711),
+                          : (state.stations.isNotEmpty
+                              ? LatLng(state.stations.first.latitude, state.stations.first.longitude)
+                              : const LatLng(10.5276, 76.2144)),
                       initialZoom: 9.8,
                     ),
                     children: [

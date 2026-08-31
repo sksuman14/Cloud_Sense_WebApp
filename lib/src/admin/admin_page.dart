@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
@@ -106,6 +106,7 @@ class _AdminPageState extends State<AdminPage> {
       'officeharsh25@gmail.com',
       'info@ssmicroelectronics.co.in',
       'ahashivam2001@gmail.com',
+      'annam.aicloud@gmail.com',
     ].contains(email);
   }
 

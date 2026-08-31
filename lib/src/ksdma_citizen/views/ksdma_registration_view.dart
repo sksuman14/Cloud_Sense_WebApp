@@ -3,6 +3,8 @@ import 'package:universal_html/html.dart' as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
 import '../services/ksdma_api_service.dart';
@@ -39,20 +41,47 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
   late final TextEditingController _lngController;
   late final TextEditingController _photoUrlController;
 
+  final MapController _mapController = MapController();
+  bool _isMapSatellite = false;
   bool _isLocatingGPS = false;
+
+  void _onMapTapped(LatLng point) {
+    final state = Provider.of<KsdmaStateService>(context, listen: false);
+    setState(() {
+      _latController.text = point.latitude.toStringAsFixed(4);
+      _lngController.text = point.longitude.toStringAsFixed(4);
+
+      final nearestDist = state.findNearestDistrictFromDb(point.latitude, point.longitude);
+      if (_districtController.text != nearestDist) {
+        _districtController.text = nearestDist;
+        final taluks = state.getTaluksForDistrict(nearestDist);
+        if (taluks.isNotEmpty && !taluks.contains(_talukController.text)) {
+          _talukController.text = taluks.first;
+        }
+        final gps = state.getPanchayatsForTaluk(nearestDist, _talukController.text);
+        if (gps.isNotEmpty && !gps.contains(_gpController.text)) {
+          _gpController.text = gps.first;
+          _villageController.text = gps.first;
+        }
+      }
+    });
+  }
 
   Future<void> _autoDetectGPSLocation() async {
     setState(() => _isLocatingGPS = true);
     try {
       final pos = await html.window.navigator.geolocation.getCurrentPosition();
-      final lat = (pos.coords?.latitude ?? 10.8505).toDouble();
-      final lng = (pos.coords?.longitude ?? 76.2711).toDouble();
+      final state = Provider.of<KsdmaStateService>(context, listen: false);
+      final defaultCenter = state.getDistrictCenterFromDb(_districtController.text);
+      final lat = (pos.coords?.latitude ?? defaultCenter.lat).toDouble();
+      final lng = (pos.coords?.longitude ?? defaultCenter.lng).toDouble();
 
       setState(() {
         _latController.text = lat.toStringAsFixed(4);
         _lngController.text = lng.toStringAsFixed(4);
       });
 
+      _mapController.move(LatLng(lat, lng), 11.5);
       await _syncPostGISLocation();
     } catch (e) {
       print('HTML5 Geolocation Error: $e');
@@ -148,13 +177,17 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
     _mobileController = TextEditingController(text: phone.isNotEmpty ? _maskPhone(phone) : '');
     _emailController = TextEditingController(text: state.currentUser.email);
 
-    _districtController = TextEditingController(text: state.currentUser.district.isNotEmpty ? state.currentUser.district : '');
+    final initialDist = state.currentUser.district.isNotEmpty
+        ? state.currentUser.district
+        : (state.districtNames.isNotEmpty ? state.districtNames.first : 'Thiruvananthapuram');
+    _districtController = TextEditingController(text: initialDist);
     _talukController = TextEditingController(text: state.currentUser.taluk.isNotEmpty ? state.currentUser.taluk : '');
     _gpController = TextEditingController(text: state.currentUser.gramaPanchayat.isNotEmpty ? state.currentUser.gramaPanchayat : '');
     _villageController = TextEditingController(text: state.currentUser.village.isNotEmpty ? state.currentUser.village : '');
 
-    _latController = TextEditingController(text: '10.8505');
-    _lngController = TextEditingController(text: '76.2711');
+    final center = state.getDistrictCenterFromDb(initialDist);
+    _latController = TextEditingController(text: center.lat.toStringAsFixed(4));
+    _lngController = TextEditingController(text: center.lng.toStringAsFixed(4));
     _photoUrlController = TextEditingController(
       text: 'https://images.unsplash.com/photo-1590055531615-f16d36ffe8ec?auto=format&fit=crop&w=400&q=80',
     );
@@ -557,18 +590,19 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
   }
 
   Widget _buildStep2Form(bool isMobile) {
-    final districtOptions = KeralaAdminData.getDistricts();
+    final state = Provider.of<KsdmaStateService>(context);
+    final districtOptions = state.districtNames;
 
     if (_districtController.text.isEmpty || !districtOptions.contains(_districtController.text)) {
-      _districtController.text = 'Kozhikode';
+      _districtController.text = districtOptions.isNotEmpty ? districtOptions.first : '';
     }
 
-    final talukOptions = KeralaAdminData.getTaluks(_districtController.text);
+    final talukOptions = state.getTaluksForDistrict(_districtController.text);
     if (_talukController.text.isEmpty || !talukOptions.contains(_talukController.text)) {
       _talukController.text = talukOptions.isNotEmpty ? talukOptions.first : '';
     }
 
-    final gpOptions = KeralaAdminData.getPanchayats(_districtController.text, _talukController.text);
+    final gpOptions = state.getPanchayatsForTaluk(_districtController.text, _talukController.text);
     if (_gpController.text.isEmpty || !gpOptions.contains(_gpController.text)) {
       _gpController.text = gpOptions.isNotEmpty ? gpOptions.first : '';
     }
@@ -623,11 +657,16 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
                     if (v != null) {
                       setState(() {
                         _districtController.text = v;
-                        final newTaluks = KeralaAdminData.getTaluks(v);
+                        final newTaluks = state.getTaluksForDistrict(v);
                         _talukController.text = newTaluks.isNotEmpty ? newTaluks.first : '';
-                        final newPanchayats = KeralaAdminData.getPanchayats(v, _talukController.text);
+                        final newPanchayats = state.getPanchayatsForTaluk(v, _talukController.text);
                         _gpController.text = newPanchayats.isNotEmpty ? newPanchayats.first : '';
                         _villageController.text = _gpController.text;
+
+                        final center = state.getDistrictCenterFromDb(v);
+                        _latController.text = center.lat.toStringAsFixed(4);
+                        _lngController.text = center.lng.toStringAsFixed(4);
+                        _mapController.move(LatLng(center.lat, center.lng), 10.5);
                       });
                     }
                   },
@@ -658,7 +697,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
                     if (v != null) {
                       setState(() {
                         _talukController.text = v;
-                        final newPanchayats = KeralaAdminData.getPanchayats(_districtController.text, v);
+                        final newPanchayats = state.getPanchayatsForTaluk(_districtController.text, v);
                         _gpController.text = newPanchayats.isNotEmpty ? newPanchayats.first : '';
                         _villageController.text = _gpController.text;
                       });
@@ -709,11 +748,131 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
         ),
         const SizedBox(height: 12),
 
-        // Row 3: Latitude, Longitude & Auto Location Map Button
+        // Row 3: Latitude, Longitude Inputs
         _buildFieldPair(
           isMobile,
           _buildTextField('Latitude (°N) *', _latController, hint: 'e.g. 11.2588'),
           _buildTextField('Longitude (°E) *', _lngController, hint: 'e.g. 75.7804'),
+        ),
+        const SizedBox(height: 14),
+
+        // Interactive Location Map Picker Card
+        Container(
+          height: 290,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: LatLng(
+                      double.tryParse(_latController.text) ?? state.getDistrictCenterFromDb(_districtController.text).lat,
+                      double.tryParse(_lngController.text) ?? state.getDistrictCenterFromDb(_districtController.text).lng,
+                    ),
+                    initialZoom: 10.0,
+                    onTap: (tapPos, point) => _onMapTapped(point),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: _isMapSatellite
+                          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'gov.kerala.ksdma.cloudsense',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: LatLng(
+                            double.tryParse(_latController.text) ?? state.getDistrictCenterFromDb(_districtController.text).lat,
+                            double.tryParse(_lngController.text) ?? state.getDistrictCenterFromDb(_districtController.text).lng,
+                          ),
+                          width: 48,
+                          height: 48,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                            ),
+                            child: const Icon(
+                              Icons.location_on_rounded,
+                              color: Colors.redAccent,
+                              size: 42,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // Top Header Overlay with Tap Hint & Controls
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.touch_app_rounded, size: 16, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Tap map to set pin: ${_districtController.text} (${_latController.text}°N, ${_lngController.text}°E)',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF0F172A)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _isMapSatellite = !_isMapSatellite),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _isMapSatellite ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF3B82F6)),
+                            ),
+                            child: Text(
+                              _isMapSatellite ? '🗺️ Street Map' : '🛰️ Satellite',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: _isMapSatellite ? Colors.white : const Color(0xFF1D4ED8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -1058,8 +1217,8 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
                     deviceMake: _makeModelController.text.isNotEmpty ? _makeModelController.text : _selectedType.displayName,
                     measurementLocation: _nicknameController.text.isNotEmpty ? _nicknameController.text : 'Main Site',
                     devicePhotoUrl: photoUrl,
-                    latitude: double.tryParse(_latController.text) ?? 10.8505,
-                    longitude: double.tryParse(_lngController.text) ?? 76.2711,
+                    latitude: double.tryParse(_latController.text) ?? state.getDistrictCenterFromDb(_districtController.text).lat,
+                    longitude: double.tryParse(_lngController.text) ?? state.getDistrictCenterFromDb(_districtController.text).lng,
                     district: _districtController.text.trim(),
                     taluk: _talukController.text.trim(),
                     gramaPanchayat: _gpController.text.trim(),

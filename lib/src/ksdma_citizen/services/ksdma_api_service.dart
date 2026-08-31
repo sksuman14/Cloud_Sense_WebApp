@@ -250,8 +250,8 @@ class KsdmaApiService {
         final rawCity = d['City']?.toString() ?? cleanDistrict;
         final cleanCity = rawCity.replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim();
 
-        final lat = double.tryParse(d['Latitude']?.toString() ?? '') ?? 10.8505;
-        final lng = double.tryParse(d['Longitude']?.toString() ?? '') ?? 76.2711;
+        final lat = double.tryParse(d['Latitude']?.toString() ?? '') ?? 10.5276;
+        final lng = double.tryParse(d['Longitude']?.toString() ?? '') ?? 76.2144;
         final timeStr = d['TimeStamp']?.toString() ?? '';
         final createdAt = DateTime.tryParse(timeStr) ?? DateTime.now();
 
@@ -939,6 +939,38 @@ class KsdmaApiService {
       print('Error fetching boundaries via API: $e');
     }
     return [];
+  }
+
+  // 15. GET /api/admin-hierarchy - Fetch Administrative Hierarchy Tree
+  Future<Map<String, Map<String, List<String>>>> fetchAdminHierarchy() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/admin-hierarchy'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['success'] == true && body['hierarchy'] != null) {
+          final Map<String, dynamic> rawTree = body['hierarchy'];
+          final Map<String, Map<String, List<String>>> result = {};
+          rawTree.forEach((dist, talukObj) {
+            if (talukObj is Map) {
+              final Map<String, List<String>> tMap = {};
+              talukObj.forEach((tName, pList) {
+                if (pList is List) {
+                  tMap[tName.toString()] = pList.map((e) => e.toString()).toList();
+                }
+              });
+              result[dist.toString()] = tMap;
+            }
+          });
+          return result;
+        }
+      }
+    } catch (e) {
+      print('Error fetching admin hierarchy via API: $e');
+    }
+    return {};
   }
 
   // ─── Mapper Helpers ───────────────────────────────────────────────────────
