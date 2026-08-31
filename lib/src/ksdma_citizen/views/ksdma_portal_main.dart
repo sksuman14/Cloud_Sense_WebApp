@@ -328,7 +328,6 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                 _buildSubNavItem(11, 'District View', isActive: _activeMenuIndex == 11, isMobile: isMobile),
                 _buildSubNavItem(12, 'Taluk View', isActive: _activeMenuIndex == 12, isMobile: isMobile),
                 _buildSubNavItem(2, 'Grama Panchayat View', isActive: _activeMenuIndex == 2, isMobile: isMobile),
-                _buildSubNavItem(13, 'Station View', isActive: _activeMenuIndex == 13, isMobile: isMobile),
               ],
 
               if (isOfficer && !isAdmin)
@@ -558,8 +557,6 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
         return const KsdmaMultiMapView(key: ValueKey(MapViewLevel.taluk), level: MapViewLevel.taluk);
       case 2:
         return const KsdmaMultiMapView(key: ValueKey(MapViewLevel.panchayat), level: MapViewLevel.panchayat);
-      case 13:
-        return const KsdmaMultiMapView(key: ValueKey(MapViewLevel.station), level: MapViewLevel.station);
       case 3:
         return const KsdmaOfficerView();
       case 4:

@@ -7,7 +7,7 @@ import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import 'ksdma_aws_station_detail_view.dart';
 
-enum MapViewLevel { state, district, taluk, panchayat, station }
+enum MapViewLevel { state, district, taluk, panchayat }
 
 class KsdmaMultiMapView extends StatefulWidget {
   final MapViewLevel level;
@@ -21,6 +21,8 @@ class KsdmaMultiMapView extends StatefulWidget {
 class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   late MapController _mapController;
   String _selectedDistrict = 'All Districts';
+  String _selectedTaluk = 'All Taluks';
+  String _selectedPanchayat = 'All Panchayats';
   String _selectedParam = 'All Parameters';
   bool _isSatellite = false;
 
@@ -58,9 +60,20 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   }
 
   LatLng _getMapCenter(List<KsdmaStation> approved) {
-    if (widget.level == MapViewLevel.state || widget.level == MapViewLevel.station || _selectedDistrict == 'All Districts') {
+    if (widget.level == MapViewLevel.state || _selectedDistrict == 'All Districts') {
       return const LatLng(10.4505, 76.3711);
     }
+    // 1. Panchayat center focus
+    if (_selectedPanchayat != 'All Panchayats') {
+      final pStns = approved.where((s) => s.gramaPanchayat.toLowerCase() == _selectedPanchayat.toLowerCase()).toList();
+      if (pStns.isNotEmpty) return LatLng(pStns.first.latitude, pStns.first.longitude);
+    }
+    // 2. Taluk center focus
+    if (_selectedTaluk != 'All Taluks') {
+      final tStns = approved.where((s) => s.taluk.toLowerCase() == _selectedTaluk.toLowerCase()).toList();
+      if (tStns.isNotEmpty) return LatLng(tStns.first.latitude, tStns.first.longitude);
+    }
+    // 3. District center focus
     if (_districtCoords.containsKey(_selectedDistrict)) {
       return _districtCoords[_selectedDistrict]!;
     }
@@ -72,17 +85,19 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   }
 
   double _getMapZoom() {
+    if (_selectedPanchayat != 'All Panchayats') return 12.2;
+    if (_selectedTaluk != 'All Taluks') return 10.8;
+    if (_selectedDistrict != 'All Districts') return 9.5;
+
     switch (widget.level) {
       case MapViewLevel.state:
         return 7.5;
       case MapViewLevel.district:
-        return 9.2;
+        return 9.5;
       case MapViewLevel.taluk:
-        return 9.8;
+        return 10.8;
       case MapViewLevel.panchayat:
-        return 10.5;
-      case MapViewLevel.station:
-        return 8.0;
+        return 12.2;
     }
   }
 
@@ -103,7 +118,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
         s.instrumentType == InstrumentType.awsAutomaticStation ||
         s.stationId.startsWith('WS_');
 
-    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+    final obs = state.getTodayObservation(s.stationId);
     final wsRaw = state.getWsDeviceRaw(s.stationId);
 
     if (isAwsStation) {
@@ -285,10 +300,12 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   }
 
   void _showManualStationGraphDialog(BuildContext context, KsdmaStation s, KsdmaStateService state) {
-    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
+    final obs = state.getTodayObservation(s.stationId);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -306,27 +323,34 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Owner: ${s.ownerName} (${s.ownerCategory.label})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            Text('Location: ${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-            Text('Instrument: ${s.instrumentType.displayName}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-            const Divider(height: 20),
-            const Text('Latest Observation Reading:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-            const SizedBox(height: 6),
+            Text('Owner: ${s.ownerName} (${s.ownerCategory.label})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1E293B))),
+            const SizedBox(height: 3),
+            Text('Location: ${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+            Text('Instrument: ${s.instrumentType.displayName}', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+            const Divider(height: 20, color: Color(0xFFE2E8F0)),
+            const Text("Today's Reported Reading:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
             if (obs != null) ...[
-              if (obs.rainfallMm != null) Text('🌧 Rainfall: ${obs.rainfallMm} mm', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-              if (obs.maxTemperatureC != null) Text('🌡 Max Temp: ${obs.maxTemperatureC} °C', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
-              if (obs.humidityPercent != null) Text('💧 Humidity: ${obs.humidityPercent} %', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
-              if (obs.riverWaterLevelM != null) Text('🌊 River Level: ${obs.riverWaterLevelM} m', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D9488))),
+              if (obs.rainfallMm != null)
+                Text('🌧 Rainfall: ${obs.rainfallMm} mm', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+              if (obs.maxTemperatureC != null)
+                Text('🌡 Max Temp: ${obs.maxTemperatureC} °C', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
+              if (obs.minTemperatureC != null)
+                Text('🌡 Min Temp: ${obs.minTemperatureC} °C', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+              if (obs.humidityPercent != null)
+                Text('💧 Humidity: ${obs.humidityPercent} %', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+              if (obs.riverWaterLevelM != null)
+                Text('🌊 River Level: ${obs.riverWaterLevelM} m', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D9488))),
             ] else ...[
-              const Text('No reading submitted today.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text('⚠️ No reading submitted today.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
             ],
           ],
         ),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF146356), foregroundColor: Colors.white),
-            child: const Text('Close'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+            child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -368,7 +392,8 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   @override
   Widget build(BuildContext context) {
     final state = Provider.of<KsdmaStateService>(context);
-    final approved = state.stations;
+    // Exclude rejected stations completely
+    final approved = state.stations.where((s) => s.approvalStatus != ApprovalStatus.rejected).toList();
 
     final List<String> allDistrictsList = [
       'All Districts',
@@ -382,24 +407,36 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
     final title = widget.level == MapViewLevel.state
         ? 'State View (Kerala)'
         : widget.level == MapViewLevel.district
-            ? 'District View ($_selectedDistrict)'
+            ? 'District View (${_selectedDistrict == 'All Districts' ? 'All Districts' : _selectedDistrict})'
             : widget.level == MapViewLevel.taluk
-                ? 'Taluk View ($_selectedDistrict)'
+                ? 'Taluk View (${_selectedTaluk == 'All Taluks' ? _selectedDistrict : '$_selectedDistrict → $_selectedTaluk'})'
                 : widget.level == MapViewLevel.panchayat
-                    ? 'Grama Panchayat View ($_selectedDistrict)'
+                    ? 'Grama Panchayat View (${_selectedPanchayat == 'All Panchayats' ? _selectedDistrict : '$_selectedDistrict → $_selectedPanchayat'})'
                     : 'Station View (Live Stations)';
 
-    final subtitle = 'Live Monitoring Across ${approved.length} Weather Stations in Kerala';
+    final subtitle = 'Live Monitoring Across ${approved.length} Active Stations in Kerala';
     final center = _getMapCenter(approved);
     final zoom = _getMapZoom();
 
-    // 1. District filter (State View and Station View show all stations across Kerala)
-    final distFiltered = (widget.level == MapViewLevel.state || widget.level == MapViewLevel.station || _selectedDistrict == 'All Districts')
-        ? approved
-        : approved.where((s) => s.district.toLowerCase() == _selectedDistrict.toLowerCase()).toList();
+    // 1. Strict Level & Cascading Administrative Boundary Filtering
+    final effectiveBaseStations = approved.where((s) {
+      if (widget.level == MapViewLevel.state) return true;
 
-    // Fallback to approved if district filter returned 0 stations so map is NEVER empty
-    final effectiveBaseStations = distFiltered.isNotEmpty ? distFiltered : approved;
+      if (_selectedDistrict != 'All Districts' && s.district.toLowerCase() != _selectedDistrict.toLowerCase()) {
+        return false;
+      }
+      if ((widget.level == MapViewLevel.taluk || widget.level == MapViewLevel.panchayat) &&
+          _selectedTaluk != 'All Taluks' &&
+          s.taluk.toLowerCase() != _selectedTaluk.toLowerCase()) {
+        return false;
+      }
+      if (widget.level == MapViewLevel.panchayat &&
+          _selectedPanchayat != 'All Panchayats' &&
+          s.gramaPanchayat.toLowerCase() != _selectedPanchayat.toLowerCase()) {
+        return false;
+      }
+      return true;
+    }).toList();
 
     // 2. Working parameter filter (All Parameters, Rainfall, Temperature, River Level, Humidity)
     final displayedStations = effectiveBaseStations.where((s) {
@@ -445,75 +482,28 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           lng += offsetRadius * sin(angle);
         }
 
-        final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
-        final isApproved = s.approvalStatus == ApprovalStatus.approved;
-
-        String valStr = '0.0mm';
-        if (obs != null) {
-          if (_selectedParam == 'Temperature') {
-            valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC}°C' : '—';
-          } else if (_selectedParam == 'Humidity') {
-            valStr = obs.humidityPercent != null ? '${obs.humidityPercent}%' : '—';
-          } else if (_selectedParam == 'River Level') {
-            valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM}m' : '—';
-          } else if (_selectedParam == 'Rainfall') {
-            valStr = obs.rainfallMm != null ? '${obs.rainfallMm}mm' : '0.0mm';
-          } else {
-            // All Parameters: native station reading
-            switch (s.instrumentType) {
-              case InstrumentType.hygrometer:
-                valStr = obs.humidityPercent != null ? '${obs.humidityPercent}%' : '—';
-                break;
-              case InstrumentType.maxMinThermometer:
-                valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC}°C' : '—';
-                break;
-              case InstrumentType.riverGauge:
-                valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM}m' : '—';
-                break;
-              case InstrumentType.rainGauge:
-              case InstrumentType.awsAutomaticStation:
-                valStr = obs.rainfallMm != null ? '${obs.rainfallMm}mm' : '0.0mm';
-                break;
-            }
-          }
-        }
-
-        final accentColor = s.instrumentType == InstrumentType.maxMinThermometer || _selectedParam == 'Temperature'
-            ? const Color(0xFFEA580C)
-            : s.instrumentType == InstrumentType.hygrometer || _selectedParam == 'Humidity'
-                ? const Color(0xFF7C3AED)
-                : s.instrumentType == InstrumentType.riverGauge || _selectedParam == 'River Level'
-                    ? const Color(0xFF0D9488)
-                    : const Color(0xFF2563EB);
+        final pinBg = _getPinColor(s);
+        final pinIcon = _getPinIcon(s);
 
         markersList.add(
           Marker(
             point: LatLng(lat, lng),
-            width: 110,
-            height: 34,
+            width: 36,
+            height: 36,
             child: GestureDetector(
               onTap: () => _showStationDetailsDialog(context, s, state),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isApproved ? accentColor : Colors.amber, width: 1.5),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.location_on, color: isApproved ? accentColor : Colors.amber, size: 13),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        '${s.stationId}: $valStr',
-                        style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              child: Tooltip(
+                message: '${s.stationId} (${s.district})\nTap to view full telemetry',
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: pinBg,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                    ],
+                  ),
+                  child: Icon(pinIcon, color: Colors.white, size: 18),
                 ),
               ),
             ),
@@ -525,9 +515,10 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 950;
+        final double equalHeight = isMobile ? 440.0 : 620.0;
 
         final mapWidget = Container(
-          height: isMobile ? 380 : 500,
+          height: equalHeight,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -648,83 +639,122 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           ),
         );
 
-        final summaryWidget = Card(
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
+        final summaryWidget = Container(
+          height: equalHeight,
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.leaderboard_outlined, color: Color(0xFF146356), size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.level == MapViewLevel.state ? 'Kerala District Leaderboard' : '$_selectedDistrict Station Readings',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
-                      ),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.leaderboard_outlined, color: Color(0xFF146356), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.level == MapViewLevel.state ? 'Kerala District Leaderboard' : '$_selectedDistrict Station Readings',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
                     ),
-                  ],
-                ),
-                const Divider(height: 20, color: Color(0xFFE2E8F0)),
-                if (displayedStations.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24.0),
-                    child: Center(
-                      child: Text('No active stations found for selected filters in $_selectedDistrict.', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ),
-                  )
-                else
-                  ...displayedStations.asMap().entries.map((entry) {
-                    final idx = entry.key + 1;
-                    final s = entry.value;
-                    final obs = state.getTodayObservation(s.stationId) ?? state.getLatestObservation(s.stationId);
-                    String valStr = '0.0 mm';
-                    if (obs != null) {
-                      if (_selectedParam == 'Temperature') {
-                        valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
-                      } else if (_selectedParam == 'Humidity') {
-                        valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
-                      } else if (_selectedParam == 'River Level') {
-                        valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
-                      } else if (_selectedParam == 'Rainfall') {
-                        valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
-                      } else {
-                        switch (s.instrumentType) {
-                          case InstrumentType.hygrometer:
-                            valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
-                            break;
-                          case InstrumentType.maxMinThermometer:
-                            valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
-                            break;
-                          case InstrumentType.riverGauge:
-                            valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
-                            break;
-                          case InstrumentType.rainGauge:
-                          case InstrumentType.awsAutomaticStation:
-                            valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
-                            break;
-                        }
-                      }
-                    }
+                  ),
+                ],
+              ),
+              const Divider(height: 20, color: Color(0xFFE2E8F0)),
+              Expanded(
+                child: displayedStations.isEmpty
+                    ? const Center(
+                        child: Text('No active stations found for selected filters.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      )
+                    : SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          children: displayedStations.asMap().entries.map((entry) {
+                            final idx = entry.key + 1;
+                            final s = entry.value;
+                            final obs = state.getTodayObservation(s.stationId);
+                            String valStr = 'No Report Today';
+                            Color bColor = const Color(0xFF64748B);
 
-                    return _buildRankRow(
-                      '$idx',
-                      s.stationId,
-                      '${s.gramaPanchayat.isNotEmpty ? s.gramaPanchayat : s.district}',
-                      valStr,
-                      const Color(0xFF2563EB),
-                      () => _showStationDetailsDialog(context, s, state),
-                    );
-                  }),
-              ],
-            ),
+                            if (obs != null) {
+                              if (_selectedParam == 'Temperature') {
+                                if (obs.maxTemperatureC != null && obs.minTemperatureC != null) {
+                                  valStr = '🌡 Max: ${obs.maxTemperatureC}°C  Min: ${obs.minTemperatureC}°C';
+                                } else if (obs.maxTemperatureC != null) {
+                                  valStr = '🌡 Max Temp: ${obs.maxTemperatureC}°C';
+                                } else {
+                                  valStr = '—';
+                                }
+                                bColor = const Color(0xFFEA580C);
+                              } else if (_selectedParam == 'Humidity') {
+                                valStr = obs.humidityPercent != null ? '💧 ${obs.humidityPercent}%' : '—';
+                                bColor = const Color(0xFF7C3AED);
+                              } else if (_selectedParam == 'River Level') {
+                                valStr = obs.riverWaterLevelM != null ? '🌊 ${obs.riverWaterLevelM}m' : '—';
+                                bColor = const Color(0xFF0D9488);
+                              } else if (_selectedParam == 'Rainfall') {
+                                valStr = obs.rainfallMm != null ? '🌧 ${obs.rainfallMm}mm' : '0.0mm';
+                                bColor = const Color(0xFF2563EB);
+                              } else {
+                                // All Parameters -> AWS Weather Station vs Single Instrument
+                                final bool isAws = s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
+                                if (isAws) {
+                                  final List<String> parts = [];
+                                  if (obs.rainfallMm != null) parts.add('🌧 ${obs.rainfallMm}mm');
+                                  if (obs.maxTemperatureC != null && obs.minTemperatureC != null) {
+                                    parts.add('🌡 Max: ${obs.maxTemperatureC}°C / Min: ${obs.minTemperatureC}°C');
+                                  } else if (obs.maxTemperatureC != null) {
+                                    parts.add('🌡 Max: ${obs.maxTemperatureC}°C');
+                                  }
+                                  if (obs.humidityPercent != null) parts.add('💧 ${obs.humidityPercent}%');
+                                  valStr = parts.isNotEmpty ? parts.join('  ') : 'AWS Active';
+                                  bColor = const Color(0xFF0284C7);
+                                } else {
+                                  switch (s.instrumentType) {
+                                    case InstrumentType.hygrometer:
+                                      valStr = obs.humidityPercent != null ? '💧 ${obs.humidityPercent}%' : '—';
+                                      bColor = const Color(0xFF7C3AED);
+                                      break;
+                                    case InstrumentType.maxMinThermometer:
+                                      if (obs.maxTemperatureC != null && obs.minTemperatureC != null) {
+                                        valStr = '🌡 Max: ${obs.maxTemperatureC}°C / Min: ${obs.minTemperatureC}°C';
+                                      } else if (obs.maxTemperatureC != null) {
+                                        valStr = '🌡 Max: ${obs.maxTemperatureC}°C';
+                                      } else {
+                                        valStr = '—';
+                                      }
+                                      bColor = const Color(0xFFEA580C);
+                                      break;
+                                    case InstrumentType.riverGauge:
+                                      valStr = obs.riverWaterLevelM != null ? '🌊 ${obs.riverWaterLevelM}m' : '—';
+                                      bColor = const Color(0xFF0D9488);
+                                      break;
+                                    case InstrumentType.rainGauge:
+                                    default:
+                                      valStr = obs.rainfallMm != null ? '🌧 ${obs.rainfallMm}mm' : '0.0mm';
+                                      bColor = const Color(0xFF2563EB);
+                                      break;
+                                  }
+                                }
+                              }
+                            }
+
+                            return _buildRankRow(
+                              '$idx',
+                              s.stationId,
+                              '${s.gramaPanchayat.isNotEmpty ? s.gramaPanchayat : s.district}',
+                              valStr,
+                              bColor,
+                              () => _showStationDetailsDialog(context, s, state),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+              ),
+            ],
           ),
         );
 
@@ -733,7 +763,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Cascading Administrative Toolbar & PostGIS Radius Tool
+              // 1. Top Cascading Administrative Toolbar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -756,94 +786,60 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                       (v) => setState(() => _selectedParam = v),
                     ),
 
-                    // Tier 1: District Filter
+                    // Tier 1: District Filter (Shown on all level views)
                     _buildFilterCard(
                       'District',
-                      state.selectedDistrict,
+                      _selectedDistrict,
                       allDistrictsList,
                       Icons.map_outlined,
                       (v) {
                         setState(() {
+                          _selectedDistrict = v;
+                          _selectedTaluk = 'All Taluks';
+                          _selectedPanchayat = 'All Panchayats';
                           state.selectedDistrict = v;
                           state.selectedTaluk = 'All Taluks';
                           state.selectedGramaPanchayat = 'All Panchayats';
-                          _selectedDistrict = v;
                         });
                         _onDistrictChanged(v, approved);
                       },
                     ),
 
-                    // Tier 2: Taluk Filter
-                    _buildFilterCard(
-                      'Taluk',
-                      state.selectedTaluk,
-                      state.talukNames,
-                      Icons.location_city,
-                      (v) {
-                        setState(() {
-                          state.selectedTaluk = v;
-                          state.selectedGramaPanchayat = 'All Panchayats';
-                        });
-                        final talukStations = approved.where((s) => s.taluk.toLowerCase() == v.toLowerCase()).toList();
-                        if (talukStations.isNotEmpty) {
-                          _mapController.move(LatLng(talukStations.first.latitude, talukStations.first.longitude), 10.2);
-                        }
-                      },
-                    ),
-
-                    // Tier 3: Grama Panchayat Filter
-                    _buildFilterCard(
-                      'Grama Panchayat',
-                      state.selectedGramaPanchayat,
-                      state.panchayatNames,
-                      Icons.home_work_outlined,
-                      (v) {
-                        setState(() {
-                          state.selectedGramaPanchayat = v;
-                        });
-                        final gpStations = approved.where((s) => s.gramaPanchayat.toLowerCase() == v.toLowerCase()).toList();
-                        if (gpStations.isNotEmpty) {
-                          _mapController.move(LatLng(gpStations.first.latitude, gpStations.first.longitude), 11.5);
-                        }
-                      },
-                    ),
-
-                    // PostGIS Radius Search Slider Button
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF93C5FD)),
+                    // Tier 2: Taluk Filter (Shown for Taluk & Panchayat views)
+                    if (widget.level == MapViewLevel.taluk || widget.level == MapViewLevel.panchayat)
+                      _buildFilterCard(
+                        'Taluk',
+                        _selectedTaluk,
+                        ['All Taluks', ...state.getTaluksForDistrict(_selectedDistrict)],
+                        Icons.location_city,
+                        (v) {
+                          setState(() {
+                            _selectedTaluk = v;
+                            _selectedPanchayat = 'All Panchayats';
+                            state.selectedTaluk = v;
+                            state.selectedGramaPanchayat = 'All Panchayats';
+                          });
+                          final newCenter = _getMapCenter(approved);
+                          _mapController.move(newCenter, _getMapZoom());
+                        },
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.radar, size: 14, color: Color(0xFF2563EB)),
-                          const SizedBox(width: 6),
-                          const Text('PostGIS Radius: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1E40AF))),
-                          DropdownButton<double>(
-                            value: state.searchRadiusKm,
-                            dropdownColor: Colors.white,
-                            underline: const SizedBox(),
-                            isDense: true,
-                            style: const TextStyle(color: Color(0xFF1E3A8A), fontSize: 11.5, fontWeight: FontWeight.bold),
-                            items: const [
-                              DropdownMenuItem(value: 5.0, child: Text('5 km')),
-                              DropdownMenuItem(value: 10.0, child: Text('10 km')),
-                              DropdownMenuItem(value: 25.0, child: Text('25 km')),
-                              DropdownMenuItem(value: 50.0, child: Text('50 km')),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                final centerLatLng = _getMapCenter(approved);
-                                state.searchNearbyStations(centerLatLng.latitude, centerLatLng.longitude, val);
-                              }
-                            },
-                          ),
-                        ],
+
+                    // Tier 3: Grama Panchayat Filter (Shown for Panchayat view)
+                    if (widget.level == MapViewLevel.panchayat)
+                      _buildFilterCard(
+                        'Grama Panchayat',
+                        _selectedPanchayat,
+                        ['All Panchayats', ...state.getPanchayatsForTaluk(_selectedDistrict, _selectedTaluk)],
+                        Icons.home_work_outlined,
+                        (v) {
+                          setState(() {
+                            _selectedPanchayat = v;
+                            state.selectedGramaPanchayat = v;
+                          });
+                          final newCenter = _getMapCenter(approved);
+                          _mapController.move(newCenter, _getMapZoom());
+                        },
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -930,51 +926,92 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   Widget _buildRankRow(String rank, String stationId, String loc, String val, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7.0, horizontal: 4.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text('#$rank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF64748B))),
-                    ),
+            // Top Row: Rank Number + Station ID + Location
+            Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(stationId, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                        Text(loc, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-                      ],
-                    ),
+                  child: Center(
+                    child: Text('#$rank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF64748B))),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Text(stationId, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '• $loc',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+            const SizedBox(height: 5),
+
+            // Bottom Row: Telemetry Pill Badge below in next line
+            Padding(
+              padding: const EdgeInsets.only(left: 30.0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: color.withValues(alpha: 0.2)),
+                  ),
+                  child: Text(val, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 11)),
+                ),
               ),
-              child: Text(val, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 11.5)),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getPinColor(KsdmaStation s) {
+    if (s.category == StationCategory.aws) return const Color(0xFF8E24AA);
+    switch (s.instrumentType) {
+      case InstrumentType.rainGauge:
+        return const Color(0xFF2563EB);
+      case InstrumentType.maxMinThermometer:
+        return const Color(0xFFEA580C);
+      case InstrumentType.riverGauge:
+        return const Color(0xFF0D9488);
+      case InstrumentType.hygrometer:
+        return const Color(0xFF7C3AED);
+      case InstrumentType.awsAutomaticStation:
+        return const Color(0xFF8E24AA);
+    }
+  }
+
+  IconData _getPinIcon(KsdmaStation s) {
+    if (s.category == StationCategory.aws) return Icons.cell_tower;
+    switch (s.instrumentType) {
+      case InstrumentType.rainGauge:
+        return Icons.water_drop;
+      case InstrumentType.maxMinThermometer:
+        return Icons.thermostat;
+      case InstrumentType.riverGauge:
+        return Icons.waves;
+      case InstrumentType.hygrometer:
+        return Icons.opacity;
+      case InstrumentType.awsAutomaticStation:
+        return Icons.cell_tower;
+    }
   }
 }
