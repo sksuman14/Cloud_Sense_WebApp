@@ -307,13 +307,13 @@ class KeralaAdminData {
     return [];
   }
 
-  static String validateCoordinates(double lat, double lng) {
+  static String? validateCoordinates(double lat, double lng) {
     if (lat < 8.0 || lat > 13.1) {
       return '⚠️ Latitude $lat°N is outside Kerala state boundaries (Valid range: 8.0°N to 13.1°N).';
     }
     if (lng < 74.5 || lng > 77.8) {
       return '⚠️ Longitude $lng°E is outside Kerala state boundaries (Valid range: 74.5°E to 77.8°E).';
     }
-    return '';
+    return null;
   }
 }

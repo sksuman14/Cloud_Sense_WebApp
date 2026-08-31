@@ -1,4 +1,8 @@
 import 'dart:math';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+// ignore: deprecated_member_use
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -405,16 +409,21 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
     }
 
     final title = widget.level == MapViewLevel.state
-        ? 'State View (Kerala)'
+        ? 'Statewide Map View (Kerala)'
         : widget.level == MapViewLevel.district
-            ? 'District View (${_selectedDistrict == 'All Districts' ? 'All Districts' : _selectedDistrict})'
+            ? 'District Map View (${_selectedDistrict == 'All Districts' ? 'All 14 Districts' : _selectedDistrict})'
             : widget.level == MapViewLevel.taluk
-                ? 'Taluk View (${_selectedTaluk == 'All Taluks' ? _selectedDistrict : '$_selectedDistrict → $_selectedTaluk'})'
-                : widget.level == MapViewLevel.panchayat
-                    ? 'Grama Panchayat View (${_selectedPanchayat == 'All Panchayats' ? _selectedDistrict : '$_selectedDistrict → $_selectedPanchayat'})'
-                    : 'Station View (Live Stations)';
+                ? 'Taluk Map View (${_selectedTaluk == 'All Taluks' ? _selectedDistrict : '$_selectedDistrict → $_selectedTaluk'})'
+                : 'Grama Panchayat Map View (${_selectedPanchayat == 'All Panchayats' ? _selectedDistrict : '$_selectedDistrict → $_selectedPanchayat'})';
 
-    final subtitle = 'Live Monitoring Across ${approved.length} Active Stations in Kerala';
+    final subtitle = widget.level == MapViewLevel.state
+        ? 'Comprehensive Overview Across All 14 Districts (${approved.length} Active Stations)'
+        : widget.level == MapViewLevel.district
+            ? 'District-Level Real-Time Telemetry & Sensor Network'
+            : widget.level == MapViewLevel.taluk
+                ? 'Sub-District Taluk Level Hydro-Meteorological Monitoring'
+                : 'Local Micro-Level Grama Panchayat Sensor Network';
+
     final center = _getMapCenter(approved);
     final zoom = _getMapZoom();
 
@@ -786,24 +795,42 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                       (v) => setState(() => _selectedParam = v),
                     ),
 
-                    // Tier 1: District Filter (Shown on all level views)
-                    _buildFilterCard(
-                      'District',
-                      _selectedDistrict,
-                      allDistrictsList,
-                      Icons.map_outlined,
-                      (v) {
-                        setState(() {
-                          _selectedDistrict = v;
-                          _selectedTaluk = 'All Taluks';
-                          _selectedPanchayat = 'All Panchayats';
-                          state.selectedDistrict = v;
-                          state.selectedTaluk = 'All Taluks';
-                          state.selectedGramaPanchayat = 'All Panchayats';
-                        });
-                        _onDistrictChanged(v, approved);
-                      },
-                    ),
+                    // Tier 1: District Filter (Shown for District, Taluk & Panchayat views)
+                    if (widget.level != MapViewLevel.state)
+                      _buildFilterCard(
+                        'District',
+                        _selectedDistrict,
+                        allDistrictsList,
+                        Icons.map_outlined,
+                        (v) {
+                          setState(() {
+                            _selectedDistrict = v;
+                            _selectedTaluk = 'All Taluks';
+                            _selectedPanchayat = 'All Panchayats';
+                            state.selectedDistrict = v;
+                            state.selectedTaluk = 'All Taluks';
+                            state.selectedGramaPanchayat = 'All Panchayats';
+                          });
+                          _onDistrictChanged(v, approved);
+                        },
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF146356).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF146356).withValues(alpha: 0.2)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.public, size: 14, color: Color(0xFF146356)),
+                            SizedBox(width: 6),
+                            Text('State: Kerala (All 14 Districts)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF146356))),
+                          ],
+                        ),
+                      ),
 
                     // Tier 2: Taluk Filter (Shown for Taluk & Panchayat views)
                     if (widget.level == MapViewLevel.taluk || widget.level == MapViewLevel.panchayat)
@@ -875,6 +902,16 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                   ],
                 ),
               ],
+
+              const SizedBox(height: 20),
+
+              // 4. Real-time Telemetry Summary Metric Cards
+              _buildMapAnalyticalRow(displayedStations, state, isMobile),
+
+              const SizedBox(height: 16),
+
+              // 5. KSDMA Telemetry Export & Advisory Banner Card
+              _buildKsdmaAdvisoryBanner(context, displayedStations, state, isMobile),
             ],
           ),
         );
@@ -1013,5 +1050,257 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
       case InstrumentType.awsAutomaticStation:
         return Icons.cell_tower;
     }
+  }
+
+  Widget _buildMapAnalyticalRow(List<KsdmaStation> stations, KsdmaStateService state, bool isMobile) {
+    // 1. Max Rain Today
+    double maxRain = -1;
+    KsdmaStation? maxRainStn;
+    // 2. Max Temp Today
+    double maxTemp = -1;
+    KsdmaStation? maxTempStn;
+    // 3. Avg Humidity
+    double totalHum = 0;
+    int humCount = 0;
+    // 4. Reporting stations count today
+    int reportingTodayCount = 0;
+
+    for (var s in stations) {
+      final obs = state.getTodayObservation(s.stationId);
+      if (obs != null) {
+        reportingTodayCount++;
+        if (obs.rainfallMm != null && obs.rainfallMm! > maxRain) {
+          maxRain = obs.rainfallMm!;
+          maxRainStn = s;
+        }
+        if (obs.maxTemperatureC != null && obs.maxTemperatureC! > maxTemp) {
+          maxTemp = obs.maxTemperatureC!;
+          maxTempStn = s;
+        }
+        if (obs.humidityPercent != null) {
+          totalHum += obs.humidityPercent!;
+          humCount++;
+        }
+      }
+    }
+
+    final double avgHum = humCount > 0 ? totalHum / humCount : 0;
+    final int inactiveCount = stations.length - reportingTodayCount;
+    final String reportingPct = stations.isEmpty ? '0%' : '${((reportingTodayCount / stations.length) * 100).toStringAsFixed(0)}%';
+
+    final String humTitle = (_selectedDistrict == 'All Districts' || widget.level == MapViewLevel.state)
+        ? 'Statewide Avg Humidity'
+        : 'Avg Humidity';
+
+    final cards = [
+      _buildAnalyticalStatCard(
+        title: 'Highest Rainfall Today',
+        value: maxRainStn != null ? '${maxRain.toStringAsFixed(1)} mm' : '0.0 mm',
+        subtitle: maxRainStn != null ? '${maxRainStn.stationId} (${maxRainStn.district})' : 'All Clear',
+        icon: Icons.water_drop,
+        color: const Color(0xFF2563EB),
+      ),
+      _buildAnalyticalStatCard(
+        title: 'Highest Temperature Today',
+        value: maxTempStn != null ? '${maxTemp.toStringAsFixed(1)} °C' : 'N/A',
+        subtitle: maxTempStn != null ? '${maxTempStn.stationId} (${maxTempStn.district})' : 'Normal',
+        icon: Icons.thermostat,
+        color: const Color(0xFFEA580C),
+      ),
+      _buildAnalyticalStatCard(
+        title: humTitle,
+        value: humCount > 0 ? '${avgHum.toStringAsFixed(1)} %' : 'N/A',
+        subtitle: 'Across $humCount Active Sensors',
+        icon: Icons.opacity,
+        color: const Color(0xFF7C3AED),
+      ),
+      _buildAnalyticalStatCard(
+        title: 'Active Reporting Network',
+        value: '$reportingTodayCount / ${stations.length}',
+        subtitle: inactiveCount > 0 ? '$reportingPct Active ($inactiveCount Inactive)' : '100% Operational Status',
+        icon: Icons.verified_user_outlined,
+        color: reportingTodayCount == stations.length ? const Color(0xFF146356) : const Color(0xFFEA580C),
+      ),
+    ];
+
+    if (isMobile) {
+      return Column(
+        children: cards.map((c) => Padding(padding: const EdgeInsets.only(bottom: 10), child: c)).toList(),
+      );
+    }
+
+    return Row(
+      children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 12), child: c))).toList(),
+    );
+  }
+
+  Widget _buildAnalyticalStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKsdmaAdvisoryBanner(BuildContext context, List<KsdmaStation> stations, KsdmaStateService state, bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F3D36), Color(0xFF146356)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Color(0x1A0F3D36), blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.shield_outlined, color: Colors.white, size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'KSDMA Automated Hydro-Meteorological Portal',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Real-time automated telemetry data synced every 15 minutes across AWS, Rain Gauges, River Gauges, Thermometers, and Hygrometers for instant disaster preparedness.',
+                  style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11.5, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _exportMapDataCsv(context, stations, state),
+                    icon: const Icon(Icons.download, size: 15),
+                    label: const Text('Export Telemetry CSV Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F3D36),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.shield_outlined, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'KSDMA Automated Hydro-Meteorological Monitoring Network',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Live telemetry auto-synced across ${stations.length} active stations for state disaster preparedness and early warnings.',
+                        style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _exportMapDataCsv(context, stations, state),
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Export Telemetry Data (.CSV)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF0F3D36),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  void _exportMapDataCsv(BuildContext context, List<KsdmaStation> stations, KsdmaStateService state) {
+    final StringBuffer csv = StringBuffer();
+    csv.writeln('Station ID,District,Taluk,Grama Panchayat,Instrument Type,Observation Date,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
+
+    int count = 0;
+    for (var s in stations) {
+      final obs = state.getTodayObservation(s.stationId);
+      final dateStr = obs != null ? "${obs.observationDate.year}-${obs.observationDate.month.toString().padLeft(2, '0')}-${obs.observationDate.day.toString().padLeft(2, '0')}" : 'No Report Today';
+
+      csv.writeln(
+        '"${s.stationId}","${s.district}","${s.taluk}","${s.gramaPanchayat}","${s.instrumentType.name}","${dateStr}",${obs?.rainfallMm ?? ""},${obs?.maxTemperatureC ?? ""},${obs?.minTemperatureC ?? ""},${obs?.humidityPercent ?? ""},${obs?.riverWaterLevelM ?? ""}'
+      );
+      count++;
+    }
+
+    if (kIsWeb) {
+      final bytes = utf8.encode(csv.toString());
+      final blob = html.Blob([bytes], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final fileName = 'KSDMA_Map_Telemetry_${_selectedDistrict.replaceAll(" ", "_")}_${DateTime.now().millisecondsSinceEpoch}.csv';
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF146356),
+        content: Text('📥 Successfully downloaded CSV data for $count stations in $_selectedDistrict!'),
+      ),
+    );
   }
 }

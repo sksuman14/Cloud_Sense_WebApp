@@ -27,6 +27,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
   String? _errorMessage;
   List<Map<String, dynamic>> _historyData = [];
   Map<String, dynamic>? _latestReading;
+  Map<String, dynamic>? _calculatedData;
 
   bool _isShiftPressed = false;
   final FocusNode _keyboardFocusNode = FocusNode();
@@ -203,6 +204,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
 
     final devId = _formatDeviceId(widget.stationId);
     List<Map<String, dynamic>> records = [];
+    Map<String, dynamic>? extractedCalc;
 
     try {
       if (_selectedPeriod == '1day') {
@@ -213,17 +215,22 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         if (response.statusCode == 200) {
           final dynamic body = jsonDecode(response.body);
           records = _extractRecords(body);
+          if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+            extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+          }
         }
       } else if (_selectedPeriod == '1month') {
         final yearStr = DateFormat('yyyy').format(_selectedMonthDate);
         final monthAbbr = DateFormat('MMM').format(_selectedMonthDate).toLowerCase(); // e.g. 'aug'
         final String monthUrl = 'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year=$yearStr&DeviceId=$devId&Month=$monthAbbr';
 
-
         final response = await http.get(Uri.parse(monthUrl));
         if (response.statusCode == 200) {
           final dynamic body = jsonDecode(response.body);
           records = _extractRecords(body);
+          if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+            extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+          }
         }
       }
 
@@ -234,6 +241,9 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         if (response.statusCode == 200) {
           final dynamic body = jsonDecode(response.body);
           records = _extractRecords(body);
+          if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+            extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+          }
         }
       }
 
@@ -246,6 +256,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
 
       setState(() {
         _historyData = records;
+        _calculatedData = extractedCalc;
         if (records.isNotEmpty) {
           _latestReading = records.last;
         }
@@ -447,12 +458,35 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     );
 
     final wsRaw = state?.getWsDeviceRaw(widget.stationId) ?? _latestReading;
+    final obs = state?.getTodayObservation(widget.stationId);
 
-    final num? tempVal = wsRaw?['now_temperature'] ?? wsRaw?['Temperature'];
-    final num? humVal = wsRaw?['now_relative_humidity'] ?? wsRaw?['Humidity'];
-    final num? rainVal = wsRaw?['rainfall'] ?? wsRaw?['Rainfall'];
-    final dynamic rainCumRaw = wsRaw?['Rainfall_Cumulative'];
-    final double rainCumVal = double.tryParse(rainCumRaw?.toString() ?? '') ?? (rainVal?.toDouble() ?? 0.0);
+    final num? tempVal = wsRaw?['now_temperature'] ?? wsRaw?['Temperature'] ?? _calculatedData?['Maximum_Temperature'] ?? obs?.maxTemperatureC;
+    final num? humVal = wsRaw?['now_relative_humidity'] ?? wsRaw?['Humidity'] ?? _calculatedData?['Maximum_Humidity'] ?? _calculatedData?['Average_Humidity'] ?? obs?.humidityPercent;
+
+    final num? rawRain = wsRaw?['rainfall'] ?? wsRaw?['Rainfall'] ?? wsRaw?['Total_Rainfall'] ?? _calculatedData?['Total_Rainfall'];
+
+    double rainCumVal = 0.0;
+    if (_calculatedData?['Total_Rainfall'] != null) {
+      rainCumVal = double.tryParse(_calculatedData!['Total_Rainfall'].toString()) ?? 0.0;
+    } else if (wsRaw?['Rainfall_Cumulative'] != null || wsRaw?['Total_Rainfall'] != null) {
+      final dynamic val = wsRaw?['Rainfall_Cumulative'] ?? wsRaw?['Total_Rainfall'];
+      rainCumVal = double.tryParse(val.toString()) ?? 0.0;
+    } else if (obs?.rainfallMm != null && obs!.rainfallMm! > 0) {
+      rainCumVal = obs.rainfallMm!;
+    } else if (_historyData.isNotEmpty) {
+      double sumRain = 0.0;
+      for (var r in _historyData) {
+        final rf = double.tryParse(r['Rainfall']?.toString() ?? r['rainfall']?.toString() ?? r['Total_Rainfall']?.toString() ?? '');
+        if (rf != null && rf > 0) {
+          sumRain += rf;
+        }
+      }
+      rainCumVal = sumRain > 0 ? sumRain : (rawRain?.toDouble() ?? 0.0);
+    } else {
+      rainCumVal = rawRain?.toDouble() ?? 0.0;
+    }
+
+    final num? rainVal = (rainCumVal > 0 && (rawRain == null || rawRain == 0)) ? rainCumVal : rawRain;
     final num? pressVal = wsRaw?['now_pressure'] ?? wsRaw?['AtmPressure'];
     final num? windSpdVal = wsRaw?['now_wind_speed'] ?? wsRaw?['WindSpeed'];
     final dynamic windDirVal = wsRaw?['now_wind_direction'] ?? wsRaw?['WindDirection'];

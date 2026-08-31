@@ -945,7 +945,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
                     return;
                   }
                   final coordErr = KeralaAdminData.validateCoordinates(lat, lng);
-                  if (coordErr != null) {
+                  if (coordErr != null && coordErr.isNotEmpty) {
                     _showError(coordErr);
                     return;
                   }
