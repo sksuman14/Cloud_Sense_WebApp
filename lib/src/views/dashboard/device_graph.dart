@@ -215,6 +215,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   Map<String, double> _lastDailyMaxTemps = {};
   Map<String, double> _lastDailyMinTemps = {};
   Map<String, double> _lastPanelVoltages = {};
+  Map<String, String> _lastStationHealths = {};
 
   bool _isLoading = false;
   late final String activityType;
@@ -437,6 +438,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         onDailyMinTempUpdate: (v) => _lastDailyMinTemps[widget.deviceName] = v,
         onPanelVoltageUpdate: (v) => _lastPanelVoltages[widget.deviceName] = v,
         onTiltUpdate: (v) => _lastTiltStatuses[widget.deviceName] = v,
+        onStationHealthUpdate: (v) => _lastStationHealths[widget.deviceName] = v,
       );
     }
 
@@ -1360,6 +1362,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     Function(double)? onDailyMinTempUpdate,
     Function(double)? onPanelVoltageUpdate,
     Function(double)? onTiltUpdate,
+    Function(String)? onStationHealthUpdate,
   }) {
     final List<dynamic> items = apiData[itemsKey] ?? [];
     Map<String, List<ChartData>> parametersData = {};
@@ -1381,6 +1384,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             if (key == 'now_wind_speed') allKeys.add('NowWindSpeed');
             if (key == 'now_wind_direction') allKeys.add('NowWindDirection');
             if (key == 'rainfall') allKeys.add('Rainfall');
+            if (key == 'Heat_Index_Feels_Like') allKeys.add('Feels Like');
+            if (key == 'Rain_Rate') allKeys.add('Rain Rate');
+            if (key == 'uv_index') allKeys.add('UV Index');
           }
         }
       }
@@ -1417,7 +1423,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                 : null) ??
             (key == 'NowWindSpeed' ? item['now_wind_speed'] : null) ??
             (key == 'NowWindDirection' ? item['now_wind_direction'] : null) ??
-            (key == 'Rainfall' ? item['rainfall'] : null);
+            (key == 'Rainfall' ? item['rainfall'] : null) ??
+            (key == 'Feels Like' ? item['Heat_Index_Feels_Like'] : null) ??
+            (key == 'Rain Rate' ? item['Rain_Rate'] : null) ??
+            (key == 'UV Index' ? item['uv_index'] : null);
 
         if (rawValue != null) {
           double value = double.tryParse(rawValue.toString()) ?? 0.0;
@@ -1488,6 +1497,37 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         }
       }
     }
+    // ✅ Calculate Rain Rate ONLY for 1-Day (Live / Today) view
+    final rainfallList = parametersData['rainfall'] ?? parametersData['Rainfall'];
+    if (rainfallList != null && rainfallList.isNotEmpty) {
+      final firstTime = rainfallList.first.timestamp;
+      final lastTime = rainfallList.last.timestamp;
+      final isOneDayView = lastTime.difference(firstTime).inHours <= 26;
+
+      if (isOneDayView) {
+        final List<ChartData> calculatedRainRate = [];
+        for (int i = 0; i < rainfallList.length; i++) {
+          final currentPt = rainfallList[i];
+          final windowStartTime = currentPt.timestamp.subtract(const Duration(minutes: 60));
+
+          double rollingSum = 0.0;
+          for (int j = i; j >= 0; j--) {
+            final pt = rainfallList[j];
+            if (pt.timestamp.isBefore(windowStartTime)) break;
+            rollingSum += pt.value;
+          }
+
+          calculatedRainRate.add(ChartData(
+            timestamp: currentPt.timestamp,
+            value: double.parse(rollingSum.toStringAsFixed(2)),
+            filledFlag: currentPt.filledFlag,
+          ));
+        }
+
+        parametersData['Rain_Rate'] = calculatedRainRate;
+        parametersData['Rain Rate'] = calculatedRainRate;
+      }
+    }
 
     // Update latest battery if requested
     if (onBatteryUpdate != null) {
@@ -1551,6 +1591,19 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               onMaxWindGustTimeUpdate(timeRange);
               break;
             }
+          }
+        }
+      }
+    }
+
+    // Update latest Station Health if requested
+    if (onStationHealthUpdate != null) {
+      for (var item in items.reversed) {
+        if (item != null) {
+          final health = item['Station_Health'] ?? item['StationHealth'] ?? item['station_health'];
+          if (health != null && health.toString().trim().isNotEmpty) {
+            onStationHealthUpdate(health.toString().trim());
+            break;
           }
         }
       }
@@ -2735,6 +2788,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       'Rainfall': Icons.cloudy_snowing,
       'Rainfall Minutely': Icons.cloudy_snowing,
       'Rainfall Daily': Icons.cloudy_snowing,
+      'Rain Rate': Icons.water_drop_outlined,
+      'Cumulative Rain': Icons.cloudy_snowing,
+      'UV Index': Icons.wb_sunny_rounded,
+      'Feels Like': Icons.thermostat_auto,
+      'Station Health': Icons.health_and_safety,
       'Air Temperature': Icons.thermostat,
       'Soil Temperature': Icons.thermostat,
       'Temperature': Icons.thermostat,
@@ -3879,6 +3937,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               }
                               if (!_visibleParameters.contains(displayName))
                                 return false;
+                              if ((p.key == 'Heat_Index_Feels_Like' ||
+                                      p.key == 'Feels Like' ||
+                                      p.displayName == 'Feels Like') &&
+                                  (_parametersData.containsKey('now_temperature') ||
+                                      _parametersData.containsKey('NowTemperature') ||
+                                      _parametersData.containsKey('Temperature'))) {
+                                return false;
+                              }
 
                               final data = _parametersData[p.key];
                               return data != null && data.isNotEmpty;
@@ -3908,7 +3974,29 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                               }
                               List<ChartData>? secondaryData;
                               String? secondaryTitle;
-                              if (_isAdmin) {
+
+                              final isTempParam = (p.key == 'now_temperature' ||
+                                  p.key == 'NowTemperature' ||
+                                  p.key == 'Temperature' ||
+                                  (p.displayName.toLowerCase().contains('temperature') &&
+                                      !p.displayName.toLowerCase().contains('soil') &&
+                                      !p.displayName.toLowerCase().contains('min') &&
+                                      !p.displayName.toLowerCase().contains('max') &&
+                                      !p.displayName.toLowerCase().contains('feels')));
+
+                              if (isTempParam) {
+                                final feelsLikeData = _parametersData['Heat_Index_Feels_Like'] ??
+                                    _parametersData['Feels Like'] ??
+                                    _parametersData['feels_like'];
+                                if (feelsLikeData != null && feelsLikeData.isNotEmpty) {
+                                  secondaryData = feelsLikeData;
+                                  secondaryTitle = 'Feels Like';
+                                }
+                              }
+
+
+
+                              if (secondaryData == null && _isAdmin) {
                                 final correctedField =
                                     (_isDevice250 && p.key.toLowerCase().contains('rain'))
                                         ? null
@@ -4198,6 +4286,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       sdCardStatus: sdStatus,
       panelValue: _lastPanelVoltages[widget.deviceName],
       tiltValue: _lastTiltStatuses[widget.deviceName],
+      stationHealth: _lastStationHealths[widget.deviceName],
       isDarkMode: isDarkMode,
       isMobile: isMobile,
     );
@@ -4210,6 +4299,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     required String? sdCardStatus,
     required double? panelValue,
     required double? tiltValue,
+    String? stationHealth,
     required bool isDarkMode,
     bool isMobile = false,
   }) {
@@ -4221,9 +4311,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     final bool hasSDCard = sdCardStatus != null && sdCardStatus.isNotEmpty;
     final bool hasPanel = panelValue != null;
     final bool hasTilt = tiltValue != null;
+    final bool hasHealth = stationHealth != null && stationHealth.isNotEmpty;
 
     // If nothing to show, return empty
-    if (!hasBattery && !hasSignal && !hasSDCard && !hasPanel && !hasTilt) {
+    if (!hasBattery && !hasSignal && !hasSDCard && !hasPanel && !hasTilt && !hasHealth) {
       return const SizedBox.shrink();
     }
 
@@ -4233,6 +4324,63 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Station Health Badge
+          if (hasHealth) ...[
+            Tooltip(
+              message: 'Station Health: $stationHealth',
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? (stationHealth.toLowerCase().contains('healthy')
+                          ? Colors.green.withOpacity(0.25)
+                          : Colors.amber.withOpacity(0.25))
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: stationHealth.toLowerCase().contains('healthy')
+                        ? (isDarkMode ? Colors.greenAccent : Colors.green.shade700)
+                        : (isDarkMode ? Colors.amberAccent : Colors.amber.shade800),
+                    width: 1.5,
+                  ),
+                  boxShadow: !isDarkMode
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          )
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.health_and_safety,
+                      color: stationHealth.toLowerCase().contains('healthy')
+                          ? (isDarkMode ? Colors.greenAccent : Colors.green.shade700)
+                          : (isDarkMode ? Colors.amberAccent : Colors.amber.shade800),
+                      size: iconSize - 4,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      stationHealth,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 10 : 11,
+                        fontWeight: FontWeight.bold,
+                        color: stationHealth.toLowerCase().contains('healthy')
+                            ? (isDarkMode ? Colors.greenAccent : Colors.green.shade900)
+                            : (isDarkMode ? Colors.amberAccent : Colors.amber.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+
           // Signal Strength
           if (hasSignal) _buildSignalStrengthIndicator(signalValue, isDarkMode),
 
@@ -4869,9 +5017,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   Color _getParamColor(String title) {
     final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('feels')) return const Color(0xFFFF5722); // Deep Orange
+    if (lowerTitle.contains('uv')) return const Color(0xFF7E57C2); // Deep Purple
     if (lowerTitle.contains('temp')) return const Color(0xFFFF9800); // Orange
     if (lowerTitle.contains('humid')) return const Color(0xFF2196F3); // Blue
     if (lowerTitle.contains('light')) return const Color(0xFFFFC107); // Amber
+    if (lowerTitle.contains('rain rate') || lowerTitle.contains('rain_rate'))
+      return const Color(0xFF0288D1); // Deep Cyan Blue
     if (lowerTitle.contains('rain'))
       return const Color(0xFF03A9F4); // Light Blue
     if (lowerTitle.contains('press')) return const Color(0xFF9C27B0); // Purple
@@ -4895,9 +5047,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   IconData _getParamIcon(String title) {
     final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('feels')) return Icons.thermostat_auto;
+    if (lowerTitle.contains('uv')) return Icons.wb_sunny_rounded;
     if (lowerTitle.contains('temp')) return Icons.thermostat;
     if (lowerTitle.contains('humid')) return Icons.water_drop;
     if (lowerTitle.contains('light')) return Icons.wb_sunny_outlined;
+    if (lowerTitle.contains('rain rate') || lowerTitle.contains('rain_rate'))
+      return Icons.water_drop_outlined;
     if (lowerTitle.contains('rain')) return Icons.umbrella;
     if (lowerTitle.contains('press')) return Icons.speed;
     if (lowerTitle.contains('wind')) return Icons.air;
@@ -5116,6 +5272,19 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     tooltip: 'Download Chart as PNG',
                                     onPressed: () => _exportChart(title, 'png'),
                                   ),
+                                  if (title.toLowerCase().contains('rain') &&
+                                      data.isNotEmpty &&
+                                      data.last.timestamp.difference(data.first.timestamp).inHours <= 26)
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.bar_chart_rounded,
+                                        color: Colors.blueAccent,
+                                        size: 22,
+                                      ),
+                                      tooltip: 'Hourly Rainfall Bar Chart',
+                                      onPressed: () =>
+                                          _showHourlyRainfallDialog(data, isDarkMode),
+                                    ),
                                 ],
                               ),
                             ),
@@ -5392,27 +5561,30 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               buildRow(
                                                   secondaryTitle ?? 'Corrected',
                                                   secValue,
-                                                  title
-                                                          .toLowerCase()
-                                                          .contains('temp')
-                                                      ? Colors.teal
-                                                      : Colors.cyan),
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    left: 14.0, bottom: 2.0),
-                                                child: Text(
-                                                  'Diff: ${(secValue - value).toStringAsFixed(2)}',
-                                                  style: TextStyle(
-                                                      color: isDarkMode
-                                                          ? Colors.white60
-                                                          : Colors.black45,
-                                                      fontSize: 10,
-                                                      fontStyle:
-                                                          FontStyle.italic,
-                                                      fontWeight:
-                                                          FontWeight.bold),
+                                                   (secondaryTitle != null && secondaryTitle.toLowerCase().contains('feels'))
+                                                       ? Colors.deepOrangeAccent
+                                                       : ((secondaryTitle != null && secondaryTitle.toLowerCase().contains('rain'))
+                                                           ? Colors.deepPurpleAccent
+                                                           : (title.toLowerCase().contains('temp')
+                                                               ? Colors.teal
+                                                               : Colors.cyan))),
+                                               if (secondaryTitle == null || (!secondaryTitle.toLowerCase().contains('feels') && !secondaryTitle.toLowerCase().contains('rain')))
+                                                Padding(
+                                                  padding: const EdgeInsets.only(
+                                                      left: 14.0, bottom: 2.0),
+                                                  child: Text(
+                                                    'Diff: ',
+                                                    style: TextStyle(
+                                                        color: isDarkMode
+                                                            ? Colors.white60
+                                                            : Colors.black45,
+                                                        fontSize: 10,
+                                                        fontStyle:
+                                                            FontStyle.italic,
+                                                        fontWeight:
+                                                            FontWeight.bold),
+                                                  ),
                                                 ),
-                                              ),
                                             ],
                                             if (title
                                                 .toLowerCase()
@@ -5519,11 +5691,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   if (secondaryData != null)
                                     ...secondarySegments.map((segment) {
                                       final Color seriesColor =
-                                          title.toLowerCase().contains('temp')
-                                              ? Colors.teal
-                                              : title.toLowerCase().contains('rain')
-                                                  ? Colors.deepPurple
-                                                  : Colors.cyan;
+                                          (secondaryTitle != null && secondaryTitle.toLowerCase().contains('feels'))
+                                              ? Colors.deepOrangeAccent
+                                              : (title.toLowerCase().contains('temp')
+                                                  ? Colors.teal
+                                                  : (title.toLowerCase().contains('rain')
+                                                      ? Colors.deepPurple
+                                                      : Colors.cyan));
                                       return LineSeries<ChartData, DateTime>(
                                         dataSource: segment,
                                         xValueMapper: (ChartData data, _) =>
@@ -5540,11 +5714,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   if (secondaryData != null)
                                     ...secondaryGapConnectors.map((connector) {
                                       final Color seriesColor =
-                                          title.toLowerCase().contains('temp')
-                                              ? Colors.teal
-                                              : title.toLowerCase().contains('rain')
-                                                  ? Colors.deepPurple
-                                                  : Colors.cyan;
+                                          (secondaryTitle != null && secondaryTitle.toLowerCase().contains('feels'))
+                                              ? Colors.deepOrangeAccent
+                                              : (title.toLowerCase().contains('temp')
+                                                  ? Colors.teal
+                                                  : (title.toLowerCase().contains('rain')
+                                                      ? Colors.deepPurple
+                                                      : Colors.cyan));
                                       return LineSeries<ChartData, DateTime>(
                                         dataSource: connector,
                                         xValueMapper: (ChartData data, _) =>
@@ -5684,8 +5860,190 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     return result;
   }
-  // CartesianSeries<ChartData, DateTime> _getChartSeries(
+
+  void _showHourlyRainfallDialog(List<ChartData> data, bool isDarkMode) {
+    if (data.isEmpty) return;
+
+    final Map<String, List<ChartData>> hourlyMap = {};
+    for (var pt in data) {
+      final hourKey = DateFormat('yyyy-MM-dd HH:00').format(pt.timestamp);
+      hourlyMap.putIfAbsent(hourKey, () => []).add(pt);
+    }
+
+    final List<_HourlyRainData> hourlyList = [];
+    double totalRainfall = 0.0;
+    double maxHourlyRain = 0.0;
+    int rainyHoursCount = 0;
+
+    hourlyMap.forEach((key, points) {
+      final dt = DateTime.parse(key);
+      final dtEnd = dt.add(const Duration(hours: 1));
+      final hourLabel = "${DateFormat('HH:00').format(dt)} - ${DateFormat('HH:00').format(dtEnd)}";
+      final sumRain = points.fold<double>(0.0, (sum, item) => sum + item.value);
+      totalRainfall += sumRain;
+      if (sumRain > maxHourlyRain) maxHourlyRain = sumRain;
+      if (sumRain > 0) rainyHoursCount++;
+
+      hourlyList.add(_HourlyRainData(
+        hourLabel: hourLabel,
+        timestamp: dt,
+        totalRain: double.parse(sumRain.toStringAsFixed(2)),
+      ));
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDarkMode ? const Color(0xFF14212B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.umbrella, color: Colors.blueAccent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Hourly Rainfall Summary',
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                color: isDarkMode ? Colors.white70 : Colors.black54,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 700,
+            height: 450,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _buildHourlyMetricChip(
+                      'Total Rain',
+                      '${totalRainfall.toStringAsFixed(2)} mm',
+                      Icons.water_drop,
+                      Colors.blue,
+                      isDarkMode,
+                    ),
+                    _buildHourlyMetricChip(
+                      'Peak Hourly Rain',
+                      '${maxHourlyRain.toStringAsFixed(2)} mm/hr',
+                      Icons.speed,
+                      Colors.deepOrange,
+                      isDarkMode,
+                    ),
+                    _buildHourlyMetricChip(
+                      'Rainy Hours',
+                      '$rainyHoursCount hrs',
+                      Icons.access_time_filled,
+                      Colors.teal,
+                      isDarkMode,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SfCartesianChart(
+                    primaryXAxis: CategoryAxis(
+                      labelRotation: -45,
+                      labelStyle: TextStyle(
+                        color: isDarkMode ? Colors.white70 : Colors.black87,
+                        fontSize: 10,
+                      ),
+                    ),
+                    primaryYAxis: NumericAxis(
+                      title: AxisTitle(
+                        text: 'Rainfall (mm)',
+                        textStyle: TextStyle(
+                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                          fontSize: 11,
+                        ),
+                      ),
+                      labelStyle: TextStyle(
+                        color: isDarkMode ? Colors.white70 : Colors.black87,
+                        fontSize: 10,
+                      ),
+                    ),
+                    tooltipBehavior: TooltipBehavior(
+                      enable: true,
+                      header: '',
+                      format: 'point.x : point.y mm',
+                    ),
+                    series: <CartesianSeries<_HourlyRainData, String>>[
+                      ColumnSeries<_HourlyRainData, String>(
+                        dataSource: hourlyList,
+                        xValueMapper: (_HourlyRainData item, _) => item.hourLabel,
+                        yValueMapper: (_HourlyRainData item, _) => item.totalRain,
+                        name: 'Hourly Rain',
+                        color: Colors.blueAccent,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          topRight: Radius.circular(4),
+                        ),
+                        dataLabelSettings: DataLabelSettings(
+                          isVisible: hourlyList.length <= 24,
+                          textStyle: TextStyle(
+                            fontSize: 9,
+                            color: isDarkMode ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHourlyMetricChip(
+      String label, String val, IconData icon, Color color, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDarkMode ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          Text(
+            val,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
 
 enum ChartType {
   line,
@@ -5960,6 +6318,8 @@ class _MetricSummaryCard extends StatelessWidget {
     );
   }
 
+
+
   String _getWindCardinal(double degrees) {
     const directions = [
       'North',
@@ -5995,3 +6355,15 @@ String _formatGustTime(String? rawRange) {
   }
   return rawRange;
 }
+
+class _HourlyRainData {
+  final String hourLabel;
+  final DateTime timestamp;
+  final double totalRain;
+  _HourlyRainData({
+    required this.hourLabel,
+    required this.timestamp,
+    required this.totalRain,
+  });
+}
+

@@ -1048,8 +1048,10 @@ class MyApp extends StatelessWidget {
         );
       },
       builder: (context, child) {
+        if (kIsWeb) return child ?? const SizedBox();
         return UpgradeAlert(
           upgrader: Upgrader(
+            durationUntilAlertAgain: const Duration(seconds: 1),
             debugLogging: false,
           ),
           child: child ?? const SizedBox(),

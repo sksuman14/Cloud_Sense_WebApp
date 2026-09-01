@@ -828,7 +828,7 @@ class DevicePrefixUtils {
         return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata';
       case 'AW':
       case 'AT':
-        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata';
+        return 'https://db0x5drcq7.execute-api.us-east-1.amazonaws.com/default/WS_AWS_API_Function';
       case 'SH':
         return 'https://915gy7u30a.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Shobha';
       default:

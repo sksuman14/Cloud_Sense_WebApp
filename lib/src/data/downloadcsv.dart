@@ -606,13 +606,13 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       final krStartDate = krDateFmt.format(_startDate!);
       final krEndDate = krDateFmt.format(_endDate!);
       apiUrl =
-          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata?startdate=$krStartDate&enddate=$krEndDate&annam_id=AWS_$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
+          'https://db0x5drcq7.execute-api.us-east-1.amazonaws.com/default/WS_AWS_API_Function?key=${ApiKeys.annamApiKey}&startdate=$krStartDate&enddate=$krEndDate&annam_id=AWS_$deviceId&mode=download';
     } else if (widget.deviceName.startsWith('AT')) {
       final atDateFmt = DateFormat('dd-MM-yyyy');
       final atStartDate = atDateFmt.format(_startDate!);
       final atEndDate = atDateFmt.format(_endDate!);
       apiUrl =
-          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/awsdata?startdate=$atStartDate&enddate=$atEndDate&annam_id=$deviceId&key=${ApiKeys.annamApiKey}&mode=download';
+          'https://db0x5drcq7.execute-api.us-east-1.amazonaws.com/default/WS_AWS_API_Function?key=${ApiKeys.annamApiKey}&startdate=$atStartDate&enddate=$atEndDate&annam_id=$deviceId&mode=download';
     } else if (widget.deviceName.startsWith('AM')) {
       final amDateFmt = DateFormat('dd-MM-yyyy');
       final amStartDate = amDateFmt.format(_startDate!);
