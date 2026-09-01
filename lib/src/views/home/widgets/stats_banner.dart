@@ -3,6 +3,7 @@ import '../home_theme.dart';
 
 class StatsBanner extends StatelessWidget {
   final int totalDevices;
+  final int devicesReportedToday;
   final String dataPointsCount;
   final int statesCount;
   final int districtsCount;
@@ -11,10 +12,11 @@ class StatsBanner extends StatelessWidget {
 
   const StatsBanner({
     Key? key,
-    required this.totalDevices,
-    required this.dataPointsCount,
-    required this.statesCount,
-    required this.districtsCount,
+    this.totalDevices = 0,
+    this.devicesReportedToday = 0,
+    this.dataPointsCount = "--",
+    this.statesCount = 0,
+    this.districtsCount = 0,
     required this.themeProvider,
     required this.screenWidth,
   }) : super(key: key);
@@ -28,7 +30,7 @@ class StatsBanner extends StatelessWidget {
       (
         icon: Icons.router_outlined,
         value: '$totalDevices',
-        label: 'Devices',
+        label: 'Total Devices',
         accent: const Color(0xFF4FC3F7),
       ),
       (
@@ -73,7 +75,7 @@ class StatsBanner extends StatelessWidget {
               '$displayStr$suffix',
               style: TextStyle(
                 fontFamily: 'OpenSans',
-                fontSize: isMobile ? 28 : 48,
+                fontSize: isMobile ? 24 : 42,
                 fontWeight: FontWeight.w900,
                 color: isDark ? Colors.white : const Color(0xFF0D1B1E),
                 letterSpacing: -1,
@@ -87,7 +89,7 @@ class StatsBanner extends StatelessWidget {
           valStr.isEmpty ? '--' : valStr,
           style: TextStyle(
             fontFamily: 'OpenSans',
-            fontSize: isMobile ? 28 : 48,
+            fontSize: isMobile ? 24 : 42,
             fontWeight: FontWeight.w900,
             color: isDark ? Colors.white : const Color(0xFF0D1B1E),
             letterSpacing: -1,
@@ -99,8 +101,8 @@ class StatsBanner extends StatelessWidget {
       return Expanded(
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 12 : 24,
-            vertical: isMobile ? 20 : 32,
+            horizontal: isMobile ? 8 : 16,
+            vertical: isMobile ? 16 : 24,
           ),
           decoration: BoxDecoration(
             border: !isLast
@@ -119,8 +121,8 @@ class StatsBanner extends StatelessWidget {
             children: [
               // Icon with accent glow
               Container(
-                width: isMobile ? 40 : 52,
-                height: isMobile ? 40 : 52,
+                width: isMobile ? 36 : 46,
+                height: isMobile ? 36 : 46,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: stat.accent.withOpacity(isDark ? 0.12 : 0.1),
@@ -135,10 +137,10 @@ class StatsBanner extends StatelessWidget {
                 child: Icon(
                   stat.icon,
                   color: stat.accent,
-                  size: isMobile ? 20 : 26,
+                  size: isMobile ? 18 : 24,
                 ),
               ),
-              SizedBox(height: isMobile ? 12 : 16),
+              SizedBox(height: isMobile ? 10 : 14),
               // Number
               valueWidget,
               const SizedBox(height: 6),
@@ -148,12 +150,12 @@ class StatsBanner extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'OpenSans',
-                  fontSize: isMobile ? 9 : 11,
+                  fontSize: isMobile ? 9 : 10,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
+                  letterSpacing: 1.5,
                   color: isDark
-                      ? Colors.white.withOpacity(0.4)
-                      : Colors.black.withOpacity(0.4),
+                      ? Colors.white.withOpacity(0.5)
+                      : Colors.black.withOpacity(0.5),
                 ),
               ),
             ],
@@ -211,7 +213,7 @@ class StatsBanner extends StatelessWidget {
             ? Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  rowWidget(stats.sublist(0, 2)),
+                  rowWidget(stats.sublist(0, 3)),
                   Divider(
                     height: 1,
                     thickness: 1,
@@ -219,7 +221,7 @@ class StatsBanner extends StatelessWidget {
                         ? Colors.white.withOpacity(0.07)
                         : Colors.black.withOpacity(0.07),
                   ),
-                  rowWidget(stats.sublist(2)),
+                  rowWidget(stats.sublist(3)),
                 ],
               )
             : rowWidget(stats),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import '../theme/ksdma_theme.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
@@ -107,14 +108,11 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
                               children: [
                                 if (isMobile) ...[
                                   IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(Icons.menu, color: Colors.white),
                                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                                    icon: const Icon(Icons.menu, color: Colors.white, size: 20),
                                   ),
                                   const SizedBox(width: 4),
                                 ],
-
                                 Container(
                                   width: isMobile ? 24 : 28,
                                   height: isMobile ? 24 : 28,
@@ -261,40 +259,60 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
       children: [
         // KSDMA Emblem Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.white10)),
           ),
           child: Row(
             children: [
+              Tooltip(
+                message: 'Back to Home',
+                child: InkWell(
+                  onTap: () => NavigationUtils.navigateTo(context, '/'),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
-                width: 36,
-                height: 36,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                   color: KsdmaColors.primary,
                 ),
                 child: const Center(
-                  child: Icon(Icons.shield, color: KsdmaColors.gold, size: 20),
+                  child: Icon(Icons.shield, color: KsdmaColors.gold, size: 17),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
                     Text(
                       'Kerala Citizen Weather',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       'Observation Network',
-                      style: TextStyle(color: Color(0xFFB7CFC7), fontSize: 10),
+                      style: TextStyle(color: Color(0xFFB7CFC7), fontSize: 9),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      'Kerala State Disaster Management Authority',
-                      style: TextStyle(color: Colors.grey, fontSize: 8),
+                      'Kerala State Disaster Management',
+                      style: TextStyle(color: Colors.grey, fontSize: 7.5),
                       maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),

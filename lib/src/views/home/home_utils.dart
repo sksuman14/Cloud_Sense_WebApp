@@ -134,8 +134,12 @@ class HomeUtils {
   static String getDeviceIdFromTopic(String? topic) {
     if (topic == null || topic.isEmpty) return "";
 
+    if (!topic.contains('#')) {
+      return topic;
+    }
+
     final parts = topic.split('#');
-    if (parts.length < 2) return "";
+    if (parts.length < 2) return parts[0];
 
     final id = parts[0];
     final topicPath = parts[1];
@@ -145,7 +149,7 @@ class HomeUtils {
     if (internalId != null) {
       return DevicePrefixUtils.toAnnamDisplayName(internalId);
     }
-    return "";
+    return parts[0];
   }
 
   static List<String> getAvailableDeviceIds(
@@ -153,18 +157,22 @@ class HomeUtils {
     List<String> deviceIds = [];
 
     for (var device in devices) {
-      final topic = device["deviceid#topic"]?.toString() ?? "";
-      if (topic.isEmpty) continue;
-
-      final displayId = getDeviceIdFromTopic(topic);
+      if (device is! Map) continue;
+      String displayId = getDeviceIdFromTopic(device["deviceid#topic"]?.toString());
+      if (displayId.isEmpty) {
+        displayId = device["Device_ID"]?.toString() ??
+                    device["ANNAM_ID"]?.toString() ??
+                    device["DeviceId"]?.toString() ??
+                    device["Topic"]?.toString() ?? "";
+      }
       if (displayId.isNotEmpty && !deviceIds.contains(displayId)) {
         deviceIds.add(displayId);
       }
     }
 
     deviceIds.sort((a, b) {
-      final aPrefix = RegExp(r'^([A-Za-z]+)').firstMatch(a)?.group(1) ?? "";
-      final bPrefix = RegExp(r'^([A-Za-z]+)').firstMatch(b)?.group(1) ?? "";
+      final aPrefix = RegExp(r'^([A-Za-z_]+)').firstMatch(a)?.group(1) ?? "";
+      final bPrefix = RegExp(r'^([A-Za-z_]+)').firstMatch(b)?.group(1) ?? "";
       final aNum =
           int.tryParse(RegExp(r'(\d+)$').firstMatch(a)?.group(1) ?? "0") ?? 0;
       final bNum =
@@ -266,17 +274,43 @@ class HomeUtils {
 
   static Map<String, dynamic>? getDeviceByDisplayId(
       String displayId, List<dynamic> devicesList) {
-    final topic = buildTopicFromDisplayId(displayId);
+    if (displayId.trim().isEmpty) return null;
+    final searchLower = displayId.trim().toLowerCase();
+    final topic = buildTopicFromDisplayId(displayId).toLowerCase();
 
-    try {
-      return devicesList.firstWhere(
-        (d) =>
-            d["deviceid#topic"].toString().toLowerCase() == topic.toLowerCase(),
-      );
-    } catch (e) {
-      debugPrint("Device $displayId not found with topic $topic");
-      return null;
+    for (var item in devicesList) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+
+      final devIdTopic = map["deviceid#topic"]?.toString().toLowerCase() ?? '';
+      final deviceId = map["Device_ID"]?.toString().toLowerCase() ?? '';
+      final annamId = map["ANNAM_ID"]?.toString().toLowerCase() ?? '';
+      final devId = map["DeviceId"]?.toString().toLowerCase() ?? '';
+      final topicStr = map["Topic"]?.toString().toLowerCase() ?? '';
+
+      if (devIdTopic == searchLower || devIdTopic == topic ||
+          deviceId == searchLower || deviceId == topic ||
+          annamId == searchLower || annamId == topic ||
+          devId == searchLower || devId == topic ||
+          topicStr == searchLower || topicStr == topic ||
+          topicStr.replaceAll('/', '_') == searchLower ||
+          topicStr.replaceAll('/', '_') == topic) {
+        return map;
+      }
+
+      final searchClean = searchLower.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '');
+      if (searchClean.isNotEmpty) {
+        if (devIdTopic.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean ||
+            deviceId.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean ||
+            annamId.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean ||
+            topicStr.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean) {
+          return map;
+        }
+      }
     }
+
+    debugPrint("Device $displayId not found");
+    return null;
   }
 
   static int getCrossAxisCount(double screenWidth) {
@@ -372,11 +406,26 @@ class HomeUtils {
       }
     }
 
-    // 2. Check the fallback list of keys
+    // 2. Check exact keys
     for (var key in parameterKeys) {
-      final val = selectedDevice[key];
-      if (val != null && val.toString().toLowerCase() != 'null') {
-        return val;
+      if (selectedDevice.containsKey(key)) {
+        final val = selectedDevice[key];
+        if (val != null && val.toString().toLowerCase() != 'null') {
+          return val;
+        }
+      }
+    }
+
+    // 3. Check case-insensitive keys
+    for (var key in parameterKeys) {
+      final lowerKey = key.toLowerCase();
+      for (var entry in selectedDevice.entries) {
+        if (entry.key.toString().toLowerCase() == lowerKey) {
+          final val = entry.value;
+          if (val != null && val.toString().toLowerCase() != 'null') {
+            return val;
+          }
+        }
       }
     }
 

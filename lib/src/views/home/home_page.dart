@@ -44,6 +44,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Key _statsRefreshKey = UniqueKey();
   int _totalDevices = 0;
+  int _devicesReportedToday = 0;
 
   String _dataPointsCount = "--";
   int _statesCount = 0;
@@ -92,12 +93,14 @@ class _HomePageState extends State<HomePage> {
     }
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          try {
-            final uri = Uri.parse(html.window.location.href);
-            bool needsUpdate = false;
+        if (!mounted) return;
+        try {
+          final uri = Uri.base;
+          if (uri.queryParameters.containsKey('code') ||
+              uri.queryParameters.containsKey('state') ||
+              uri.path == '/home' ||
+              uri.path == '/home/') {
             var cleanUri = uri;
-
             if (uri.queryParameters.containsKey('code') ||
                 uri.queryParameters.containsKey('state')) {
               cleanUri = Uri(
@@ -109,21 +112,15 @@ class _HomePageState extends State<HomePage> {
                 path: cleanUri.path,
                 fragment: cleanUri.hasFragment ? cleanUri.fragment : null,
               );
-              needsUpdate = true;
             }
-
             if (cleanUri.path == '/home' || cleanUri.path == '/home/') {
               cleanUri = cleanUri.replace(path: '/');
-              needsUpdate = true;
             }
-
-            if (needsUpdate) {
-              html.window.history.replaceState(null, '', cleanUri.toString());
-            }
-          } catch (e) {
-            print("Error clearing URL parameters: $e");
+            html.window.history.replaceState(null, '', cleanUri.toString());
           }
-        });
+        } catch (e) {
+          debugPrint("Error clearing URL parameters: $e");
+        }
       });
     }
     _checkUserSessionAndRedirect();
@@ -381,6 +378,27 @@ class _HomePageState extends State<HomePage> {
       _totalDevices = allDevices.length; // ← include all devices
       devices = allDevices;
 
+      int reportedTodayCount = 0;
+      final now = DateTime.now();
+      final ymdStr = DateFormat('yyyy-MM-dd').format(now);
+      final dmyStr = DateFormat('dd-MM-yyyy').format(now);
+      final dmySlashStr = DateFormat('dd/MM/yyyy').format(now);
+      for (var device in allDevices) {
+        final lastActive = (device["TimeStamp_IST"] ??
+                device["TimeStamp"] ??
+                device["last_active"] ??
+                device["Date"] ??
+                device["date"] ??
+                "")
+            .toString();
+        if (lastActive.contains(ymdStr) ||
+            lastActive.contains(dmyStr) ||
+            lastActive.contains(dmySlashStr)) {
+          reportedTodayCount++;
+        }
+      }
+      _devicesReportedToday = reportedTodayCount > 0 ? reportedTodayCount : allDevices.length;
+
       // Calculate unique states and districts
       final Set<String> uniqueStates = {};
       final Set<String> uniqueDistricts = {};
@@ -616,7 +634,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
+    double screenWidth = MediaQuery.sizeOf(context).width;
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     Provider.of<UserProvider>(context, listen: false);
@@ -705,7 +723,7 @@ class _HomePageState extends State<HomePage> {
                         top: 0,
                         bottom: 15,
                       ),
-                    child: Column(
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         SafeArea(
@@ -1261,7 +1279,10 @@ class _HomePageState extends State<HomePage> {
                                                             "CurrentTemperature",
                                                             "currenttemperature",
                                                             "NowTemperature",
-                                                            "now_temperature"
+                                                            "now_temperature",
+                                                            "Maximum_Temperature",
+                                                            "Minimum_Temperature",
+                                                            "temperature"
                                                           ]);
                                                           final humidityVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "CorrectedHumidity",
@@ -1269,26 +1290,33 @@ class _HomePageState extends State<HomePage> {
                                                             "CurrentHumidity",
                                                             "currenthumidity",
                                                             "NowRelativeHumidity",
-                                                            "now_relative_humidity"
+                                                            "now_relative_humidity",
+                                                            "Maximum_Relative_Humidity",
+                                                            "Minimum_Relative_Humidity",
+                                                            "humidity"
                                                           ]);
                                                           final pressureVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "CurrentPressure",
                                                             "AtmPressure",
                                                             "atmpressure",
-                                                            "now_pressure"
+                                                            "now_pressure",
+                                                            "pressure"
                                                           ]);
                                                           final windSpeedVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "WindSpeed",
                                                             "windspeed",
                                                             "NowWindSpeed",
                                                             "now_wind_speed",
-                                                            "average_wind_speed"
+                                                            "average_wind_speed",
+                                                            "wind_speed"
                                                           ]);
                                                           final rainfallVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "RainfallHourly",
                                                             "rainfallhourly",
                                                             "Rainfall",
-                                                            "rainfall"
+                                                            "rainfall",
+                                                            "Rain_Rate",
+                                                            "rain_rate"
                                                           ]);
                                                           final rainfallDailyVal = HomeUtils.getCorrectedValue(selectedDevice, [
                                                             "RainfallDaily",
@@ -1316,7 +1344,31 @@ class _HomePageState extends State<HomePage> {
                                                             "winddirection",
                                                             "NowWindDirection",
                                                             "now_wind_direction",
-                                                            "average_wind_direction"
+                                                            "average_wind_direction",
+                                                            "max_wind_direction_gust"
+                                                          ]);
+                                                          final pm25Val = HomeUtils.getCorrectedValue(selectedDevice, [
+                                                            "pm25",
+                                                            "PM25",
+                                                            "PM2.5"
+                                                          ]);
+                                                          final pm10Val = HomeUtils.getCorrectedValue(selectedDevice, [
+                                                            "pm10",
+                                                            "PM10"
+                                                          ]);
+                                                          final aqiVal = HomeUtils.getCorrectedValue(selectedDevice, [
+                                                            "aqi",
+                                                            "AQI"
+                                                          ]);
+                                                          final uvVal = HomeUtils.getCorrectedValue(selectedDevice, [
+                                                            "uv_index",
+                                                            "UVIndex",
+                                                            "uvindex"
+                                                          ]);
+                                                          final batteryVal = HomeUtils.getCorrectedValue(selectedDevice, [
+                                                            "Battery_Percentage",
+                                                            "BatteryPercentage",
+                                                            "battery_percentage"
                                                           ]);
 
                                                           // Build the shared list of grid items once
@@ -1391,13 +1443,63 @@ class _HomePageState extends State<HomePage> {
                                                                 type: SensorType.rainfall,
                                                                 numericValue: double.tryParse(rainfallCumulativeVal.toString()),
                                                               ),
+                                                            if (!HomeUtils.isNullOrEmpty(pm25Val))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.grain_outlined,
+                                                                label: "PM 2.5",
+                                                                value: "${HomeUtils.formatValue(pm25Val)} µg/m³",
+                                                                glowColor: Colors.orange,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.temperature,
+                                                                numericValue: double.tryParse(pm25Val.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(pm10Val))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.cloud_outlined,
+                                                                label: "PM 10",
+                                                                value: "${HomeUtils.formatValue(pm10Val)} µg/m³",
+                                                                glowColor: Colors.deepOrangeAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.temperature,
+                                                                numericValue: double.tryParse(pm10Val.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(aqiVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.bubble_chart_outlined,
+                                                                label: "AQI",
+                                                                value: "${HomeUtils.formatValue(aqiVal)}",
+                                                                glowColor: Colors.lightGreenAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.temperature,
+                                                                numericValue: double.tryParse(aqiVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(uvVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.wb_sunny_outlined,
+                                                                label: "UV Index",
+                                                                value: "${HomeUtils.formatValue(uvVal)}",
+                                                                glowColor: Colors.amberAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.temperature,
+                                                                numericValue: double.tryParse(uvVal.toString()),
+                                                              ),
+                                                            if (!HomeUtils.isNullOrEmpty(batteryVal))
+                                                              _HoverableGlassCard(
+                                                                icon: Icons.battery_charging_full,
+                                                                label: "Battery",
+                                                                value: "${HomeUtils.formatValue(batteryVal)} %",
+                                                                glowColor: Colors.greenAccent,
+                                                                isDarkMode: themeProvider.isDarkMode,
+                                                                type: SensorType.temperature,
+                                                                numericValue: double.tryParse(batteryVal.toString()),
+                                                              ),
                                                             if (!HomeUtils.isNullOrEmpty(windDirVal) &&
                                                                 !HomeUtils.isNullOrEmpty(windSpeedVal))
                                                               _HoverableCompassCard(
                                                                 selectedDevice: selectedDevice,
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                               ),
-                                                           ];
+                                                          ];
 
                                                           Widget weatherGrid = GridView.count(
                                                             crossAxisCount: screenWidth < 700 ? 2 : (screenWidth < 1100 ? 3 : 4),
@@ -1464,7 +1566,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                // ── Nationwide Deployments Section (now first) ──
+                // ── Nationwide Deployments Section ──
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -1485,66 +1587,77 @@ class _HomePageState extends State<HomePage> {
                     child: Column(
                       children: [
                         const SizedBox(height: 60),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 30),
-                          child: Column(
-                            children: [
-                              Text(
-                                "LIVE COVERAGE & NETWORK",
-                                style: TextStyle(
-                                  fontFamily: 'OpenSans',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDarkMode ? Colors.blueAccent.shade200 : const Color(0xFF1565C0),
-                                  letterSpacing: 2.5,
+                        Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 30),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: isDarkMode
+                                            ? [const Color(0xFF40C4FF).withOpacity(0.18), const Color(0xFF00E676).withOpacity(0.18)]
+                                            : [const Color(0xFFE3F2FD), const Color(0xFFE8F5E9)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: isDarkMode
+                                            ? const Color(0xFF40C4FF).withOpacity(0.35)
+                                            : const Color(0xFF1565C0).withOpacity(0.25),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.radar_rounded, size: 14, color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0)),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          "LIVE COVERAGE & NETWORK",
+                                          style: TextStyle(
+                                            fontFamily: 'OpenSans',
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0),
+                                            letterSpacing: 2.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    "Nationwide Deployments",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'OpenSans',
+                                      fontSize: screenWidth < 600 ? 28 : 38,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.5,
+                                      color: themeProvider.isDarkMode
+                                          ? Colors.white
+                                          : const Color(0xFF0D1B1E),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            KeyedSubtree(
+                              key: _mapKey,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: screenWidth < 600 ? 0 : 30),
+                                child: DeviceMapScreen(
+                                  isComponent: true,
+                                  height: screenWidth < 600
+                                      ? 580
+                                      : (screenWidth < 1200 ? 640 : 680),
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                "Nationwide Deployments",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'OpenSans',
-                                  fontSize: screenWidth < 600 ? 28 : 38,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.5,
-                                  color: themeProvider.isDarkMode
-                                      ? Colors.white
-                                      : const Color(0xFF0D1B1E),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        KeyedSubtree(
-                          key: _mapKey,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: screenWidth < 600 ? 0 : 30),
-                            child: DeviceMapScreen(
-                              isComponent: true,
-                              height: 600,
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        // Stats Banner right below map
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth < 800 ? 15 : 30,
-                          ),
-                          child: KeyedSubtree(
-                            key: _statsRefreshKey,
-                            child: StatsBanner(
-                              totalDevices: _totalDevices,
-                              dataPointsCount: _dataPointsCount,
-                              statesCount: _statesCount,
-                              districtsCount: _districtsCount,
-                              themeProvider: themeProvider,
-                              screenWidth: screenWidth,
-                            ),
-                          ),
+                          ],
                         ),
                         const SizedBox(height: 48),
                         // ── Tech Showcase Section (above Our Products) ──
@@ -1678,7 +1791,9 @@ class _HomePageState extends State<HomePage> {
 
       List<Map<String, dynamic>> todaysDevices = [];
       for (var device in allDevices) {
-        String ts = device["TimeStamp_IST"]?.toString().trim() ?? "";
+        String ts = device["TimeStamp_IST"]?.toString().trim() ??
+            device["TimeStamp"]?.toString().trim() ??
+            "";
         if (ts.isEmpty) continue;
         final formats = [
           "yyyy-MM-dd HH:mm:ss",
@@ -1711,14 +1826,18 @@ class _HomePageState extends State<HomePage> {
             (device["CurrentTemperature"] != null &&
                 device["CurrentTemperature"].toString().toLowerCase() != 'null') ||
             (device["now_temperature"] != null &&
-                device["now_temperature"].toString().toLowerCase() != 'null');
+                device["now_temperature"].toString().toLowerCase() != 'null') ||
+            (device["Maximum_Temperature"] != null &&
+                device["Maximum_Temperature"].toString().toLowerCase() != 'null');
         bool hasWind =
             (device["WindSpeed"]?.toString().toLowerCase() != 'null' &&
                     device["WindSpeed"] != null) ||
                 (device["windspeed"]?.toString().toLowerCase() != 'null' &&
                     device["windspeed"] != null) ||
                 (device["now_wind_speed"]?.toString().toLowerCase() != 'null' &&
-                    device["now_wind_speed"] != null);
+                    device["now_wind_speed"] != null) ||
+                (device["average_wind_speed"]?.toString().toLowerCase() != 'null' &&
+                    device["average_wind_speed"] != null);
         bool hasRain =
             (device["RainfallHourly"]?.toString().toLowerCase() != 'null' &&
                     device["RainfallHourly"] != null) ||
@@ -1732,7 +1851,9 @@ class _HomePageState extends State<HomePage> {
                 (device["rainfall"]?.toString().toLowerCase() != 'null' &&
                     device["rainfall"] != null) ||
                 (device["Rainfall"]?.toString().toLowerCase() != 'null' &&
-                    device["Rainfall"] != null);
+                    device["Rainfall"] != null) ||
+                (device["Rain_Rate"]?.toString().toLowerCase() != 'null' &&
+                    device["Rain_Rate"] != null);
 
         // Device must have at least 3 parameters (temperature + wind + rain)
         if (hasTemp && hasWind && hasRain) {
@@ -2140,58 +2261,88 @@ class _HeroSectionState extends State<HeroSection> {
                     ),
                     Spacer(flex: isMobile ? 3 : 1),
                     // CTA Buttons
-                    Wrap(
-                      spacing: isMobile ? 10 : 16,
-                      runSpacing: isMobile ? 10 : 16,
-                      alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+                    Column(
+                      crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
                       children: [
-                        ElevatedButton.icon(
-                          onPressed: widget.onMyDevicesTap,
-                          icon: Icon(Icons.devices, color: Colors.black, size: iconSize),
-                          label: const Text("My Devices"),
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.black,
-                            backgroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          ),
+                        // Top Row: My Devices, Explore Hardware, Nationwide Map
+                        Wrap(
+                          spacing: isMobile ? 10 : 16,
+                          runSpacing: isMobile ? 10 : 16,
+                          alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: widget.onMyDevicesTap,
+                              icon: Icon(Icons.devices, color: Colors.black, size: iconSize),
+                              label: const Text("My Devices"),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.black,
+                                backgroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: widget.onProductsTap,
+                              icon: Icon(Icons.explore_outlined, color: Colors.white, size: iconSize),
+                              label: const Text("Explore Hardware"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white, width: 2),
+                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: widget.onMapTap,
+                              icon: Icon(Icons.map_outlined, color: Colors.white, size: iconSize),
+                              label: const Text("Nationwide Map"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white, width: 2),
+                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              ),
+                            ),
+                          ],
                         ),
-                        OutlinedButton.icon(
-                          onPressed: widget.onTelemetryTap,
-                          icon: Icon(Icons.analytics_outlined, color: Colors.white, size: iconSize),
-                          label: const Text("Live Monitor"),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white, width: 2),
-                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: widget.onProductsTap,
-                          icon: Icon(Icons.explore_outlined, color: Colors.white, size: iconSize),
-                          label: const Text("Explore Hardware"),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white, width: 2),
-                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: widget.onMapTap,
-                          icon: Icon(Icons.map_outlined, color: Colors.white, size: iconSize),
-                          label: const Text("Nationwide Map"),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white, width: 2),
-                            padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          ),
+                        const SizedBox(height: 12),
+                        // Bottom Row: Live Monitor, KSDMA Portal
+                        Wrap(
+                          spacing: isMobile ? 10 : 16,
+                          runSpacing: isMobile ? 10 : 16,
+                          alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: widget.onTelemetryTap,
+                              icon: Icon(Icons.analytics_outlined, color: Colors.white, size: iconSize),
+                              label: const Text("Live Monitor"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white, width: 2),
+                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                NavigationUtils.navigateTo(context, '/ksdma');
+                              },
+                              icon: Icon(Icons.shield_outlined, color: Colors.white, size: iconSize),
+                              label: const Text("KSDMA Portal"),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: const Color(0xFF1976D2),
+                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                elevation: 4,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -2316,18 +2467,24 @@ class TechShowcaseSection extends StatelessWidget {
       _TechCard(
         icon: Icons.auto_awesome_outlined,
         title: "AI Telemetry Cleanse",
+        tag: "AI ENGINE",
+        accentColor: const Color(0xFF40C4FF),
         desc: "Filters spikes and sensor errors automatically. Our backend cross-verifies values using grid deviance and range algorithms to ensure reliable decision data.",
         isDarkMode: isDarkMode,
       ),
       _TechCard(
         icon: Icons.solar_power_outlined,
         title: "Autonomous Hardware",
+        tag: "SOLAR POWERED",
+        accentColor: const Color(0xFF00E676),
         desc: "Built to survive harsh monsoons. Equipped with integrated solar charging, IP65 waterproof housing, and 30-day battery backup for zero downtime.",
         isDarkMode: isDarkMode,
       ),
       _TechCard(
         icon: Icons.cell_tower_outlined,
         title: "4G & GPS Sync",
+        tag: "REAL-TIME SYNC",
+        accentColor: const Color(0xFFFFB74D),
         desc: "Instant remote connectivity. Telemetry nodes automatically sync raw and corrected weather values to our interactive maps every minute.",
         isDarkMode: isDarkMode,
       ),
@@ -2337,17 +2494,40 @@ class TechShowcaseSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
       child: Column(
         children: [
-          Text(
-            "ADVANCED FARM TECHNOLOGY",
-            style: TextStyle(
-              fontFamily: 'OpenSans',
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? Colors.blueAccent.shade200 : const Color(0xFF1565C0),
-              letterSpacing: 2.5,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDarkMode
+                    ? [const Color(0xFF00E676).withOpacity(0.18), const Color(0xFF40C4FF).withOpacity(0.18)]
+                    : [const Color(0xFFE8F5E9), const Color(0xFFE3F2FD)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDarkMode
+                    ? const Color(0xFF40C4FF).withOpacity(0.35)
+                    : const Color(0xFF1565C0).withOpacity(0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome_rounded, size: 14, color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0)),
+                const SizedBox(width: 6),
+                Text(
+                  "ADVANCED FARM TECHNOLOGY",
+                  style: TextStyle(
+                    fontFamily: 'OpenSans',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0),
+                    letterSpacing: 2.2,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Text(
             "Designed for reliability. Engineered for impact.",
             textAlign: TextAlign.center,
@@ -2387,12 +2567,16 @@ class TechShowcaseSection extends StatelessWidget {
 class _TechCard extends StatefulWidget {
   final IconData icon;
   final String title;
+  final String tag;
+  final Color accentColor;
   final String desc;
   final bool isDarkMode;
 
   const _TechCard({
     required this.icon,
     required this.title,
+    required this.tag,
+    required this.accentColor,
     required this.desc,
     required this.isDarkMode,
   });
@@ -2406,8 +2590,7 @@ class _TechCardState extends State<_TechCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Accent glow color — cyan-blue that matches the homepage palette
-    const glowColor = Color(0xFF40C4FF);
+    final glowColor = widget.accentColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -2417,11 +2600,10 @@ class _TechCardState extends State<_TechCard> {
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          // Outer glow shadow — intensifies on hover
           boxShadow: widget.isDarkMode
               ? [
                   BoxShadow(
-                    color: glowColor.withOpacity(_hovered ? 0.30 : 0.10),
+                    color: glowColor.withOpacity(_hovered ? 0.32 : 0.12),
                     blurRadius: _hovered ? 32 : 16,
                     spreadRadius: _hovered ? 2 : 0,
                   ),
@@ -2433,7 +2615,7 @@ class _TechCardState extends State<_TechCard> {
                 ]
               : [
                   BoxShadow(
-                    color: const Color(0xFF1565C0).withOpacity(_hovered ? 0.20 : 0.07),
+                    color: glowColor.withOpacity(_hovered ? 0.25 : 0.10),
                     blurRadius: _hovered ? 28 : 12,
                     spreadRadius: _hovered ? 1 : 0,
                   ),
@@ -2448,17 +2630,15 @@ class _TechCardState extends State<_TechCard> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            // Glassmorphism fill
             color: widget.isDarkMode
-                ? const Color(0xFF0D1F2D).withOpacity(_hovered ? 0.88 : 0.72)
-                : Colors.white.withOpacity(_hovered ? 0.97 : 0.85),
-            // Gradient sheen
+                ? const Color(0xFF0D1F2D).withOpacity(_hovered ? 0.90 : 0.75)
+                : Colors.white.withOpacity(_hovered ? 0.98 : 0.88),
             gradient: widget.isDarkMode
                 ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1A2E42).withOpacity(_hovered ? 0.95 : 0.75),
+                      glowColor.withOpacity(_hovered ? 0.18 : 0.08),
                       const Color(0xFF0D1B2A).withOpacity(_hovered ? 0.95 : 0.75),
                     ],
                   )
@@ -2466,41 +2646,59 @@ class _TechCardState extends State<_TechCard> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(_hovered ? 1.0 : 0.90),
+                      glowColor.withOpacity(_hovered ? 0.12 : 0.05),
                       const Color(0xFFF0F6FF).withOpacity(_hovered ? 1.0 : 0.90),
                     ],
                   ),
             border: Border.all(
-              // Glowing cyan border in dark mode, subtle blue in light
-              color: widget.isDarkMode
-                  ? glowColor.withOpacity(_hovered ? 0.65 : 0.22)
-                  : const Color(0xFF1565C0).withOpacity(_hovered ? 0.45 : 0.13),
-              width: _hovered ? 1.5 : 1.0,
+              color: glowColor.withOpacity(_hovered ? 0.70 : (widget.isDarkMode ? 0.28 : 0.20)),
+              width: _hovered ? 1.6 : 1.0,
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon with glowing circle background
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: widget.isDarkMode
-                      ? glowColor.withOpacity(0.10)
-                      : const Color(0xFF1565C0).withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: widget.isDarkMode
-                        ? glowColor.withOpacity(0.28)
-                        : const Color(0xFF1565C0).withOpacity(0.18),
-                    width: 1,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: glowColor.withOpacity(widget.isDarkMode ? 0.16 : 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: glowColor.withOpacity(0.35),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      color: glowColor,
+                      size: 26,
+                    ),
                   ),
-                ),
-                child: Icon(
-                  widget.icon,
-                  color: widget.isDarkMode ? glowColor : const Color(0xFF1565C0),
-                  size: 28,
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: glowColor.withOpacity(widget.isDarkMode ? 0.14 : 0.09),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: glowColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      widget.tag,
+                      style: TextStyle(
+                        fontFamily: 'OpenSans',
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: glowColor,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
               Text(
@@ -2514,17 +2712,12 @@ class _TechCardState extends State<_TechCard> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Subtle accent divider line
               Container(
-                width: 36,
                 height: 2,
+                width: 32,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2),
-                  gradient: LinearGradient(
-                    colors: widget.isDarkMode
-                        ? [glowColor.withOpacity(0.8), glowColor.withOpacity(0.1)]
-                        : [const Color(0xFF1565C0).withOpacity(0.7), const Color(0xFF1565C0).withOpacity(0.1)],
-                  ),
+                  color: glowColor.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(1),
                 ),
               ),
               const SizedBox(height: 12),
@@ -2533,10 +2726,8 @@ class _TechCardState extends State<_TechCard> {
                 style: TextStyle(
                   fontFamily: 'OpenSans',
                   fontSize: 13.5,
-                  color: widget.isDarkMode
-                      ? Colors.white.withOpacity(0.68)
-                      : Colors.black.withOpacity(0.62),
-                  height: 1.6,
+                  height: 1.55,
+                  color: widget.isDarkMode ? Colors.white70 : const Color(0xFF4A5568),
                 ),
               ),
             ],

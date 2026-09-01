@@ -159,11 +159,6 @@ class KsdmaVolunteerView extends StatelessWidget {
                         color: KsdmaColors.primaryDark,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Grama Panchayat: ${user.gramaPanchayat.isNotEmpty ? user.gramaPanchayat : "Kunnamangalam"} · ${user.taluk.isNotEmpty ? user.taluk : "Koyilandy"} Taluk · ${user.district.isNotEmpty ? user.district : "Kozhikode"}',
-                      style: const TextStyle(fontSize: 12, color: KsdmaColors.inkSoft),
-                    ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () {
@@ -200,11 +195,6 @@ class KsdmaVolunteerView extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: KsdmaColors.primaryDark,
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Grama Panchayat: ${user.gramaPanchayat.isNotEmpty ? user.gramaPanchayat : "Kunnamangalam"} · ${user.taluk.isNotEmpty ? user.taluk : "Koyilandy"} Taluk · ${user.district.isNotEmpty ? user.district : "Kozhikode"}',
-                            style: const TextStyle(fontSize: 13, color: KsdmaColors.inkSoft),
                           ),
                         ],
                       ),

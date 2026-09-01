@@ -903,12 +903,13 @@ final List<Map<String, dynamic>> allSensors = [
 // ─────────────────────────────────────────────
 class ProductPage extends StatelessWidget {
   final int sensorIndex;
-  const ProductPage({super.key, required this.sensorIndex});
+  const ProductPage({super.key, this.sensorIndex = 0});
 
   @override
   Widget build(BuildContext context) {
     final t = _T(context);
-    final sensor = allSensors[sensorIndex];
+    final idx = (sensorIndex >= 0 && sensorIndex < allSensors.length) ? sensorIndex : 0;
+    final sensor = allSensors[idx];
     final w = MediaQuery.of(context).size.width;
     final isWide = w > 1024;
     final isTablet = w > 700 && w <= 1024;

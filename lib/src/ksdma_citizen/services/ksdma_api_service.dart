@@ -615,6 +615,7 @@ class KsdmaApiService {
 
             double? maxTemp, minTemp, maxHum, avgHum, totalRain;
 
+            List rawItems = [];
             if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
               final calc = Map<String, dynamic>.from((body['Calculated'] as List).first);
               maxTemp = double.tryParse(calc['Maximum_Temperature']?.toString() ?? '');
@@ -624,9 +625,9 @@ class KsdmaApiService {
               totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
             } else {
               // Fallback to item-by-item parsing if Calculated field is missing
-              List items = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
-              if (items.isNotEmpty) {
-                items.sort((a, b) {
+              rawItems = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
+              if (rawItems.isNotEmpty) {
+                rawItems.sort((a, b) {
                   final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
                   final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
                   return dtA.compareTo(dtB);
@@ -634,7 +635,7 @@ class KsdmaApiService {
                 double totalH = 0;
                 int humCount = 0;
 
-                for (var item in items) {
+                for (var item in rawItems) {
                   final t = _extractTemperature(item);
                   if (t != null) {
                     if (maxTemp == null || t > maxTemp) maxTemp = t;
@@ -648,8 +649,8 @@ class KsdmaApiService {
                   }
                 }
                 if (humCount > 0) avgHum = double.parse((totalH / humCount).toStringAsFixed(1));
-                for (int idx = items.length - 1; idx >= 0; idx--) {
-                  final r = _extractRainfall(items[idx]);
+                for (int idx = rawItems.length - 1; idx >= 0; idx--) {
+                  final r = _extractRainfall(rawItems[idx]);
                   if (r != null) {
                     totalRain = r;
                     break;
@@ -659,19 +660,40 @@ class KsdmaApiService {
             }
 
             if (maxTemp != null || minTemp != null || maxHum != null || avgHum != null || totalRain != null) {
-              final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
+              TimeOfDay obsTime = const TimeOfDay(hour: 8, minute: 30);
+              DateTime obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 8, 30);
+              if (rawItems.isNotEmpty) {
+                final tsStr = rawItems.last['TimeStamp']?.toString() ?? rawItems.first['TimeStamp']?.toString() ?? '';
+                final parsedTs = _parseTimeStamp(tsStr);
+                if (parsedTs != null) {
+                  obsTime = TimeOfDay(hour: parsedTs.hour, minute: parsedTs.minute);
+                  obsDt = parsedTs;
+                } else if (targetDate.year == DateTime.now().year &&
+                    targetDate.month == DateTime.now().month &&
+                    targetDate.day == DateTime.now().day) {
+                  final now = DateTime.now();
+                  obsTime = TimeOfDay(hour: now.hour, minute: now.minute);
+                  obsDt = now;
+                }
+              } else if (targetDate.year == DateTime.now().year &&
+                  targetDate.month == DateTime.now().month &&
+                  targetDate.day == DateTime.now().day) {
+                final now = DateTime.now();
+                obsTime = TimeOfDay(hour: now.hour, minute: now.minute);
+                obsDt = now;
+              }
+
               devObs.add(KsdmaObservation(
                 observationId: 'obs_${devId}_$label',
                 stationId: devId,
                 submittedByUserId: 'aws_sensor_network',
                 observationDate: targetDate,
-                observationTime: TimeOfDay(hour: targetDate.hour, minute: targetDate.minute),
+                observationTime: obsTime,
                 submissionTimestamp: obsDt,
                 rainfallMm: totalRain ?? 0.0,
                 maxTemperatureC: maxTemp,
                 minTemperatureC: minTemp,
                 humidityPercent: maxHum ?? avgHum,
-      
                 riverWaterLevelM: null,
                 source: 'WS_KERALA_PRECALCULATED_API',
               ));
@@ -762,13 +784,29 @@ class KsdmaApiService {
                   }
                 }
 
-                final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
+                TimeOfDay obsTime = const TimeOfDay(hour: 8, minute: 30);
+                DateTime obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 8, 30);
+                if (dayItems.isNotEmpty) {
+                  final tsStr = dayItems.last['TimeStamp']?.toString() ?? dayItems.first['TimeStamp']?.toString() ?? '';
+                  final parsedTs = _parseTimeStamp(tsStr);
+                  if (parsedTs != null) {
+                    obsTime = TimeOfDay(hour: parsedTs.hour, minute: parsedTs.minute);
+                    obsDt = parsedTs;
+                  } else if (targetDate.year == DateTime.now().year &&
+                      targetDate.month == DateTime.now().month &&
+                      targetDate.day == DateTime.now().day) {
+                    final now = DateTime.now();
+                    obsTime = TimeOfDay(hour: now.hour, minute: now.minute);
+                    obsDt = now;
+                  }
+                }
+
                 devObs.add(KsdmaObservation(
                   observationId: 'obs_${devId}_${dayKey}',
                   stationId: devId,
                   submittedByUserId: 'aws_sensor_network',
                   observationDate: targetDate,
-                  observationTime: const TimeOfDay(hour: 23, minute: 59),
+                  observationTime: obsTime,
                   submissionTimestamp: obsDt,
                   rainfallMm: totalRain ?? 0.0,
                   maxTemperatureC: maxTemp,
@@ -796,13 +834,28 @@ class KsdmaApiService {
               final avgHum = double.tryParse(calc['Average_Humidity']?.toString() ?? '');
               final totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
 
-              final obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59);
+              TimeOfDay obsTime = const TimeOfDay(hour: 8, minute: 30);
+              DateTime obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 8, 30);
+              if (dateVal.isNotEmpty) {
+                final parsedTs = DateTime.tryParse(dateVal) ?? _parseTimeStamp(dateVal);
+                if (parsedTs != null && (parsedTs.hour != 0 || parsedTs.minute != 0)) {
+                  obsTime = TimeOfDay(hour: parsedTs.hour, minute: parsedTs.minute);
+                  obsDt = parsedTs;
+                } else if (targetDate.year == DateTime.now().year &&
+                    targetDate.month == DateTime.now().month &&
+                    targetDate.day == DateTime.now().day) {
+                  final now = DateTime.now();
+                  obsTime = TimeOfDay(hour: now.hour, minute: now.minute);
+                  obsDt = now;
+                }
+              }
+
               devObs.add(KsdmaObservation(
                 observationId: 'obs_${devId}_${targetDate.year}_${targetDate.month}_${targetDate.day}',
                 stationId: devId,
                 submittedByUserId: 'aws_sensor_network',
                 observationDate: targetDate,
-                observationTime: const TimeOfDay(hour: 23, minute: 59),
+                observationTime: obsTime,
                 submissionTimestamp: obsDt,
                 rainfallMm: totalRain ?? 0.0,
                 maxTemperatureC: maxTemp,

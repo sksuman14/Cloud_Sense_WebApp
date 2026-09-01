@@ -183,19 +183,42 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
       ),
       child: Column(
         children: [
-          // ── 1. Section Header (Matching ADVANCED FARM TECHNOLOGY styling) ─
-          Text(
-            "OUR HARDWARE LINEUP",
-            style: TextStyle(
-              fontFamily: 'OpenSans',
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? Colors.blueAccent.shade200 : const Color(0xFF1565C0),
-              letterSpacing: 2.5,
+          // ── 1. Section Header ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDarkMode
+                    ? [const Color(0xFF40C4FF).withValues(alpha: 0.18), const Color(0xFFBA68C8).withValues(alpha: 0.18)]
+                    : [const Color(0xFFE3F2FD), const Color(0xFFF3E5F5)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDarkMode
+                    ? const Color(0xFFBA68C8).withValues(alpha: 0.35)
+                    : const Color(0xFF7B1FA2).withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.precision_manufacturing_rounded, size: 14, color: isDarkMode ? const Color(0xFF00E676) : const Color(0xFF0D47A1)),
+                const SizedBox(width: 6),
+                Text(
+                  "OUR HARDWARE LINEUP",
+                  style: TextStyle(
+                    fontFamily: 'OpenSans',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: isDarkMode ? const Color(0xFF00E676) : const Color(0xFF0D47A1),
+                    letterSpacing: 2.2,
+                  ),
+                ),
+              ],
             ),
           ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
           Text(
             "Precision Hardware for Field Operations",
@@ -233,6 +256,27 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
               children: List.generate(_allProducts.length, (index) {
                 final isSelected = index == _currentIndex;
                 final prod = _allProducts[index];
+                
+                final pillGradientsDark = [
+                  [const Color(0xFF00B0FF), const Color(0xFF00E5FF)], // Data Logger: Cyan/Blue
+                  [const Color(0xFF00E676), const Color(0xFF1DE9B6)], // Rain Gauge: Emerald
+                  [const Color(0xFF7C4DFF), const Color(0xFFB388FF)], // Ultrasonic: Violet
+                  [const Color(0xFFFF9100), const Color(0xFFFFC400)], // Multisensor: Amber
+                  [const Color(0xFFFF4081), const Color(0xFFE040FB)], // Probe: Magenta
+                ];
+
+                final pillGradientsLight = [
+                  [const Color(0xFF0D47A1), const Color(0xFF1976D2)],
+                  [const Color(0xFF1B5E20), const Color(0xFF2E7D32)],
+                  [const Color(0xFF4A148C), const Color(0xFF6A1B9A)],
+                  [const Color(0xFFE65100), const Color(0xFFF57C00)],
+                  [const Color(0xFF880E4F), const Color(0xFFAD1457)],
+                ];
+
+                final activeGrad = isDarkMode
+                    ? pillGradientsDark[index % pillGradientsDark.length]
+                    : pillGradientsLight[index % pillGradientsLight.length];
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 5),
                   child: InkWell(
@@ -243,11 +287,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                       decoration: BoxDecoration(
                         gradient: isSelected
-                            ? LinearGradient(
-                                colors: isDarkMode
-                                    ? [const Color(0xFF00B0FF), const Color(0xFF0077C2)]
-                                    : [const Color(0xFF0D47A1), const Color(0xFF1976D2)],
-                              )
+                            ? LinearGradient(colors: activeGrad)
                             : null,
                         color: isSelected
                             ? null
@@ -265,9 +305,8 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: (isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1))
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 12,
+                                  color: activeGrad.first.withValues(alpha: 0.40),
+                                  blurRadius: 14,
                                   offset: const Offset(0, 4),
                                 )
                               ]
@@ -280,7 +319,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
                             size: 16,
                             color: isSelected
                                 ? Colors.white
-                                : (isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF0D47A1)),
+                                : (isDarkMode ? activeGrad.first : const Color(0xFF0D47A1)),
                           ),
                           const SizedBox(width: 8),
                           Text(
