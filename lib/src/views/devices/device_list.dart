@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
+import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart';
+import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -42,8 +44,42 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
   Map<String, DateTime> _timestampMap = {};
   Map<String, List<String>> _parameterNamesMap = {};
   Map<String, bool> _hoverStates = {};
-  final TextEditingController _searchController = TextEditingController();
   Map<String, String> _locationMap = {};
+  Map<String, String> _healthTopicLookupMap = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  Future<void> _fetchHealthTopicLookup() async {
+    try {
+      final response = await http.get(Uri.parse(
+          'https://4p8k77fw8b.execute-api.us-east-1.amazonaws.com/default/IoT_Health_API?limit=500'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> devices = data['devices'] ?? [];
+        Map<String, String> lookup = {};
+        for (var dev in devices) {
+          final topicStr = (dev['deviceId_topic'] ?? dev['deviceid#topic'])?.toString() ?? '';
+          final devId = dev['deviceId']?.toString() ?? '';
+          if (topicStr.isNotEmpty) {
+            final sensorName = DevicePrefixUtils.getSensorNameFromTopic(topicStr) ?? devId;
+            final displaySensorName = _toAnnamDisplayName(sensorName);
+            lookup[sensorName] = topicStr;
+            lookup[displaySensorName] = topicStr;
+            lookup[devId] = topicStr;
+            if (sensorName.contains('_')) {
+              lookup[sensorName.split('_').last] = topicStr;
+            }
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _healthTopicLookupMap = lookup;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching health topic lookup: $e");
+    }
+  }
 
   String? _getLocationForSensor(String sensorName) {
     final hardcoded = _hardcodedLocationMap[sensorName] ?? _hardcodedLocationMap[DevicePrefixUtils.getSensorNameFromTopic(sensorName) ?? ''];
@@ -185,6 +221,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
 
   Future<void> _fetchData() async {
     if (_email == null) return;
+    _fetchHealthTopicLookup();
 
     final url =
         'https://ln8b1r7ld9.execute-api.us-east-1.amazonaws.com/default/Cloudsense_user_devices?email_id=$_email';
@@ -1073,74 +1110,194 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                             ],
                           ),
                         ),
-                        IconButton(
+                        PopupMenuButton<String>(
                           icon: Icon(
-                            Icons.info_outline,
-                            size: getResponsiveFontSize(context, 16, 18),
+                            Icons.more_vert,
+                            size: getResponsiveFontSize(context, 18, 20),
                             color: subtle,
                           ),
-                          onPressed: () {
-                            var paramNames = getParamNamesForSensor(sensorName);
-                            showDialog(
-                              context: context,
-                              builder: (context) {
-                                return BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                                  child: AlertDialog(
-                                    title: Text("Parameters", style: TextStyle(color: strong)),
-                                    content: SingleChildScrollView(
-                                      child: ListBody(
-                                        children: paramNames.asMap().entries.map((entry) {
-                                          int idx = entry.key;
-                                          String param = entry.value;
-                                          String displayName = parameterDisplayNames[param] ?? param;
-                                          return Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              vertical: getResponsiveFontSize(context, 6, 8),
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                SizedBox(
-                                                  width: 40,
-                                                  child: Text(
-                                                    '${idx + 1}.',
-                                                    style: TextStyle(
-                                                      fontSize: getResponsiveFontSize(context, 14, 16),
-                                                      color: isDarkMode ? Colors.white70 : Colors.black87,
-                                                    ),
-                                                    textAlign: TextAlign.right,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Text(
-                                                    displayName,
-                                                    style: TextStyle(
-                                                      fontSize: getResponsiveFontSize(context, 14, 16),
-                                                      color: isDarkMode ? Colors.white70 : Colors.black87,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ),
-                                    backgroundColor: isDarkMode
-                                        ? const Color(0xFF2C3E50).withOpacity(0.85)
-                                        : Colors.white.withOpacity(0.85),
-                                    actions: [
-                                      TextButton(
-                                        child: Text("Close", style: TextStyle(color: strong)),
-                                        onPressed: () => Navigator.pop(context),
-                                      ),
-                                    ],
-                                  ),
+                          tooltip: 'Actions',
+                          onSelected: (String value) {
+                            switch (value) {
+                              case 'graph':
+                                if (sensorName.startsWith('BF')) {
+                                  String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
+                                  NavigationUtils.navigateTo(
+                                    context,
+                                    '/buffalodata',
+                                    arguments: {
+                                      'startDateTime': DateTime.now(),
+                                      'endDateTime': DateTime.now().add(const Duration(days: 1)),
+                                      'nodeId': numericNodeId,
+                                    },
+                                  );
+                                } else if (sensorName.startsWith('CS')) {
+                                  String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
+                                  NavigationUtils.navigateTo(
+                                    context,
+                                    '/cowdata',
+                                    arguments: {
+                                      'startDateTime': DateTime.now(),
+                                      'endDateTime': DateTime.now().add(const Duration(days: 1)),
+                                      'nodeId': numericNodeId,
+                                    },
+                                  );
+                                } else {
+                                  NavigationUtils.navigateTo(
+                                    context,
+                                    '/devicegraph',
+                                    arguments: {
+                                      'deviceName': sensorName,
+                                      'sequentialName': sequentialName,
+                                      'backgroundImagePath': 'assets/backgroundd.jpg',
+                                    },
+                                  );
+                                }
+                                break;
+                              case 'ota':
+                                final topic = (d['Topic'] ?? '').toString();
+                                final mappedPrefix = DevicePrefixUtils.mapCategoryAndPrefix(topic).prefix;
+                                final prefix = mappedPrefix.isNotEmpty ? mappedPrefix : 'WJ';
+                                final apiUrl = DevicePrefixUtils.getOtaApiUrl(prefix, sensorName: sensorName) ??
+                                    'https://2jajsh64sd.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_SSMet0126';
+
+                                AdvancedDataSendDialog.show(
+                                  context,
+                                  sensorName,
+                                  displayDeviceId: displaySensorName,
+                                  apiUrl: apiUrl,
                                 );
-                              },
-                            );
+                                break;
+                              case 'parameters':
+                                var paramNames = getParamNamesForSensor(sensorName);
+                                showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                                      child: AlertDialog(
+                                        title: Text("Parameters ($displaySensorName)", style: TextStyle(color: strong)),
+                                        content: SingleChildScrollView(
+                                          child: ListBody(
+                                            children: paramNames.asMap().entries.map((entry) {
+                                              int idx = entry.key;
+                                              String param = entry.value;
+                                              String displayName = parameterDisplayNames[param] ?? param;
+                                              return Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  vertical: getResponsiveFontSize(context, 6, 8),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 40,
+                                                      child: Text(
+                                                        '${idx + 1}.',
+                                                        style: TextStyle(
+                                                          fontSize: getResponsiveFontSize(context, 14, 16),
+                                                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                                                        ),
+                                                        textAlign: TextAlign.right,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Text(
+                                                        displayName,
+                                                        style: TextStyle(
+                                                          fontSize: getResponsiveFontSize(context, 14, 16),
+                                                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                        backgroundColor: isDarkMode
+                                            ? const Color(0xFF2C3E50).withOpacity(0.85)
+                                            : Colors.white.withOpacity(0.85),
+                                        actions: [
+                                          TextButton(
+                                            child: Text("Close", style: TextStyle(color: strong)),
+                                            onPressed: () => Navigator.pop(context),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                                 break;
+                              case 'health':
+                                final topic = (d['Topic'] ?? '').toString();
+                                final devIdDigits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '';
+                                String? resolvedTopic = _healthTopicLookupMap[sensorName] ??
+                                    _healthTopicLookupMap[displaySensorName] ??
+                                    (devIdDigits.isNotEmpty ? _healthTopicLookupMap[devIdDigits] : null);
+
+                                if (resolvedTopic == null && topic.contains('#')) {
+                                  final parts = topic.split('#');
+                                  if (parts.length > 1) {
+                                    resolvedTopic = "$sensorName#${parts.sublist(1).join('#')}";
+                                  }
+                                }
+
+                                final deviceIdTopic = resolvedTopic ?? (topic.isNotEmpty ? topic : "$sensorName#");
+
+                                showDeviceHealthDetailDialog(
+                                  context,
+                                  deviceIdTopic,
+                                  isDarkMode,
+                                );
+                                break;
+                            }
+                          },
+                          itemBuilder: (BuildContext context) {
+                            final bool isSpecialOtaSensor = sensorName.contains('365') ||
+                                sensorName.contains('366') ||
+                                sensorName.contains('397') ||
+                                displaySensorName.contains('365') ||
+                                displaySensorName.contains('366') ||
+                                displaySensorName.contains('397');
+
+                            return <PopupMenuEntry<String>>[
+                              const PopupMenuItem<String>(
+                                value: 'graph',
+                                child: Row(children: [
+                                  Icon(Icons.bar_chart, color: Colors.blue, size: 18),
+                                  SizedBox(width: 10),
+                                  Text('Graph', style: TextStyle(fontSize: 13)),
+                                ]),
+                              ),
+                              if (isSpecialOtaSensor)
+                                const PopupMenuItem<String>(
+                                  value: 'ota',
+                                  child: Row(children: [
+                                    Icon(Icons.settings_remote, color: Colors.orangeAccent, size: 18),
+                                    SizedBox(width: 10),
+                                    Text('OTA Update', style: TextStyle(fontSize: 13)),
+                                  ]),
+                                ),
+                              const PopupMenuItem<String>(
+                                value: 'parameters',
+                                child: Row(children: [
+                                  Icon(Icons.info_outline, color: Colors.teal, size: 18),
+                                  SizedBox(width: 10),
+                                  Text('Parameters', style: TextStyle(fontSize: 13)),
+                                ]),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'health',
+                                child: Row(children: [
+                                  Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
+                                  SizedBox(width: 10),
+                                  Text('Health Status', style: TextStyle(fontSize: 13)),
+                                ]),
+                              ),
+                            ];
                           },
                         ),
                       ],

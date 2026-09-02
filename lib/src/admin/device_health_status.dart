@@ -2725,7 +2725,12 @@ Future<void> showDeviceHealthDetailDialog(
     if (context.mounted) Navigator.pop(context); // close spinner
 
     if (response.statusCode == 200 && context.mounted) {
-      final device = DeviceHealthData.fromJson(json.decode(response.body));
+      final body = json.decode(response.body);
+      if (body is Map<String, dynamic> && (body.containsKey('error') || body['deviceId'] == null)) {
+        _showHealthNotAvailableDialog(context, isDark);
+        return;
+      }
+      final device = DeviceHealthData.fromJson(body);
       showDialog(
         context: context,
         barrierColor: Colors.black.withOpacity(0.65),
@@ -2733,18 +2738,54 @@ Future<void> showDeviceHealthDetailDialog(
             _HealthDetailDialogWidget(device: device, isDark: isDark),
       );
     } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load device diagnostics.')),
-      );
+      _showHealthNotAvailableDialog(context, isDark);
     }
   } catch (e) {
     if (context.mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      _showHealthNotAvailableDialog(context, isDark);
     }
   }
+}
+
+void _showHealthNotAvailableDialog(BuildContext context, bool isDark) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      final strong = isDark ? Colors.white : Colors.black87;
+      final subtle = isDark ? Colors.white70 : Colors.black54;
+
+      return AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.orangeAccent, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              "Health Status",
+              style: TextStyle(color: strong, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Text(
+          "Health Status is currently not available for this device. It will be updated soon.",
+          style: TextStyle(color: subtle, fontSize: 14.5),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0EA5E9),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("OK"),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 // ── Standalone dialog widget ──────────────────────────────────────────────────

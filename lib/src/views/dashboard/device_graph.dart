@@ -203,6 +203,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   Set<String> _visibleParameters = {};
   int _graphsPerRow = 1;
 
+  bool get _shouldDisableCorrectedFields {
+    final name = widget.deviceName.toUpperCase();
+    return name.contains('365') || name.contains('366') || name.contains('397');
+  }
+
   // Consolidated device status variables
   Map<String, double> _lastBatteries = {};
   Map<String, double> _lastSignalStrengths = {};
@@ -1051,15 +1056,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       DateTime startDate;
       DateTime endDate = DateTime.now();
 
-      if (widget.selectedDate != null) {
-        try {
-          final anomalyDate =
-              DateFormat('dd-MM-yyyy').parse(widget.selectedDate!);
-          startDate = anomalyDate;
-          endDate = anomalyDate;
-        } catch (e) {
-          startDate = endDate; // fallback to today
-        }
+      if (selectedDate != null) {
+        startDate = selectedDate;
+        endDate = selectedDate;
       } else {
         switch (range) {
           case '7days':
@@ -1083,11 +1082,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             startDate = endDate.subtract(const Duration(days: 365));
             break;
           case 'single':
+          default:
             startDate = _selectedDay;
             endDate = startDate;
             break;
-          default:
-            startDate = endDate;
         }
       }
 
@@ -1121,12 +1119,28 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        if (data is Map<String, dynamic> &&
+            data.containsKey('message') &&
+            !data.containsKey('items') &&
+            !data.containsKey('sensor_data_items')) {
+          // Explicit "No data found for the given range and device" response from API
+          setState(() {
+            _parametersData = {};
+            _updateCSVRows(_parametersData);
+          });
+        } else {
+          setState(() {
+            _parametersData = _parseDeviceData(data);
+            _updateCSVRows(_parametersData);
+          });
+          await _fetchDeviceDetails();
+        }
+      } else {
         setState(() {
-          _parametersData = _parseDeviceData(data);
+          _parametersData = {};
           _updateCSVRows(_parametersData);
         });
-        await _fetchDeviceDetails();
-      } else {}
+      }
     } catch (e) {
     } finally {
       if (mounted) {
@@ -2473,7 +2487,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   }
 
   Widget _buildHorizontalStatsRow(bool isDarkMode) {
-    if (_config == null || _parametersData.isEmpty) {
+    if (_config == null ||
+        _parametersData.isEmpty ||
+        !_parametersData.values.any((l) => l.isNotEmpty)) {
       return const SizedBox.shrink();
     }
 
@@ -2504,28 +2520,30 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     final cards = displayParams.map((p) {
       var data = _parametersData[p.key]!;
-      final correctedField = _parametersData['CorrectedField_${p.key}'];
-      if (correctedField != null && correctedField.isNotEmpty) {
-        data = _mergeCorrectedData(data, correctedField);
-      } else if (p.displayName.toLowerCase().contains('temperature')) {
-        final corrected = _parametersData['CorrectedTemp'];
-        if (corrected != null && corrected.isNotEmpty) {
-          data = _mergeCorrectedData(data, corrected);
-        }
-      } else if (p.displayName.toLowerCase().contains('humidity')) {
-        final corrected = _parametersData['CorrectedHumidity'];
-        if (corrected != null && corrected.isNotEmpty) {
-          data = _mergeCorrectedData(data, corrected);
-        }
-      } else if ((p.displayName.toLowerCase().contains('rain') ||
-              p.key.toLowerCase().contains('rain')) &&
-          !_isDevice250) {
-        for (final k in _parametersData.keys) {
-          if (k.toLowerCase().contains('correctedfield') &&
-              k.toLowerCase().contains('rain')) {
-            final corrected = _parametersData[k];
-            if (corrected != null && corrected.isNotEmpty) {
-              data = _mergeCorrectedData(data, corrected);
+      if (!_shouldDisableCorrectedFields) {
+        final correctedField = _parametersData['CorrectedField_${p.key}'];
+        if (correctedField != null && correctedField.isNotEmpty) {
+          data = _mergeCorrectedData(data, correctedField);
+        } else if (p.displayName.toLowerCase().contains('temperature')) {
+          final corrected = _parametersData['CorrectedTemp'];
+          if (corrected != null && corrected.isNotEmpty) {
+            data = _mergeCorrectedData(data, corrected);
+          }
+        } else if (p.displayName.toLowerCase().contains('humidity')) {
+          final corrected = _parametersData['CorrectedHumidity'];
+          if (corrected != null && corrected.isNotEmpty) {
+            data = _mergeCorrectedData(data, corrected);
+          }
+        } else if ((p.displayName.toLowerCase().contains('rain') ||
+                p.key.toLowerCase().contains('rain')) &&
+            !_isDevice250) {
+          for (final k in _parametersData.keys) {
+            if (k.toLowerCase().contains('correctedfield') &&
+                k.toLowerCase().contains('rain')) {
+              final corrected = _parametersData[k];
+              if (corrected != null && corrected.isNotEmpty) {
+                data = _mergeCorrectedData(data, corrected);
+              }
             }
           }
         }
@@ -2589,7 +2607,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           var cumulativeData = _parametersData[cumulativeKey]!;
 
           // Merge corrected rain data into cumulativeData so totalRainfall uses corrected graph values!
-          if (!_isDevice250) {
+          if (!_isDevice250 && !_shouldDisableCorrectedFields) {
             for (final k in _parametersData.keys) {
               if (k.toLowerCase().contains('correctedfield') &&
                   k.toLowerCase().contains('rain')) {
@@ -2642,7 +2660,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               : data;
 
           // Merge corrected rain data into targetData so totalRainfall calculation uses corrected values!
-          if (!_isDevice250) {
+          if (!_isDevice250 && !_shouldDisableCorrectedFields) {
             for (final k in _parametersData.keys) {
               if (k.toLowerCase().contains('correctedfield') &&
                   k.toLowerCase().contains('rain')) {
@@ -3917,7 +3935,41 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                 color: Colors.blueAccent),
                           )
                         else if (_config != null)
-                          Wrap(
+                          if (!_parametersData.values.any((l) => l.isNotEmpty))
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 20),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.bar_chart_outlined,
+                                    size: 64,
+                                    color: isDarkMode ? Colors.white38 : Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    "No Data Found",
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: strongText,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "No telemetry data was recorded for ${widget.deviceName} on the selected date range.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isDarkMode ? Colors.white70 : Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Wrap(
                             spacing: 0,
                             runSpacing: 0,
                             alignment: WrapAlignment.center,
@@ -3996,85 +4048,87 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
 
 
-                              if (secondaryData == null && _isAdmin) {
-                                final correctedField =
-                                    (_isDevice250 && p.key.toLowerCase().contains('rain'))
-                                        ? null
-                                        : _parametersData['CorrectedField_${p.key}'];
-                                if (correctedField != null &&
-                                    correctedField.isNotEmpty) {
-                                  secondaryData = correctedField;
-                                  secondaryTitle = 'Corrected ${p.displayName}';
-                                } else if (p.displayName
-                                    .toLowerCase()
-                                    .contains('temperature')) {
-                                  final corrected =
-                                      _parametersData['CorrectedTemp'];
-                                  if (corrected != null &&
-                                      corrected.isNotEmpty) {
-                                    secondaryData = corrected;
-                                    secondaryTitle = 'Corrected Temp';
-                                  }
-                                } else if (p.displayName
-                                    .toLowerCase()
-                                    .contains('humidity')) {
-                                  final corrected =
-                                      _parametersData['CorrectedHumidity'];
-                                  if (corrected != null &&
-                                      corrected.isNotEmpty) {
-                                    secondaryData = corrected;
-                                    secondaryTitle = 'Corrected Humidity';
-                                  }
-                                } else if ((p.displayName.toLowerCase().contains('rain') ||
-                                        p.key.toLowerCase().contains('rain')) &&
-                                    !_isDevice250) {
-                                  for (final k in _parametersData.keys) {
-                                    if (k.toLowerCase().contains('correctedfield') &&
-                                        k.toLowerCase().contains('rain')) {
-                                      final corrected = _parametersData[k];
-                                      if (corrected != null && corrected.isNotEmpty) {
-                                        secondaryData = corrected;
-                                        secondaryTitle = 'Corrected ${p.displayName}';
-                                        break;
+                              if (!_shouldDisableCorrectedFields) {
+                                if (secondaryData == null && _isAdmin) {
+                                  final correctedField =
+                                      (_isDevice250 && p.key.toLowerCase().contains('rain'))
+                                          ? null
+                                          : _parametersData['CorrectedField_${p.key}'];
+                                  if (correctedField != null &&
+                                      correctedField.isNotEmpty) {
+                                    secondaryData = correctedField;
+                                    secondaryTitle = 'Corrected ${p.displayName}';
+                                  } else if (p.displayName
+                                      .toLowerCase()
+                                      .contains('temperature')) {
+                                    final corrected =
+                                        _parametersData['CorrectedTemp'];
+                                    if (corrected != null &&
+                                        corrected.isNotEmpty) {
+                                      secondaryData = corrected;
+                                      secondaryTitle = 'Corrected Temp';
+                                    }
+                                  } else if (p.displayName
+                                      .toLowerCase()
+                                      .contains('humidity')) {
+                                    final corrected =
+                                        _parametersData['CorrectedHumidity'];
+                                    if (corrected != null &&
+                                        corrected.isNotEmpty) {
+                                      secondaryData = corrected;
+                                      secondaryTitle = 'Corrected Humidity';
+                                    }
+                                  } else if ((p.displayName.toLowerCase().contains('rain') ||
+                                          p.key.toLowerCase().contains('rain')) &&
+                                      !_isDevice250) {
+                                    for (final k in _parametersData.keys) {
+                                      if (k.toLowerCase().contains('correctedfield') &&
+                                          k.toLowerCase().contains('rain')) {
+                                        final corrected = _parametersData[k];
+                                        if (corrected != null && corrected.isNotEmpty) {
+                                          secondaryData = corrected;
+                                          secondaryTitle = 'Corrected ${p.displayName}';
+                                          break;
+                                        }
                                       }
                                     }
                                   }
-                                }
-                              } else {
-                                final correctedField =
-                                    (_isDevice250 && p.key.toLowerCase().contains('rain'))
-                                        ? null
-                                        : _parametersData['CorrectedField_${p.key}'];
-                                if (correctedField != null &&
-                                    correctedField.isNotEmpty) {
-                                  data = _mergeCorrectedData(data, correctedField);
-                                } else if (p.displayName
-                                    .toLowerCase()
-                                    .contains('temperature')) {
-                                  final corrected =
-                                      _parametersData['CorrectedTemp'];
-                                  if (corrected != null &&
-                                      corrected.isNotEmpty) {
-                                    data = _mergeCorrectedData(data, corrected);
-                                  }
-                                } else if (p.displayName
-                                    .toLowerCase()
-                                    .contains('humidity')) {
-                                  final corrected =
-                                      _parametersData['CorrectedHumidity'];
-                                  if (corrected != null &&
-                                      corrected.isNotEmpty) {
-                                    data = _mergeCorrectedData(data, corrected);
-                                  }
-                                } else if ((p.displayName.toLowerCase().contains('rain') ||
-                                        p.key.toLowerCase().contains('rain')) &&
-                                    !_isDevice250) {
-                                  for (final k in _parametersData.keys) {
-                                    if (k.toLowerCase().contains('correctedfield') &&
-                                        k.toLowerCase().contains('rain')) {
-                                      final corrected = _parametersData[k];
-                                      if (corrected != null && corrected.isNotEmpty) {
-                                        data = _mergeCorrectedData(data, corrected);
+                                } else {
+                                  final correctedField =
+                                      (_isDevice250 && p.key.toLowerCase().contains('rain'))
+                                          ? null
+                                          : _parametersData['CorrectedField_${p.key}'];
+                                  if (correctedField != null &&
+                                      correctedField.isNotEmpty) {
+                                    data = _mergeCorrectedData(data, correctedField);
+                                  } else if (p.displayName
+                                      .toLowerCase()
+                                      .contains('temperature')) {
+                                    final corrected =
+                                        _parametersData['CorrectedTemp'];
+                                    if (corrected != null &&
+                                        corrected.isNotEmpty) {
+                                      data = _mergeCorrectedData(data, corrected);
+                                    }
+                                  } else if (p.displayName
+                                      .toLowerCase()
+                                      .contains('humidity')) {
+                                    final corrected =
+                                        _parametersData['CorrectedHumidity'];
+                                    if (corrected != null &&
+                                        corrected.isNotEmpty) {
+                                      data = _mergeCorrectedData(data, corrected);
+                                    }
+                                  } else if ((p.displayName.toLowerCase().contains('rain') ||
+                                          p.key.toLowerCase().contains('rain')) &&
+                                      !_isDevice250) {
+                                    for (final k in _parametersData.keys) {
+                                      if (k.toLowerCase().contains('correctedfield') &&
+                                          k.toLowerCase().contains('rain')) {
+                                        final corrected = _parametersData[k];
+                                        if (corrected != null && corrected.isNotEmpty) {
+                                          data = _mergeCorrectedData(data, corrected);
+                                        }
                                       }
                                     }
                                   }

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
@@ -372,12 +372,18 @@ class _AdminPageState extends State<AdminPage> {
                                     );
                                     break;
                                   case 'ota':
-                                    if (['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix)) {
+                                    final bool isAnnamCp01 = sensorName == 'ANNAM_CP01' ||
+                                        sensorName == 'CP001' ||
+                                        displaySensorName == 'ANNAM_CP01' ||
+                                        sensorName.toUpperCase().contains('ANNAM_CP01') ||
+                                        sensorName.toUpperCase().contains('CP01');
+                                    if (['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) || isAnnamCp01) {
                                       AdvancedDataSendDialog.show(
                                         context,
                                         sensorName,
                                         displayDeviceId: displaySensorName,
-                                        apiUrl: _getOtaApiUrl(mapped.prefix, sensorName: sensorName),
+                                        apiUrl: _getOtaApiUrl(mapped.prefix, sensorName: sensorName) ??
+                                            'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata',
                                       );
                                     } else if (mapped.category == 'SSMet Soil sensor') {
                                       _navigateToOTA(sensorName, updateInterval);
@@ -418,10 +424,16 @@ class _AdminPageState extends State<AdminPage> {
                                 final String providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? "";
                                 final String email = (_currentUserEmail ?? widget.adminEmail ?? providerEmail).trim().toLowerCase();
                                 final bool isSkusuman = email.contains('sksuman');
+                                final bool isAnnamCp01 = sensorName == 'ANNAM_CP01' ||
+                                    sensorName == 'CP001' ||
+                                    displaySensorName == 'ANNAM_CP01' ||
+                                    sensorName.toUpperCase().contains('ANNAM_CP01') ||
+                                    sensorName.toUpperCase().contains('CP01');
                                 final bool hasOtaSupport = ['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) ||
                                     mapped.category == 'SSMet Soil sensor' ||
-                                    _getOtaApiUrl(mapped.prefix, sensorName: sensorName) != null;
-                                final bool showOtaOption = isSkusuman && !_hideSensitiveSections && hasOtaSupport;
+                                    _getOtaApiUrl(mapped.prefix, sensorName: sensorName) != null ||
+                                    isAnnamCp01;
+                                final bool showOtaOption = (isSkusuman || isAnnamCp01) && !_hideSensitiveSections && hasOtaSupport;
                                 return <PopupMenuEntry<String>>[
                                   const PopupMenuItem<String>(
                                     value: 'graph',
