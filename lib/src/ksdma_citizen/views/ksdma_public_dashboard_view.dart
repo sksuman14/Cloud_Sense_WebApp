@@ -152,38 +152,131 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     });
   }
 
-  void _downloadFilteredDataCsv(KsdmaStateService state) {
-    final observations = state.observations.where((o) => !o.isRemoved).toList();
+
+
+  void _downloadDeltaComparisonCsv(KsdmaStateService state) {
+    const List<String> keralaDistricts = [
+      'Thiruvananthapuram',
+      'Kollam',
+      'Pathanamthitta',
+      'Alappuzha',
+      'Kottayam',
+      'Idukki',
+      'Ernakulam',
+      'Thrissur',
+      'Palakkad',
+      'Malappuram',
+      'Kozhikode',
+      'Wayanad',
+      'Kannur',
+      'Kasaragod',
+    ];
+
+    bool matchDistrict(String sDist, String tDist) {
+      final s = sDist.toLowerCase().replaceAll('district', '').trim();
+      final t = tDist.toLowerCase().replaceAll('district', '').trim();
+      return s.contains(t) || t.contains(s);
+    }
 
     final StringBuffer csv = StringBuffer();
-    csv.writeln('Station ID,District,Grama Panchayat,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m),Source');
+    final paramTitle = _activeDeltaTab == 'Rainfall'
+        ? 'Rainfall (mm)'
+        : (_activeDeltaTab == 'Temperature'
+            ? 'Temperature (C)'
+            : (_activeDeltaTab == 'Humidity' ? 'Humidity (%)' : 'River Level (m)'));
 
-    int count = 0;
-    for (var o in observations) {
-      final stnList = state.stations.where((s) => s.stationId == o.stationId).toList();
-      final stn = stnList.isNotEmpty ? stnList.first : null;
+    csv.writeln('District,Parameter,Today Value,Yesterday Value,Change (Delta)');
 
-      final district = stn?.district ?? 'Kerala';
-      final panchayat = stn?.gramaPanchayat ?? '';
+    for (var dist in keralaDistricts) {
+      final distStations = state.stations.where((s) => matchDistrict(s.district, dist)).toList();
 
-      if (_appliedDistrict != 'All Districts' && district.toLowerCase().trim() != _appliedDistrict.toLowerCase().trim()) {
-        continue;
+      if (_activeDeltaTab == 'Temperature') {
+        double todayMax = 0.0, todayMin = 0.0;
+        double yestMax = 0.0, yestMin = 0.0;
+        int todayMaxCount = 0, todayMinCount = 0;
+        int yestMaxCount = 0, yestMinCount = 0;
+
+        for (var s in distStations) {
+          final tObs = state.getTodayObservation(s.stationId);
+          final yObs = state.getYesterdayObservation(s.stationId);
+          final raw = state.getWsDeviceRaw(s.stationId);
+
+          final rawTemp = double.tryParse(raw?['now_temperature']?.toString() ?? raw?['Maximum_Temperature']?.toString() ?? raw?['Temperature']?.toString() ?? '');
+          double? tMax = tObs?.maxTemperatureC ?? rawTemp;
+          double? tMin = tObs?.minTemperatureC;
+          double? yMax = yObs?.maxTemperatureC;
+          double? yMin = yObs?.minTemperatureC;
+
+          if (tMax != null) { todayMax += tMax; todayMaxCount++; }
+          if (tMin != null) { todayMin += tMin; todayMinCount++; }
+          if (yMax != null) { yestMax += yMax; yestMaxCount++; }
+          if (yMin != null) { yestMin += yMin; yestMinCount++; }
+        }
+
+        double avgTodayMax = todayMaxCount > 0 ? todayMax / todayMaxCount : 0.0;
+        double avgTodayMin = todayMinCount > 0 ? todayMin / todayMinCount : 0.0;
+        double avgYestMax = yestMaxCount > 0 ? yestMax / yestMaxCount : 0.0;
+        double avgYestMin = yestMinCount > 0 ? yestMin / yestMinCount : 0.0;
+
+        final diffMax = avgTodayMax - avgYestMax;
+        final diffMin = avgTodayMin - avgYestMin;
+
+        final tMaxStr = todayMaxCount > 0 ? '${avgTodayMax.toStringAsFixed(1)} °C' : 'N/A';
+        final yMaxStr = yestMaxCount > 0 ? '${avgYestMax.toStringAsFixed(1)} °C' : 'N/A';
+        final dMaxStr = (todayMaxCount > 0 && yestMaxCount > 0) ? '${diffMax >= 0 ? '+' : ''}${diffMax.toStringAsFixed(1)} °C' : 'N/A';
+
+        final tMinStr = todayMinCount > 0 ? '${avgTodayMin.toStringAsFixed(1)} °C' : 'N/A';
+        final yMinStr = yestMinCount > 0 ? '${avgYestMin.toStringAsFixed(1)} °C' : 'N/A';
+        final dMinStr = (todayMinCount > 0 && yestMinCount > 0) ? '${diffMin >= 0 ? '+' : ''}${diffMin.toStringAsFixed(1)} °C' : 'N/A';
+
+        csv.writeln('"$dist (Max)","Max Temperature","$tMaxStr","$yMaxStr","$dMaxStr"');
+        csv.writeln('"$dist (Min)","Min Temperature","$tMinStr","$yMinStr","$dMinStr"');
+      } else {
+        double todayVal = 0.0, yestVal = 0.0;
+        int tCount = 0, yCount = 0;
+
+        for (var s in distStations) {
+          final tObs = state.getTodayObservation(s.stationId);
+          final yObs = state.getYesterdayObservation(s.stationId);
+          final raw = state.getWsDeviceRaw(s.stationId);
+
+          if (_activeDeltaTab == 'Rainfall') {
+            final tVal = tObs?.rainfallMm ?? raw?['Rainfall_Cumulative_mm'] ?? raw?['rainfall'];
+            final yVal = yObs?.rainfallMm;
+            if (tVal != null) { todayVal += (tVal as num).toDouble(); tCount++; }
+            if (yVal != null) { yestVal += yVal; yCount++; }
+          } else if (_activeDeltaTab == 'Humidity') {
+            final tVal = tObs?.humidityPercent ?? raw?['Humidity_Percent'];
+            final yVal = yObs?.humidityPercent;
+            if (tVal != null) { todayVal += (tVal as num).toDouble(); tCount++; }
+            if (yVal != null) { yestVal += yVal; yCount++; }
+          } else if (_activeDeltaTab == 'River Level') {
+            final tVal = tObs?.riverWaterLevelM ?? raw?['River_Level_m'];
+            final yVal = yObs?.riverWaterLevelM;
+            if (tVal != null) { todayVal += (tVal as num).toDouble(); tCount++; }
+            if (yVal != null) { yestVal += yVal; yCount++; }
+          }
+        }
+
+        final double avgToday = tCount > 0 ? (todayVal / tCount) : 0.0;
+        final double avgYest = yCount > 0 ? (yestVal / yCount) : 0.0;
+        final double delta = avgToday - avgYest;
+
+        final todayStr = tCount > 0 ? avgToday.toStringAsFixed(1) : 'N/A';
+        final yestStr = yCount > 0 ? avgYest.toStringAsFixed(1) : 'N/A';
+        final deltaStr = (tCount > 0 && yCount > 0)
+            ? (delta >= 0 ? '+${delta.toStringAsFixed(1)}' : delta.toStringAsFixed(1))
+            : 'N/A';
+
+        csv.writeln('"$dist","$paramTitle","$todayStr","$yestStr","$deltaStr"');
       }
-
-      final dateStr = "${o.observationDate.year}-${o.observationDate.month.toString().padLeft(2, '0')}-${o.observationDate.day.toString().padLeft(2, '0')}";
-      final timeStr = "${o.observationTime.hour.toString().padLeft(2, '0')}:${o.observationTime.minute.toString().padLeft(2, '0')}";
-
-      csv.writeln(
-        '"${o.stationId}","${district}","${panchayat}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""},"${o.source}"'
-      );
-      count++;
     }
 
     if (kIsWeb) {
       final bytes = utf8.encode(csv.toString());
       final blob = html.Blob([bytes], 'text/csv');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final fileName = 'KSDMA_Weather_${_appliedDistrict.replaceAll(" ", "_")}_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final fileName = 'KSDMA_PreviousDay_Comparison_${_activeDeltaTab.replaceAll(" ", "_")}_${DateTime.now().millisecondsSinceEpoch}.csv';
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
         ..click();
@@ -192,9 +285,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📥 Downloaded CSV with $count observation records for $_appliedDistrict'),
-        backgroundColor: const Color(0xFF2E7D32),
-        duration: const Duration(seconds: 4),
+        content: Text('📥 Exported Previous Day Comparison CSV for $_activeDeltaTab'),
+        backgroundColor: const Color(0xFF2563EB),
       ),
     );
   }
@@ -1232,19 +1324,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                           ),
                           child: const Text('Reset', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _downloadFilteredDataCsv(state),
-                          icon: const Icon(Icons.download, size: 14),
-                          label: const Text('Download Data', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0A322C),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -1960,7 +2039,32 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
           children: [
-            const Text('Change with respect to Previous Day', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Change with respect to Previous Day', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                InkWell(
+                  onTap: () => _downloadDeltaComparisonCsv(state),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.download, size: 12, color: Color(0xFF2563EB)),
+                        SizedBox(width: 4),
+                        Text('Export CSV', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
 
             // Parameter Sub-tabs with Horizontal Scroll

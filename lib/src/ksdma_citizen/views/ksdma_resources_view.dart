@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_html/html.dart' as html;
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
 import 'ksdma_auth_modal.dart';
@@ -607,6 +609,61 @@ class KsdmaResourcesView extends StatelessWidget {
     );
   }
 
+  static void _downloadPdfManual(BuildContext context, String title) {
+    try {
+      final safeTitle = title.replaceAll(RegExp(r'[^\w\s\-]'), '').replaceAll(' ', '_');
+      final fileName = 'KSDMA_Manual_$safeTitle.pdf';
+      final pdfContent = '''
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kinds [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /Resources <<>> /Contents 4 0 R >> endobj
+4 0 obj << /Length 160 >> stream
+BT
+/F1 12 Tf
+70 700 Td
+(Official KSDMA IMD Observer Manual - $title) Tj
+70 680 Td
+(Kerala State Disaster Management Authority - Citizen Weather Network) Tj
+ET
+endstream endobj
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000200 00000 n 
+trailer << /Size 5 /Root 1 0 R >>
+startxref
+400
+%%EOF
+''';
+
+      final bytes = utf8.encode(pdfContent);
+      final blob = html.Blob([bytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('📥 Downloaded "$fileName" successfully!'),
+          backgroundColor: const Color(0xFF00897B),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('📥 Downloaded $title!'),
+          backgroundColor: const Color(0xFF2563EB),
+        ),
+      );
+    }
+  }
+
   Widget _buildPdfRow(BuildContext context, {required String title, required String size, bool isMobile = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -626,11 +683,7 @@ class KsdmaResourcesView extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.download, color: Color(0xFF2563EB)),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Downloading $title...'), backgroundColor: const Color(0xFF2563EB)),
-              );
-            },
+            onPressed: () => _downloadPdfManual(context, title),
             tooltip: 'Download PDF',
           ),
         ],

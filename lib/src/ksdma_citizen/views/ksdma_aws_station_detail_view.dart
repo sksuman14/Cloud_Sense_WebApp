@@ -4,11 +4,10 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:csv/csv.dart';
-import 'package:universal_html/html.dart' as html;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'package:universal_html/html.dart' as html;
+import 'package:flutter/foundation.dart';
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
 import '../../utils/api_keys.dart';
@@ -327,7 +326,75 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     return 'High Pressure Ridge';
   }
 
-  void _exportCsv() {
+  Future<void> _exportCsv() async {
+    final krDateFmt = DateFormat('dd-MM-yyyy');
+    DateTime startDate = DateTime.now();
+    DateTime endDate = DateTime.now();
+
+    if (_selectedPeriod == '1day') {
+      startDate = _selectedSingleDate;
+      endDate = _selectedSingleDate;
+    } else if (_selectedPeriod == '7days') {
+      startDate = DateTime.now().subtract(const Duration(days: 7));
+      endDate = DateTime.now();
+    } else if (_selectedPeriod == '1month') {
+      startDate = DateTime(_selectedMonthDate.year, _selectedMonthDate.month, 1);
+      endDate = DateTime(_selectedMonthDate.year, _selectedMonthDate.month + 1, 0);
+    }
+
+    final krStartDate = krDateFmt.format(startDate);
+    final krEndDate = krDateFmt.format(endDate);
+
+    String annamId = widget.stationId;
+    if (!annamId.startsWith('WS_') && annamId != 'KR') {
+      annamId = 'WS_$annamId';
+    }
+
+    final String apiUrl =
+        'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$krStartDate&enddate=$krEndDate&annam_id=$annamId&key=${ApiKeys.annamApiKey}&mode=download';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('⏳ Requesting AWS S3 Download for $annamId ($krStartDate to $krEndDate)...'),
+        backgroundColor: const Color(0xFF2563EB),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final dynamic data = json.decode(response.body);
+        String? downloadUrl;
+        if (data is Map<String, dynamic>) {
+          downloadUrl = data['download_url'] as String?;
+        }
+
+        if (downloadUrl != null && downloadUrl.isNotEmpty) {
+          final fileName = '${annamId}_${krStartDate}_to_${krEndDate}_AWS_Telemetry.csv';
+          if (kIsWeb) {
+            html.AnchorElement(href: downloadUrl)
+              ..setAttribute('download', fileName)
+              ..click();
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('📥 Downloaded AWS S3 Telemetry ($fileName)'),
+              backgroundColor: const Color(0xFF15803D),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Keraladata API S3 Download Error: $e');
+    }
+
+    // Fallback: If S3 link is not returned, export current history observations
+    _exportLocalHistoryCsv();
+  }
+
+  void _exportLocalHistoryCsv() {
     if (_historyData.isEmpty) return;
 
     final List<List<dynamic>> rows = [
@@ -370,19 +437,19 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       ]);
     }
 
-    final csvData = const ListToCsvConverter().convert(rows);
+    final StringBuffer csv = StringBuffer();
+    for (var r in rows) {
+      csv.writeln(r.map((e) => '"$e"').join(','));
+    }
 
     if (kIsWeb) {
-      final bytes = utf8.encode(csvData);
-      final blob = html.Blob([bytes]);
+      final bytes = utf8.encode(csv.toString());
+      final blob = html.Blob([bytes], 'text/csv');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.document.createElement('a') as html.AnchorElement
-        ..href = url
-        ..style.display = 'none'
-        ..download = '${widget.stationId}_telemetry_export.csv';
-      html.document.body!.children.add(anchor);
-      anchor.click();
-      html.document.body!.children.remove(anchor);
+      final fileName = '${widget.stationId}_telemetry_export.csv';
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
       html.Url.revokeObjectUrl(url);
     }
   }

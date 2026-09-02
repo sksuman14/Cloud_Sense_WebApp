@@ -861,10 +861,71 @@ class KsdmaStateService extends ChangeNotifier {
   }
 
   Map<String, int> getVolunteerStats(KsdmaUser user) {
+    final userObs = _observations.where((o) =>
+      !o.isRemoved &&
+      (o.submittedByUserId == user.userId ||
+       o.submittedByUserId == user.mobileNumber ||
+       o.submittedByUserId == 'usr_${user.mobileNumber}' ||
+       (user.userId.isNotEmpty && o.submittedByUserId.contains(user.userId)) ||
+       (user.mobileNumber.isNotEmpty && o.submittedByUserId.contains(user.mobileNumber)))
+    ).toList();
+
+    // Total Observations count (real-time from observations table)
+    final int actualTotal = userObs.length > user.totalObservations ? userObs.length : user.totalObservations;
+
+    // Get sorted unique dates (YYYY-MM-DD)
+    final List<DateTime> dateList = userObs
+        .map((o) => DateTime(o.observationDate.year, o.observationDate.month, o.observationDate.day))
+        .toSet()
+        .toList()..sort((a, b) => a.compareTo(b));
+
+    int currentStreak = 0;
+    int calculatedMaxStreak = 0;
+
+    if (dateList.isNotEmpty) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+
+      // Calculate max streak historically across all consecutive day sequences
+      int tempStreak = 1;
+      calculatedMaxStreak = 1;
+      for (int i = 1; i < dateList.length; i++) {
+        if (dateList[i].difference(dateList[i - 1]).inDays == 1) {
+          tempStreak++;
+        } else if (dateList[i] != dateList[i - 1]) {
+          tempStreak = 1;
+        }
+        if (tempStreak > calculatedMaxStreak) {
+          calculatedMaxStreak = tempStreak;
+        }
+      }
+
+      // Calculate active current streak (must include today or yesterday)
+      final lastDate = dateList.last;
+      if (lastDate == today || lastDate == yesterday) {
+        currentStreak = 1;
+        for (int i = dateList.length - 1; i > 0; i--) {
+          if (dateList[i].difference(dateList[i - 1]).inDays == 1) {
+            currentStreak++;
+          } else {
+            break;
+          }
+        }
+      } else {
+        currentStreak = 0; // Streak breaks if no submission today or yesterday
+      }
+    }
+
+    final int displayStreak = currentStreak > user.streakDays ? currentStreak : user.streakDays;
+    final int displayMaxStreak = calculatedMaxStreak > user.maxStreak
+        ? calculatedMaxStreak
+        : (user.maxStreak > 0 ? user.maxStreak : displayStreak);
+
     return {
-      'streak': user.streakDays,
-      'maxStreak': user.maxStreak > 0 ? user.maxStreak : user.streakDays,
-      'totalReadings': user.totalObservations,
+      'streak': displayStreak,
+      'maxStreak': displayMaxStreak,
+      'totalReadings': actualTotal,
       'todayReadings': user.todayReadings,
     };
   }

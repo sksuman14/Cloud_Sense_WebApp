@@ -4,9 +4,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
+import '../../utils/api_keys.dart';
 
 class KsdmaOfficerView extends StatefulWidget {
   const KsdmaOfficerView({super.key});
@@ -19,106 +22,218 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
   String _selectedTableParam = 'all';
   String _selectedTableDistrict = 'All Districts';
   String? _expandedStationId;
+  // Export State Variables
+  String _exportDataSource = 'Volunteer'; // 'Volunteer' or 'AWS'
+  String _exportAwsStationId = 'WS_1';
   String _exportParameter = 'All';
   String _exportDistrict = 'All Districts';
-  String _exportDateRange = 'All Time Historical';
+  String _exportDatePreset = 'Past 30 Days';
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
+  DateTime _endDate = DateTime.now();
   String _exportFormat = 'CSV';
 
-  Future<void> _generateAndDownloadDataset(KsdmaStateService state) async {
+  void _onSelectDatePreset(String preset) {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = todayStart.subtract(const Duration(days: 7));
-    final thirtyDaysAgo = todayStart.subtract(const Duration(days: 30));
-    final ninetyDaysAgo = todayStart.subtract(const Duration(days: 90));
+    setState(() {
+      _exportDatePreset = preset;
+      if (preset == 'Today') {
+        _startDate = todayStart;
+        _endDate = now;
+      } else if (preset == 'Past 7 Days') {
+        _startDate = todayStart.subtract(const Duration(days: 7));
+        _endDate = now;
+      } else if (preset == 'Past 30 Days') {
+        _startDate = todayStart.subtract(const Duration(days: 30));
+        _endDate = now;
+      } else if (preset == 'All Time') {
+        _startDate = DateTime(2020);
+        _endDate = now;
+      }
+    });
+  }
 
-    DateTime startDate = todayStart;
-    if (_exportDateRange == 'Past 7 Days') {
-      startDate = sevenDaysAgo;
-    } else if (_exportDateRange == 'Past 30 Days') {
-      startDate = thirtyDaysAgo;
-    } else if (_exportDateRange == 'All Time Historical') {
-      startDate = ninetyDaysAgo;
+  Future<void> _pickExportDate({required bool isStart}) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF146356),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF0F172A),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _exportDatePreset = 'Custom';
+        if (isStart) {
+          _startDate = picked;
+          if (_endDate.isBefore(_startDate)) {
+            _endDate = _startDate;
+          }
+        } else {
+          _endDate = picked;
+          if (_startDate.isAfter(_endDate)) {
+            _startDate = _endDate;
+          }
+        }
+      });
     }
+  }
+
+  Future<void> _generateAndDownloadDataset(KsdmaStateService state) async {
+    final bool isAwsMode = _exportDataSource == 'AWS';
+    final startDay = DateTime(_startDate.year, _startDate.month, _startDate.day);
+    final endDay = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
 
     final observations = List<KsdmaObservation>.from(state.observations.where((o) => !o.isRemoved));
 
-    // If historical range selected, fetch full date range telemetry for AWS sensors directly from AWS KeralaData API
-    if (_exportDateRange != 'Today Only') {
+    // Trigger AWS S3 Direct Download if in AWS Mode
+    if (isAwsMode) {
+      final krDateFmt = DateFormat('dd-MM-yyyy');
+      final krStartDate = krDateFmt.format(_startDate);
+      final krEndDate = krDateFmt.format(_endDate);
+
+      String annamId = _exportAwsStationId;
+      if (annamId == 'ALL_AWS') {
+        annamId = 'KR';
+      } else if (!annamId.startsWith('WS_') && annamId != 'KR') {
+        annamId = 'WS_$annamId';
+      }
+
+      final String apiUrl =
+          'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$krStartDate&enddate=$krEndDate&annam_id=$annamId&key=${ApiKeys.annamApiKey}&mode=download';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('⏳ Fetching $_exportDateRange AWS sensor telemetry & daily averages...'),
-          backgroundColor: const Color(0xFF0F766E),
+          content: Text('⏳ Requesting AWS S3 Download for $annamId ($krStartDate to $krEndDate)...'),
+          backgroundColor: const Color(0xFF2563EB),
           duration: const Duration(seconds: 2),
         ),
       );
 
-      final awsDeviceIds = state.stations.where((s) => s.stationId.startsWith('WS_')).map((s) => s.stationId).toList();
+      try {
+        final response = await http.get(Uri.parse(apiUrl));
+        if (response.statusCode == 200) {
+          final dynamic data = json.decode(response.body);
+          String? downloadUrl;
+          if (data is Map<String, dynamic>) {
+            downloadUrl = data['download_url'] as String?;
+          }
+
+          if (downloadUrl != null && downloadUrl.isNotEmpty) {
+            final fileName = '${annamId}_${krStartDate}_to_${krEndDate}_AWS_Telemetry.csv';
+            if (kIsWeb) {
+              html.AnchorElement(href: downloadUrl)
+                ..setAttribute('download', fileName)
+                ..click();
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('📥 Downloaded AWS S3 Telemetry ($fileName)'),
+                backgroundColor: const Color(0xFF15803D),
+              ),
+            );
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('AWS keraladata API S3 Download Error: $e');
+      }
+
+      final awsDeviceIds = state.stations
+          .where((s) => s.stationId.startsWith('WS_') || s.category == StationCategory.aws)
+          .map((s) => s.stationId)
+          .toList();
       if (awsDeviceIds.isNotEmpty) {
         try {
-          final rangeObs = await state.apiService.fetchAwsObservationsForDateRange(awsDeviceIds, startDate, now);
+          final rangeObs = await state.apiService.fetchAwsObservationsForDateRange(awsDeviceIds, _startDate, _endDate);
           if (rangeObs.isNotEmpty) {
             final fetchedAwsIds = rangeObs.map((o) => o.stationId).toSet();
             observations.removeWhere((o) => fetchedAwsIds.contains(o.stationId) && o.source.contains('AWS'));
             observations.addAll(rangeObs);
           }
         } catch (e) {
-          debugPrint('Error fetching range observations: $e');
+          debugPrint('Error fetching AWS range observations: $e');
         }
       }
     }
 
+    final String selectedParam = isAwsMode ? 'all' : _exportParameter.toLowerCase().trim();
+
     final StringBuffer csv = StringBuffer();
 
-    // Dynamic CSV Header based on selected parameter (Source column removed)
-    if (_exportParameter == 'Rainfall') {
-      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Rainfall (mm)');
-    } else if (_exportParameter == 'Temperature') {
-      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)');
-    } else if (_exportParameter == 'RiverLevel') {
-      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,River Level (m)');
-    } else if (_exportParameter == 'Humidity') {
-      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Humidity (%)');
+    // Dynamic CSV Header
+    if (selectedParam == 'rainfall') {
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Rainfall (mm)');
+    } else if (selectedParam == 'temperature') {
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)');
+    } else if (selectedParam == 'riverlevel') {
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,River Level (m)');
+    } else if (selectedParam == 'humidity') {
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Humidity (%)');
     } else {
-      csv.writeln('Station ID,District,Grama Panchayat,Instrument Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
     }
 
     int count = 0;
     for (var o in observations) {
+      // Date filter
+      if (o.observationDate.isBefore(startDay) || o.observationDate.isAfter(endDay)) continue;
+
       final stnList = state.stations.where((s) => s.stationId == o.stationId).toList();
       final stn = stnList.isNotEmpty ? stnList.first : null;
 
-      final district = stn?.district ?? '';
-      final panchayat = stn?.gramaPanchayat ?? '';
-      final instType = stn?.instrumentType.displayName ?? 'Manual Station';
+      final bool isAwsStation = (stn?.category == StationCategory.aws || o.stationId.startsWith('WS_'));
 
-      // Strictly filter by selected District
-      if (_exportDistrict != 'All Districts' && district.toLowerCase().trim() != _exportDistrict.toLowerCase().trim()) {
-        continue;
+      // STRICT NETWORK TYPE FILTERING:
+      if (isAwsMode) {
+        // AWS Mode: ONLY include AWS Stations!
+        if (!isAwsStation) continue;
+        if (_exportAwsStationId != 'ALL_AWS' && o.stationId != _exportAwsStationId) continue;
+      } else {
+        // Volunteer Mode: ONLY include Volunteer/Manual Stations! EXCLUDE WS_ AWS STATIONS!
+        if (isAwsStation) continue;
+        final district = stn?.district ?? '';
+        if (_exportDistrict != 'All Districts' && district.toLowerCase().trim() != _exportDistrict.toLowerCase().trim()) {
+          continue;
+        }
       }
 
-      if (_exportDateRange == 'Today Only' && o.observationDate.isBefore(todayStart)) continue;
-      if (_exportDateRange == 'Past 7 Days' && o.observationDate.isBefore(sevenDaysAgo)) continue;
-      if (_exportDateRange == 'Past 30 Days' && o.observationDate.isBefore(thirtyDaysAgo)) continue;
+      // Parameter filter
+      if (selectedParam == 'rainfall' && o.rainfallMm == null) continue;
+      if (selectedParam == 'temperature' && o.maxTemperatureC == null && o.minTemperatureC == null) continue;
+      if (selectedParam == 'humidity' && o.humidityPercent == null) continue;
+      if (selectedParam == 'riverlevel' && o.riverWaterLevelM == null) continue;
 
-      if (_exportParameter == 'Rainfall' && o.rainfallMm == null) continue;
-      if (_exportParameter == 'Temperature' && o.maxTemperatureC == null && o.minTemperatureC == null) continue;
-      if (_exportParameter == 'Humidity' && o.humidityPercent == null) continue;
-      if (_exportParameter == 'RiverLevel' && o.riverWaterLevelM == null) continue;
+      final stnName = stn?.ownerName ?? o.stationId;
+      final district = stn?.district ?? '';
+      final taluk = stn?.taluk ?? '';
+      final panchayat = stn?.gramaPanchayat ?? '';
+      final networkTypeLabel = isAwsStation ? 'Automatic Weather Station (AWS)' : 'Manual Volunteer PWS';
 
-      final dateStr = "${o.observationDate.year}-${o.observationDate.month.toString().padLeft(2, '0')}-${o.observationDate.day.toString().padLeft(2, '0')}";
+      final dateStr = DateFormat('yyyy-MM-dd').format(o.observationDate);
       final timeStr = "${o.observationTime.hour.toString().padLeft(2, '0')}:${o.observationTime.minute.toString().padLeft(2, '0')}";
 
-      // Dynamic Row Content (Source column removed completely)
-      if (_exportParameter == 'Rainfall') {
-        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""}');
-      } else if (_exportParameter == 'Temperature') {
-        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""}');
-      } else if (_exportParameter == 'RiverLevel') {
-        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.riverWaterLevelM ?? ""}');
-      } else if (_exportParameter == 'Humidity') {
-        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.humidityPercent ?? ""}');
+      if (selectedParam == 'rainfall') {
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""}');
+      } else if (selectedParam == 'temperature') {
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""}');
+      } else if (selectedParam == 'riverlevel') {
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.riverWaterLevelM ?? ""}');
+      } else if (selectedParam == 'humidity') {
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.humidityPercent ?? ""}');
       } else {
-        csv.writeln('"${o.stationId}","${district}","${panchayat}","${instType}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""}');
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""}');
       }
       count++;
     }
@@ -127,8 +242,8 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
       final bytes = utf8.encode(csv.toString());
       final blob = html.Blob([bytes], 'text/csv');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final extension = 'csv';
-      final fileName = 'KSDMA_Official_Report_${_exportParameter}_${_exportDistrict.replaceAll(" ", "_")}_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final modeTag = isAwsMode ? 'AWS_Telemetry' : 'Volunteer_Readings';
+      final fileName = 'KSDMA_${modeTag}_${DateFormat('yyyyMMdd').format(_startDate)}_to_${DateFormat('yyyyMMdd').format(_endDate)}.csv';
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
         ..click();
@@ -137,9 +252,8 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📥 Downloaded $_exportFormat report with $count observation records for $_exportDistrict'),
-        backgroundColor: const Color(0xFF15803D),
-        duration: const Duration(seconds: 4),
+        content: Text('📥 Downloaded CSV with $count observation records!'),
+        backgroundColor: isAwsMode ? const Color(0xFF2563EB) : const Color(0xFF146356),
       ),
     );
   }
@@ -604,6 +718,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
 
   Widget _buildExportPanel(KsdmaStateService state) {
     final districtList = ['All Districts', ...state.stations.map((s) => s.district).where((d) => d.trim().isNotEmpty).toSet()];
+    final awsStations = state.stations.where((s) => s.category == StationCategory.aws || s.stationId.startsWith('WS_')).toList();
 
     return Card(
       color: Colors.white,
@@ -629,79 +744,200 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
             ),
             const Divider(height: 24, color: Color(0xFFE2E8F0)),
 
-            const Text('Select Parameter:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+            const Text('Select Data Network Source:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
             const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _exportParameter,
-              dropdownColor: Colors.white,
-              style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF146356))),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'All', child: Text('All Parameters (Combined)')),
-                DropdownMenuItem(value: 'Rainfall', child: Text('Rainfall Observations')),
-                DropdownMenuItem(value: 'Temperature', child: Text('Temperature Readings')),
-                DropdownMenuItem(value: 'RiverLevel', child: Text('River Water Levels')),
-                DropdownMenuItem(value: 'Humidity', child: Text('Humidity Logs')),
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    avatar: Icon(Icons.people_alt, size: 14, color: _exportDataSource == 'Volunteer' ? Colors.white : const Color(0xFF146356)),
+                    label: const Text('Volunteer Readings (DB)'),
+                    selected: _exportDataSource == 'Volunteer',
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    selectedColor: const Color(0xFF146356),
+                    labelStyle: TextStyle(color: _exportDataSource == 'Volunteer' ? Colors.white : const Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 11.5),
+                    onSelected: (sel) => setState(() => _exportDataSource = 'Volunteer'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    avatar: Icon(Icons.sensors, size: 14, color: _exportDataSource == 'AWS' ? Colors.white : const Color(0xFF2563EB)),
+                    label: const Text('AWS Cloud Telemetry (S3)'),
+                    selected: _exportDataSource == 'AWS',
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    selectedColor: const Color(0xFF2563EB),
+                    labelStyle: TextStyle(color: _exportDataSource == 'AWS' ? Colors.white : const Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 11.5),
+                    onSelected: (sel) => setState(() => _exportDataSource = 'AWS'),
+                  ),
+                ),
               ],
-              onChanged: (val) {
-                if (val != null) setState(() => _exportParameter = val);
-              },
             ),
-
             const SizedBox(height: 14),
 
-            const Text('Select Region:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: districtList.contains(_exportDistrict) ? _exportDistrict : 'All Districts',
-              dropdownColor: Colors.white,
-              style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF146356))),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            if (_exportDataSource == 'AWS') ...[
+              const Text('Select Target AWS Station:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: awsStations.any((s) => s.stationId == _exportAwsStationId)
+                    ? _exportAwsStationId
+                    : (awsStations.isNotEmpty ? awsStations.first.stationId : null),
+                dropdownColor: Colors.white,
+                style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF2563EB))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: awsStations.map((stn) => DropdownMenuItem(
+                  value: stn.stationId,
+                  child: Text('${stn.stationId} - ${stn.district} (${stn.gramaPanchayat.isNotEmpty ? stn.gramaPanchayat : "AWS Station"})'),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _exportAwsStationId = val);
+                },
               ),
-              items: districtList.map((d) => DropdownMenuItem(value: d, child: Text(d == 'All Districts' ? 'All 14 Districts (Statewide)' : '$d District'))).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _exportDistrict = val);
-              },
+              const SizedBox(height: 14),
+            ] else ...[
+              const Text('Select Region:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: districtList.contains(_exportDistrict) ? _exportDistrict : 'All Districts',
+                dropdownColor: Colors.white,
+                style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF146356))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: districtList.map((d) => DropdownMenuItem(value: d, child: Text(d == 'All Districts' ? 'All 14 Districts (Statewide Volunteer PWS)' : '$d District'))).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _exportDistrict = val);
+                },
+              ),
+              const SizedBox(height: 14),
+
+              const Text('Select Parameter:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: _exportParameter,
+                dropdownColor: Colors.white,
+                style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF146356))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'All', child: Text('All Parameters (Combined)')),
+                  DropdownMenuItem(value: 'Rainfall', child: Text('Rainfall Observations (mm)')),
+                  DropdownMenuItem(value: 'Temperature', child: Text('Temperature Readings (°C)')),
+                  DropdownMenuItem(value: 'RiverLevel', child: Text('River Water Levels (m)')),
+                  DropdownMenuItem(value: 'Humidity', child: Text('Humidity Logs (%)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _exportParameter = val);
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            const Text('Select Time Period & Date Range:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildPresetChip('Today'),
+                  const SizedBox(width: 6),
+                  _buildPresetChip('Past 7 Days'),
+                  const SizedBox(width: 6),
+                  _buildPresetChip('Past 30 Days'),
+                  const SizedBox(width: 6),
+                  _buildPresetChip('All Time'),
+                ],
+              ),
             ),
+            const SizedBox(height: 10),
 
-            const SizedBox(height: 14),
-
-            const Text('Select Time Period:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _exportDateRange,
-              dropdownColor: Colors.white,
-              style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF146356))),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              items: const [
-                DropdownMenuItem(value: 'All Time Historical', child: Text('All Time Historical Dataset (Full DB)')),
-                DropdownMenuItem(value: 'Today Only', child: Text('Today Only (Real-time Latest)')),
-                DropdownMenuItem(value: 'Past 7 Days', child: Text('Past 7 Days Observations')),
-                DropdownMenuItem(value: 'Past 30 Days', child: Text('Past 30 Days Observations')),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _exportDateRange = val);
-              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _pickExportDate(isStart: true),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 15, color: Color(0xFF146356)),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('START DATE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                                Text(DateFormat('dd MMM yyyy').format(_startDate), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6.0),
+                    child: Icon(Icons.arrow_forward, size: 14, color: Color(0xFF94A3B8)),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _pickExportDate(isStart: false),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.event, size: 15, color: Color(0xFF146356)),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('END DATE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                                Text(DateFormat('dd MMM yyyy').format(_endDate), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 14),
@@ -755,6 +991,23 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPresetChip(String label) {
+    final isSelected = _exportDatePreset == label;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      backgroundColor: const Color(0xFFF1F5F9),
+      selectedColor: const Color(0xFF146356),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : const Color(0xFF0F172A),
+        fontWeight: FontWeight.bold,
+        fontSize: 11,
+      ),
+      visualDensity: VisualDensity.compact,
+      onSelected: (_) => _onSelectDatePreset(label),
     );
   }
 }
