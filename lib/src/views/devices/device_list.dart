@@ -196,21 +196,53 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
 
         Map<String, List<String>> groupedDevices = {};
 
-        result.forEach((key, value) {
-          if (key != 'device_id' && key != 'email_id') {
-            String category = _mapCategory(key);
+        if (result is Map<String, dynamic>) {
+          result.forEach((key, value) {
+            if (key != 'device_id' && key != 'email_id' && value != null) {
+              String category = _mapCategory(key);
+              if (key == 'LU' || key == 'TE' || key == 'AC') {
+                category = 'CPS Lab Sensors';
+              }
+              groupedDevices.putIfAbsent(category, () => []);
 
-            if (key == 'LU' || key == 'TE' || key == 'AC') {
-              category = 'CPS Lab Sensors';
+              if (value is List) {
+                for (var v in value) {
+                  final devStr = v.toString().trim();
+                  if (devStr.isNotEmpty && !groupedDevices[category]!.contains(devStr)) {
+                    groupedDevices[category]!.add(devStr);
+                  }
+                }
+              } else if (value is String && value.isNotEmpty) {
+                if (!groupedDevices[category]!.contains(value)) {
+                  groupedDevices[category]!.add(value);
+                }
+              }
             }
-
-            if (groupedDevices[category] == null) {
-              groupedDevices[category] = [];
+          });
+        } else if (result is List) {
+          for (var item in result) {
+            if (item is Map) {
+              item.forEach((key, value) {
+                if (key != 'device_id' && key != 'email_id' && value != null) {
+                  String category = _mapCategory(key.toString());
+                  groupedDevices.putIfAbsent(category, () => []);
+                  if (value is List) {
+                    for (var v in value) {
+                      final devStr = v.toString().trim();
+                      if (devStr.isNotEmpty && !groupedDevices[category]!.contains(devStr)) {
+                        groupedDevices[category]!.add(devStr);
+                      }
+                    }
+                  } else if (value is String && value.isNotEmpty) {
+                    if (!groupedDevices[category]!.contains(value)) {
+                      groupedDevices[category]!.add(value);
+                    }
+                  }
+                }
+              });
             }
-
-            groupedDevices[category]?.addAll(List<String>.from(value ?? []));
           }
-        });
+        }
 
         setState(() {
           _deviceCategories = groupedDevices;
@@ -384,7 +416,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
     return _parameterNamesMap[topic] ?? [];
   }
 
-  List<Map<String, dynamic>> get filteredDevices {
+  List<Map<String, dynamic>> _getAllDevicesList() {
     List<Map<String, dynamic>> devices = [];
 
     _deviceCategories.forEach((category, sensorList) {
@@ -395,7 +427,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
             DateTime.now().difference(timestamp.toLocal()).inMinutes <= 11;
 
         devices.add({
-          'DeviceId': sensor, // internal name (e.g. WJ003, CF002)
+          'DeviceId': sensor,
           'Topic': topic,
           'isActive': isActive,
           'lastReceivedTime': timestamp != null
@@ -405,6 +437,11 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
         });
       }
     });
+    return devices;
+  }
+
+  List<Map<String, dynamic>> get filteredDevices {
+    List<Map<String, dynamic>> devices = _getAllDevicesList();
 
     if (filter == "Active") {
       devices = devices.where((d) => d['isActive'] == true).toList();
@@ -417,7 +454,6 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       devices = devices.where((d) {
         final deviceId = (d['DeviceId'] as String?)?.toLowerCase() ?? '';
         final category = (d['Category'] as String?)?.toLowerCase() ?? '';
-        // Also allow searching by ANNAM display name
         final displayId =
             _toAnnamDisplayName(d['DeviceId'] ?? '').toLowerCase();
         final location =
@@ -447,598 +483,672 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth > 800;
 
-    final bg = isDarkMode
-        ? [
-            const Color(0xFF0B141D),
-            const Color(0xFF091520),
-          ]
-        : [
-            const Color(0xFFF0F4F8),
-            const Color(0xFFFFFFFF),
-          ];
+    final allDevs = _getAllDevicesList();
+    final activeCount = allDevs.where((d) => d['isActive'] == true).length;
+    final inactiveCount = allDevs.where((d) => d['isActive'] == false).length;
+    final totalCount = allDevs.length;
 
-    final card = isDarkMode ? const Color(0xFF0D1F2D) : Colors.white;
-    final strong =
-        isDarkMode ? const Color(0xFFE8F4F0) : const Color(0xFF1A1A1A);
-    final subtle =
-        isDarkMode ? const Color(0x73E8F4F0) : const Color(0x991A1A1A);
-    final accent =
-        isDarkMode ? const Color(0xFF1FCB8A) : const Color(0xFF0D47A1);
+    final bg = isDarkMode
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFF8FAFC);
+    final card = isDarkMode
+        ? const Color(0xFF1E293B)
+        : Colors.white;
+    final strong = isDarkMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0F172A);
+    final subtle = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final accent = const Color(0xFF0EA5E9);
 
     return Scaffold(
+      backgroundColor: bg,
       appBar: AppBarWidget(),
       endDrawer: !isWideScreen ? const EndDrawerWidget() : null,
-      body: Container(
-        height: MediaQuery.of(context).size.height,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: bg,
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            padding: EdgeInsets.all(screenWidth < 600 ? 10.0 : 15.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Your Devices",
-                        style: TextStyle(
-                          color: strong,
-                          fontSize: getResponsiveFontSize(context, 18, 22),
-                          fontWeight: FontWeight.bold,
-                        ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: EdgeInsets.all(screenWidth < 600 ? 10.0 : 15.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Your Devices",
+                      style: TextStyle(
+                        color: strong,
+                        fontSize: getResponsiveFontSize(context, 18, 22),
+                        fontWeight: FontWeight.bold,
                       ),
-                      ElevatedButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                title: Center(
-                                  child: Text(
-                                    "Add New Device",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: strong,
-                                    ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: Center(
+                                child: Text(
+                                  "Add New Device",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: strong,
                                   ),
                                 ),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        showDialog(
-                                          context: context,
-                                          barrierDismissible: false,
-                                          builder: (context) => QRScannerPopup(
-                                              devices: _deviceCategories),
-                                        );
-                                      },
-                                      child: const Text("Scan QR Code"),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) =>
-                                              ManualEntryPopup(
-                                                  devices: _deviceCategories),
-                                        );
-                                      },
-                                      child: const Text("Add Manually"),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: accent,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (context) => QRScannerPopup(
+                                            devices: _deviceCategories),
+                                      );
+                                    },
+                                    child: const Text("Scan QR Code"),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) =>
+                                            ManualEntryPopup(
+                                                devices: _deviceCategories),
+                                      );
+                                    },
+                                    child: const Text("Add Manually"),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Text(
-                          "Add Device",
-                          style: TextStyle(fontSize: 14, color: Colors.white),
+                      ),
+                      child: const Text("Add Device"),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Top Metric Summary Cards (Total, Active, Inactive)
+              _buildMetricSummaryCards(
+                total: totalCount,
+                active: activeCount,
+                inactive: inactiveCount,
+                isDarkMode: isDarkMode,
+                strong: strong,
+                subtle: subtle,
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: strong),
+                  decoration: InputDecoration(
+                    hintText: "Search Device ID, Category, Location...",
+                    hintStyle: TextStyle(color: subtle),
+                    prefixIcon: Icon(Icons.search, color: subtle),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: subtle),
+                            onPressed: () => _searchController.clear(),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: card,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color:
+                              isDarkMode ? Colors.white10 : Colors.black12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: isDarkMode
+                              ? Colors.white12
+                              : Colors.black.withOpacity(0.05)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: accent, width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _isLoading || _isLoadingBattery
+                  ? const Center(child: CircularProgressIndicator())
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: card.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: card.withOpacity(0.1)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withOpacity(isDarkMode ? 0.3 : 0.05),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (filteredDevices.isNotEmpty || searchQuery.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12.0),
+                                child: Text(
+                                  "${filteredDevices.length} device${filteredDevices.length == 1 ? '' : 's'} found",
+                                  style: TextStyle(
+                                    color: subtle,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            if (filteredDevices.isEmpty && searchQuery.isEmpty)
+                              _buildNoDevicesCard()
+                            else
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final gridCols = constraints.maxWidth > 900
+                                      ? 3
+                                      : (constraints.maxWidth > 600 ? 2 : 1);
+
+                                  if (gridCols > 1) {
+                                    return GridView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: gridCols,
+                                        mainAxisExtent: 76,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 12,
+                                      ),
+                                      itemCount: filteredDevices.length,
+                                      itemBuilder: (context, i) {
+                                        return _buildGridDeviceCard(
+                                          context: context,
+                                          index: i,
+                                          d: filteredDevices[i],
+                                          isDarkMode: isDarkMode,
+                                          strong: strong,
+                                          subtle: subtle,
+                                          card: card,
+                                          accent: accent,
+                                          screenWidth: screenWidth,
+                                        );
+                                      },
+                                    );
+                                  }
+
+                                  return Column(
+                                    children: filteredDevices.asMap().entries.map((entry) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      child: _buildGridDeviceCard(
+                                        context: context,
+                                        index: entry.key,
+                                        d: entry.value,
+                                        isDarkMode: isDarkMode,
+                                        strong: strong,
+                                        subtle: subtle,
+                                        card: card,
+                                        accent: accent,
+                                        screenWidth: screenWidth,
+                                      ),
+                                    )).toList(),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricSummaryCards({
+    required int total,
+    required int active,
+    required int inactive,
+    required bool isDarkMode,
+    required Color strong,
+    required Color subtle,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        return Row(
+          children: [
+            // 1. Total Devices Box
+            Expanded(
+              child: InkWell(
+                onTap: () => setState(() => filter = "All"),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: filter == "All"
+                        ? (isDarkMode ? const Color(0xFF0288D1).withOpacity(0.25) : const Color(0xFFE0F2FE))
+                        : (isDarkMode ? const Color(0xFF1E293B) : Colors.white),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: filter == "All" ? const Color(0xFF0288D1) : (isDarkMode ? Colors.white12 : Colors.black12),
+                      width: filter == "All" ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.devices, size: isMobile ? 16 : 20, color: const Color(0xFF0288D1)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              "Total Devices",
+                              style: TextStyle(
+                                color: subtle,
+                                fontSize: isMobile ? 11 : 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "$total",
+                        style: TextStyle(
+                          color: strong,
+                          fontSize: isMobile ? 18 : 24,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: TextField(
-                    controller: _searchController,
-                    style: TextStyle(color: strong),
-                    decoration: InputDecoration(
-                      hintText: "Search Device ID, Category, Location...",
-                      hintStyle: TextStyle(color: subtle),
-                      prefixIcon: Icon(Icons.search, color: subtle),
-                      suffixIcon: searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.clear, color: subtle),
-                              onPressed: () => _searchController.clear(),
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: card,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                            color:
-                                isDarkMode ? Colors.white10 : Colors.black12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                            color: isDarkMode
-                                ? Colors.white12
-                                : Colors.black.withOpacity(0.05)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: accent, width: 1.5),
-                      ),
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // 2. Active Devices Box
+            Expanded(
+              child: InkWell(
+                onTap: () => setState(() => filter = "Active"),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: filter == "Active"
+                        ? (isDarkMode ? const Color(0xFF10B981).withOpacity(0.25) : const Color(0xFFD1FAE5))
+                        : (isDarkMode ? const Color(0xFF1E293B) : Colors.white),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: filter == "Active" ? const Color(0xFF10B981) : (isDarkMode ? Colors.white12 : Colors.black12),
+                      width: filter == "Active" ? 2 : 1,
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ["All", "Active", "Inactive"].map((opt) {
-                      final selected = filter == opt;
-                      return ChoiceChip(
-                        label: Text(
-                          opt,
-                          style: TextStyle(
-                            color: selected ? Colors.white : strong,
-                            fontWeight: FontWeight.w600,
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline, size: isMobile ? 16 : 20, color: const Color(0xFF10B981)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              "Active",
+                              style: TextStyle(
+                                color: subtle,
+                                fontSize: isMobile ? 11 : 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "$active",
+                        style: TextStyle(
+                          color: const Color(0xFF10B981),
+                          fontSize: isMobile ? 18 : 24,
+                          fontWeight: FontWeight.w900,
                         ),
-                        selected: selected,
-                        selectedColor: opt == "Active"
-                            ? Colors.green.withOpacity(0.8)
-                            : (opt == "Inactive"
-                                ? Colors.red.withOpacity(0.8)
-                                : accent),
-                        backgroundColor: card.withOpacity(0.5),
-                        onSelected: (_) => setState(() => filter = opt),
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _isLoading || _isLoadingBattery
-                    ? const Center(child: CircularProgressIndicator())
-                    : Container(
-                        decoration: BoxDecoration(
-                          color: card.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: card.withOpacity(0.1)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withOpacity(isDarkMode ? 0.3 : 0.05),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 4),
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // 3. Inactive Devices Box
+            Expanded(
+              child: InkWell(
+                onTap: () => setState(() => filter = "Inactive"),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: filter == "Inactive"
+                        ? (isDarkMode ? const Color(0xFFEF4444).withOpacity(0.25) : const Color(0xFFFEE2E2))
+                        : (isDarkMode ? const Color(0xFF1E293B) : Colors.white),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: filter == "Inactive" ? const Color(0xFFEF4444) : (isDarkMode ? Colors.white12 : Colors.black12),
+                      width: filter == "Inactive" ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: isMobile ? 16 : 20, color: const Color(0xFFEF4444)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              "Inactive",
+                              style: TextStyle(
+                                color: subtle,
+                                fontSize: isMobile ? 11 : 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "$inactive",
+                        style: TextStyle(
+                          color: const Color(0xFFEF4444),
+                          fontSize: isMobile ? 18 : 24,
+                          fontWeight: FontWeight.w900,
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildGridDeviceCard({
+    required BuildContext context,
+    required int index,
+    required Map<String, dynamic> d,
+    required bool isDarkMode,
+    required Color strong,
+    required Color subtle,
+    required Color card,
+    required Color accent,
+    required double screenWidth,
+  }) {
+    final sensorName = d['DeviceId'] as String;
+    final displaySensorName = _toAnnamDisplayName(sensorName);
+    final isActive = d['isActive'] == true;
+    final location = _getLocationForSensor(sensorName) ?? '';
+
+    String sequentialName = '';
+    String category = d['Category'] ?? '';
+
+    if (category == 'CPS Lab Sensors') {
+      if (sensorName.contains('LU')) {
+        sequentialName = 'Lux Sensor';
+      } else if (sensorName.contains('TE')) {
+        sequentialName = 'Temperature Sensor';
+      } else if (sensorName.contains('AC')) {
+        sequentialName = 'Accelerometer Sensor';
+      }
+    } else if (category == 'ANNAM Sensors') {
+      sequentialName = 'ANNAM Sensor';
+    } else if (category.contains('IIT Bombay')) {
+      sequentialName = 'IIT Bombay Sensor';
+    } else if (category.contains('IIT Ropar')) {
+      sequentialName = 'IIT Ropar Sensor';
+    } else if (category.contains('Forest')) {
+      sequentialName = 'Forest Sensor';
+    } else if (category.contains('Soil')) {
+      sequentialName = 'Soil Sensor';
+    } else if (category.contains('Jan Weather')) {
+      sequentialName = 'Jan Weather Sensor';
+    } else if (category.contains('SSMET Weather')) {
+      final sw = sensorName.trim().toUpperCase();
+      if (sw == 'SW013') {
+        sequentialName = 'Agri Bazar Sensor';
+      } else if (sw == 'SW007') {
+        sequentialName = 'IMD Chandigarh Sensor';
+      } else {
+        sequentialName = 'SSMET Weather Sensor';
+      }
+    } else {
+      sequentialName = '${category.split(" ").first} Sensor';
+    }
+
+    final statusColor = isActive ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoverStates[sensorName] = true),
+      onExit: (_) => setState(() => _hoverStates[sensorName] = false),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _hoverStates[sensorName] == true
+                ? accent.withOpacity(0.5)
+                : (isDarkMode ? Colors.white12 : Colors.black.withOpacity(0.08)),
+            width: 1.2,
+          ),
+          boxShadow: [
+            if (_hoverStates[sensorName] == true)
+              BoxShadow(
+                color: accent.withOpacity(0.15),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+          ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Vertical status indicator bar on left edge (matching Admin page)
+              Container(
+                width: 4.0,
+                color: statusColor,
+              ),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    if (sensorName.startsWith('BF')) {
+                      String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
+                      NavigationUtils.navigateTo(
+                        context,
+                        '/buffalodata',
+                        arguments: {
+                          'startDateTime': DateTime.now(),
+                          'endDateTime': DateTime.now().add(const Duration(days: 1)),
+                          'nodeId': numericNodeId,
+                        },
+                      );
+                    } else if (sensorName.startsWith('CS')) {
+                      String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
+                      NavigationUtils.navigateTo(
+                        context,
+                        '/cowdata',
+                        arguments: {
+                          'startDateTime': DateTime.now(),
+                          'endDateTime': DateTime.now().add(const Duration(days: 1)),
+                          'nodeId': numericNodeId,
+                        },
+                      );
+                    } else {
+                      NavigationUtils.navigateTo(
+                        context,
+                        '/devicegraph',
+                        arguments: {
+                          'deviceName': sensorName,
+                          'sequentialName': sequentialName,
+                          'backgroundImagePath': 'assets/backgroundd.jpg',
+                        },
+                      );
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (filteredDevices.isNotEmpty ||
-                                  searchQuery.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: Text(
-                                    "${filteredDevices.length} device${filteredDevices.length == 1 ? '' : 's'} found",
-                                    style: TextStyle(
-                                      color: subtle,
-                                      fontSize: 13,
-                                    ),
+                              Text(
+                                "${index + 1}. $displaySensorName",
+                                style: TextStyle(
+                                  color: strong,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: screenWidth < 600 ? 12 : 13.5,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (location.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  location,
+                                  style: TextStyle(
+                                    color: subtle,
+                                    fontSize: screenWidth < 600 ? 10 : 11.5,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              if (_email == 'sharmasejal2701@gmail.com')
-                                Column(
-                                  children: [
-                                    InkWell(
-                                      hoverColor: isDarkMode
-                                          ? const Color(0xFF2C3E50)
-                                              .withOpacity(0.6)
-                                          : const Color(0xFF5BAA9D)
-                                              .withOpacity(0.9),
-                                      onTap: () {
-                                        NavigationUtils.navigateTo(
-                                            context, '/deviceinfo');
-                                      },
-                                      child: ListTile(
-                                        leading:
-                                            _StatusDot(color: Colors.green),
-                                        title: Text(
-                                          "GPS Sensors",
-                                          style: TextStyle(
-                                            color: strong,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize:
-                                                screenWidth < 600 ? 12 : 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        subtitle: Text(
-                                          "Rupnagar, Punjab",
-                                          style: TextStyle(
-                                              color: subtle, fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                    Divider(color: subtle.withOpacity(.12)),
-                                  ],
-                                ),
-                              if (filteredDevices.isEmpty &&
-                                  searchQuery.isEmpty)
-                                _buildNoDevicesCard()
-                              else
-                                ...filteredDevices.map((d) {
-                                  // Internal sensor name (used for API calls)
-                                  final sensorName = d['DeviceId'] as String;
-                                  // Display name (ANNAM prefix where applicable)
-                                  final displaySensorName =
-                                      _toAnnamDisplayName(sensorName);
-
-                                  String sequentialName = '';
-                                  String category = d['Category'];
-
-                                  int luxSensorCount = 0;
-                                  int tempSensorCount = 0;
-                                  int accelerometerSensorCount = 0;
-
-                                  if (category == 'CPS Lab Sensors') {
-                                    if (sensorName.contains('LU')) {
-                                      luxSensorCount++;
-                                      sequentialName =
-                                          'Lux Sensor $luxSensorCount';
-                                    } else if (sensorName.contains('TE')) {
-                                      tempSensorCount++;
-                                      sequentialName =
-                                          'Temperature Sensor $tempSensorCount';
-                                    } else if (sensorName.contains('AC')) {
-                                      accelerometerSensorCount++;
-                                      sequentialName =
-                                          'Accelerometer Sensor $accelerometerSensorCount';
-                                    }
-                                  } else if (category == 'ANNAM Sensors') {
-                                    sequentialName = 'ANNAM Sensor';
-                                  } else if (category ==
-                                      'IIT Bombay\nSensors') {
-                                    sequentialName = 'IIT Bombay Sensor';
-                                  } else if (category ==
-                                      'IIT Ropar Campus\nSensors') {
-                                    sequentialName = 'IIT Ropar Sensor';
-                                  } else if (category ==
-                                      'SSMet Forest Sensors\n(Bhopal)') {
-                                    sequentialName = 'Forest Sensor';
-                                  } else if (category == 'SSMet Soil Sensors') {
-                                    sequentialName = 'Soil Sensor';
-                                  } else if (category == 'SSMET Sensors') {
-                                    sequentialName = 'SSMET Sensor';
-                                  } else if (category ==
-                                      'Jan Weather Sensors') {
-                                    sequentialName = 'Jan Weather Sensor';
-                                  } else if (category ==
-                                      'SSMET Weather Sensors') {
-                                    final sw = sensorName.trim().toUpperCase();
-                                    if (sw == 'SW013') {
-                                      sequentialName = 'Agri Bazar Sensor';
-                                    } else if (sw == 'SW007') {
-                                      sequentialName = 'IMD Chandigarh Sensor';
-                                    } else {
-                                      sequentialName = 'SSMET Weather Sensor';
-                                    }
-                                  } else if (category ==
-                                      'Sardar Vallabhbhai Patel University of Agriculture\nand Technology Sensors (Meerut)') {
-                                    sequentialName = 'SVPU Sensor';
-                                  } else if (category ==
-                                      'National Atmospheric Research Labortary\nSensors') {
-                                    sequentialName = 'NARL Sensor';
-                                  } else {
-                                    sequentialName =
-                                        '${category.split(" ").first} Sensor';
-                                  }
-
-                                  return Column(
-                                    children: [
-                                      MouseRegion(
-                                        onEnter: (_) => setState(() =>
-                                            _hoverStates[sensorName] = true),
-                                        onExit: (_) => setState(() =>
-                                            _hoverStates[sensorName] = false),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: card,
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: _hoverStates[sensorName] ==
-                                                      true
-                                                  ? accent.withOpacity(0.4)
-                                                  : (isDarkMode
-                                                      ? Colors.white12
-                                                      : Colors.black
-                                                          .withOpacity(0.06)),
-                                              width: 1.2,
-                                            ),
-                                            boxShadow: [
-                                              if (_hoverStates[sensorName] ==
-                                                  true)
-                                                BoxShadow(
-                                                  color:
-                                                      accent.withOpacity(0.15),
-                                                  blurRadius: 10,
-                                                  spreadRadius: 2,
-                                                ),
-                                            ],
-                                          ),
-                                          child: InkWell(
-                                            onTap: () {
-                                              if (sensorName.startsWith('BF')) {
-                                                String numericNodeId =
-                                                    sensorName.replaceAll(
-                                                        RegExp(r'\D'), '');
-                                                NavigationUtils.navigateTo(
-                                                  context,
-                                                  '/buffalodata',
-                                                  arguments: {
-                                                    'startDateTime':
-                                                        DateTime.now(),
-                                                    'endDateTime':
-                                                        DateTime.now().add(
-                                                            const Duration(
-                                                                days: 1)),
-                                                    'nodeId': numericNodeId,
-                                                  },
-                                                );
-                                              } else if (sensorName
-                                                  .startsWith('CS')) {
-                                                String numericNodeId =
-                                                    sensorName.replaceAll(
-                                                        RegExp(r'\D'), '');
-                                                NavigationUtils.navigateTo(
-                                                  context,
-                                                  '/cowdata',
-                                                  arguments: {
-                                                    'startDateTime':
-                                                        DateTime.now(),
-                                                    'endDateTime':
-                                                        DateTime.now().add(
-                                                            const Duration(
-                                                                days: 1)),
-                                                    'nodeId': numericNodeId,
-                                                  },
-                                                );
-                                              } else {
-                                                NavigationUtils.navigateTo(
-                                                  context,
-                                                  '/devicegraph',
-                                                  arguments: {
-                                                    'deviceName': sensorName,
-                                                    'sequentialName':
-                                                        sequentialName,
-                                                    'backgroundImagePath':
-                                                        'assets/backgroundd.jpg',
-                                                  },
-                                                );
-                                              }
-                                            },
-                                            child: ListTile(
-                                              leading: _StatusDot(
-                                                  color: d['isActive'] == true
-                                                      ? Colors.green
-                                                      : Colors.red),
-                                              // ── Show ANNAM display name ──
-                                              title: Text(
-                                                "ID: $displaySensorName",
-                                                style: TextStyle(
-                                                  color: strong,
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: screenWidth < 600
-                                                      ? 12
-                                                      : 14,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              subtitle: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Builder(builder: (context) {
-                                                    final loc =
-                                                        _getLocationForSensor(
-                                                            sensorName);
-                                                    if (loc == null ||
-                                                        loc.isEmpty)
-                                                      return const SizedBox
-                                                          .shrink();
-                                                    return Text(
-                                                      loc,
-                                                      style: TextStyle(
-                                                        color: subtle,
-                                                        fontSize:
-                                                            screenWidth < 600
-                                                                ? 10
-                                                                : 12,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    );
-                                                  }),
-                                                ],
-                                              ),
-                                              trailing: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      Icons.info_outline,
-                                                      size:
-                                                          getResponsiveFontSize(
-                                                              context, 16, 20),
-                                                      color: strong,
-                                                    ),
-                                                    onPressed: () {
-                                                      var paramNames =
-                                                          getParamNamesForSensor(
-                                                              sensorName);
-                                                      showDialog(
-                                                        context: context,
-                                                        builder: (context) {
-                                                          return BackdropFilter(
-                                                            filter: ImageFilter
-                                                                .blur(
-                                                              sigmaX: 4,
-                                                              sigmaY: 4,
-                                                            ),
-                                                            child: AlertDialog(
-                                                              title: Text(
-                                                                "Parameters",
-                                                                style: TextStyle(
-                                                                    color:
-                                                                        strong),
-                                                              ),
-                                                              content:
-                                                                  SingleChildScrollView(
-                                                                child: ListBody(
-                                                                  children: paramNames
-                                                                      .asMap()
-                                                                      .entries
-                                                                      .map(
-                                                                          (entry) {
-                                                                    int idx =
-                                                                        entry
-                                                                            .key;
-                                                                    String
-                                                                        param =
-                                                                        entry
-                                                                            .value;
-                                                                    String
-                                                                        displayName =
-                                                                        parameterDisplayNames[param] ??
-                                                                            param;
-                                                                    return Padding(
-                                                                      padding: EdgeInsets.symmetric(
-                                                                          vertical: getResponsiveFontSize(
-                                                                              context,
-                                                                              6,
-                                                                              8)),
-                                                                      child:
-                                                                          Row(
-                                                                        crossAxisAlignment:
-                                                                            CrossAxisAlignment.start,
-                                                                        children: [
-                                                                          SizedBox(
-                                                                            width:
-                                                                                40,
-                                                                            child:
-                                                                                Text(
-                                                                              '${idx + 1}.',
-                                                                              style: TextStyle(
-                                                                                fontSize: getResponsiveFontSize(context, 14, 16),
-                                                                                color: isDarkMode ? Colors.white70 : Colors.black87,
-                                                                              ),
-                                                                              textAlign: TextAlign.right,
-                                                                            ),
-                                                                          ),
-                                                                          const SizedBox(
-                                                                              width: 10),
-                                                                          Expanded(
-                                                                            child:
-                                                                                Text(
-                                                                              displayName,
-                                                                              style: TextStyle(
-                                                                                fontSize: getResponsiveFontSize(context, 14, 16),
-                                                                                color: isDarkMode ? Colors.white70 : Colors.black87,
-                                                                              ),
-                                                                            ),
-                                                                          ),
-                                                                        ],
-                                                                      ),
-                                                                    );
-                                                                  }).toList(),
-                                                                ),
-                                                              ),
-                                                              backgroundColor: isDarkMode
-                                                                  ? const Color(
-                                                                          0xFF2C3E50)
-                                                                      .withOpacity(
-                                                                          0.85)
-                                                                  : Colors.white
-                                                                      .withOpacity(
-                                                                          0.85),
-                                                              actions: [
-                                                                TextButton(
-                                                                  child: Text(
-                                                                    "Close",
-                                                                    style: TextStyle(
-                                                                        color:
-                                                                            strong),
-                                                                  ),
-                                                                  onPressed: () =>
-                                                                      Navigator.pop(
-                                                                          context),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          );
-                                                        },
-                                                      );
-                                                    },
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Divider(color: subtle.withOpacity(.12)),
-                                    ],
-                                  );
-                                }),
+                              ],
                             ],
                           ),
                         ),
-                      ),
-              ],
-            ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.info_outline,
+                            size: getResponsiveFontSize(context, 16, 18),
+                            color: subtle,
+                          ),
+                          onPressed: () {
+                            var paramNames = getParamNamesForSensor(sensorName);
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return BackdropFilter(
+                                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                                  child: AlertDialog(
+                                    title: Text("Parameters", style: TextStyle(color: strong)),
+                                    content: SingleChildScrollView(
+                                      child: ListBody(
+                                        children: paramNames.asMap().entries.map((entry) {
+                                          int idx = entry.key;
+                                          String param = entry.value;
+                                          String displayName = parameterDisplayNames[param] ?? param;
+                                          return Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: getResponsiveFontSize(context, 6, 8),
+                                            ),
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                SizedBox(
+                                                  width: 40,
+                                                  child: Text(
+                                                    '${idx + 1}.',
+                                                    style: TextStyle(
+                                                      fontSize: getResponsiveFontSize(context, 14, 16),
+                                                      color: isDarkMode ? Colors.white70 : Colors.black87,
+                                                    ),
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    displayName,
+                                                    style: TextStyle(
+                                                      fontSize: getResponsiveFontSize(context, 14, 16),
+                                                      color: isDarkMode ? Colors.white70 : Colors.black87,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                    backgroundColor: isDarkMode
+                                        ? const Color(0xFF2C3E50).withOpacity(0.85)
+                                        : Colors.white.withOpacity(0.85),
+                                    actions: [
+                                      TextButton(
+                                        child: Text("Close", style: TextStyle(color: strong)),
+                                        onPressed: () => Navigator.pop(context),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
