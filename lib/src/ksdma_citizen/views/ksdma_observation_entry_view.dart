@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
+import 'ksdma_resources_view.dart';
 
 class KsdmaObservationEntryView extends StatefulWidget {
   final String stationId;
   final VoidCallback onSubmitted;
+  final VoidCallback? onGoToTutorials;
 
   const KsdmaObservationEntryView({
     super.key,
     required this.stationId,
     required this.onSubmitted,
+    this.onGoToTutorials,
   });
 
   @override
@@ -27,6 +30,17 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
   final TextEditingController _humidityCtrl = TextEditingController();
 
   TimeOfDay _observationTime = const TimeOfDay(hour: 8, minute: 0);
+
+  void _navigateToTutorials(InstrumentType instrumentType) {
+    if (widget.onGoToTutorials != null) {
+      widget.onGoToTutorials!();
+    } else {
+      widget.onSubmitted();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      KsdmaResourcesView.openTutorialDialog(context, instrumentType);
+    });
+  }
 
   @override
   void initState() {
@@ -72,6 +86,35 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
           const SnackBar(
             content: Text('🔒 Station Pending Approval - You cannot enter observation data until KSDMA Admin HQ approves this instrument.'),
             backgroundColor: Colors.amber,
+          ),
+        );
+        return;
+      }
+
+      // Check Mandatory Training Video Completion
+      if (!state.isInstrumentTrainingCompleted(station.instrumentType)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: const [
+                Icon(Icons.lock, color: Colors.amber),
+                SizedBox(width: 8),
+                Text('Training Required'),
+              ],
+            ),
+            content: Text('Please watch and complete the IMD tutorial video for "${station.instrumentType.displayName}" before submitting readings.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _navigateToTutorials(station.instrumentType);
+                },
+                child: const Text('Watch Video Now'),
+              ),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ],
           ),
         );
         return;
@@ -184,12 +227,32 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
     final state = Provider.of<KsdmaStateService>(context);
     final station = state.stations.firstWhere(
       (s) => s.stationId == widget.stationId,
-      orElse: () => state.stations.first,
+      orElse: () => state.stations.isNotEmpty
+          ? state.stations.first
+          : KsdmaStation(
+              stationId: widget.stationId,
+              ownerUserId: 'guest',
+              ownerName: 'Volunteer Observer',
+              ownerCategory: UserCategory.generalPublic,
+              category: StationCategory.manual,
+              instrumentType: InstrumentType.rainGauge,
+              deviceMake: 'Standard',
+              measurementLocation: 'Terrace Ground',
+              latitude: 10.5276,
+              longitude: 76.2144,
+              district: 'Thiruvananthapuram',
+              taluk: 'Thiruvananthapuram',
+              gramaPanchayat: 'Thiruvananthapuram',
+              village: 'Thiruvananthapuram',
+              approvalStatus: ApprovalStatus.approved,
+              createdAt: DateTime.now(),
+            ),
     );
 
     final todayObs = state.getTodayObservation(widget.stationId);
     final isEdit = todayObs != null;
     final isWindowOpen = state.isObservationWindowOpen(station.instrumentType, isEdit: isEdit);
+    final isTrainingCompleted = state.isInstrumentTrainingCompleted(station.instrumentType);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -236,6 +299,57 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
                   ],
                 ),
                 const Divider(height: 28),
+
+                // Training Video Mandatory Lock Banner
+                if (!isTrainingCompleted) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.lock, color: Color(0xFFD97706), size: 22),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Mandatory Tutorial Video Training Required',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF92400E)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'You must watch the official IMD protocol video for "${station.instrumentType.displayName}" in Tutorial Resources before entering data.',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF78350F)),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _navigateToTutorials(station.instrumentType);
+                          },
+                          icon: const Icon(Icons.play_circle_fill, color: Colors.white, size: 16),
+                          label: Text(
+                            'Watch ${station.instrumentType.displayName} Tutorial Now',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD97706),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 // Time Window Protocol Status Banner
                 Container(

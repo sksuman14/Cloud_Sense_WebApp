@@ -268,7 +268,26 @@ class KsdmaLandingView extends StatelessWidget {
                             final obs = state.observations[index];
                             final station = state.stations.firstWhere(
                               (s) => s.stationId == obs.stationId,
-                              orElse: () => state.stations.first,
+                              orElse: () => state.stations.isNotEmpty
+                                  ? state.stations.first
+                                  : KsdmaStation(
+                                      stationId: obs.stationId,
+                                      ownerUserId: 'guest',
+                                      ownerName: 'Volunteer Observer',
+                                      ownerCategory: UserCategory.generalPublic,
+                                      category: StationCategory.manual,
+                                      instrumentType: InstrumentType.rainGauge,
+                                      deviceMake: 'Standard',
+                                      measurementLocation: 'Terrace Ground',
+                                      latitude: 10.5276,
+                                      longitude: 76.2144,
+                                      district: 'Thiruvananthapuram',
+                                      taluk: 'Thiruvananthapuram',
+                                      gramaPanchayat: 'Thiruvananthapuram',
+                                      village: 'Thiruvananthapuram',
+                                      approvalStatus: ApprovalStatus.approved,
+                                      createdAt: DateTime.now(),
+                                    ),
                             );
 
                             String valText = '';

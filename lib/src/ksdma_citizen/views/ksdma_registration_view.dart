@@ -713,37 +713,39 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
         // Row 2: Cascading Grama Panchayat & Village
         _buildFieldPair(
           isMobile,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Grama Panchayat *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFCBD5E1)),
-                ),
-                child: DropdownButton<String>(
-                  value: gpOptions.contains(_gpController.text) ? _gpController.text : (gpOptions.isNotEmpty ? gpOptions.first : null),
-                  isExpanded: true,
-                  dropdownColor: Colors.white,
-                  underline: const SizedBox(),
-                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
-                  items: gpOptions.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold)))).toList(),
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() {
-                        _gpController.text = v;
-                        _villageController.text = v;
-                      });
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
+          gpOptions.isNotEmpty
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Grama Panchayat *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: DropdownButton<String>(
+                        value: gpOptions.contains(_gpController.text) ? _gpController.text : (gpOptions.isNotEmpty ? gpOptions.first : null),
+                        isExpanded: true,
+                        dropdownColor: Colors.white,
+                        underline: const SizedBox(),
+                        style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12.5, fontWeight: FontWeight.bold),
+                        items: gpOptions.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 12.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold)))).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() {
+                              _gpController.text = v;
+                              _villageController.text = v;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                )
+              : _buildTextField('Grama Panchayat *', _gpController, hint: 'e.g. Ambalappuzha Panchayat'),
           _buildTextField('Village / Ward *', _villageController, hint: 'e.g. Village Name'),
         ),
         const SizedBox(height: 12),

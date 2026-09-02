@@ -537,6 +537,12 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> {
             _activeMenuIndex = 1;
           });
         },
+        onGoToTutorials: () {
+          setState(() {
+            _targetObservationStationId = null;
+            _activeMenuIndex = 5;
+          });
+        },
       );
     }
 

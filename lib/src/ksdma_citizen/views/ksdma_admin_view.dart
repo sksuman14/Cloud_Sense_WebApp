@@ -325,7 +325,9 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                     DataColumn(label: Text('ACTIONS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
                   ],
                   rows: pending.map((station) {
-                    final submittedDateStr = '07 Aug';
+                    final dt = station.createdAt;
+                    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    final submittedDateStr = '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]}';
                     return DataRow(
                       cells: [
                         DataCell(
@@ -461,7 +463,28 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
 
     final targetStation = volunteerStations.firstWhere(
       (s) => s.stationId == _selectedUploadStationId,
-      orElse: () => volunteerStations.isNotEmpty ? volunteerStations.first : state.stations.first,
+      orElse: () => volunteerStations.isNotEmpty
+          ? volunteerStations.first
+          : (state.stations.isNotEmpty
+              ? state.stations.first
+              : KsdmaStation(
+                  stationId: 'PWS_001',
+                  ownerUserId: 'guest',
+                  ownerName: 'Volunteer Observer',
+                  ownerCategory: UserCategory.generalPublic,
+                  category: StationCategory.manual,
+                  instrumentType: InstrumentType.rainGauge,
+                  deviceMake: 'Standard',
+                  measurementLocation: 'Terrace Ground',
+                  latitude: 10.5276,
+                  longitude: 76.2144,
+                  district: 'Thiruvananthapuram',
+                  taluk: 'Thiruvananthapuram',
+                  gramaPanchayat: 'Thiruvananthapuram',
+                  village: 'Thiruvananthapuram',
+                  approvalStatus: ApprovalStatus.approved,
+                  createdAt: DateTime.now(),
+                )),
     );
 
     return Card(

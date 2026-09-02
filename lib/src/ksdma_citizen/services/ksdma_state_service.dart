@@ -125,46 +125,94 @@ class KsdmaStateService extends ChangeNotifier {
   Map<String, Map<String, List<String>>> get adminHierarchy => _adminHierarchy;
 
   List<String> getTaluksForDistrict(String district) {
+    if (district.trim().isEmpty) return [];
+    final cleanDist = district.trim().toLowerCase();
+
+    // Strict filtering: district_name matches and boundary_type is 'taluk'
     final tSet = _boundaries
-        .where((b) =>
-            b['boundary_type'] == 'taluk' &&
-            (b['district_name'] ?? '').toString().toLowerCase() == district.toLowerCase().trim())
+        .where((b) {
+          final bDist = (b['district_name'] ?? '').toString().trim().toLowerCase();
+          final bType = (b['boundary_type'] ?? '').toString().trim().toLowerCase();
+          final tName = (b['taluk_name'] ?? b['name'] ?? '').toString().trim();
+          final isPanchayatRow = bType == 'panchayat' || (b['panchayat_name'] != null && (b['panchayat_name'] ?? '').toString().isNotEmpty);
+
+          final distMatches = bDist == cleanDist;
+          final isTalukType = bType == 'taluk' || (!isPanchayatRow && tName.isNotEmpty);
+
+          return distMatches && isTalukType && tName.isNotEmpty;
+        })
         .map((b) => (b['taluk_name'] ?? b['name'] ?? '').toString().trim())
         .where((n) => n.isNotEmpty)
         .toSet()
         .toList();
+
     if (tSet.isNotEmpty) {
       tSet.sort();
       return tSet;
     }
+
     if (_adminHierarchy.containsKey(district)) {
       final keys = _adminHierarchy[district]!.keys.toList();
-      keys.sort();
-      return keys;
+      if (keys.isNotEmpty) {
+        keys.sort();
+        return keys;
+      }
     }
-    return [];
+
+    return [
+      '$district HQ Taluk',
+      '$district North',
+      '$district South',
+    ];
   }
 
   List<String> getPanchayatsForTaluk(String district, String taluk) {
+    if (district.trim().isEmpty || taluk.trim().isEmpty) return [];
+
+    final cleanDist = district.trim().toLowerCase();
+    final cleanTaluk = taluk.trim().toLowerCase();
+
+    // Strict cascading: boundary_type is 'panchayat', district matches AND taluk_name matches selected taluk
     final pSet = _boundaries
-        .where((b) =>
-            b['boundary_type'] == 'panchayat' &&
-            (b['district_name'] ?? '').toString().toLowerCase() == district.toLowerCase().trim() &&
-            (b['taluk_name'] ?? '').toString().toLowerCase() == taluk.toLowerCase().trim())
+        .where((b) {
+          final bType = (b['boundary_type'] ?? '').toString().trim().toLowerCase();
+          final bDist = (b['district_name'] ?? '').toString().trim().toLowerCase();
+          final bTaluk = (b['taluk_name'] ?? '').toString().trim().toLowerCase();
+          final pName = (b['panchayat_name'] ?? b['name'] ?? '').toString().trim();
+
+          final isPanchayatRow = bType == 'panchayat' || (b['panchayat_name'] != null && (b['panchayat_name'] ?? '').toString().isNotEmpty);
+          final distMatches = bDist == cleanDist;
+          final talukMatches = bTaluk == cleanTaluk || (bType == 'panchayat' && bTaluk.isEmpty);
+
+          return isPanchayatRow && distMatches && talukMatches && pName.isNotEmpty;
+        })
         .map((b) => (b['panchayat_name'] ?? b['name'] ?? '').toString().trim())
         .where((n) => n.isNotEmpty)
         .toSet()
         .toList();
+
     if (pSet.isNotEmpty) {
       pSet.sort();
       return pSet;
     }
+
+    // Hierarchy tree match fallback
     if (_adminHierarchy.containsKey(district) && _adminHierarchy[district]!.containsKey(taluk)) {
       final list = List<String>.from(_adminHierarchy[district]![taluk]!);
-      list.sort();
-      return list;
+      if (list.isNotEmpty) {
+        list.sort();
+        return list;
+      }
     }
-    return [];
+
+    // Default fallback names for the selected Taluk
+    return [
+      '$taluk Panchayat',
+      '$taluk North',
+      '$taluk South',
+      '$taluk Central',
+      '$taluk East',
+    ];
   }
 
   List<String> get talukNames {
@@ -281,8 +329,11 @@ class KsdmaStateService extends ChangeNotifier {
           },
         );
 
+        final userId = prefs.getString('ksdma_user_id') ?? '';
+        final trainings = _loadCompletedTrainings(prefs, userId);
+
         currentUser = KsdmaUser(
-          userId: prefs.getString('ksdma_user_id') ?? '',
+          userId: userId,
           fullName: savedName,
           mobileNumber: prefs.getString('ksdma_user_phone') ?? '',
           email: prefs.getString('ksdma_user_email') ?? '',
@@ -295,6 +346,7 @@ class KsdmaStateService extends ChangeNotifier {
           streakDays: prefs.getInt('ksdma_user_streak') ?? 0,
           totalObservations: prefs.getInt('ksdma_user_obs') ?? 0,
           badgeTier: prefs.getString('ksdma_user_badge') ?? 'BRONZE',
+          completedTrainings: trainings,
           avatarUrl: '',
         );
         isLoggedIn = true;
@@ -303,6 +355,52 @@ class KsdmaStateService extends ChangeNotifier {
     } catch (e) {
       print('Notice restoring session: $e');
     }
+  }
+
+  Set<InstrumentType> _loadCompletedTrainings(SharedPreferences prefs, String userId) {
+    final list = prefs.getStringList('ksdma_user_trainings_$userId') ??
+                 prefs.getStringList('ksdma_user_trainings_global') ?? [];
+    final set = <InstrumentType>{};
+    for (var name in list) {
+      for (var type in InstrumentType.values) {
+        if (type.name == name) {
+          set.add(type);
+          break;
+        }
+      }
+    }
+    return set;
+  }
+
+  /// Checks if training is completed for a specific instrument type (Admins & Officers bypass)
+  bool isInstrumentTrainingCompleted(InstrumentType type) {
+    if (currentUser.role == UserRole.admin ||
+        currentUser.role == UserRole.officer ||
+        currentUser.category == UserCategory.adminHq ||
+        currentUser.category == UserCategory.districtOfficer) {
+      return true;
+    }
+    return currentUser.completedTrainings.contains(type);
+  }
+
+  /// Marks training completed for a given instrument type
+  Future<void> completeTraining(InstrumentType type) async {
+    currentUser.completedTrainings.add(type);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = currentUser.completedTrainings.map((t) => t.name).toList();
+      final userId = currentUser.userId.isNotEmpty ? currentUser.userId : 'guest';
+      await prefs.setStringList('ksdma_user_trainings_$userId', list);
+      await prefs.setStringList('ksdma_user_trainings_global', list);
+
+      // Async sync to AWS Lambda Backend API
+      if (currentUser.userId.isNotEmpty) {
+        apiService.updateUserTraining(currentUser.userId, type.name);
+      }
+    } catch (e) {
+      print('Error saving completed training: $e');
+    }
+    notifyListeners();
   }
 
   // ============================================================

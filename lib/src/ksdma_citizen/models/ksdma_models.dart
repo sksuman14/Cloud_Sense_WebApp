@@ -121,6 +121,7 @@ class KsdmaUser {
   int todayReadings;
   DateTime? lastObservationDate;
   String badgeTier; // BRONZE, SILVER, GOLD
+  Set<InstrumentType> completedTrainings = {};
   String? avatarUrl;
 
   KsdmaUser({
@@ -140,8 +141,9 @@ class KsdmaUser {
     this.todayReadings = 0,
     this.lastObservationDate,
     this.badgeTier = 'BRONZE',
+    Set<InstrumentType>? completedTrainings,
     this.avatarUrl,
-  });
+  }) : completedTrainings = completedTrainings ?? {};
 }
 
 class KsdmaStation {

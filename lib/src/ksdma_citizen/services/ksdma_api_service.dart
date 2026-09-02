@@ -1067,8 +1067,54 @@ class KsdmaApiService {
       todayReadings: _toInt(r['today_readings'] ?? r['today_observations']),
       lastObservationDate: r['last_observation_date'] != null ? DateTime.tryParse(r['last_observation_date'].toString()) : null,
       badgeTier: (r['badge'] ?? r['badge_tier'] ?? 'BRONZE').toString(),
+      completedTrainings: () {
+        final raw = r['completed_trainings'];
+        final set = <InstrumentType>{};
+        if (raw is List) {
+          for (var item in raw) {
+            for (var t in InstrumentType.values) {
+              if (t.name == item.toString()) {
+                set.add(t);
+                break;
+              }
+            }
+          }
+        } else if (raw is String && raw.isNotEmpty) {
+          final clean = raw.replaceAll('{', '').replaceAll('}', '').replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').replaceAll("'", '').trim();
+          if (clean.isNotEmpty) {
+            final parts = clean.split(',');
+            for (var item in parts) {
+              for (var t in InstrumentType.values) {
+                if (t.name == item.trim()) {
+                  set.add(t);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        return set;
+      }(),
       avatarUrl: '',
     );
+  }
+
+  /// Sync completed training to AWS Lambda REST API endpoint
+  Future<bool> updateUserTraining(String userId, String instrumentType) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/user/complete-training'),
+        headers: authHeaders,
+        body: jsonEncode({
+          'user_id': userId,
+          'instrument_type': instrumentType,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Notice syncing training to API: $e');
+      return false;
+    }
   }
 
   KsdmaStation _mapRowToStation(Map<String, dynamic> r) {
