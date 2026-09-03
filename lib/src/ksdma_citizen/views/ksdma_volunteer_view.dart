@@ -4,6 +4,7 @@ import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
+
 void _showZoomDialog(BuildContext context, String imageUrl) {
   if (imageUrl.isEmpty) return;
   showDialog(
@@ -53,7 +54,7 @@ void _showZoomDialog(BuildContext context, String imageUrl) {
   );
 }
 
-class KsdmaVolunteerView extends StatelessWidget {
+class KsdmaVolunteerView extends StatefulWidget {
   final Function(String stationId) onEnterObservation;
   final VoidCallback? onRegisterNewDevice;
 
@@ -62,6 +63,20 @@ class KsdmaVolunteerView extends StatelessWidget {
     required this.onEnterObservation,
     this.onRegisterNewDevice,
   });
+
+  @override
+  State<KsdmaVolunteerView> createState() => _KsdmaVolunteerViewState();
+}
+
+class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -219,10 +234,6 @@ class KsdmaVolunteerView extends StatelessWidget {
                 ),
               ],
 
-              const SizedBox(height: 20),
-
-
-
               const SizedBox(height: 24),
 
               // Streak & Contribution Stats Row (Responsive Grid / Stack)
@@ -317,7 +328,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                       ],
                     ),
                     ElevatedButton.icon(
-                      onPressed: onRegisterNewDevice,
+                      onPressed: widget.onRegisterNewDevice,
                       icon: const Icon(Icons.add_circle, size: 16),
                       label: const Text('➕ Register New Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: ElevatedButton.styleFrom(
@@ -344,7 +355,7 @@ class KsdmaVolunteerView extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: onRegisterNewDevice,
+                      onPressed: widget.onRegisterNewDevice,
                       icon: const Icon(Icons.add_circle, size: 15),
                       label: const Text('➕ Register Instrument', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                       style: ElevatedButton.styleFrom(
@@ -360,293 +371,371 @@ class KsdmaVolunteerView extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Registered Device Cards List
-              if (myStations.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          const Icon(Icons.sensors_off, size: 48, color: Colors.grey),
-                          const SizedBox(height: 12),
-                          const Text('No Weather Devices Registered Yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 6),
-                          const Text('Register your Standard Rain Gauge or Max-Min Thermometer to start contributing.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: onRegisterNewDevice,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Register Instrument Now'),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
+              // Device Search Input Field
+              if (myStations.isNotEmpty) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                    boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
                   ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: myStations.length,
-                  itemBuilder: (context, index) {
-                    final s = myStations[index];
-                    final obsToday = state.getTodayObservation(s.stationId);
-                    final obsRemovedToday = state.getTodayRemovedObservation(s.stationId);
-                    final isSubmittedToday = obsToday != null;
-                    final isFlaggedToday = !isSubmittedToday && obsRemovedToday != null;
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 20, color: Color(0xFF2563EB)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                          decoration: const InputDecoration(
+                            hintText: '🔍 Search your registered devices by ID, type, location...',
+                            hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                        ),
+                      ),
+                      if (_searchQuery.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
 
-                    Widget buildPhoto() {
-                      return GestureDetector(
-                        onTap: () {
-                          if (s.devicePhotoUrl != null && s.devicePhotoUrl!.isNotEmpty) {
-                            _showZoomDialog(context, s.devicePhotoUrl!);
-                          }
-                        },
-                        child: Tooltip(
-                          message: '🔍 Click to Zoom Photo',
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: Stack(
-                              alignment: Alignment.bottomRight,
-                              children: [
-                                Container(
-                                  width: isMobile ? 64 : 80,
-                                  height: isMobile ? 64 : 80,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    image: DecorationImage(
-                                      image: NetworkImage(s.devicePhotoUrl!),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.all(3),
-                                  margin: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                                  child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                                ),
-                              ],
-                            ),
+              // Registered Device Cards List
+              Builder(
+                builder: (context) {
+                  final filteredMyStations = _searchQuery.isEmpty
+                      ? myStations
+                      : myStations.where((s) {
+                          final q = _searchQuery.toLowerCase();
+                          return s.stationId.toLowerCase().contains(q) ||
+                              s.ownerName.toLowerCase().contains(q) ||
+                              s.instrumentType.displayName.toLowerCase().contains(q) ||
+                              s.district.toLowerCase().contains(q) ||
+                              s.taluk.toLowerCase().contains(q) ||
+                              s.gramaPanchayat.toLowerCase().contains(q);
+                        }).toList();
+
+                  if (myStations.isEmpty) {
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              const Icon(Icons.sensors_off, size: 48, color: Colors.grey),
+                              const SizedBox(height: 12),
+                              const Text('No Weather Devices Registered Yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const SizedBox(height: 6),
+                              const Text('Register your Standard Rain Gauge or Max-Min Thermometer to start contributing.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: widget.onRegisterNewDevice,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Register Instrument Now'),
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    Widget buildInfo() {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
+                  if (filteredMyStations.isEmpty) {
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Center(
+                          child: Column(
                             children: [
-                              Text(
-                                s.stationId,
-                                style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: s.approvalStatus == ApprovalStatus.approved
-                                      ? Colors.green.shade100
-                                      : s.approvalStatus == ApprovalStatus.rejected
-                                          ? Colors.red.shade100
-                                          : Colors.amber.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  s.approvalStatus == ApprovalStatus.approved
-                                      ? 'APPROVED & ACTIVE'
-                                      : s.approvalStatus == ApprovalStatus.rejected
-                                          ? '❌ REJECTED BY ADMIN'
-                                          : '⌛ PENDING APPROVAL',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: s.approvalStatus == ApprovalStatus.approved
-                                        ? Colors.green.shade900
-                                        : s.approvalStatus == ApprovalStatus.rejected
-                                            ? Colors.red.shade900
-                                            : Colors.amber.shade900,
+                              const Icon(Icons.search_off, size: 40, color: Colors.grey),
+                              const SizedBox(height: 8),
+                              Text('No devices found matching "$_searchQuery"', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredMyStations.length,
+                    itemBuilder: (context, index) {
+                      final s = filteredMyStations[index];
+                      final obsToday = state.getTodayObservation(s.stationId);
+                      final obsRemovedToday = state.getTodayRemovedObservation(s.stationId);
+                      final isSubmittedToday = obsToday != null;
+                      final isFlaggedToday = !isSubmittedToday && obsRemovedToday != null;
+
+                      Widget buildPhoto() {
+                        return GestureDetector(
+                          onTap: () {
+                            if (s.devicePhotoUrl != null && s.devicePhotoUrl!.isNotEmpty) {
+                              _showZoomDialog(context, s.devicePhotoUrl!);
+                            }
+                          },
+                          child: Tooltip(
+                            message: '🔍 Click to Zoom Photo',
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Stack(
+                                alignment: Alignment.bottomRight,
+                                children: [
+                                  Container(
+                                    width: isMobile ? 64 : 80,
+                                    height: isMobile ? 64 : 80,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      image: DecorationImage(
+                                        image: NetworkImage(s.devicePhotoUrl!),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    margin: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                                    child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                  ),
+                                ],
                               ),
-                              if (isSubmittedToday) ...[
+                            ),
+                          ),
+                        );
+                      }
+
+                      Widget buildInfo() {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  s.stationId,
+                                  style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
+                                ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: obsToday.isEdited ? Colors.purple.shade100 : Colors.blue.shade100,
+                                    color: s.approvalStatus == ApprovalStatus.approved
+                                        ? Colors.green.shade100
+                                        : s.approvalStatus == ApprovalStatus.rejected
+                                            ? Colors.red.shade100
+                                            : Colors.amber.shade100,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    '✅ TODAY: ${obsToday.rainfallMm != null ? "${obsToday.rainfallMm} mm" : obsToday.maxTemperatureC != null ? "${obsToday.maxTemperatureC}°C" : obsToday.riverWaterLevelM != null ? "${obsToday.riverWaterLevelM} m" : obsToday.humidityPercent != null ? "${obsToday.humidityPercent}%" : "Recorded"}${obsToday.isEdited ? " (EDITED)" : ""}',
+                                    s.approvalStatus == ApprovalStatus.approved
+                                        ? 'APPROVED & ACTIVE'
+                                        : s.approvalStatus == ApprovalStatus.rejected
+                                            ? '❌ REJECTED BY ADMIN'
+                                            : '⌛ PENDING APPROVAL',
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.bold,
-                                      color: obsToday.isEdited ? Colors.purple.shade900 : Colors.blue.shade900,
+                                      color: s.approvalStatus == ApprovalStatus.approved
+                                          ? Colors.green.shade900
+                                          : s.approvalStatus == ApprovalStatus.rejected
+                                              ? Colors.red.shade900
+                                              : Colors.amber.shade900,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            s.instrumentType.displayName,
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 13 : 14),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Location: ${s.gramaPanchayat}, ${s.district} (${s.latitude.toStringAsFixed(4)}° N, ${s.longitude.toStringAsFixed(4)}° E)',
-                            style: const TextStyle(color: Colors.grey, fontSize: 11),
-                          ),
-                          if (isFlaggedToday) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.shade50,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.amber.shade400),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade900),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      '⚠️ Today\'s Reading Flagged by Admin: "${obsRemovedToday.removalReason ?? 'Outlier Reading'}". Please submit a fresh value.',
-                                      style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                if (isSubmittedToday) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: obsToday.isEdited ? Colors.purple.shade100 : Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (s.approvalStatus == ApprovalStatus.rejected && s.rejectionReason.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.red.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.info_outline, size: 14, color: Colors.red.shade700),
-                                  const SizedBox(width: 6),
-                                  Expanded(
                                     child: Text(
-                                      'Rejection Reason: ${s.rejectionReason}',
-                                      style: TextStyle(fontSize: 11, color: Colors.red.shade800, fontStyle: FontStyle.italic),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    }
-
-                    Widget buildActionButton() {
-                      return Column(
-                        crossAxisAlignment: isMobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.end,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: s.approvalStatus == ApprovalStatus.approved
-                                ? () => onEnterObservation(s.stationId)
-                                : () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          s.approvalStatus == ApprovalStatus.rejected
-                                              ? '❌ This station registration was rejected. Reason: ${s.rejectionReason.isNotEmpty ? s.rejectionReason : "Contact Admin HQ"}'
-                                              : '🔒 Station Pending Approval by Admin HQ. Data entry is locked until approved.',
-                                        ),
-                                        backgroundColor: s.approvalStatus == ApprovalStatus.rejected ? Colors.red.shade700 : Colors.amber,
-                                        duration: const Duration(seconds: 5),
+                                      '✅ TODAY: ${obsToday.rainfallMm != null ? "${obsToday.rainfallMm} mm" : obsToday.maxTemperatureC != null ? "${obsToday.maxTemperatureC}°C" : obsToday.riverWaterLevelM != null ? "${obsToday.riverWaterLevelM} m" : obsToday.humidityPercent != null ? "${obsToday.humidityPercent}%" : "Recorded"}${obsToday.isEdited ? " (EDITED)" : ""}',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: obsToday.isEdited ? Colors.purple.shade900 : Colors.blue.shade900,
                                       ),
-                                    );
-                                  },
-                            icon: Icon(
-                              s.approvalStatus == ApprovalStatus.approved
-                                  ? (isSubmittedToday ? Icons.edit_note : (isFlaggedToday ? Icons.refresh : Icons.add_chart))
-                                  : s.approvalStatus == ApprovalStatus.rejected
-                                      ? Icons.cancel
-                                      : Icons.lock,
-                              size: 16,
-                            ),
-                            label: Text(
-                              s.approvalStatus == ApprovalStatus.approved
-                                  ? (isSubmittedToday ? 'Edit Today\'s Reading' : (isFlaggedToday ? 'Re-enter Fresh Reading' : 'Enter Reading'))
-                                  : s.approvalStatus == ApprovalStatus.rejected
-                                      ? 'Registration Rejected'
-                                      : 'Locked (Pending Approval)',
-                              style: TextStyle(fontSize: isMobile ? 11 : 12),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: s.approvalStatus == ApprovalStatus.approved
-                                  ? (isSubmittedToday ? const Color(0xFF0288D1) : (isFlaggedToday ? const Color(0xFFD97706) : const Color(0xFF16A34A)))
-                                  : s.approvalStatus == ApprovalStatus.rejected
-                                      ? Colors.red.shade700
-                                      : Colors.grey.shade600,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Observation Window: 08:00 - 09:00 AM IST',
-                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-                            textAlign: isMobile ? TextAlign.center : TextAlign.end,
-                          ),
-                        ],
-                      );
-                    }
-
-                    return Card(
-                      color: Colors.white,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                      child: Padding(
-                        padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
-                        child: isMobile
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      buildPhoto(),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: buildInfo()),
-                                    ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 14),
-                                  buildActionButton(),
                                 ],
-                              )
-                            : Row(
-                                children: [
-                                  buildPhoto(),
-                                  const SizedBox(width: 20),
-                                  Expanded(child: buildInfo()),
-                                  const SizedBox(width: 12),
-                                  buildActionButton(),
-                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              s.instrumentType.displayName,
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 13 : 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Location: ${s.gramaPanchayat}, ${s.district} (${s.latitude.toStringAsFixed(4)}° N, ${s.longitude.toStringAsFixed(4)}° E)',
+                              style: const TextStyle(color: Colors.grey, fontSize: 11),
+                            ),
+                            if (isFlaggedToday) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.amber.shade400),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade900),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        '⚠️ Today\'s Reading Flagged by Admin: "${obsRemovedToday.removalReason ?? 'Outlier Reading'}". Please submit a fresh value.',
+                                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                      ),
-                    );
-                  },
-                ),
+                            ],
+                            if (s.approvalStatus == ApprovalStatus.rejected && s.rejectionReason.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 14, color: Colors.red.shade700),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Rejection Reason: ${s.rejectionReason}',
+                                        style: TextStyle(fontSize: 11, color: Colors.red.shade800, fontStyle: FontStyle.italic),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      }
+
+                      Widget buildActionButton() {
+                        return Column(
+                          crossAxisAlignment: isMobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: s.approvalStatus == ApprovalStatus.approved
+                                  ? () => widget.onEnterObservation(s.stationId)
+                                  : () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            s.approvalStatus == ApprovalStatus.rejected
+                                                ? '❌ This station registration was rejected. Reason: ${s.rejectionReason.isNotEmpty ? s.rejectionReason : "Contact Admin HQ"}'
+                                                : '🔒 Station Pending Approval by Admin HQ. Data entry is locked until approved.',
+                                          ),
+                                          backgroundColor: s.approvalStatus == ApprovalStatus.rejected ? Colors.red.shade700 : Colors.amber,
+                                          duration: const Duration(seconds: 5),
+                                        ),
+                                      );
+                                    },
+                              icon: Icon(
+                                s.approvalStatus == ApprovalStatus.approved
+                                    ? (isSubmittedToday ? Icons.edit_note : (isFlaggedToday ? Icons.refresh : Icons.add_chart))
+                                    : s.approvalStatus == ApprovalStatus.rejected
+                                        ? Icons.cancel
+                                        : Icons.lock,
+                                size: 16,
+                              ),
+                              label: Text(
+                                s.approvalStatus == ApprovalStatus.approved
+                                    ? (isSubmittedToday ? 'Edit Today\'s Reading' : (isFlaggedToday ? 'Re-enter Fresh Reading' : 'Enter Reading'))
+                                    : s.approvalStatus == ApprovalStatus.rejected
+                                        ? 'Registration Rejected'
+                                        : 'Locked (Pending Approval)',
+                                style: TextStyle(fontSize: isMobile ? 11 : 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: s.approvalStatus == ApprovalStatus.approved
+                                    ? (isSubmittedToday ? const Color(0xFF0288D1) : (isFlaggedToday ? const Color(0xFFD97706) : const Color(0xFF16A34A)))
+                                    : s.approvalStatus == ApprovalStatus.rejected
+                                        ? Colors.red.shade700
+                                        : Colors.grey.shade600,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Observation Window: 08:00 - 09:00 AM IST',
+                              style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                              textAlign: isMobile ? TextAlign.center : TextAlign.end,
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Card(
+                        color: Colors.white,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 2,
+                        child: Padding(
+                          padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
+                          child: isMobile
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        buildPhoto(),
+                                        const SizedBox(width: 12),
+                                        Expanded(child: buildInfo()),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    buildActionButton(),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    buildPhoto(),
+                                    const SizedBox(width: 20),
+                                    Expanded(child: buildInfo()),
+                                    const SizedBox(width: 12),
+                                    buildActionButton(),
+                                  ],
+                                ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ],
           ),
         );

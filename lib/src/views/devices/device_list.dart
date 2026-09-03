@@ -13,6 +13,9 @@ import 'dart:ui' show ImageFilter;
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_sense_webapp/main.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -1253,15 +1256,28 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                   isDarkMode,
                                 );
                                 break;
+                              case 'delete':
+                                DeleteDeviceUtils.deleteSingleDevice(
+                                  context: context,
+                                  userEmail: _email ?? Provider.of<UserProvider>(context, listen: false).userEmail ?? '',
+                                  deviceId: sensorName,
+                                  displayDeviceId: displaySensorName,
+                                  onSuccess: () {
+                                    _fetchData();
+                                  },
+                                );
+                                break;
                             }
                           },
                           itemBuilder: (BuildContext context) {
-                            final bool isSpecialOtaSensor = sensorName.contains('365') ||
-                                sensorName.contains('366') ||
-                                sensorName.contains('397') ||
-                                displaySensorName.contains('365') ||
-                                displaySensorName.contains('366') ||
-                                displaySensorName.contains('397');
+                            final providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? '';
+                            final currentEmail = (_email ?? providerEmail).trim().toLowerCase();
+                            final allowedEmails = [
+                              'dev@navariti.com',
+                              'hello@navariti.com',
+                              'dejy91971@gmail.com',
+                            ];
+                            final bool isOtaAllowedUser = allowedEmails.any((e) => currentEmail.contains(e.toLowerCase()));
 
                             return <PopupMenuEntry<String>>[
                               const PopupMenuItem<String>(
@@ -1272,7 +1288,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                   Text('Graph', style: TextStyle(fontSize: 13)),
                                 ]),
                               ),
-                              if (isSpecialOtaSensor)
+                              if (isOtaAllowedUser)
                                 const PopupMenuItem<String>(
                                   value: 'ota',
                                   child: Row(children: [
@@ -1295,6 +1311,15 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                   Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
                                   SizedBox(width: 10),
                                   Text('Health Status', style: TextStyle(fontSize: 13)),
+                                ]),
+                              ),
+                              const PopupMenuDivider(),
+                              const PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Row(children: [
+                                  Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                  SizedBox(width: 10),
+                                  Text('Delete Device', style: TextStyle(fontSize: 13, color: Colors.redAccent, fontWeight: FontWeight.w600)),
                                 ]),
                               ),
                             ];

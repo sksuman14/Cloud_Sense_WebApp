@@ -21,7 +21,15 @@ class KsdmaOfficerView extends StatefulWidget {
 class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
   String _selectedTableParam = 'all';
   String _selectedTableDistrict = 'All Districts';
+  String _tableSearchQuery = '';
+  final TextEditingController _tableSearchTextController = TextEditingController();
   String? _expandedStationId;
+
+  @override
+  void dispose() {
+    _tableSearchTextController.dispose();
+    super.dispose();
+  }
   // Export State Variables
   String _exportDataSource = 'Volunteer'; // 'Volunteer' or 'AWS'
   String _exportAwsStationId = 'WS_1';
@@ -363,6 +371,19 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
 
   Widget _buildTableCard(KsdmaStateService state, List<KsdmaStation> stations) {
     final districtList = ['All Districts', ...state.stations.map((s) => s.district).where((d) => d.trim().isNotEmpty).toSet()];
+
+    final filteredStations = _tableSearchQuery.isEmpty
+        ? stations
+        : stations.where((s) {
+            final q = _tableSearchQuery.toLowerCase();
+            return s.stationId.toLowerCase().contains(q) ||
+                s.ownerName.toLowerCase().contains(q) ||
+                s.district.toLowerCase().contains(q) ||
+                s.taluk.toLowerCase().contains(q) ||
+                s.gramaPanchayat.toLowerCase().contains(q) ||
+                s.instrumentType.displayName.toLowerCase().contains(q);
+          }).toList();
+
     return Card(
       color: Colors.white,
       elevation: 1,
@@ -384,9 +405,9 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
                 ),
                 Builder(
                   builder: (context) {
-                    final awsCount = stations.where((s) => s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation).length;
-                    final manualCount = stations.length - awsCount;
-                    final tagText = manualCount > 0 ? '${stations.length} Reporting ($awsCount AWS · $manualCount Manual)' : '$awsCount AWS Reporting';
+                    final awsCount = filteredStations.where((s) => s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation).length;
+                    final manualCount = filteredStations.length - awsCount;
+                    final tagText = manualCount > 0 ? '${filteredStations.length} Reporting ($awsCount AWS · $manualCount Manual)' : '$awsCount AWS Reporting';
                     return KsdmaBadgeTag(text: tagText, type: KsdmaTagType.good);
                   },
                 ),
@@ -394,12 +415,51 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
             ),
             const SizedBox(height: 12),
 
-            // District & Parameter Filter Bar for Table
+            // District, Search & Parameter Filter Bar for Table
             Wrap(
               spacing: 12,
               runSpacing: 10,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                // Device Search Box for Officer Table
+                Container(
+                  height: 32,
+                  width: 240,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 14, color: Color(0xFF2563EB)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: TextField(
+                          controller: _tableSearchTextController,
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                          decoration: const InputDecoration(
+                            hintText: '🔍 Search station ID, name, location...',
+                            hintStyle: TextStyle(fontSize: 10.5, color: Colors.grey, fontWeight: FontWeight.normal),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onChanged: (val) => setState(() => _tableSearchQuery = val.trim()),
+                        ),
+                      ),
+                      if (_tableSearchQuery.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            _tableSearchTextController.clear();
+                            setState(() => _tableSearchQuery = '');
+                          },
+                          child: const Icon(Icons.clear, size: 14, color: Colors.grey),
+                        ),
+                    ],
+                  ),
+                ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -456,11 +516,11 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
 
             const Divider(height: 24, color: Color(0xFFE2E8F0)),
 
-            if (stations.isEmpty)
+            if (filteredStations.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24.0),
                 child: Center(
-                  child: Text('No active stations matching selected parameter filter.', style: TextStyle(color: Color(0xFF64748B))),
+                  child: Text('No active stations matching selected filters/search.', style: TextStyle(color: Color(0xFF64748B))),
                 ),
               )
             else ...[
@@ -487,9 +547,9 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: stations.length,
+                itemCount: filteredStations.length,
                 itemBuilder: (context, i) {
-                  return _buildExpandableStationRow(i + 1, stations[i], state);
+                  return _buildExpandableStationRow(i + 1, filteredStations[i], state);
                 },
               ),
             ],

@@ -12,6 +12,8 @@ class KsdmaChampionsView extends StatefulWidget {
 
 class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
   String _selectedCategory = 'ALL';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -21,6 +23,12 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
       if (!mounted) return;
       Provider.of<KsdmaStateService>(context, listen: false).fetchChampionsIfNeeded();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -34,6 +42,12 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
       if (_selectedCategory == 'FISHERMEN') return c.category == UserCategory.fisherman;
       if (_selectedCategory == 'NGOS') return c.category == UserCategory.ngoVolunteer;
       return true;
+    }).where((c) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return c.fullName.toLowerCase().contains(q) ||
+          c.district.toLowerCase().contains(q) ||
+          c.gramaPanchayat.toLowerCase().contains(q);
     }).toList();
 
     return LayoutBuilder(
@@ -79,7 +93,49 @@ class _KsdmaChampionsViewState extends State<KsdmaChampionsView> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              // Search Input Box for Champions
+              Container(
+                margin: const EdgeInsets.only(top: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.3)),
+                  boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 20, color: Color(0xFF1565C0)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                        decoration: const InputDecoration(
+                          hintText: '🔍 Search Weather Champions by volunteer name, district, or panchayat...',
+                          hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                      ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 18),
 
               // Category Chips Filter
               Wrap(

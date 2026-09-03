@@ -29,6 +29,8 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   String _selectedPanchayat = 'All Panchayats';
   String _selectedParam = 'All Parameters';
   bool _isSatellite = false;
+  String _searchQuery = '';
+  final TextEditingController _searchTextController = TextEditingController();
 
   final Map<String, LatLng> _districtCoords = {
     'Thiruvananthapuram': const LatLng(8.5241, 76.9366),
@@ -60,6 +62,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   @override
   void dispose() {
     _mapController.dispose();
+    _searchTextController.dispose();
     super.dispose();
   }
 
@@ -470,9 +473,21 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
       return true;
     }).toList();
 
+    final searchFilteredStations = _searchQuery.isEmpty
+        ? displayedStations
+        : displayedStations.where((s) {
+            final q = _searchQuery.toLowerCase();
+            return s.stationId.toLowerCase().contains(q) ||
+                s.ownerName.toLowerCase().contains(q) ||
+                s.district.toLowerCase().contains(q) ||
+                s.taluk.toLowerCase().contains(q) ||
+                s.gramaPanchayat.toLowerCase().contains(q) ||
+                s.instrumentType.displayName.toLowerCase().contains(q);
+          }).toList();
+
     // 3. Offset duplicate/overlapping coordinates so ALL markers at identical Lat/Lng are clearly visible & clickable
     final Map<String, List<KsdmaStation>> coordGroups = {};
-    for (var s in displayedStations) {
+    for (var s in searchFilteredStations) {
       final key = "${s.latitude.toStringAsFixed(4)}_${s.longitude.toStringAsFixed(4)}";
       coordGroups.putIfAbsent(key, () => []).add(s);
     }
@@ -555,27 +570,109 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                   ],
                 ),
 
-                // Top Left Overlay Badge
+                // Device Search Overlay Bar
                 Positioned(
                   top: 10,
                   left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.94),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 14, color: Color(0xFF2563EB)),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${displayedStations.length} Active Pins',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0F172A)),
+                  right: isMobile ? 120 : 160,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.96),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search, size: 18, color: Color(0xFF2563EB)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _searchTextController,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                decoration: const InputDecoration(
+                                  hintText: '🔍 Search device by ID, name, district...',
+                                  hintStyle: TextStyle(fontSize: 11, color: Colors.grey),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                              ),
+                            ),
+                            if (_searchQuery.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                                onPressed: () {
+                                  _searchTextController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (_searchQuery.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+                          ),
+                          child: Builder(
+                            builder: (context) {
+                              final matches = approved.where((s) {
+                                final q = _searchQuery.toLowerCase();
+                                return s.stationId.toLowerCase().contains(q) ||
+                                    s.ownerName.toLowerCase().contains(q) ||
+                                    s.district.toLowerCase().contains(q) ||
+                                    s.taluk.toLowerCase().contains(q) ||
+                                    s.gramaPanchayat.toLowerCase().contains(q) ||
+                                    s.instrumentType.displayName.toLowerCase().contains(q);
+                              }).take(6).toList();
+
+                              if (matches.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(10),
+                                  child: Text('No devices found matching query', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
+                                );
+                              }
+
+                              return ListView.separated(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                shrinkWrap: true,
+                                itemCount: matches.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final s = matches[idx];
+                                  return ListTile(
+                                    dense: true,
+                                    visualDensity: VisualDensity.compact,
+                                    leading: const Icon(Icons.sensors, size: 16, color: Color(0xFF2563EB)),
+                                    title: Text('${s.stationId} (${s.ownerName.isNotEmpty ? s.ownerName : s.instrumentType.displayName})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                    subtitle: Text('${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    onTap: () {
+                                      _mapController.move(LatLng(s.latitude, s.longitude), 13.5);
+                                      setState(() {
+                                        _searchTextController.text = s.stationId;
+                                        _searchQuery = s.stationId;
+                                      });
+                                      _showStationDetailsDialog(context, s, state);
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
 

@@ -104,7 +104,101 @@ static Future<void> deleteAccount(
   }
 }
 
+  static Future<void> deleteSingleDevice({
+    required BuildContext context,
+    required String userEmail,
+    required String deviceId,
+    required String displayDeviceId,
+    required VoidCallback onSuccess,
+  }) async {
+    bool? confirmed = await showDialog(
+      context: context,
+      builder: (context) {
+        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+        final strong = isDarkMode ? Colors.white : Colors.black87;
+        final subtle = isDarkMode ? Colors.white70 : Colors.black54;
 
+        return AlertDialog(
+          backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 24),
+              const SizedBox(width: 10),
+              Text('Delete Device', style: TextStyle(color: strong, fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to remove device "$displayDeviceId" from your account? This action cannot be undone.',
+            style: TextStyle(color: subtle, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: TextStyle(color: subtle)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.redAccent)),
+      );
+
+      try {
+        final url =
+            'https://25e5bsdhwd.execute-api.us-east-1.amazonaws.com/default/CloudSense_users_delete_function?email_id=$userEmail&action=delete_devices&device_id=$deviceId';
+        final response = await http.get(Uri.parse(url));
+
+        if (context.mounted) Navigator.pop(context); // close spinner
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(data['message'] ?? 'Device deleted successfully.'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          onSuccess();
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to delete device: ${response.body}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (error) {
+        if (context.mounted) {
+          Navigator.pop(context); // close spinner on error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting device: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
 
   static Future<void> deleteDevices(
     BuildContext context,

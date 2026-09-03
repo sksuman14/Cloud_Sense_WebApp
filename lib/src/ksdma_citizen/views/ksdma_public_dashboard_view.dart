@@ -37,6 +37,12 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   String _activeDeltaTab = 'Rainfall';
   String? _expandedDeltaDistrict;
 
+  late final MapController _mapController = MapController();
+  String _mapSearchQuery = '';
+  final TextEditingController _mapSearchTextController = TextEditingController();
+  String _breakdownSearchQuery = '';
+  final TextEditingController _breakdownSearchTextController = TextEditingController();
+
   final List<String> _keralaDistricts = const [
     'All Districts',
     'Alappuzha',
@@ -65,6 +71,14 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       state.fetchStationsIfNeeded();
       state.fetchObservationsIfNeeded();
     });
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    _mapSearchTextController.dispose();
+    _breakdownSearchTextController.dispose();
+    super.dispose();
   }
 
   void _applyFilters(KsdmaStateService state) {
@@ -1450,6 +1464,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         child: Stack(
           children: [
             FlutterMap(
+              mapController: _mapController,
               options: MapOptions(
                 initialCenter: activeStations.isNotEmpty
                     ? LatLng(activeStations.first.latitude, activeStations.first.longitude)
@@ -1466,26 +1481,110 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                 ),
               ],
             ),
+            // Map Search Input & Suggestion Box
             Positioned(
               top: 10,
               left: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 14, color: Color(0xFF2563EB)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Live Map (${activeStations.length} Active Pins)',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0F172A)),
+              right: 10,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.96),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, size: 18, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _mapSearchTextController,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            decoration: const InputDecoration(
+                              hintText: '🔍 Search device by ID, name, district, taluk, or panchayat...',
+                              hintStyle: TextStyle(fontSize: 11.5, color: Colors.grey),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            onChanged: (val) => setState(() => _mapSearchQuery = val.trim()),
+                          ),
+                        ),
+                        if (_mapSearchQuery.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                            onPressed: () {
+                              _mapSearchTextController.clear();
+                              setState(() => _mapSearchQuery = '');
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (_mapSearchQuery.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+                      ),
+                      child: Builder(
+                        builder: (context) {
+                          final matches = activeStations.where((s) {
+                            final q = _mapSearchQuery.toLowerCase();
+                            return s.stationId.toLowerCase().contains(q) ||
+                                s.ownerName.toLowerCase().contains(q) ||
+                                s.district.toLowerCase().contains(q) ||
+                                s.taluk.toLowerCase().contains(q) ||
+                                s.gramaPanchayat.toLowerCase().contains(q) ||
+                                s.instrumentType.displayName.toLowerCase().contains(q);
+                          }).take(6).toList();
+
+                          if (matches.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Text('No devices found matching query', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
+                            );
+                          }
+
+                          return ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            shrinkWrap: true,
+                            itemCount: matches.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, idx) {
+                              final s = matches[idx];
+                              return ListTile(
+                                dense: true,
+                                visualDensity: VisualDensity.compact,
+                                leading: const Icon(Icons.sensors, size: 16, color: Color(0xFF2563EB)),
+                                title: Text('${s.stationId} (${s.ownerName.isNotEmpty ? s.ownerName : s.instrumentType.displayName})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                subtitle: Text('${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                onTap: () {
+                                  _mapController.move(LatLng(s.latitude, s.longitude), 13.5);
+                                  setState(() {
+                                    _selectedStation = s;
+                                    _mapSearchTextController.text = s.stationId;
+                                    _mapSearchQuery = s.stationId;
+                                  });
+                                  _showStationDetailsDialog(context, s, state);
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
             Positioned(
@@ -2370,6 +2469,17 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         ? distStations.where((s) => s.instrumentType == InstrumentType.riverGauge).toList()
         : distStations;
 
+    final filteredStations = _breakdownSearchQuery.isEmpty
+        ? targetStations
+        : targetStations.where((s) {
+            final q = _breakdownSearchQuery.toLowerCase();
+            return s.stationId.toLowerCase().contains(q) ||
+                s.ownerName.toLowerCase().contains(q) ||
+                s.gramaPanchayat.toLowerCase().contains(q) ||
+                s.taluk.toLowerCase().contains(q) ||
+                s.instrumentType.displayName.toLowerCase().contains(q);
+          }).toList();
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 8),
@@ -2387,20 +2497,52 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               const Icon(Icons.sensors, size: 13, color: Color(0xFF1565C0)),
               const SizedBox(width: 4),
               Text(
-                'Stations in $dist (${targetStations.length}):',
+                'Stations in $dist (${filteredStations.length}/${targetStations.length}):',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)),
               ),
             ],
           ),
           const SizedBox(height: 6),
 
-          if (targetStations.isEmpty)
+          // Search Box inside Breakdown Panel
+          Container(
+            height: 32,
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: TextField(
+              controller: _breakdownSearchTextController,
+              style: const TextStyle(fontSize: 11),
+              decoration: InputDecoration(
+                hintText: '🔍 Search device in $dist...',
+                hintStyle: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, size: 14, color: Color(0xFF64748B)),
+                suffixIcon: _breakdownSearchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 12, color: Colors.grey),
+                        onPressed: () {
+                          _breakdownSearchTextController.clear();
+                          setState(() => _breakdownSearchQuery = '');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              onChanged: (val) => setState(() => _breakdownSearchQuery = val.trim()),
+            ),
+          ),
+
+          if (filteredStations.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
-              child: Text('No individual stations mapped to this district.', style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey)),
+              child: Text('No individual stations matched the search.', style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey)),
             )
           else
-            ...targetStations.map((stn) {
+            ...filteredStations.map((stn) {
               final tObs = state.getTodayObservation(stn.stationId);
               final yObs = state.getYesterdayObservation(stn.stationId);
               final raw = state.getWsDeviceRaw(stn.stationId);

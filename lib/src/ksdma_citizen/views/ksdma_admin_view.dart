@@ -17,6 +17,9 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
   String _selectedModerationDateRange = 'Today';
   String? _selectedObsId;
 
+  String _pendingSearchQuery = '';
+  final TextEditingController _pendingSearchTextController = TextEditingController();
+
   String? _selectedUploadStationId;
   String? _selectedFileName;
   String? _uploadedCsvContent;
@@ -29,6 +32,12 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
       if (!mounted) return;
       Provider.of<KsdmaStateService>(context, listen: false).fetchStationsIfNeeded();
     });
+  }
+
+  @override
+  void dispose() {
+    _pendingSearchTextController.dispose();
+    super.dispose();
   }
 
   void _showZoomDialog(BuildContext context, String imageUrl) {
@@ -263,6 +272,18 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
   }
 
   Widget _buildPendingRegistrationsCard(KsdmaStateService state, List<KsdmaStation> pending) {
+    final filteredPending = _pendingSearchQuery.isEmpty
+        ? pending
+        : pending.where((s) {
+            final q = _pendingSearchQuery.toLowerCase();
+            return s.stationId.toLowerCase().contains(q) ||
+                s.ownerName.toLowerCase().contains(q) ||
+                s.district.toLowerCase().contains(q) ||
+                s.taluk.toLowerCase().contains(q) ||
+                s.gramaPanchayat.toLowerCase().contains(q) ||
+                s.instrumentType.displayName.toLowerCase().contains(q);
+          }).toList();
+
     return Card(
       color: Colors.white,
       elevation: 0,
@@ -275,15 +296,65 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Pending device registrations',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Pending device registrations',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                Text(
+                  '${filteredPending.length}/${pending.length} Pending',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
+
+            if (pending.isNotEmpty) ...[
+              Container(
+                height: 34,
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 16, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _pendingSearchTextController,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        decoration: const InputDecoration(
+                          hintText: '🔍 Search pending registrations by ID, applicant name, location...',
+                          hintStyle: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.normal),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        onChanged: (val) => setState(() => _pendingSearchQuery = val.trim()),
+                      ),
+                    ),
+                    if (_pendingSearchQuery.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          _pendingSearchTextController.clear();
+                          setState(() => _pendingSearchQuery = '');
+                        },
+                        child: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                      ),
+                  ],
+                ),
+              ),
+            ],
 
             if (pending.isEmpty)
               Container(
@@ -308,6 +379,13 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                   ],
                 ),
               )
+            else if (filteredPending.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(
+                  child: Text('No pending registration requests match search query.', style: TextStyle(color: Color(0xFF64748B), fontStyle: FontStyle.italic)),
+                ),
+              )
             else
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -324,7 +402,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                     DataColumn(label: Text('SUBMITTED', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
                     DataColumn(label: Text('ACTIONS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
                   ],
-                  rows: pending.map((station) {
+                  rows: filteredPending.map((station) {
                     final dt = station.createdAt;
                     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     final submittedDateStr = '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]}';
