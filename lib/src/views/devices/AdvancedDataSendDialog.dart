@@ -422,16 +422,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                     (v) => setState(() => ultrasonic = v)),
                 const SizedBox(height: 24),
 
-                // Calibration
-                if (bme) ...[
-                  _buildSectionTitle("Calibration Offsets"),
-                  _buildNumberField("Temperature Offset (°C)", tempCoeff, -5, 5,
-                      (v) => tempCoeff = v),
-                  const SizedBox(height: 12),
-                  _buildNumberField("Humidity Offset (%)", humiCoeff, -20, 20,
-                      (v) => humiCoeff = v),
-                  const SizedBox(height: 24),
-                ],
+
 
                 // Reset Commands
                 if (!isMobile)
@@ -756,7 +747,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
           "GPS": gps,
           "Ultrasonic": ultrasonic
         },
-        "Calibration": {"TempCoeff": tempCoeff, "HumiCoeff": humiCoeff},
+        "Calibration": {"TempCoeff": 0, "HumiCoeff": 0},
         "DeviceReset": deviceReset == 'yes',
         "RainReset": rainReset == 'yes',
       };
@@ -772,8 +763,10 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        final displayPayload = Map<String, dynamic>.from(payload);
+        displayPayload.remove('Calibration');
         final prettyPayload =
-            const JsonEncoder.withIndent('  ').convert(payload);
+            const JsonEncoder.withIndent('  ').convert(displayPayload);
 
         _showPopup(
           title: "Success",
