@@ -106519,7 +106519,7 @@ $1(a){var s,r,q=A.dI(a,!1,t.nj).a
 if(q==null)q=""
 s=this.a.r
 s=B.b.a5(s==null?q:s)
-r=B.c.f8(A.a(["dev@navariti.com","hello@navariti.com","dejy91971@gmail.com"],t.s),new A.bz2(s.toLowerCase()))
+r=B.c.f8(A.a(["dev@navariti.com","hello@navariti.com","dejy91971@gmail.com","krishnanpallavi63@gmail.com"],t.s),new A.bz2(s.toLowerCase()))
 s=A.a([B.UP],t.Do)
 if(r)s.push(B.UR)
 s.push(B.UO)

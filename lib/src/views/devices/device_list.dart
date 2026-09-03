@@ -1276,6 +1276,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                               'dev@navariti.com',
                               'hello@navariti.com',
                               'dejy91971@gmail.com',
+                              'krishnanpallavi63@gmail.com',
                             ];
                             final bool isOtaAllowedUser = allowedEmails.any((e) => currentEmail.contains(e.toLowerCase()));
 
