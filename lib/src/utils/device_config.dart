@@ -994,7 +994,7 @@ class DeviceConfig {
       prefix: 'AW',
       apiTemplate:
           'https://db0x5drcq7.execute-api.us-east-1.amazonaws.com/default/WS_AWS_API_Function?key=${ApiKeys.annamApiKey}&startdate={startdate}&enddate={enddate}&annam_id=AWS_{deviceId}',
-      hasWind: false,
+      hasWind: true,
       hasRainfall: true,
       parameters: [
         DeviceParameter(
@@ -1009,14 +1009,13 @@ class DeviceConfig {
             key: 'Rainfall_Cumulative', displayName: 'Cumulative Rain', unit: 'mm', isMetadata: true),
         DeviceParameter(key: 'uv_index', displayName: 'UV Index', unit: ''),
         DeviceParameter(
-            key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s', isMetadata: true),
+            key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s'),
         DeviceParameter(
             key: 'now_wind_direction',
             displayName: 'Wind Direction',
-            unit: '°',
-            isMetadata: true),
+            unit: '°'),
         DeviceParameter(
-            key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s', isMetadata: true),
+            key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s'),
         DeviceParameter(
             key: 'max_wind_direction_gust',
             displayName: 'Max Wind Direction Gust',
@@ -1253,7 +1252,7 @@ class DeviceConfig {
       prefix: 'AT',
       apiTemplate:
           'https://db0x5drcq7.execute-api.us-east-1.amazonaws.com/default/WS_AWS_API_Function?key=${ApiKeys.annamApiKey}&startdate={startdate}&enddate={enddate}&annam_id={deviceId}',
-      hasWind: false,
+      hasWind: true,
       hasRainfall: true,
       parameters: [
         DeviceParameter(
@@ -1268,12 +1267,11 @@ class DeviceConfig {
             key: 'Rainfall_Cumulative', displayName: 'Cumulative Rain', unit: 'mm', isMetadata: true),
         DeviceParameter(key: 'uv_index', displayName: 'UV Index', unit: ''),
         DeviceParameter(
-            key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s', isMetadata: true),
+            key: 'now_wind_speed', displayName: 'Wind Speed', unit: 'm/s'),
         DeviceParameter(
             key: 'now_wind_direction',
             displayName: 'Wind Direction',
-            unit: '°',
-            isMetadata: true),
+            unit: '°'),
         DeviceParameter(
             key: 'max_wind_gust', displayName: 'Max Wind Gust', unit: 'm/s', isMetadata: true),
         DeviceParameter(

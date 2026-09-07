@@ -361,6 +361,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   // ScrollController for scrolling to charts
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _cardsScrollController = ScrollController();
   // Map to associate parameter labels with their chart keys
   final Map<String, GlobalKey> _chartKeys = {};
   final Map<String, GlobalKey<SfCartesianChartState>> _sfChartKeys = {};
@@ -682,6 +683,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     _focusNode.dispose();
     _rotationController.dispose();
     _scrollController.dispose();
+    _cardsScrollController.dispose();
     super.dispose();
   }
 
@@ -2534,8 +2536,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     }
 
     final screenWidth = MediaQuery.of(context).size.width;
-    // Calculate required width for all cards in one row (approx 165px per card including padding)
-    final double minRequiredWidth = (displayParams.length + (hasMultiMoisture ? 1 : 0) + (hasMultiConductivity ? 1 : 0)) * 165.0;
+    // Calculate required width for all cards in one row (approx 185px per card including padding)
+    final double minRequiredWidth = (displayParams.length + (hasMultiMoisture ? 1 : 0) + (hasMultiConductivity ? 1 : 0)) * 185.0;
     final bool useSingleRow =
         screenWidth >= minRequiredWidth && screenWidth >= 600;
 
@@ -2760,8 +2762,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           dailyMinTemp: p.displayName.toLowerCase().contains('temperature')
               ? _lastDailyMinTemps[widget.deviceName]
               : null,
-          onTap: () =>
-              _scrollToChart(p.key == 'WindSpeed' ? 'Wind' : p.displayName),
+          onTap: () {
+            final isWindParam = p.key == 'WindSpeed' ||
+                p.key == 'Wind_Speed' ||
+                p.key == 'CurrentWindSpeed' ||
+                p.key == 'now_wind_speed' ||
+                p.key == 'NowWindSpeed' ||
+                p.displayName.toLowerCase() == 'wind speed';
+            _scrollToChart(isWindParam ? 'Wind' : p.displayName);
+          },
         ),
       );
     }).toList();
@@ -2850,6 +2859,38 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       }
     }
 
+    final scrollableCardsWidget = Listener(
+      onPointerSignal: (pointerSignal) {
+        if (pointerSignal is PointerScrollEvent &&
+            _cardsScrollController.hasClients) {
+          final delta = pointerSignal.scrollDelta.dy != 0
+              ? pointerSignal.scrollDelta.dy
+              : pointerSignal.scrollDelta.dx;
+          final newOffset = (_cardsScrollController.offset + delta).clamp(
+            0.0,
+            _cardsScrollController.position.maxScrollExtent,
+          );
+          _cardsScrollController.jumpTo(newOffset);
+        }
+      },
+      child: ScrollConfiguration(
+        behavior: const _AppCustomScrollBehavior(),
+        child: Scrollbar(
+          controller: _cardsScrollController,
+          thumbVisibility: true,
+          trackVisibility: false,
+          child: SingleChildScrollView(
+            controller: _cardsScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: cards,
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Container(
       margin: const EdgeInsets.only(top: 12, bottom: 4),
       width: double.infinity,
@@ -2864,25 +2905,91 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     .toList(),
               ),
             )
-          : SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: cards,
-              ),
+          : Stack(
+              alignment: Alignment.center,
+              children: [
+                scrollableCardsWidget,
+                // Left Scroll Button for PC
+                Positioned(
+                  left: 2,
+                  child: Material(
+                    color: (isDarkMode ? const Color(0xFF1E2D3D) : Colors.white)
+                        .withOpacity(0.9),
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () {
+                        if (_cardsScrollController.hasClients) {
+                          _cardsScrollController.animateTo(
+                            (_cardsScrollController.offset - 300).clamp(
+                                0.0,
+                                _cardsScrollController
+                                    .position.maxScrollExtent),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(6.0),
+                        child: Icon(Icons.chevron_left,
+                            size: 22, color: Colors.blueAccent),
+                      ),
+                    ),
+                  ),
+                ),
+                // Right Scroll Button for PC
+                Positioned(
+                  right: 2,
+                  child: Material(
+                    color: (isDarkMode ? const Color(0xFF1E2D3D) : Colors.white)
+                        .withOpacity(0.9),
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () {
+                        if (_cardsScrollController.hasClients) {
+                          _cardsScrollController.animateTo(
+                            (_cardsScrollController.offset + 300).clamp(
+                                0.0,
+                                _cardsScrollController
+                                    .position.maxScrollExtent),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(6.0),
+                        child: Icon(Icons.chevron_right,
+                            size: 22, color: Colors.blueAccent),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }
 
   void _scrollToChart(String parameter) {
+    final targetParam = (parameter == 'Wind Speed' ||
+            parameter == 'now_wind_speed' ||
+            parameter == 'WindSpeed' ||
+            parameter == 'Wind_Speed' ||
+            parameter == 'CurrentWindSpeed')
+        ? 'Wind'
+        : parameter;
     setState(() {
-      if (_selectedParam == parameter) {
+      if (_selectedParam == targetParam) {
         // If the same parameter is clicked again, clear the selection to remove effects
         _selectedParam = null;
       } else {
         // Scroll to the selected chart
-        _selectedParam = parameter;
-        final key = _chartKeys[parameter];
+        _selectedParam = targetParam;
+        final key = _chartKeys[targetParam];
         if (key != null && key.currentContext != null) {
           final RenderBox renderBox =
               key.currentContext!.findRenderObject() as RenderBox;
@@ -2893,7 +3000,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               kToolbarHeight;
           _scrollController.animateTo(
             scrollPosition,
-            duration: Duration(milliseconds: 500),
+            duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOut,
           );
         }
@@ -6456,18 +6563,22 @@ class _MetricSummaryCard extends StatelessWidget {
                           size: 14,
                           color: color.withOpacity(0.8),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            color: subtleText,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: subtleText,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                         if (hasDepths) ...[
-                          const Spacer(),
+                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 2),
@@ -6498,7 +6609,7 @@ class _MetricSummaryCard extends StatelessWidget {
                         if (isWind &&
                             squallSpeed != null &&
                             squallSpeed != 0) ...[
-                          const Spacer(),
+                          const SizedBox(width: 4),
                           Tooltip(
                             message:
                                 'Squall Time: ${_formatGustTime(squallTime)}',
@@ -6513,7 +6624,7 @@ class _MetricSummaryCard extends StatelessWidget {
                           ),
                         ],
                         if (tiltStatus != null) ...[
-                          const Spacer(),
+                          const SizedBox(width: 4),
                           Tooltip(
                             message: 'Tilt Status',
                             child: Text(
@@ -6527,7 +6638,7 @@ class _MetricSummaryCard extends StatelessWidget {
                           ),
                         ],
                         if (dailyMaxTemp != null || dailyMinTemp != null) ...[
-                          const Spacer(),
+                          const SizedBox(width: 4),
                           if (dailyMinTemp != null)
                             Text(
                               '${dailyMinTemp!.toStringAsFixed(2)}°',
@@ -6689,3 +6800,14 @@ class _HourlyRainData {
   });
 }
 
+class _AppCustomScrollBehavior extends MaterialScrollBehavior {
+  const _AppCustomScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
