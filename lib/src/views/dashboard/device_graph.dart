@@ -585,7 +585,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         _chartKeys[param.displayName] = GlobalKey();
         _sfChartKeys[param.displayName] = GlobalKey<SfCartesianChartState>();
         _isParamHovering[param.displayName] = false;
-        if (!param.isMetadata) {
+        final noGraphKeys = {
+          'Moisture1',
+          'Moisture2',
+          'Moisture3',
+          'Conductivity1',
+          'Conductivity2',
+          'Conductivity3',
+        };
+        if (!param.isMetadata && !noGraphKeys.contains(param.key)) {
           _visibleParameters.add(param.displayName);
         }
       }
@@ -2493,9 +2501,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return const SizedBox.shrink();
     }
 
+    final multiMoistureKeys = {'Moisture1', 'Moisture2', 'Moisture3'};
+    final multiConductivityKeys = {'Conductivity1', 'Conductivity2', 'Conductivity3'};
+
+    final bool hasMultiMoisture = multiMoistureKeys.any((k) =>
+        _parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty);
+    final bool hasMultiConductivity = multiConductivityKeys.any((k) =>
+        _parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty);
+
     final displayParams = _config!.parameters.where((p) {
       if (p.isMetadata) return false;
       if (p.unit.isEmpty && p.key != 'aqi') return false;
+      if (multiMoistureKeys.contains(p.key) || multiConductivityKeys.contains(p.key)) {
+        return false;
+      }
       if (p.key == 'WindDirection' ||
           p.key == 'WindDir' ||
           p.key == 'CurrentWindDirection' ||
@@ -2510,11 +2529,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return data != null && data.isNotEmpty;
     }).toList();
 
-    if (displayParams.isEmpty) return const SizedBox.shrink();
+    if (displayParams.isEmpty && !hasMultiMoisture && !hasMultiConductivity) {
+      return const SizedBox.shrink();
+    }
 
     final screenWidth = MediaQuery.of(context).size.width;
     // Calculate required width for all cards in one row (approx 165px per card including padding)
-    final double minRequiredWidth = displayParams.length * 165.0;
+    final double minRequiredWidth = (displayParams.length + (hasMultiMoisture ? 1 : 0) + (hasMultiConductivity ? 1 : 0)) * 165.0;
     final bool useSingleRow =
         screenWidth >= minRequiredWidth && screenWidth >= 600;
 
@@ -2745,6 +2766,90 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       );
     }).toList();
 
+    if (hasMultiMoisture) {
+      String? primaryKey;
+      for (final k in ['Moisture1', 'Moisture2', 'Moisture3']) {
+        if (_parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty) {
+          primaryKey = k;
+          break;
+        }
+      }
+      if (primaryKey != null) {
+        final mData = _parametersData[primaryKey]!;
+        final current = mData.last.value;
+        final values = mData.map((d) => d.value).toList();
+        final min = values.reduce((a, b) => a < b ? a : b);
+        final max = values.reduce((a, b) => a > b ? a : b);
+
+        cards.add(
+          Padding(
+            key: const ValueKey('card_Moisture_Depths_Combined'),
+            padding: const EdgeInsets.all(8.0),
+            child: _MetricSummaryCard(
+              label: 'MOISTURE',
+              current: current,
+              min: min,
+              max: max,
+              unit: '%',
+              isDarkMode: isDarkMode,
+              color: const Color(0xFF4CAF50),
+              icon: Icons.water_drop,
+              hasDepths: true,
+              onTap: () => _showDepthLevelsDialog(
+                context,
+                'Moisture Levels by Depth',
+                ['Moisture1', 'Moisture2', 'Moisture3'],
+                '%',
+                Icons.water_drop,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (hasMultiConductivity) {
+      String? primaryKey;
+      for (final k in ['Conductivity1', 'Conductivity2', 'Conductivity3']) {
+        if (_parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty) {
+          primaryKey = k;
+          break;
+        }
+      }
+      if (primaryKey != null) {
+        final cData = _parametersData[primaryKey]!;
+        final current = cData.last.value;
+        final values = cData.map((d) => d.value).toList();
+        final min = values.reduce((a, b) => a < b ? a : b);
+        final max = values.reduce((a, b) => a > b ? a : b);
+
+        cards.add(
+          Padding(
+            key: const ValueKey('card_Conductivity_Depths_Combined'),
+            padding: const EdgeInsets.all(8.0),
+            child: _MetricSummaryCard(
+              label: 'CONDUCTIVITY',
+              current: current,
+              min: min,
+              max: max,
+              unit: 'µS/cm',
+              isDarkMode: isDarkMode,
+              color: const Color(0xFFFF9800),
+              icon: Icons.electric_bolt,
+              hasDepths: true,
+              onTap: () => _showDepthLevelsDialog(
+                context,
+                'Conductivity Levels by Depth',
+                ['Conductivity1', 'Conductivity2', 'Conductivity3'],
+                'µS/cm',
+                Icons.electric_bolt,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 12, bottom: 4),
       width: double.infinity,
@@ -2796,6 +2901,117 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     });
   }
 
+  void _showDepthLevelsDialog(
+      BuildContext context, String title, List<String> keys, String defaultUnit, IconData icon) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDarkMode ? const Color(0xFF1E2D3B) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subtleColor = isDarkMode ? Colors.white70 : Colors.black54;
+
+    final depthItems = <Widget>[];
+
+    for (final key in keys) {
+      final data = _parametersData[key];
+      if (data != null && data.isNotEmpty) {
+        final current = data.last.value;
+        final values = data.map((d) => d.value).toList();
+        final min = values.reduce((a, b) => a < b ? a : b);
+        final max = values.reduce((a, b) => a > b ? a : b);
+
+        String label = key;
+        if (key == 'Moisture1') label = 'Moisture 1 (Top Level)';
+        else if (key == 'Moisture2') label = 'Moisture 2 (Mid Level)';
+        else if (key == 'Moisture3') label = 'Moisture 3 (Deep Level)';
+        else if (key == 'Conductivity1') label = 'Conductivity 1 (Top Level)';
+        else if (key == 'Conductivity2') label = 'Conductivity 2 (Mid Level)';
+        else if (key == 'Conductivity3') label = 'Conductivity 3 (Deep Level)';
+        else if (key == 'Soil_Moisture') label = 'Soil Moisture (Overall)';
+        else if (key == 'Soil_Conductivity') label = 'Soil Conductivity (Overall)';
+
+        depthItems.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 6.0),
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF14212B) : const Color(0xFFF4F6F8),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDarkMode ? Colors.white12 : Colors.black12,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: const Color(0xFF00BCD4), size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Min: ${min.toStringAsFixed(2)} $defaultUnit  •  Max: ${max.toStringAsFixed(2)} $defaultUnit',
+                        style: TextStyle(color: subtleColor, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${current.toStringAsFixed(2)} $defaultUnit',
+                  style: const TextStyle(
+                    color: Color(0xFF00BCD4),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    if (depthItems.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: dialogBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF00BCD4)),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: depthItems,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF00BCD4), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildParamStat(String label, double? current, double? min,
       double? max, String unit, bool isDarkMode,
       {double? windDirection, VoidCallback? onTap}) {
@@ -2845,6 +3061,17 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       'CO₂': Icons.co2,
       'VOC': Icons.cloud_queue,
       'NOx': Icons.cloud,
+
+      // ✅ Soil, Conductivity & Radiation Icons
+      'Soil Moisture': Icons.grass,
+      'Soil Conductivity': Icons.electric_bolt,
+      'Solar Radiation': Icons.wb_sunny,
+      'Moisture 1': Icons.water_drop,
+      'Moisture 2': Icons.water_drop,
+      'Moisture 3': Icons.water_drop,
+      'Conductivity 1': Icons.electrical_services,
+      'Conductivity 2': Icons.electrical_services,
+      'Conductivity 3': Icons.electrical_services,
     };
 
     String displayValue = current != null ? current.toStringAsFixed(2) : '--';
@@ -3634,7 +3861,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   final allValidDisplayNames =
                                       _config!.parameters
                                           .where((p) {
-                                            if (p.isMetadata) return false;
+                                             if (p.isMetadata) return false;
+                                             if (p.key == 'Moisture1' ||
+                                                 p.key == 'Moisture2' ||
+                                                 p.key == 'Moisture3' ||
+                                                 p.key == 'Conductivity1' ||
+                                                 p.key == 'Conductivity2' ||
+                                                 p.key == 'Conductivity3') {
+                                               return false;
+                                             }
                                             if (p.key == 'WindDirection' ||
                                                 p.key == 'WindDir' ||
                                                 p.key == 'now_wind_direction' ||
@@ -5117,7 +5352,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (lowerTitle.contains('pm2.5')) return Icons.grain;
     if (lowerTitle.contains('pm10')) return Icons.grain;
     if (lowerTitle.contains('aqi')) return Icons.air;
-    if (title.contains('Radiation')) return Icons.wb_sunny;
+    if (lowerTitle.contains('soil') || lowerTitle.contains('moisture')) return Icons.grass;
+    if (lowerTitle.contains('conduct')) return Icons.electric_bolt;
+    if (title.contains('Radiation') || lowerTitle.contains('solar')) return Icons.wb_sunny;
     if (title.contains('Max Wind Gust')) return Icons.wind_power;
     return Icons.show_chart;
   }
@@ -6127,6 +6364,7 @@ class _MetricSummaryCard extends StatelessWidget {
   final double? windDirection;
   final bool isRainfall;
   final bool isWind;
+  final bool hasDepths;
   final Color color;
   final IconData icon;
   final VoidCallback onTap;
@@ -6151,6 +6389,7 @@ class _MetricSummaryCard extends StatelessWidget {
     this.windDirection,
     this.isRainfall = false,
     this.isWind = false,
+    this.hasDepths = false,
     this.maxGustTime,
     this.squallSpeed,
     this.squallDirection,
@@ -6227,6 +6466,35 @@ class _MetricSummaryCard extends StatelessWidget {
                             letterSpacing: 0.5,
                           ),
                         ),
+                        if (hasDepths) ...[
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: color.withOpacity(0.3), width: 0.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '3 Depths',
+                                  style: TextStyle(
+                                    color: color,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(Icons.arrow_drop_down,
+                                    size: 12, color: color),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (isWind &&
                             squallSpeed != null &&
                             squallSpeed != 0) ...[
