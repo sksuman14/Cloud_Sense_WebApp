@@ -4,6 +4,8 @@ import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
 import 'package:cloud_sense_webapp/src/views/devices/configuration.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
+import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -282,6 +284,18 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                 },
               ),
               if (_isProductsExpanded) _buildProductsList(context),
+
+              // 🔹 Check for Updates (Mobile App Only)
+              if (!kIsWeb)
+                ListTile(
+                  leading: Icon(Icons.system_update_rounded,
+                      color: isDarkMode ? Colors.white : Colors.black),
+                  title: const Text('Check for Updates'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    AppUpdateService.checkAppUpdate(context, forceShow: true);
+                  },
+                ),
             ],
           ),
         ),

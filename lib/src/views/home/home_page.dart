@@ -5,6 +5,7 @@ import 'package:cloud_sense_webapp/src/views/devices/device_map.dart';
 import 'dart:ui' as ui;
 import 'package:cloud_sense_webapp/src/views/home/widgets/circular_product_carousel.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
+import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
 import 'package:cloud_sense_webapp/src/widgets/drawer.dart';
 import 'package:cloud_sense_webapp/src/widgets/footer.dart';
@@ -123,6 +124,11 @@ class _HomePageState extends State<HomePage> {
         }
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AppUpdateService.checkAppUpdate(context);
+      }
+    });
     _checkUserSessionAndRedirect();
 
     _authSubscription = Amplify.Hub.listen(
