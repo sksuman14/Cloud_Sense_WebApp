@@ -17,34 +17,30 @@ class _KsdmaStationDetailViewState extends State<KsdmaStationDetailView> {
   Widget build(BuildContext context) {
     final state = Provider.of<KsdmaStateService>(context);
 
-    final KsdmaStation? targetStation = state.stations.firstWhere(
-      (s) => s.stationId == widget.stationId,
-      orElse: () => state.approvedStations.isNotEmpty
-          ? state.approvedStations.first
-          : state.stations.isNotEmpty
-              ? state.stations.first
-              : KsdmaStation(
-                  stationId: 'NO_STATION',
-                  ownerUserId: 'N/A',
-                  ownerName: 'No Active Station',
-                  ownerCategory: UserCategory.schoolStudent,
-                  category: StationCategory.manual,
-                  instrumentType: InstrumentType.rainGauge,
-                  deviceMake: 'Standard Instrument',
-                  measurementLocation: 'Site',
-                  devicePhotoUrl: 'https://images.unsplash.com/photo-1590055531615-f16d36ffe8ec?auto=format&fit=crop&w=400&q=80',
-                  latitude: 10.5276,
-                  longitude: 76.2144,
-                  district: 'Thrissur',
-                  taluk: 'Thrissur',
-                  gramaPanchayat: 'Thrissur',
-                  village: 'Thrissur',
-                  approvalStatus: ApprovalStatus.approved,
-                  createdAt: DateTime.now(),
-                ),
-    );
+    final KsdmaStation? targetStation = state.getStation(widget.stationId ?? '');
 
-    final stationObs = state.observations.where((o) => o.stationId == targetStation?.stationId && !o.isRemoved).toList();
+    if (targetStation == null) {
+      if (state.stationsLoading) {
+        return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+      }
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.orange),
+              const SizedBox(height: 16),
+              Text('Station "${widget.stationId ?? ''}" not found.', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('The requested station could not be found or is not approved yet.', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final stationObs = state.observations.where((o) => o.stationId == targetStation.stationId && !o.isRemoved).toList();
     final latestObs = stationObs.isNotEmpty ? stationObs.last : null;
 
     return SingleChildScrollView(
@@ -56,7 +52,7 @@ class _KsdmaStationDetailViewState extends State<KsdmaStationDetailView> {
           Row(
             children: [
               const Text('Home > Stations > ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              Text(targetStation!.stationId, style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+              Text(targetStation.stationId, style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 14),

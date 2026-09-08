@@ -500,32 +500,33 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       state = Provider.of<KsdmaStateService>(context);
     } catch (_) {}
 
-    // Find station meta
-    final stations = state?.stations ?? [];
-    final station = stations.firstWhere(
-      (s) => s.stationId == widget.stationId,
-      orElse: () => KsdmaStation(
-        stationId: widget.stationId,
-        ownerUserId: 'AWS_KERALA',
-        ownerName: 'KSDMA Weather Station',
-        ownerCategory: UserCategory.adminHq,
-        category: StationCategory.aws,
-        instrumentType: InstrumentType.awsAutomaticStation,
-        deviceMake: 'Automatic Weather Station',
-        measurementLocation: 'Kerala Observatory',
-        latitude: 9.9640,
-        longitude: 77.0974,
-        district: 'Idukki',
-        taluk: 'Udumbanchola',
-        gramaPanchayat: 'Udumbanchola',
-        village: 'Udumbanchola',
-        approvalStatus: ApprovalStatus.approved,
-        createdAt: DateTime.now(),
-      ),
-    );
-
     final wsRaw = state?.getWsDeviceRaw(widget.stationId) ?? _latestReading;
     final obs = state?.getTodayObservation(widget.stationId);
+
+    // Find station meta or dynamically map from live AWS device telemetry
+    final rawDist = wsRaw?['District']?.toString().replaceAll(RegExp(r'\s+district', caseSensitive: false), '').trim() ?? 'Kerala';
+    final rawCity = wsRaw?['City']?.toString().replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim() ?? rawDist;
+    final double rawLat = double.tryParse(wsRaw?['Latitude']?.toString() ?? '') ?? 10.5276;
+    final double rawLng = double.tryParse(wsRaw?['Longitude']?.toString() ?? '') ?? 76.2144;
+
+    final station = state?.getStation(widget.stationId) ?? KsdmaStation(
+      stationId: widget.stationId,
+      ownerUserId: 'AWS_KERALA',
+      ownerName: 'AWS Telemetry Network',
+      ownerCategory: UserCategory.districtOfficer,
+      category: StationCategory.aws,
+      instrumentType: InstrumentType.awsAutomaticStation,
+      deviceMake: 'Automatic Weather Station',
+      measurementLocation: '$rawCity, $rawDist',
+      latitude: rawLat,
+      longitude: rawLng,
+      district: rawDist,
+      taluk: rawCity,
+      gramaPanchayat: rawCity,
+      village: rawCity,
+      approvalStatus: ApprovalStatus.approved,
+      createdAt: DateTime.now(),
+    );
 
     final num? tempVal = wsRaw?['now_temperature'] ?? wsRaw?['Temperature'] ?? _calculatedData?['Maximum_Temperature'] ?? obs?.maxTemperatureC;
     final num? humVal = wsRaw?['now_relative_humidity'] ?? wsRaw?['Humidity'] ?? _calculatedData?['Maximum_Humidity'] ?? _calculatedData?['Average_Humidity'] ?? obs?.humidityPercent;

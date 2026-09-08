@@ -225,29 +225,28 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
   @override
   Widget build(BuildContext context) {
     final state = Provider.of<KsdmaStateService>(context);
-    final station = state.stations.firstWhere(
-      (s) => s.stationId == widget.stationId,
-      orElse: () => state.stations.isNotEmpty
-          ? state.stations.first
-          : KsdmaStation(
-              stationId: widget.stationId,
-              ownerUserId: 'guest',
-              ownerName: 'Volunteer Observer',
-              ownerCategory: UserCategory.generalPublic,
-              category: StationCategory.manual,
-              instrumentType: InstrumentType.rainGauge,
-              deviceMake: 'Standard',
-              measurementLocation: 'Terrace Ground',
-              latitude: 10.5276,
-              longitude: 76.2144,
-              district: 'Thiruvananthapuram',
-              taluk: 'Thiruvananthapuram',
-              gramaPanchayat: 'Thiruvananthapuram',
-              village: 'Thiruvananthapuram',
-              approvalStatus: ApprovalStatus.approved,
-              createdAt: DateTime.now(),
-            ),
-    );
+    final station = state.getStation(widget.stationId);
+
+    if (station == null) {
+      if (state.stationsLoading) {
+        return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+      }
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.orange),
+              const SizedBox(height: 16),
+              Text('Station "${widget.stationId}" not found.', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Please select an active station from the stations list.', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
 
     final todayObs = state.getTodayObservation(widget.stationId);
     final isEdit = todayObs != null;

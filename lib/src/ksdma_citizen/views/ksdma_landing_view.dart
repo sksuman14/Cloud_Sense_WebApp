@@ -266,29 +266,7 @@ class KsdmaLandingView extends StatelessWidget {
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final obs = state.observations[index];
-                            final station = state.stations.firstWhere(
-                              (s) => s.stationId == obs.stationId,
-                              orElse: () => state.stations.isNotEmpty
-                                  ? state.stations.first
-                                  : KsdmaStation(
-                                      stationId: obs.stationId,
-                                      ownerUserId: 'guest',
-                                      ownerName: 'Volunteer Observer',
-                                      ownerCategory: UserCategory.generalPublic,
-                                      category: StationCategory.manual,
-                                      instrumentType: InstrumentType.rainGauge,
-                                      deviceMake: 'Standard',
-                                      measurementLocation: 'Terrace Ground',
-                                      latitude: 10.5276,
-                                      longitude: 76.2144,
-                                      district: 'Thiruvananthapuram',
-                                      taluk: 'Thiruvananthapuram',
-                                      gramaPanchayat: 'Thiruvananthapuram',
-                                      village: 'Thiruvananthapuram',
-                                      approvalStatus: ApprovalStatus.approved,
-                                      createdAt: DateTime.now(),
-                                    ),
-                            );
+                            final station = state.getStation(obs.stationId);
 
                             String valText = '';
                             if (obs.rainfallMm != null) valText = '${obs.rainfallMm} mm (Rain)';
@@ -296,21 +274,26 @@ class KsdmaLandingView extends StatelessWidget {
                             else if (obs.riverWaterLevelM != null) valText = '${obs.riverWaterLevelM} m (River)';
                             else if (obs.humidityPercent != null) valText = '${obs.humidityPercent}% (Humidity)';
 
+                            final stationLabel = station != null
+                                ? '${station.district.isNotEmpty ? "${station.district} " : ""}${station.gramaPanchayat.isNotEmpty ? "(${station.gramaPanchayat})" : ""}'.trim()
+                                : obs.stationId;
+                            final ownerLabel = station?.ownerName.isNotEmpty == true ? 'By ${station!.ownerName} • ' : '';
+
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: CircleAvatar(
                                 backgroundColor: const Color(0xFFE3F2FD),
                                 child: Text(
-                                  station.stationId.substring(0, 2),
+                                  obs.stationId.substring(0, obs.stationId.length >= 2 ? 2 : 1),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0288D1)),
                                 ),
                               ),
                               title: Text(
-                                '${station.district} (${station.gramaPanchayat})',
+                                stationLabel.isNotEmpty ? stationLabel : obs.stationId,
                                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                               ),
                               subtitle: Text(
-                                'By ${station.ownerName} • ${obs.observationTime.format(context)}',
+                                '$ownerLabel${obs.observationTime.format(context)}',
                                 style: const TextStyle(fontSize: 11),
                               ),
                               trailing: Text(

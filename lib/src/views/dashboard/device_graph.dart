@@ -2506,10 +2506,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     final multiMoistureKeys = {'Moisture1', 'Moisture2', 'Moisture3'};
     final multiConductivityKeys = {'Conductivity1', 'Conductivity2', 'Conductivity3'};
 
-    final bool hasMultiMoisture = multiMoistureKeys.any((k) =>
-        _parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty);
-    final bool hasMultiConductivity = multiConductivityKeys.any((k) =>
-        _parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty);
+    final bool hasMultiMoisture = _config!.parameters.any((p) => multiMoistureKeys.contains(p.key)) &&
+        multiMoistureKeys.any((k) =>
+            _parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty);
+    final bool hasMultiConductivity = _config!.parameters.any((p) => multiConductivityKeys.contains(p.key)) &&
+        multiConductivityKeys.any((k) =>
+            _parametersData.containsKey(k) && _parametersData[k]!.isNotEmpty);
 
     final displayParams = _config!.parameters.where((p) {
       if (p.isMetadata) return false;

@@ -74,11 +74,7 @@ class KsdmaStateService extends ChangeNotifier {
     final unique = names.toSet().toList();
     unique.sort();
     if (unique.isEmpty) {
-      return [
-        'Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasaragod',
-        'Kollam', 'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad',
-        'Pathanamthitta', 'Thiruvananthapuram', 'Thrissur', 'Wayanad'
-      ];
+      return KeralaAdminData.districtsAlphabetical;
     }
     return unique;
   }
@@ -832,6 +828,13 @@ class KsdmaStateService extends ChangeNotifier {
     return cleanA == cleanB;
   }
 
+  KsdmaStation? getStation(String stationId) {
+    for (var s in _stations) {
+      if (_matchStationId(s.stationId, stationId)) return s;
+    }
+    return null;
+  }
+
   KsdmaObservation? getTodayObservation(String stationId) {
     final now = DateTime.now();
     final list = _observations.where((o) {
@@ -1023,26 +1026,10 @@ class KsdmaStateService extends ChangeNotifier {
     });
 
     final isEdit = existingIdx != -1;
-    final station = _stations.firstWhere(
-      (s) => s.stationId == stationId,
-      orElse: () => _stations.isNotEmpty ? _stations.first : KsdmaStation(
-        stationId: stationId,
-        ownerUserId: userId,
-        ownerName: 'Volunteer',
-        ownerCategory: UserCategory.generalPublic,
-        category: StationCategory.manual,
-        instrumentType: InstrumentType.rainGauge,
-        deviceMake: 'Standard',
-        measurementLocation: 'Outdoor',
-        latitude: 0,
-        longitude: 0,
-        district: 'Kerala',
-        taluk: '',
-        gramaPanchayat: '',
-        village: '',
-        createdAt: DateTime.now(),
-      ),
-    );
+    final station = getStation(stationId) ?? (_stations.isNotEmpty ? _stations.first : null);
+    if (station == null) {
+      throw Exception('Station $stationId not found.');
+    }
 
     // Enforce Time Window Restrictions for observation entry (8:00 AM - 9:00 AM IST)
     if (!isObservationWindowOpen(station.instrumentType, isEdit: isEdit)) {

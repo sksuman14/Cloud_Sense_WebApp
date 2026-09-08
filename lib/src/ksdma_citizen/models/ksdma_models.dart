@@ -234,6 +234,50 @@ class KsdmaObservation {
 
 /// Official Kerala Administrative Boundaries Validator & Dynamic Helper
 class KeralaAdminData {
+  /// 14 Official districts of Kerala (Standard south-to-north geographical order)
+  static const List<String> districts = [
+    'Thiruvananthapuram',
+    'Kollam',
+    'Pathanamthitta',
+    'Alappuzha',
+    'Kottayam',
+    'Idukki',
+    'Ernakulam',
+    'Thrissur',
+    'Palakkad',
+    'Malappuram',
+    'Kozhikode',
+    'Wayanad',
+    'Kannur',
+    'Kasaragod',
+  ];
+
+  /// Alphabetically sorted list automatically derived from [districts] (no duplicate hardcoding)
+  static final List<String> districtsAlphabetical = List.unmodifiable(
+    List<String>.from(districts)..sort(),
+  );
+
+  /// Robust district matching (handles aliases, casing, whitespace, and 'District' suffix)
+  static bool matchDistrict(String stationDist, String targetDist) {
+    final s = stationDist.toLowerCase().replaceAll('district', '').trim();
+    final t = targetDist.toLowerCase().replaceAll('district', '').trim();
+    if (s.isEmpty || t.isEmpty) return false;
+    if (s == t || s.contains(t) || t.contains(s)) return true;
+    if ((t == 'thiruvananthapuram' || t == 'trivandrum') &&
+        (s.contains('trivandrum') || s.contains('tvm') || s.contains('thiruvananthapuram'))) {
+      return true;
+    }
+    if ((t == 'alappuzha' || t == 'alleppey') &&
+        (s.contains('alleppey') || s.contains('alappuzha'))) {
+      return true;
+    }
+    if ((t == 'kozhikode' || t == 'calicut') &&
+        (s.contains('calicut') || s.contains('kozhikode'))) {
+      return true;
+    }
+    return false;
+  }
+
   static ({double lat, double lng}) getDistrictCenter(String district, [List<Map<String, dynamic>>? boundaries]) {
     if (boundaries != null && boundaries.isNotEmpty) {
       for (var b in boundaries) {
@@ -281,11 +325,7 @@ class KeralaAdminData {
       set.sort();
       return set;
     }
-    return [
-      'Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasaragod',
-      'Kollam', 'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad',
-      'Pathanamthitta', 'Thiruvananthapuram', 'Thrissur', 'Wayanad'
-    ];
+    return districtsAlphabetical;
   }
 
   static List<String> getTaluks(String district, [Map<String, Map<String, List<String>>>? hierarchyTree]) {

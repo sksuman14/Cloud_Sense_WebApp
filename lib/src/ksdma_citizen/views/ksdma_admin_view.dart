@@ -539,31 +539,12 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
       }
     }
 
-    final targetStation = volunteerStations.firstWhere(
-      (s) => s.stationId == _selectedUploadStationId,
-      orElse: () => volunteerStations.isNotEmpty
-          ? volunteerStations.first
-          : (state.stations.isNotEmpty
-              ? state.stations.first
-              : KsdmaStation(
-                  stationId: 'PWS_001',
-                  ownerUserId: 'guest',
-                  ownerName: 'Volunteer Observer',
-                  ownerCategory: UserCategory.generalPublic,
-                  category: StationCategory.manual,
-                  instrumentType: InstrumentType.rainGauge,
-                  deviceMake: 'Standard',
-                  measurementLocation: 'Terrace Ground',
-                  latitude: 10.5276,
-                  longitude: 76.2144,
-                  district: 'Thiruvananthapuram',
-                  taluk: 'Thiruvananthapuram',
-                  gramaPanchayat: 'Thiruvananthapuram',
-                  village: 'Thiruvananthapuram',
-                  approvalStatus: ApprovalStatus.approved,
-                  createdAt: DateTime.now(),
-                )),
-    );
+    final KsdmaStation? targetStation = volunteerStations.isNotEmpty
+        ? volunteerStations.firstWhere(
+            (s) => s.stationId == _selectedUploadStationId,
+            orElse: () => volunteerStations.first,
+          )
+        : null;
 
     return Card(
       color: Colors.white,
@@ -629,7 +610,13 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
 
             // Dashed Drag & Drop Container
             InkWell(
-              onTap: () => _pickAndReadFile(targetStation),
+              onTap: targetStation != null
+                  ? () => _pickAndReadFile(targetStation)
+                  : () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please select an active volunteer station first.')),
+                      );
+                    },
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 width: double.infinity,
@@ -675,7 +662,9 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
               width: double.infinity,
               height: 42,
               child: ElevatedButton.icon(
-                onPressed: _isProcessingUpload ? null : () => _processAndSubmitCsv(state, targetStation),
+                onPressed: (_isProcessingUpload || targetStation == null)
+                    ? null
+                    : () => _processAndSubmitCsv(state, targetStation),
                 icon: _isProcessingUpload
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.file_upload, size: 18),

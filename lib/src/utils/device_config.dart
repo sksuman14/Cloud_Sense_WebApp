@@ -1049,10 +1049,6 @@ class DeviceConfig {
         DeviceParameter(key: 'pm10', displayName: 'PM10', unit: 'µg/m³'),
         DeviceParameter(key: 'aqi', displayName: 'AQI', unit: ''),
         DeviceParameter(
-            key: 'Soil_Moisture', displayName: 'Soil Moisture', unit: '%'),
-        DeviceParameter(
-            key: 'Soil_Conductivity', displayName: 'Soil Conductivity', unit: 'µS/cm'),
-        DeviceParameter(
             key: 'Solar_Radiation', displayName: 'Solar Radiation', unit: 'W/m²'),
         DeviceParameter(
             key: 'Moisture1', displayName: 'Moisture 1', unit: '%'),
@@ -1060,12 +1056,6 @@ class DeviceConfig {
             key: 'Moisture2', displayName: 'Moisture 2', unit: '%'),
         DeviceParameter(
             key: 'Moisture3', displayName: 'Moisture 3', unit: '%'),
-        DeviceParameter(
-            key: 'Conductivity1', displayName: 'Conductivity 1', unit: 'µS/cm'),
-        DeviceParameter(
-            key: 'Conductivity2', displayName: 'Conductivity 2', unit: 'µS/cm'),
-        DeviceParameter(
-            key: 'Conductivity3', displayName: 'Conductivity 3', unit: 'µS/cm'),
       ],
     ),
     'KJ': DeviceTypeConfig(
@@ -1288,10 +1278,6 @@ class DeviceConfig {
         DeviceParameter(
             key: 'Station_Health', displayName: 'Station Health', unit: '', isMetadata: true),
         DeviceParameter(
-            key: 'Soil_Moisture', displayName: 'Soil Moisture', unit: '%'),
-        DeviceParameter(
-            key: 'Soil_Conductivity', displayName: 'Soil Conductivity', unit: 'µS/cm'),
-        DeviceParameter(
             key: 'Solar_Radiation', displayName: 'Solar Radiation', unit: 'W/m²'),
         DeviceParameter(
             key: 'Moisture1', displayName: 'Moisture 1', unit: '%'),
@@ -1299,12 +1285,6 @@ class DeviceConfig {
             key: 'Moisture2', displayName: 'Moisture 2', unit: '%'),
         DeviceParameter(
             key: 'Moisture3', displayName: 'Moisture 3', unit: '%'),
-        DeviceParameter(
-            key: 'Conductivity1', displayName: 'Conductivity 1', unit: 'µS/cm'),
-        DeviceParameter(
-            key: 'Conductivity2', displayName: 'Conductivity 2', unit: 'µS/cm'),
-        DeviceParameter(
-            key: 'Conductivity3', displayName: 'Conductivity 3', unit: 'µS/cm'),
       ],
     ),
   };

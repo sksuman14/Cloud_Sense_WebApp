@@ -43,22 +43,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   String _breakdownSearchQuery = '';
   final TextEditingController _breakdownSearchTextController = TextEditingController();
 
-  final List<String> _keralaDistricts = const [
+  final List<String> _keralaDistricts = [
     'All Districts',
-    'Alappuzha',
-    'Ernakulam',
-    'Idukki',
-    'Kannur',
-    'Kasaragod',
-    'Kollam',
-    'Kottayam',
-    'Kozhikode',
-    'Malappuram',
-    'Palakkad',
-    'Pathanamthitta',
-    'Thiruvananthapuram',
-    'Thrissur',
-    'Wayanad',
+    ...KeralaAdminData.districtsAlphabetical,
   ];
 
   @override
@@ -169,29 +156,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
 
   void _downloadDeltaComparisonCsv(KsdmaStateService state) {
-    const List<String> keralaDistricts = [
-      'Thiruvananthapuram',
-      'Kollam',
-      'Pathanamthitta',
-      'Alappuzha',
-      'Kottayam',
-      'Idukki',
-      'Ernakulam',
-      'Thrissur',
-      'Palakkad',
-      'Malappuram',
-      'Kozhikode',
-      'Wayanad',
-      'Kannur',
-      'Kasaragod',
-    ];
-
-    bool matchDistrict(String sDist, String tDist) {
-      final s = sDist.toLowerCase().replaceAll('district', '').trim();
-      final t = tDist.toLowerCase().replaceAll('district', '').trim();
-      return s.contains(t) || t.contains(s);
-    }
-
     final StringBuffer csv = StringBuffer();
     final paramTitle = _activeDeltaTab == 'Rainfall'
         ? 'Rainfall (mm)'
@@ -201,8 +165,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
     csv.writeln('District,Parameter,Today Value,Yesterday Value,Change (Delta)');
 
-    for (var dist in keralaDistricts) {
-      final distStations = state.stations.where((s) => matchDistrict(s.district, dist)).toList();
+    for (var dist in KeralaAdminData.districts) {
+      final distStations = state.stations.where((s) => KeralaAdminData.matchDistrict(s.district, dist)).toList();
 
       if (_activeDeltaTab == 'Temperature') {
         double todayMax = 0.0, todayMin = 0.0;
@@ -404,53 +368,68 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                 s.instrumentType.name.toLowerCase().contains(query);
           }).toList();
 
+          final mediaQuery = MediaQuery.of(context);
+          final screenWidth = mediaQuery.size.width;
+          final bool isMobile = screenWidth < 700;
+
           return Dialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.white,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 12 : 24,
+              vertical: isMobile ? 16 : 24,
+            ),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
-              width: 820,
-              height: 640,
+              width: isMobile ? double.infinity : 820,
+              height: isMobile ? (mediaQuery.size.height * 0.88) : 640,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(isMobile ? 14 : 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.analytics_outlined, color: Color(0xFF2563EB), size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'All Latest Weather Observations (${stations.length})',
+                              style: TextStyle(
+                                fontSize: isMobile ? 13.5 : 16,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF0F172A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            child: const Icon(Icons.analytics_outlined, color: Color(0xFF2563EB), size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'All Latest Weather Observations (${stations.length} Active Stations)',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                              ),
-                              Text(
-                                'Showing real-time weather observations across $_appliedDistrict',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ],
+                            Text(
+                              'Showing real-time observations across $_appliedDistrict',
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
                         icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
@@ -548,6 +527,71 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                 timeStr = '${dt.day}/${dt.month} ${hour.toString().padLeft(2, '0')}:$minStr $ampm';
                               }
 
+                              if (isMobile) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 26,
+                                            height: 26,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF1F5F9),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Center(
+                                              child: Text('#${idx + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(s.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEFF6FF),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                s.instrumentType.displayName,
+                                                style: const TextStyle(fontSize: 9, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(timeStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 34.0),
+                                        child: Text(
+                                          '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}',
+                                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 34.0),
+                                        child: Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: chips,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
                               return Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 10.0),
                                 child: Row(
@@ -573,31 +617,42 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                             children: [
                                               Text(s.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
                                               const SizedBox(width: 6),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFFEFF6FF),
-                                                  borderRadius: BorderRadius.circular(4),
+                                              Flexible(
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFEFF6FF),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    s.instrumentType.displayName,
+                                                    style: const TextStyle(fontSize: 9, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
+                                                    overflow: TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
                                                 ),
-                                                child: Text(s.instrumentType.displayName, style: const TextStyle(fontSize: 9, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
                                               ),
                                             ],
                                           ),
                                           Text(
                                             '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}',
                                             style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       flex: 4,
                                       child: Wrap(
-                                        spacing: 12,
-                                        runSpacing: 6,
+                                        spacing: 8,
+                                        runSpacing: 4,
                                         children: chips,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(timeStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                   ],
                                 ),
@@ -1124,12 +1179,21 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   }
 
   Widget _buildDetailChip(String label, String val, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
-        Text(val, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 8.5, color: color.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
+          Text(val, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
     );
   }
 
@@ -1192,18 +1256,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         return false;
       }
       if (_appliedDistrict != 'All Districts') {
-        final st = activeStations.firstWhere(
-          (s) => s.stationId == o.stationId,
-          orElse: () => KsdmaStation(
-            stationId: '', ownerUserId: 'N/A', ownerName: 'N/A',
-            ownerCategory: UserCategory.generalPublic, category: StationCategory.manual,
-            instrumentType: InstrumentType.rainGauge, deviceMake: 'Standard',
-            measurementLocation: 'Open Field', latitude: 0, longitude: 0,
-            district: '', taluk: '', gramaPanchayat: '', village: '',
-            approvalStatus: ApprovalStatus.pending, createdAt: DateTime.now(),
-          ),
-        );
-        if (st.stationId.isEmpty) return false;
+        if (!activeStations.any((s) => s.stationId == o.stationId)) return false;
       }
       return true;
     }).toList();
@@ -2241,38 +2294,11 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                         ),
                         ...() {
                           final List<Widget> districtWidgets = [];
-                          const List<String> keralaDistricts = [
-                            'Thiruvananthapuram',
-                            'Kollam',
-                            'Pathanamthitta',
-                            'Alappuzha',
-                            'Kottayam',
-                            'Idukki',
-                            'Ernakulam',
-                            'Thrissur',
-                            'Palakkad',
-                            'Malappuram',
-                            'Kozhikode',
-                            'Wayanad',
-                            'Kannur',
-                            'Kasaragod',
-                          ];
-
-                          bool matchDistrict(String stationDist, String targetDist) {
-                            final s = stationDist.toLowerCase().trim();
-                            final t = targetDist.toLowerCase().trim();
-                            if (s.contains(t) || t.contains(s)) return true;
-                            if (t == 'thiruvananthapuram' && (s.contains('trivandrum') || s.contains('tvm'))) return true;
-                            if (t == 'alappuzha' && s.contains('alleppey')) return true;
-                            if (t == 'kozhikode' && s.contains('calicut')) return true;
-                            return false;
-                          }
-
                           final allStations = state.stations;
 
                           if (_activeDeltaTab == 'Temperature') {
-                            for (var dist in keralaDistricts) {
-                              final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
+                            for (var dist in KeralaAdminData.districts) {
+                              final distStations = allStations.where((s) => KeralaAdminData.matchDistrict(s.district, dist)).toList();
                               double todayMaxTotal = 0.0, todayMinTotal = 0.0;
                               double yestMaxTotal = 0.0, yestMinTotal = 0.0;
                               int todayMaxCount = 0, todayMinCount = 0;
@@ -2326,8 +2352,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             return districtWidgets;
                           }
 
-                          for (var dist in keralaDistricts) {
-                            final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
+                          for (var dist in KeralaAdminData.districts) {
+                            final distStations = allStations.where((s) => KeralaAdminData.matchDistrict(s.district, dist)).toList();
                             double todayTotal = 0.0;
                             double yestTotal = 0.0;
                             int todayCount = 0;
