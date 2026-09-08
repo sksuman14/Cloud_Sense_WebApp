@@ -806,9 +806,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  Widget _buildLiveMetricTile(String label, String value, IconData icon, Color color, Color bg) {
+  Widget _buildLiveMetricTile(String label, String value, IconData icon, Color color, Color bg, {double? width}) {
     return Container(
-      width: 155,
+      width: width ?? 155,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bg,
@@ -832,9 +832,13 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            ),
           ),
         ],
       ),
@@ -873,141 +877,156 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
       showDialog(
         context: context,
-        builder: (ctx) => Dialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.92,
-            constraints: const BoxConstraints(maxWidth: 680),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        builder: (ctx) {
+          final double screenWidth = MediaQuery.of(context).size.width;
+          final double dialogWidth = (screenWidth * 0.92).clamp(0.0, 680.0);
+          final double availWidth = dialogWidth - 40; // 20px padding left & right
+          final int crossAxisCount = availWidth >= 500 ? 3 : 2;
+          const double spacing = 10;
+          final double itemWidth = (availWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: dialogWidth,
+              padding: const EdgeInsets.all(20),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: KsdmaColors.primaryTint,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(_getPinIcon(station), color: KsdmaColors.primary, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: KsdmaColors.primaryTint,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(_getPinIcon(station), color: KsdmaColors.primary, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A))),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFDCFCE7),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFF86EFAC)),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.sensors, size: 12, color: Color(0xFF16A34A)),
-                                          SizedBox(width: 4),
-                                          Text('LIVE AWS DATA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
-                                        ],
-                                      ),
+                                    Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: [
+                                        Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A))),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFDCFCE7),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: const Color(0xFF86EFAC)),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.sensors, size: 12, color: Color(0xFF16A34A)),
+                                              SizedBox(width: 4),
+                                              Text('LIVE AWS DATA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} District • Lat: ${station.latitude.toStringAsFixed(4)}, Lng: ${station.longitude.toStringAsFixed(4)}',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} District • Lat: ${station.latitude.toStringAsFixed(4)}, Lng: ${station.longitude.toStringAsFixed(4)}',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                          style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9), visualDensity: VisualDensity.compact),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        const Text('⚡ Live AWS Telemetry & Sensors', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        Text('Updated: $timeStr', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        _buildLiveMetricTile('Rainfall', rainStr, Icons.water_drop, const Color(0xFF2563EB), const Color(0xFFEFF6FF), width: itemWidth),
+                        _buildLiveMetricTile('Temperature', tempStr, Icons.thermostat, const Color(0xFFEA580C), const Color(0xFFFFEDD5), width: itemWidth),
+                        _buildLiveMetricTile('Humidity', humStr, Icons.opacity, const Color(0xFF7C3AED), const Color(0xFFF3E8FF), width: itemWidth),
+                        _buildLiveMetricTile('Atm. Pressure', pressStr, Icons.speed, const Color(0xFF0D9488), const Color(0xFFCCFBF1), width: itemWidth),
+                        _buildLiveMetricTile('Wind Speed', windSpdStr, Icons.air, const Color(0xFF0288D1), const Color(0xFFE0F2FE), width: itemWidth),
+                        _buildLiveMetricTile('Wind Direction', windDirStr, Icons.explore, const Color(0xFFD97706), const Color(0xFFFEF3C7), width: itemWidth),
+                        _buildLiveMetricTile('Wind Gust', windGustStr, Icons.cyclone, const Color(0xFF475569), const Color(0xFFF1F5F9), width: itemWidth),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ChangeNotifierProvider<KsdmaStateService>.value(
+                                  value: state,
+                                  child: KsdmaAwsStationDetailView(stationId: station.stationId),
                                 ),
-                              ],
-                            ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.bar_chart, size: 16),
+                          label: const Text('Show Detail Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2563EB),
+                            side: const BorderSide(color: Color(0xFF2563EB)),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
-                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9), visualDensity: VisualDensity.compact),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('⚡ Live AWS Telemetry & Sensors', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                    Text('Updated: $timeStr', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _buildLiveMetricTile('Rainfall', rainStr, Icons.water_drop, const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
-                    _buildLiveMetricTile('Temperature', tempStr, Icons.thermostat, const Color(0xFFEA580C), const Color(0xFFFFEDD5)),
-                    _buildLiveMetricTile('Humidity', humStr, Icons.opacity, const Color(0xFF7C3AED), const Color(0xFFF3E8FF)),
-                    _buildLiveMetricTile('Atm. Pressure', pressStr, Icons.speed, const Color(0xFF0D9488), const Color(0xFFCCFBF1)),
-                    _buildLiveMetricTile('Wind Speed', windSpdStr, Icons.air, const Color(0xFF0288D1), const Color(0xFFE0F2FE)),
-                    _buildLiveMetricTile('Wind Direction', windDirStr, Icons.explore, const Color(0xFFD97706), const Color(0xFFFEF3C7)),
-                    _buildLiveMetricTile('Wind Gust', windGustStr, Icons.cyclone, const Color(0xFF475569), const Color(0xFFF1F5F9)),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ChangeNotifierProvider<KsdmaStateService>.value(
-                              value: state,
-                              child: KsdmaAwsStationDetailView(stationId: station.stationId),
-                            ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.bar_chart, size: 16),
-                      label: const Text('Show Detail Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
-                        side: const BorderSide(color: Color(0xFF2563EB)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F172A),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text('Close'),
+                          child: const Text('Close'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       );
       return;
     }
@@ -2141,7 +2160,14 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Change with respect to Previous Day', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                const Expanded(
+                  child: Text(
+                    'Change with respect to Previous Day',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 InkWell(
                   onTap: () => _downloadDeltaComparisonCsv(state),
                   borderRadius: BorderRadius.circular(6),
@@ -2193,178 +2219,186 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                 ),
               )
             else
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
+              Builder(
+                builder: (context) {
+                  final tableWidget = SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Expanded(flex: 3, child: Text('District', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
+                              Expanded(flex: 2, child: Text('Today', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
+                              Expanded(flex: 2, child: Text('Yesterday', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
+                              Expanded(flex: 2, child: Text('Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)), textAlign: TextAlign.center)),
+                            ],
+                          ),
                         ),
-                        child: const Row(
-                          children: [
-                            Expanded(flex: 3, child: Text('District', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                            Expanded(flex: 2, child: Text('Today', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                            Expanded(flex: 2, child: Text('Yesterday', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                            Expanded(flex: 2, child: Text('Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)), textAlign: TextAlign.center)),
-                          ],
-                        ),
-                      ),
-                      ...() {
-                        final List<Widget> districtWidgets = [];
-                        const List<String> keralaDistricts = [
-                          'Thiruvananthapuram',
-                          'Kollam',
-                          'Pathanamthitta',
-                          'Alappuzha',
-                          'Kottayam',
-                          'Idukki',
-                          'Ernakulam',
-                          'Thrissur',
-                          'Palakkad',
-                          'Malappuram',
-                          'Kozhikode',
-                          'Wayanad',
-                          'Kannur',
-                          'Kasaragod',
-                        ];
+                        ...() {
+                          final List<Widget> districtWidgets = [];
+                          const List<String> keralaDistricts = [
+                            'Thiruvananthapuram',
+                            'Kollam',
+                            'Pathanamthitta',
+                            'Alappuzha',
+                            'Kottayam',
+                            'Idukki',
+                            'Ernakulam',
+                            'Thrissur',
+                            'Palakkad',
+                            'Malappuram',
+                            'Kozhikode',
+                            'Wayanad',
+                            'Kannur',
+                            'Kasaragod',
+                          ];
 
-                        bool matchDistrict(String sDist, String tDist) {
-                          final s = sDist.toLowerCase().replaceAll('district', '').trim();
-                          final t = tDist.toLowerCase().replaceAll('district', '').trim();
-                          return s.contains(t) || t.contains(s);
-                        }
+                          bool matchDistrict(String stationDist, String targetDist) {
+                            final s = stationDist.toLowerCase().trim();
+                            final t = targetDist.toLowerCase().trim();
+                            if (s.contains(t) || t.contains(s)) return true;
+                            if (t == 'thiruvananthapuram' && (s.contains('trivandrum') || s.contains('tvm'))) return true;
+                            if (t == 'alappuzha' && s.contains('alleppey')) return true;
+                            if (t == 'kozhikode' && s.contains('calicut')) return true;
+                            return false;
+                          }
 
-                        final allStations = state.stations.isNotEmpty ? state.stations : activeStations;
+                          final allStations = state.stations;
 
-                        if (_activeDeltaTab == 'Temperature') {
+                          if (_activeDeltaTab == 'Temperature') {
+                            for (var dist in keralaDistricts) {
+                              final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
+                              double todayMaxTotal = 0.0, todayMinTotal = 0.0;
+                              double yestMaxTotal = 0.0, yestMinTotal = 0.0;
+                              int todayMaxCount = 0, todayMinCount = 0;
+                              int yestMaxCount = 0, yestMinCount = 0;
+
+                              for (var s in distStations) {
+                                final tObs = state.getTodayObservation(s.stationId);
+                                final yObs = state.getYesterdayObservation(s.stationId);
+                                final raw = state.getWsDeviceRaw(s.stationId);
+
+                                final tMax = tObs?.maxTemperatureC ?? double.tryParse(raw?['Temperature']?.toString() ?? '');
+                                final tMin = tObs?.minTemperatureC;
+                                final yMax = yObs?.maxTemperatureC;
+                                final yMin = yObs?.minTemperatureC;
+
+                                if (tMax != null) { todayMaxTotal += tMax; todayMaxCount++; }
+                                if (tMin != null) { todayMinTotal += tMin; todayMinCount++; }
+                                if (yMax != null) { yestMaxTotal += yMax; yestMaxCount++; }
+                                if (yMin != null) { yestMinTotal += yMin; yestMinCount++; }
+                              }
+
+                              final todayMaxAvg = todayMaxCount > 0 ? todayMaxTotal / todayMaxCount : 0.0;
+                              final todayMinAvg = todayMinCount > 0 ? todayMinTotal / todayMinCount : 0.0;
+                              final yestMaxAvg = yestMaxCount > 0 ? yestMaxTotal / yestMaxCount : 0.0;
+                              final yestMinAvg = yestMinCount > 0 ? yestMinTotal / yestMinCount : 0.0;
+
+                              final diffMax = todayMaxAvg - yestMaxAvg;
+                              final diffMin = todayMinAvg - yestMinAvg;
+
+                              districtWidgets.add(_buildDistrictRowItem(
+                                '$dist (Max)',
+                                '${todayMaxAvg.toStringAsFixed(1)} °C',
+                                '${yestMaxAvg.toStringAsFixed(1)} °C',
+                                '${diffMax > 0 ? '+' : ''}${diffMax.toStringAsFixed(1)} °C ${diffMax > 0 ? '↑' : diffMax < 0 ? '↓' : '—'}',
+                                diffMax > 0 ? const Color(0xFFE65100) : Colors.grey,
+                                distStations,
+                                state,
+                                '°C',
+                              ));
+                              districtWidgets.add(_buildDistrictRowItem(
+                                '$dist (Min)',
+                                '${todayMinAvg.toStringAsFixed(1)} °C',
+                                '${yestMinAvg.toStringAsFixed(1)} °C',
+                                '${diffMin > 0 ? '+' : ''}${diffMin.toStringAsFixed(1)} °C ${diffMin > 0 ? '↑' : diffMin < 0 ? '↓' : '—'}',
+                                diffMin > 0 ? const Color(0xFF0288D1) : Colors.grey,
+                                distStations,
+                                state,
+                                '°C',
+                              ));
+                            }
+                            return districtWidgets;
+                          }
+
                           for (var dist in keralaDistricts) {
                             final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
-                            double todayMax = 0.0, todayMin = 0.0;
-                            double yestMax = 0.0, yestMin = 0.0;
-                            int todayMaxCount = 0, todayMinCount = 0;
-                            int yestMaxCount = 0, yestMinCount = 0;
+                            double todayTotal = 0.0;
+                            double yestTotal = 0.0;
+                            int todayCount = 0;
+                            int yestCount = 0;
+                            final unit = _activeDeltaTab == 'Humidity'
+                                ? '%'
+                                : _activeDeltaTab == 'River Level'
+                                    ? 'm'
+                                    : 'mm';
 
                             for (var s in distStations) {
+                              if (_activeDeltaTab == 'River Level' && s.instrumentType != InstrumentType.riverGauge) {
+                                continue;
+                              }
                               final tObs = state.getTodayObservation(s.stationId);
                               final yObs = state.getYesterdayObservation(s.stationId);
                               final raw = state.getWsDeviceRaw(s.stationId);
 
-                              final rawTemp = double.tryParse(raw?['now_temperature']?.toString() ?? raw?['Maximum_Temperature']?.toString() ?? raw?['Temperature']?.toString() ?? '');
-                              double? tMax = tObs?.maxTemperatureC ?? rawTemp;
-                              double? tMin = tObs?.minTemperatureC;
-                              double? yMax = yObs?.maxTemperatureC;
-                              double? yMin = yObs?.minTemperatureC;
+                              double? tVal, yVal;
+                              if (_activeDeltaTab == 'Humidity') {
+                                tVal = tObs?.avgHumidityPercent ?? tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
+                                yVal = yObs?.avgHumidityPercent ?? yObs?.humidityPercent;
+                              } else if (_activeDeltaTab == 'River Level') {
+                                tVal = tObs?.riverWaterLevelM;
+                                yVal = yObs?.riverWaterLevelM;
+                              } else {
+                                final rawVal = raw?['Rainfall_Cumulative'] ??
+                                               raw?['RainfallCumulative'] ??
+                                               raw?['Rainfall_Cumulative_mm'] ??
+                                               raw?['RainfallDaily'] ??
+                                               raw?['RainfallDailyComulative'] ??
+                                               raw?['Rainfall'] ??
+                                               raw?['rainfall'];
+                                tVal = tObs?.rainfallMm ?? double.tryParse(rawVal?.toString() ?? '');
+                                yVal = yObs?.rainfallMm;
+                              }
 
-                              if (tMax != null) { todayMax += tMax; todayMaxCount++; }
-                              if (tMin != null) { todayMin += tMin; todayMinCount++; }
-                              if (yMax != null) { yestMax += yMax; yestMaxCount++; }
-                              if (yMin != null) { yestMin += yMin; yestMinCount++; }
+                              if (tVal != null) { todayTotal += tVal; todayCount++; }
+                              if (yVal != null) { yestTotal += yVal; yestCount++; }
                             }
 
-                            double avgTodayMax = todayMaxCount > 0 ? todayMax / todayMaxCount : 0.0;
-                            double avgTodayMin = todayMinCount > 0 ? todayMin / todayMinCount : 0.0;
-                            double avgYestMax = yestMaxCount > 0 ? yestMax / yestMaxCount : 0.0;
-                            double avgYestMin = yestMinCount > 0 ? yestMin / yestMinCount : 0.0;
+                            final bool isAvg = _activeDeltaTab == 'Humidity' || _activeDeltaTab == 'River Level';
+                            double todayVal = (isAvg && todayCount > 0) ? todayTotal / todayCount : todayTotal;
+                            double yestVal = (isAvg && yestCount > 0) ? yestTotal / yestCount : yestTotal;
 
-                            final diffMax = avgTodayMax - avgYestMax;
-                            final diffMin = avgTodayMin - avgYestMin;
+                            final diff = todayVal - yestVal;
 
                             districtWidgets.add(_buildDistrictRowItem(
-                              '$dist (Max)',
-                              '${avgTodayMax.toStringAsFixed(1)} °C',
-                              '${avgYestMax.toStringAsFixed(1)} °C',
-                              '${diffMax > 0 ? '+' : ''}${diffMax.toStringAsFixed(1)} °C ${diffMax > 0 ? '↑' : diffMax < 0 ? '↓' : '—'}',
-                              diffMax > 0 ? const Color(0xFFE65100) : Colors.grey,
+                              dist,
+                              '${todayVal.toStringAsFixed(1)} $unit',
+                              '${yestVal.toStringAsFixed(1)} $unit',
+                              '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit ${diff > 0 ? '↑' : diff < 0 ? '↓' : '—'}',
+                              diff > 0 ? const Color(0xFFE65100) : diff < 0 ? Colors.blue : Colors.grey,
                               distStations,
                               state,
-                              '°C',
-                            ));
-
-                            districtWidgets.add(_buildDistrictRowItem(
-                              '$dist (Min)',
-                              '${avgTodayMin.toStringAsFixed(1)} °C',
-                              '${avgYestMin.toStringAsFixed(1)} °C',
-                              '${diffMin > 0 ? '+' : ''}${diffMin.toStringAsFixed(1)} °C ${diffMin > 0 ? '↑' : diffMin < 0 ? '↓' : '—'}',
-                              diffMin > 0 ? const Color(0xFF0288D1) : Colors.grey,
-                              distStations,
-                              state,
-                              '°C',
+                              unit,
                             ));
                           }
+
                           return districtWidgets;
-                        }
+                        }(),
+                      ],
+                    ),
+                  );
 
-                        for (var dist in keralaDistricts) {
-                          final distStations = allStations.where((s) => matchDistrict(s.district, dist)).toList();
-                          double todayTotal = 0.0;
-                          double yestTotal = 0.0;
-                          int todayCount = 0;
-                          int yestCount = 0;
-                          final unit = _activeDeltaTab == 'Humidity'
-                              ? '%'
-                              : _activeDeltaTab == 'River Level'
-                                  ? 'm'
-                                  : 'mm';
-
-                          for (var s in distStations) {
-                            if (_activeDeltaTab == 'River Level' && s.instrumentType != InstrumentType.riverGauge) {
-                              continue;
-                            }
-                            final tObs = state.getTodayObservation(s.stationId);
-                            final yObs = state.getYesterdayObservation(s.stationId);
-                            final raw = state.getWsDeviceRaw(s.stationId);
-
-                            double? tVal, yVal;
-                            if (_activeDeltaTab == 'Humidity') {
-                              tVal = tObs?.avgHumidityPercent ?? tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
-                              yVal = yObs?.avgHumidityPercent ?? yObs?.humidityPercent;
-                            } else if (_activeDeltaTab == 'River Level') {
-                              tVal = tObs?.riverWaterLevelM;
-                              yVal = yObs?.riverWaterLevelM;
-                            } else {
-                              final rawVal = raw?['Rainfall_Cumulative'] ??
-                                             raw?['RainfallCumulative'] ??
-                                             raw?['Rainfall_Cumulative_mm'] ??
-                                             raw?['RainfallDaily'] ??
-                                             raw?['RainfallDailyComulative'] ??
-                                             raw?['Rainfall'] ??
-                                             raw?['rainfall'];
-                              tVal = tObs?.rainfallMm ?? double.tryParse(rawVal?.toString() ?? '');
-                              yVal = yObs?.rainfallMm;
-                            }
-
-                            if (tVal != null) { todayTotal += tVal; todayCount++; }
-                            if (yVal != null) { yestTotal += yVal; yestCount++; }
-                          }
-
-                          final bool isAvg = _activeDeltaTab == 'Humidity' || _activeDeltaTab == 'River Level';
-                          double todayVal = (isAvg && todayCount > 0) ? todayTotal / todayCount : todayTotal;
-                          double yestVal = (isAvg && yestCount > 0) ? yestTotal / yestCount : yestTotal;
-
-
-
-                          final diff = todayVal - yestVal;
-
-                          districtWidgets.add(_buildDistrictRowItem(
-                            dist,
-                            '${todayVal.toStringAsFixed(1)} $unit',
-                            '${yestVal.toStringAsFixed(1)} $unit',
-                            '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit ${diff > 0 ? '↑' : diff < 0 ? '↓' : '—'}',
-                            diff > 0 ? const Color(0xFFE65100) : diff < 0 ? Colors.blue : Colors.grey,
-                            distStations,
-                            state,
-                            unit,
-                          ));
-                        }
-
-                        return districtWidgets;
-                      }(),
-                    ],
-                  ),
-                ),
+                  if (isDesktop && !isMobile) {
+                    return Expanded(child: tableWidget);
+                  } else {
+                    return SizedBox(height: 380, child: tableWidget);
+                  }
+                },
               ),
           ],
         ),
