@@ -1455,6 +1455,16 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         if (rawValue != null) {
           double value = double.tryParse(rawValue.toString()) ?? 0.0;
 
+          // If moisture is reported as a fraction <= 1.0 (e.g. 0.94), convert to percentage (94.0)
+          if ((key == 'Moisture1' ||
+                  key == 'Moisture2' ||
+                  key == 'Moisture3' ||
+                  key == 'Soil_Moisture') &&
+              value > 0.0 &&
+              value <= 1.0) {
+            value = value * 100.0;
+          }
+
           if ((key.toLowerCase() == 'batteryvoltage' ||
                   key.toLowerCase() == 'battery_voltage') &&
               value == 0.0) {

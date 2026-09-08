@@ -102888,6 +102888,7 @@ e=f}else e=f
 if(e==null)e=g==="UV Index"?l.h(n,"uv_index"):d1
 if(e!=null){d=A.be(J.A(e))
 if(d==null)d=0
+if((g==="Moisture1"||g==="Moisture2"||g==="Moisture3"||g==="Soil_Moisture")&&d>0&&d<=1)d*=100
 if((g.toLowerCase()==="batteryvoltage"||g.toLowerCase()==="battery_voltage")&&d===0){if(r.h(0,g)!=null){f=r.h(0,g)
 f.toString
 f=J.cY(f)}else f=!1
