@@ -94959,7 +94959,7 @@ else if(e>850){e=(e-30)/3
 s=e}else{if(e>550)e=(e-15)/2
 s=e}e=h.b
 r=h.c
-r=r!=null?B.e.W(r,1)+" mm":"0.0 mm"
+r=r!=null?B.e.W(r,1)+" mm":"\u2014"
 q=h.a
 p=B.e.W(q.a,1)
 q=q.a
@@ -95269,7 +95269,7 @@ s=A.h(J.e(a2,i))+" \xb0C"}else s=(a1==null?j:a1.x)!=null?A.h(a1.x)+" \xb0C":h
 if((a0?j:J.e(a2,g))!=null){a2.toString
 r=A.h(J.e(a2,g))+" %"}else r=(a1==null?j:a1.Q)!=null?A.h(a1.Q)+" %":h
 if((a0?j:J.e(a2,f))!=null){a2.toString
-q=A.h(J.e(a2,f))+" mm"}else q=(a1==null?j:a1.w)!=null?A.h(a1.w)+" mm":"0.0 mm"
+q=A.h(J.e(a2,f))+" mm"}else q=(a1==null?j:a1.w)!=null?A.h(a1.w)+" mm":"\u2014"
 if((a0?j:J.e(a2,e))!=null){a2.toString
 p=A.h(J.e(a2,e))+" hPa"}else p=(a1==null?j:a1.z)!=null?A.h(a1.z)+" m":h
 if((a0?j:J.e(a2,d))!=null){a2.toString
@@ -96236,7 +96236,7 @@ q=p}else q="Live"
 n.push("Timestamp: "+A.h(q))
 n=h.Xl(B.b9,B.jS,n,"\ud83d\udcca Today's Measured Reading")
 q=a2==null
-p=(q?g:a2.w)!=null?A.h(a4.$1(a2.w))+" mm":"0.0 mm"
+p=(q?g:a2.w)!=null?A.h(a4.$1(a2.w))+" mm":"\u2014"
 o=(q?g:a2.x)!=null?A.h(a4.$1(a2.x))+" \xb0C":e
 m=(q?g:a2.y)!=null?A.h(a4.$1(a2.y))+" \xb0C":e
 l=(q?g:a2.Q)!=null?A.h(a4.$1(a2.Q))+" %":e
@@ -96984,7 +96984,7 @@ p=A.h(J.e(q,f))+" \xb0C"}else p=(r==null?g:r.x)!=null?A.h(r.x)+" \xb0C":e
 if((s?g:J.e(q,d))!=null){q.toString
 o=A.h(J.e(q,d))+" %"}else o=(r==null?g:r.Q)!=null?A.h(r.Q)+" %":e
 if((s?g:J.e(q,c))!=null){q.toString
-n=A.h(J.e(q,c))+" mm"}else n=(r==null?g:r.w)!=null?A.h(r.w)+" mm":"0.0 mm"
+n=A.h(J.e(q,c))+" mm"}else n=(r==null?g:r.w)!=null?A.h(r.w)+" mm":"\u2014"
 if((s?g:J.e(q,b))!=null){q.toString
 m=A.h(J.e(q,b))+" hPa"}else m=(r==null?g:r.z)!=null?A.h(r.z)+" m":e
 if((s?g:J.e(q,a))!=null){q.toString
@@ -97176,8 +97176,8 @@ if(q.length!==0){a4=A.hA(q,0,A.kh(5,a2,t.S),A.U(q).c).jR(0,new A.bT1())
 a7=a4.$ti.i("dN<1,a9>")
 n=A.J(new A.dN(a4,new A.bT2(),a7),a7.i("C.E"))
 e=n.length!==0?B.c.ds(n,new A.bT3()):0}else e=0
-return A.eF(B.pf,A.a([a0.jz("Today Level",h,B.q1),a0.jz("Yesterday Level",g,B.G),a0.jz("2-Day Peak",B.e.W(f,1)+" m",B.G),a0.jz("5-Day Peak",B.e.W(e,1)+" m",B.G)],t.p),B.bp,B.K,B.a2,8,8)}else{d=(a5==null?a1:a5.w)!=null?A.h(a5.w)+" mm":"0.0 mm"
-c=(a6==null?a1:a6.w)!=null?A.h(a6.w)+" mm":"0.0 mm"
+return A.eF(B.pf,A.a([a0.jz("Today Level",h,B.q1),a0.jz("Yesterday Level",g,B.G),a0.jz("2-Day Peak",B.e.W(f,1)+" m",B.G),a0.jz("5-Day Peak",B.e.W(e,1)+" m",B.G)],t.p),B.bp,B.K,B.a2,8,8)}else{d=(a5==null?a1:a5.w)!=null?A.h(a5.w)+" mm":"\u2014"
+c=(a6==null?a1:a6.w)!=null?A.h(a6.w)+" mm":"\u2014"
 b=a8.a7T(a4,2)
 a=a8.a7T(a4,5)
 return A.eF(B.pf,A.a([a0.jz("Today Rain",d,B.aJ),a0.jz("Yesterday Rain",c,B.G),a0.jz("2-Day Total",B.e.W(b,1)+" mm",B.G),a0.jz("5-Day Total",B.e.W(a,1)+" mm",B.G)],t.p),B.bp,B.K,B.a2,8,8)}},
@@ -97343,29 +97343,29 @@ A.bTu.prototype={
 $2(a,b){return B.lb},
 $S:274}
 A.bTt.prototype={
-$2(a3,a4){var s,r,q,p,o,n,m,l,k,j,i,h,g=this,f=null,e="Rainfall",d=g.b[a4],c=d.a,b=g.c.hc(c),a=t.p,a0=A.a([],a),a1=d.e===B.bn||d.f===B.bP,a2=d.f
-if(a2===B.c5||a1){s=(b==null?f:b.w)!=null?A.h(b.w)+" mm":"0.0 mm"
-a0.push(g.a.Ag(e,s,B.q3))}if(a2===B.bW||a1){r=b==null
-q=(r?f:b.x)!=null?A.h(b.x)+"\xb0C":"\u2014"
-p=(r?f:b.y)!=null?A.h(b.y)+"\xb0C":"\u2014"
+$2(a4,a5){var s,r,q,p,o,n,m,l,k,j,i,h,g=this,f=null,e="\u2014",d="Rainfall",c=g.b[a5],b=c.a,a=g.c.hc(b),a0=t.p,a1=A.a([],a0),a2=c.e===B.bn||c.f===B.bP,a3=c.f
+if(a3===B.c5||a2){s=(a==null?f:a.w)!=null?A.h(a.w)+" mm":e
+a1.push(g.a.Ag(d,s,B.q3))}if(a3===B.bW||a2){r=a==null
+q=(r?f:a.x)!=null?A.h(a.x)+"\xb0C":e
+p=(r?f:a.y)!=null?A.h(a.y)+"\xb0C":e
 r=g.a
-a0.push(r.Ag("Max Temp",q,B.c7))
-a0.push(r.Ag("Min Temp",p,B.c2))}if(a2===B.cO||a1){o=(b==null?f:b.Q)!=null?A.h(b.Q)+"%":"\u2014"
-a0.push(g.a.Ag("Humidity",o,B.aaD))}if(a2===B.ci||a1){n=(b==null?f:b.z)!=null?A.h(b.z)+" m":"\u2014"
-a0.push(g.a.Ag("River Level",n,B.dJ))}if(a0.length===0){s=(b==null?f:b.w)!=null?A.h(b.w)+" mm":"0.0 mm"
-a0.push(g.a.Ag(e,s,B.q3))}if(b!=null){m=b.d.h9()
+a1.push(r.Ag("Max Temp",q,B.c7))
+a1.push(r.Ag("Min Temp",p,B.c2))}if(a3===B.cO||a2){o=(a==null?f:a.Q)!=null?A.h(a.Q)+"%":e
+a1.push(g.a.Ag("Humidity",o,B.aaD))}if(a3===B.ci||a2){n=(a==null?f:a.z)!=null?A.h(a.z)+" m":e
+a1.push(g.a.Ag("River Level",n,B.dJ))}if(a1.length===0){s=(a==null?f:a.w)!=null?A.h(a.w)+" mm":e
+a1.push(g.a.Ag(d,s,B.q3))}if(a!=null){m=a.d.h9()
 l=B.m.aU(A.cg(m),12)===0?12:B.m.aU(A.cg(m),12)
 k=A.cg(m)>=12?"PM":"AM"
 j=B.b.b9(B.m.k(A.dH(m)),2,"0")
 i=""+A.bd(m)+"/"+A.aP(m)+" "+B.b.b9(B.m.k(l),2,"0")+":"+j+" "+k}else i="Today 08:00 AM"
 r=A.D(6)
-r=A.M(f,A.bV(A.l("#"+(a4+1),f,f,f,f,f,B.aR4,f,f,f),f,f),B.l,f,f,new A.P(B.cu,f,f,r,f,f,B.o),f,32,f,f,f,f,f,32)
-c=A.l(c,f,f,f,f,f,B.fU,f,f,f)
+r=A.M(f,A.bV(A.l("#"+(a5+1),f,f,f,f,f,B.aR4,f,f,f),f,f),B.l,f,f,new A.P(B.cu,f,f,r,f,f,B.o),f,32,f,f,f,f,f,32)
+b=A.l(b,f,f,f,f,f,B.fU,f,f,f)
 h=A.D(4)
-h=A.T(A.a([c,B.az,A.M(f,A.l(A.ia(a2),f,f,f,f,f,B.aQt,f,f,f),B.l,f,f,new A.P(B.fB,f,f,h,f,f,B.o),f,f,f,f,B.afX,f,f,f)],a),B.k,B.f,B.h,0,f,f)
-c=d.at
-c=c.length!==0?c+", ":""
-return new A.ae(B.li,A.T(A.a([r,B.be,A.aj(A.V(A.a([h,A.l(c+d.Q,f,f,f,f,f,B.hF,f,f,f)],a),B.w,B.f,B.h,0,B.n),3,f),A.aj(A.eF(B.a2,a0,B.bp,B.K,B.a2,6,12),4,f),A.l(i,f,f,f,f,f,B.kq,f,f,f)],a),B.k,B.f,B.h,0,f,f),f)},
+h=A.T(A.a([b,B.az,A.M(f,A.l(A.ia(a3),f,f,f,f,f,B.aQt,f,f,f),B.l,f,f,new A.P(B.fB,f,f,h,f,f,B.o),f,f,f,f,B.afX,f,f,f)],a0),B.k,B.f,B.h,0,f,f)
+b=c.at
+b=b.length!==0?b+", ":""
+return new A.ae(B.li,A.T(A.a([r,B.be,A.aj(A.V(A.a([h,A.l(b+c.Q,f,f,f,f,f,B.hF,f,f,f)],a0),B.w,B.f,B.h,0,B.n),3,f),A.aj(A.eF(B.a2,a1,B.bp,B.K,B.a2,6,12),4,f),A.l(i,f,f,f,f,f,B.kq,f,f,f)],a0),B.k,B.f,B.h,0,f,f),f)},
 $S:218}
 A.bTv.prototype={
 $0(){A.aU(this.a,!1).bj(null)
@@ -97815,7 +97815,7 @@ break}if(s==="maxTemp"){r=e.x
 q=r!=null?A.h(r)+" \xb0C":"\u2014"}else if(s==="humidity"){r=e.Q
 q=r!=null?A.h(r)+" %":"\u2014"}else if(s==="riverLevel"){r=e.z
 q=r!=null?A.h(r)+" m":"\u2014"}else{r=e.w
-q=r!=null?A.h(r)+" mm":"0.0 mm"}}else q="0.0 mm"
+q=r!=null?A.h(r)+" mm":"\u2014"}}else q="\u2014"
 if(d){p=e.d.h9()
 o=B.m.aU(A.cg(p),12)===0?12:B.m.aU(A.cg(p),12)
 n=A.cg(p)>=12?"PM":"AM"
@@ -97860,7 +97860,7 @@ break}if(s==="maxTemp"){r=e.x
 q=r!=null?A.h(r)+" \xb0C":"\u2014"}else if(s==="humidity"){r=e.Q
 q=r!=null?A.h(r)+" %":"\u2014"}else if(s==="riverLevel"){r=e.z
 q=r!=null?A.h(r)+" m":"\u2014"}else{r=e.w
-q=r!=null?A.h(r)+" mm":"0.0 mm"}}else q="0.0 mm"
+q=r!=null?A.h(r)+" mm":"\u2014"}}else q="\u2014"
 if(d){p=e.d.h9()
 o=B.m.aU(A.cg(p),12)===0?12:B.m.aU(A.cg(p),12)
 n=A.cg(p)>=12?"PM":"AM"

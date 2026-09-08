@@ -88,21 +88,21 @@ const RESOURCES = {"assets/AssetManifest.bin": "1ea4ac114bd3593271ee7daebb20374d
 "favicon.png": "352a05256273593e3e2b5d173d54cf60",
 "firebase-messaging-sw.js": "17c44fff535ffea2671fce491d6dd458",
 "flutter.js": "888483df48293866f9f41d3d9274a779",
-"flutter_bootstrap.js": "7aefc6dc061f4b31e9808c50d99f7077",
+"flutter_bootstrap.js": "09bee7f12e94b66d5142f4991d3b8eb3",
 "icons/Icon-192.png": "90a948ad88bf1c17a5a40ed40bf4905a",
 "icons/Icon-512.png": "76feaf63bcbf28ae35c368fa70d14ce7",
 "icons/Icon-maskable-192.png": "90a948ad88bf1c17a5a40ed40bf4905a",
 "icons/Icon-maskable-512.png": "76feaf63bcbf28ae35c368fa70d14ce7",
 "index.html": "4b65c9f85c76b01461b3479d7354a8b5",
 "/": "4b65c9f85c76b01461b3479d7354a8b5",
-"main.dart.js": "806e648886e6147b961566d1f4a81f56",
+"main.dart.js": "55a4984397fc539896a9e8a24dd3d4b1",
 "manifest.json": "93d60bccdcdb08270ee70427510365db",
 "maskable": "d41d8cd98f00b204e9800998ecf8427e",
 "mobile-app.png": "c2b1747bda9c67c734ff806e5bf0e684",
 "model-viewer.min.js": "129bdd53ae0634880991acf8d0f0d9dc",
 "smartphone.png": "07c28484887d1e8f958e7975763a2d2b",
 "vercel.json": "af5c9a62a01d43903b69be83782f6859",
-"version.json": "066b460bcf2b8ae77d45042f7623ddd4"};
+"version.json": "21dc6f61429d5225779f3f5e013abe1a"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",

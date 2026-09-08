@@ -513,7 +513,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                               final isAws = s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
 
                               if (s.instrumentType == InstrumentType.rainGauge || isAws) {
-                                final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '0.0 mm';
+                                final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
                                 chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF1D4ED8)));
                               }
 
@@ -535,7 +535,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                               }
 
                               if (chips.isEmpty) {
-                                final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '0.0 mm';
+                                final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
                                 chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF1D4ED8)));
                               }
 
@@ -860,7 +860,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           
       final String rainStr = wsRaw?['Rainfall'] != null 
           ? '${wsRaw!['Rainfall']} mm' 
-          : (obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '0.0 mm');
+          : (obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—');
           
       final String pressStr = wsRaw?['AtmPressure'] != null 
           ? '${wsRaw!['AtmPressure']} hPa' 
@@ -1934,7 +1934,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             children: [
                               ...activeStations.take(5).map((s) {
                                 final obs = state.getTodayObservation(s.stationId);
-                                String valStr = '0.0 mm';
+                                String valStr = '—';
                                 if (obs != null) {
                                   String effectiveParam = _appliedParam;
                                   if (_appliedParam == 'all') {
@@ -1962,7 +1962,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                   } else if (effectiveParam == 'riverLevel') {
                                     valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
                                   } else {
-                                    valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
+                                    valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '—';
                                   }
                                 }
 
@@ -2045,7 +2045,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       children: [
                         ...activeStations.take(5).map((s) {
                           final obs = state.getTodayObservation(s.stationId);
-                          String valStr = '0.0 mm';
+                          String valStr = '—';
                           if (obs != null) {
                             String effectiveParam = _appliedParam;
                             if (_appliedParam == 'all') {
@@ -2073,7 +2073,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             } else if (effectiveParam == 'riverLevel') {
                               valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
                             } else {
-                              valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '0.0 mm';
+                              valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '—';
                             }
                           }
 
@@ -3147,8 +3147,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     } 
     // Default: Rainfall
     else {
-      final tRain = todayObs?.rainfallMm != null ? '${todayObs!.rainfallMm} mm' : '0.0 mm';
-      final yRain = yesterdayObs?.rainfallMm != null ? '${yesterdayObs!.rainfallMm} mm' : '0.0 mm';
+      final tRain = todayObs?.rainfallMm != null ? '${todayObs!.rainfallMm} mm' : '—';
+      final yRain = yesterdayObs?.rainfallMm != null ? '${yesterdayObs!.rainfallMm} mm' : '—';
       final cum2 = state.getCumulativeRainfall(station.stationId, 2);
       final cum5 = state.getCumulativeRainfall(station.stationId, 5);
 

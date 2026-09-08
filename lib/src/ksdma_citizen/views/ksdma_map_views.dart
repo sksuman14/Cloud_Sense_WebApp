@@ -139,7 +139,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           
       final String rainStr = wsRaw?['Rainfall'] != null 
           ? '${wsRaw!['Rainfall']} mm' 
-          : (obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '0.0 mm');
+          : (obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—');
           
       final String pressStr = wsRaw?['AtmPressure'] != null 
           ? '${wsRaw!['AtmPressure']} hPa' 

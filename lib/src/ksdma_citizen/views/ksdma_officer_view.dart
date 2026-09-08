@@ -703,7 +703,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
                         color: const Color(0xFF64748B),
                         icon: Icons.history,
                         items: [
-                          '🌧 Rainfall: ${yestObs?.rainfallMm != null ? "${fmtNum(yestObs!.rainfallMm)} mm" : "0.0 mm"}',
+                          '🌧 Rainfall: ${yestObs?.rainfallMm != null ? "${fmtNum(yestObs!.rainfallMm)} mm" : "—"}',
                           '🌡 Max Temp: ${yestObs?.maxTemperatureC != null ? "${fmtNum(yestObs!.maxTemperatureC)} °C" : "N/A"}',
                           '🌡 Min Temp: ${yestObs?.minTemperatureC != null ? "${fmtNum(yestObs!.minTemperatureC)} °C" : "N/A"}',
                           '💧 Humidity: ${yestObs?.humidityPercent != null ? "${fmtNum(yestObs!.humidityPercent)} %" : "N/A"}',

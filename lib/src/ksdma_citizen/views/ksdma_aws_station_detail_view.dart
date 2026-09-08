@@ -707,7 +707,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Rainfall Bulletin',
-                                mainVal: rainVal != null ? '${rainVal.toStringAsFixed(1)} mm' : '0.0 mm',
+                                mainVal: rainVal != null ? '${rainVal.toStringAsFixed(1)} mm' : '—',
                                 subTitle: '24h Cumulative Rainfall: ${rainCumVal.toStringAsFixed(1)} mm',
                                 badgeText: _getRainfallClassification(rainCumVal),
                                 badgeColor: _getRainfallColor(rainCumVal),
