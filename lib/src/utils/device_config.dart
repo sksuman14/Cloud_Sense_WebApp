@@ -1298,6 +1298,9 @@ class DeviceConfig {
     if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR')) {
       return _configs['KR'];
     }
+    if (name.startsWith('WS_SHOBHA') || name.startsWith('WS_SOBHA') || name.startsWith('SH')) {
+      return _configs['SH'];
+    }
     for (var prefix in _configs.keys) {
       if (name.startsWith(prefix)) {
         return _configs[prefix];
@@ -1314,6 +1317,9 @@ class DeviceConfig {
     }
     if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR')) {
       return 'KR';
+    }
+    if (name.startsWith('WS_SHOBHA') || name.startsWith('WS_SOBHA') || name.startsWith('SH')) {
+      return 'SH';
     }
     for (var prefix in _configs.keys) {
       if (name.startsWith(prefix)) {

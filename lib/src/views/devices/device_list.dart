@@ -1241,7 +1241,13 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                     _healthTopicLookupMap[displaySensorName] ??
                                     (devIdDigits.isNotEmpty ? _healthTopicLookupMap[devIdDigits] : null);
 
-                                if (resolvedTopic == null && topic.contains('#')) {
+                                if (resolvedTopic == null &&
+                                    (sensorName.toUpperCase().startsWith('SH') ||
+                                     sensorName.toUpperCase().contains('SHOBHA') ||
+                                     sensorName.toUpperCase().contains('SOBHA'))) {
+                                  final digits = int.tryParse(devIdDigits)?.toString() ?? '1';
+                                  resolvedTopic = "WS_Shobha_$digits#WS/Shobha/$digits";
+                                } else if (resolvedTopic == null && topic.contains('#')) {
                                   final parts = topic.split('#');
                                   if (parts.length > 1) {
                                     resolvedTopic = "$sensorName#${parts.sublist(1).join('#')}";

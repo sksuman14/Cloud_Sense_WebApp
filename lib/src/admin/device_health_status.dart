@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_sense_webapp/src/admin/quality_diagnostics_page.dart';
 import 'package:cloud_sense_webapp/src/admin/admin_page.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
+import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 
 class DeviceHealthData {
   final String deviceId;
@@ -2002,9 +2003,11 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                                     ? device.deviceIdTopic
                                     : '0#${device.deviceIdTopic}'); // Fallback for mapping
 
+                            final userEmail = Provider.of<UserProvider>(context, listen: false).userEmail?.trim().toLowerCase();
+                            final isAdmin = userEmail != null && DeviceUtils.isSuperAdmin(userEmail);
                             NavigationUtils.navigateTo(
                               context,
-                              '/admin/devicegraph',
+                              isAdmin ? '/admin/devicegraph' : '/devicegraph',
                               arguments: {
                                 'deviceName': sensorName ?? device.deviceId,
                                 'sequentialName': mapping.category,
@@ -3177,9 +3180,11 @@ class _HealthDetailDialogWidgetState extends State<_HealthDetailDialogWidget> {
                                   device.deviceIdTopic.contains('WS/SSMet_0126')
                                       ? device.deviceIdTopic
                                       : '0#${device.deviceIdTopic}');
+                          final userEmail = Provider.of<UserProvider>(context, listen: false).userEmail?.trim().toLowerCase();
+                          final isAdmin = userEmail != null && DeviceUtils.isSuperAdmin(userEmail);
                           NavigationUtils.navigateTo(
                             context,
-                            '/admin/devicegraph',
+                            isAdmin ? '/admin/devicegraph' : '/devicegraph',
                             arguments: {
                               'deviceName': sensorName ?? device.deviceId,
                               'sequentialName': mapping.category,

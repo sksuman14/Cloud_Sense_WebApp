@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -7,6 +7,9 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_sense_webapp/main.dart';
+import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 
 class QualityDiagnosticsPage extends StatefulWidget {
   final String deviceId;
@@ -246,9 +249,11 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
                               ? widget.deviceIdTopic
                               : '0#${widget.deviceIdTopic}');
 
+                      final userEmail = Provider.of<UserProvider>(context, listen: false).userEmail?.trim().toLowerCase();
+                      final isAdmin = userEmail != null && DeviceUtils.isSuperAdmin(userEmail);
                       NavigationUtils.navigateTo(
                         context,
-                        '/admin/devicegraph',
+                        isAdmin ? '/admin/devicegraph' : '/devicegraph',
                         arguments: {
                           'deviceName': sensorName ?? widget.deviceId,
                           'sequentialName': mapping.category,

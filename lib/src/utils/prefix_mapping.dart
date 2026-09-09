@@ -443,6 +443,15 @@ class DevicePrefixUtils {
       return "AWS_$id#AWS/$id";
     }
 
+    // 1.7 Handle Shobha / Sobha sensors (SH)
+    if (sensorName.startsWith('SH') ||
+        sensorName.startsWith('WS_SHOBHA') ||
+        sensorName.startsWith('WS_SOBHA')) {
+      final digits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '1';
+      final id = int.tryParse(digits) ?? 1;
+      return "WS_Shobha_$id#WS/Shobha/$id";
+    }
+
     // 2. Standard numeric extraction for standard prefixes
     final reg = RegExp(r'^([A-Z]{1,3})(\d{1,4})$');
     final match = reg.firstMatch(sensorName);
@@ -567,7 +576,12 @@ class DevicePrefixUtils {
       return 'SI${id.toString().padLeft(2, '0')}';
     if (topicPath.startsWith('Awadh/IIT_B')) return 'IT$paddedId';
     if (topicPath.startsWith('WS/Polytechnic/')) return 'PC$paddedId';
-    if (topicPath.startsWith('WS/Shobha/')) return 'SH$paddedId';
+    if (topicPath.startsWith('WS/Shobha/') ||
+        topicPath.toLowerCase().contains('shobha') ||
+        topicPath.toLowerCase().contains('sobha')) {
+      final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
+      return 'SH${cleanId.padLeft(3, '0')}';
+    }
     if (topicPath.startsWith('WS/GP/')) return 'GP$paddedId';
     if (topicPath.startsWith('WS/ANNAM_CP')) {
       final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');

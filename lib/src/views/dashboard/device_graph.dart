@@ -985,6 +985,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       deviceIdStr = deviceIdNumeric.toString();
     }
 
+    if (widget.deviceName.toUpperCase().startsWith('SH') ||
+        widget.deviceName.toUpperCase().startsWith('WS_SHOBHA') ||
+        widget.deviceName.toUpperCase().startsWith('WS_SOBHA')) {
+      deviceIdStr = (deviceIdNumeric != 0 ? deviceIdNumeric : 1).toString();
+    }
+
     if (widget.deviceName.startsWith('JW')) {
       try {
         final jwDevice = _deviceStatuses.firstWhere(
