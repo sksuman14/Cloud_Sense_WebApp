@@ -14,6 +14,12 @@ class DevicePrefixUtils {
   ];
 
   static String getSensorType(String deviceId) {
+    final upper = deviceId.toUpperCase();
+    if (upper.startsWith('SH') ||
+        upper.startsWith('WS_SOBHA') ||
+        upper.startsWith('WS_SHOBHA')) {
+      return 'Sobha Sensor';
+    }
     if (deviceId.startsWith('WD')) return 'Weather Sensor';
     if (deviceId.startsWith('CL') || deviceId.startsWith('BD')) return 'Chlorine Sensor';
     if (deviceId.startsWith('SS')) return 'Soil Sensor';
@@ -173,6 +179,7 @@ class DevicePrefixUtils {
         deviceId.startsWith('JIO_WINDS_') ||
         deviceId.startsWith('JW_') ||
         deviceId.startsWith('WS_SHOBHA_') ||
+        deviceId.startsWith('WS_SOBHA_') ||
         deviceId.startsWith('AWS_TESTING_') ||
         deviceId.startsWith('ANNAM_CP') ||
         deviceId.startsWith('ANNAM/CPS_') ||
