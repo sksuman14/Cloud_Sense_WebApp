@@ -206,11 +206,57 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     Map<String, dynamic>? extractedCalc;
 
     try {
-      if (_selectedPeriod == '1day') {
-        final dateStr = DateFormat('yyyy-MM-dd').format(_selectedSingleDate);
-        final String rangeUrl = 'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=$devId&startdate=$dateStr&enddate=$dateStr&key=${ApiKeys.annamApiKey}';
+      final encodedKey = Uri.encodeComponent(ApiKeys.annamApiKey);
 
-        final response = await http.get(Uri.parse(rangeUrl));
+      if (_selectedPeriod == '1day') {
+        // Format for official pre-calculated keraladata API: dd-MM-yyyy
+        final dateStr = DateFormat('dd-MM-yyyy').format(_selectedSingleDate);
+        final String keraladataUrl =
+            'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$dateStr&enddate=$dateStr&annam_id=$devId&key=$encodedKey&mode=view';
+
+        try {
+          final response = await http.get(Uri.parse(keraladataUrl)).timeout(const Duration(seconds: 20));
+          if (response.statusCode == 200) {
+            final dynamic body = jsonDecode(response.body);
+            records = _extractRecords(body);
+            if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+              extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+            }
+          }
+        } catch (e) {
+          debugPrint('Error fetching keraladata API: $e');
+        }
+
+        // If keraladata didn't return records, try WS_Kerala_API for the EXACT SAME date as secondary attempt
+        if (records.isEmpty) {
+          try {
+            final ymdDate = DateFormat('yyyy-MM-dd').format(_selectedSingleDate);
+            final String fallbackUrl =
+                'https://gj6wsq3214.execute-api.us-east-1.amazonaws.com/default/WS_Kerala_API?ANNAM_ID=$devId&startdate=$ymdDate&enddate=$ymdDate&key=$encodedKey';
+            final fallbackResp = await http.get(Uri.parse(fallbackUrl)).timeout(const Duration(seconds: 15));
+            if (fallbackResp.statusCode == 200) {
+              final dynamic body = jsonDecode(fallbackResp.body);
+              records = _extractRecords(body);
+              if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+                extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+              }
+            }
+          } catch (e) {
+            debugPrint('Error fetching WS_Kerala_API fallback: $e');
+          }
+        }
+
+        // Strict single-date filter: guarantee NO points from yesterday or other dates can ever appear
+        final targetYmd = DateFormat('yyyy-MM-dd').format(_selectedSingleDate);
+        records = records.where((r) {
+          final ts = r['TimeStamp']?.toString().trim() ?? '';
+          return ts.startsWith(targetYmd);
+        }).toList();
+
+      } else if (_selectedPeriod == '7days') {
+        final String history7DaysUrl =
+            'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=$devId';
+        final response = await http.get(Uri.parse(history7DaysUrl)).timeout(const Duration(seconds: 20));
         if (response.statusCode == 200) {
           final dynamic body = jsonDecode(response.body);
           records = _extractRecords(body);
@@ -221,22 +267,10 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       } else if (_selectedPeriod == '1month') {
         final yearStr = DateFormat('yyyy').format(_selectedMonthDate);
         final monthAbbr = DateFormat('MMM').format(_selectedMonthDate).toLowerCase(); // e.g. 'aug'
-        final String monthUrl = 'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year=$yearStr&DeviceId=$devId&Month=$monthAbbr';
+        final String monthUrl =
+            'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year=$yearStr&DeviceId=$devId&Month=$monthAbbr';
 
-        final response = await http.get(Uri.parse(monthUrl));
-        if (response.statusCode == 200) {
-          final dynamic body = jsonDecode(response.body);
-          records = _extractRecords(body);
-          if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
-            extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
-          }
-        }
-      }
-
-      // If records are empty or 7days period selected, fetch 7_Days_Data_Fetch_Api
-      if (records.isEmpty || _selectedPeriod == '7days') {
-        final String history7DaysUrl = 'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=$devId';
-        final response = await http.get(Uri.parse(history7DaysUrl));
+        final response = await http.get(Uri.parse(monthUrl)).timeout(const Duration(seconds: 20));
         if (response.statusCode == 200) {
           final dynamic body = jsonDecode(response.body);
           records = _extractRecords(body);
@@ -256,9 +290,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       setState(() {
         _historyData = records;
         _calculatedData = extractedCalc;
-        if (records.isNotEmpty) {
-          _latestReading = records.last;
-        }
+        _latestReading = records.isNotEmpty ? records.last : null;
         _isLoading = false;
       });
     } catch (e) {
@@ -279,6 +311,8 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         return List<Map<String, dynamic>>.from(body['devices']);
       } else if (body['data'] is List) {
         return List<Map<String, dynamic>>.from(body['data']);
+      } else if (body.containsKey('TimeStamp') || body.containsKey('now_temperature')) {
+        return [Map<String, dynamic>.from(body)];
       }
     }
     return [];
@@ -500,14 +534,13 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       state = Provider.of<KsdmaStateService>(context);
     } catch (_) {}
 
-    final wsRaw = state?.getWsDeviceRaw(widget.stationId) ?? _latestReading;
-    final obs = state?.getTodayObservation(widget.stationId);
+    final stationMeta = state?.getWsDeviceRaw(widget.stationId);
 
-    // Find station meta or dynamically map from live AWS device telemetry
-    final rawDist = wsRaw?['District']?.toString().replaceAll(RegExp(r'\s+district', caseSensitive: false), '').trim() ?? 'Kerala';
-    final rawCity = wsRaw?['City']?.toString().replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim() ?? rawDist;
-    final double rawLat = double.tryParse(wsRaw?['Latitude']?.toString() ?? '') ?? 10.5276;
-    final double rawLng = double.tryParse(wsRaw?['Longitude']?.toString() ?? '') ?? 76.2144;
+    // Find station meta or dynamically map from AWS station registry
+    final rawDist = stationMeta?['District']?.toString().replaceAll(RegExp(r'\s+district', caseSensitive: false), '').trim() ?? 'Kerala';
+    final rawCity = stationMeta?['City']?.toString().replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim() ?? rawDist;
+    final double rawLat = double.tryParse(stationMeta?['Latitude']?.toString() ?? '') ?? 10.5276;
+    final double rawLng = double.tryParse(stationMeta?['Longitude']?.toString() ?? '') ?? 76.2144;
 
     final station = state?.getStation(widget.stationId) ?? KsdmaStation(
       stationId: widget.stationId,
@@ -528,39 +561,60 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       createdAt: DateTime.now(),
     );
 
-    final num? tempVal = wsRaw?['now_temperature'] ?? wsRaw?['Temperature'] ?? _calculatedData?['Maximum_Temperature'] ?? obs?.maxTemperatureC;
-    final num? humVal = wsRaw?['now_relative_humidity'] ?? wsRaw?['Humidity'] ?? _calculatedData?['Maximum_Humidity'] ?? _calculatedData?['Average_Humidity'] ?? obs?.humidityPercent;
+    // Strictly scope telemetry to the selected date/period. Do NOT fall back to other dates!
+    final bool hasData = _historyData.isNotEmpty;
+    final Map<String, dynamic>? telemetryReading = _latestReading ?? (hasData ? _historyData.last : null);
 
-    final num? rawRain = wsRaw?['rainfall'] ?? wsRaw?['Rainfall'] ?? wsRaw?['Total_Rainfall'] ?? _calculatedData?['Total_Rainfall'];
+    final num? tempVal = (telemetryReading != null)
+        ? (telemetryReading['now_temperature'] ??
+            telemetryReading['Temperature'] ??
+            _calculatedData?['Maximum_Temperature'] ??
+            _calculatedData?['Average_Temperature'])
+        : null;
+
+    final num? humVal = (telemetryReading != null)
+        ? (telemetryReading['now_relative_humidity'] ??
+            telemetryReading['Humidity'] ??
+            _calculatedData?['Maximum_Humidity'] ??
+            _calculatedData?['Average_Humidity'])
+        : null;
+
+    final num? rawRain = (telemetryReading != null)
+        ? (telemetryReading['rainfall'] ??
+            telemetryReading['Rainfall'] ??
+            telemetryReading['Total_Rainfall'] ??
+            _calculatedData?['Total_Rainfall'])
+        : null;
 
     double rainCumVal = 0.0;
-    if (_calculatedData?['Total_Rainfall'] != null) {
-      rainCumVal = double.tryParse(_calculatedData!['Total_Rainfall'].toString()) ?? 0.0;
-    } else if (wsRaw?['Rainfall_Cumulative'] != null || wsRaw?['Total_Rainfall'] != null) {
-      final dynamic val = wsRaw?['Rainfall_Cumulative'] ?? wsRaw?['Total_Rainfall'];
-      rainCumVal = double.tryParse(val.toString()) ?? 0.0;
-    } else if (obs?.rainfallMm != null && obs!.rainfallMm! > 0) {
-      rainCumVal = obs.rainfallMm!;
-    } else if (_historyData.isNotEmpty) {
-      double sumRain = 0.0;
-      for (var r in _historyData) {
-        final rf = double.tryParse(r['Rainfall']?.toString() ?? r['rainfall']?.toString() ?? r['Total_Rainfall']?.toString() ?? '');
-        if (rf != null && rf > 0) {
-          sumRain += rf;
+    if (hasData) {
+      if (_calculatedData?['Total_Rainfall'] != null) {
+        rainCumVal = double.tryParse(_calculatedData!['Total_Rainfall'].toString()) ?? 0.0;
+      } else if (telemetryReading != null && (telemetryReading['Rainfall_Cumulative'] != null || telemetryReading['Total_Rainfall'] != null)) {
+        final dynamic val = telemetryReading['Rainfall_Cumulative'] ?? telemetryReading['Total_Rainfall'];
+        rainCumVal = double.tryParse(val.toString()) ?? 0.0;
+      } else {
+        double sumRain = 0.0;
+        for (var r in _historyData) {
+          final rf = double.tryParse(r['Rainfall']?.toString() ?? r['rainfall']?.toString() ?? r['Total_Rainfall']?.toString() ?? '');
+          if (rf != null && rf > 0) {
+            sumRain += rf;
+          }
         }
+        rainCumVal = sumRain > 0 ? sumRain : (rawRain?.toDouble() ?? 0.0);
       }
-      rainCumVal = sumRain > 0 ? sumRain : (rawRain?.toDouble() ?? 0.0);
-    } else {
-      rainCumVal = rawRain?.toDouble() ?? 0.0;
     }
 
-    final num? rainVal = (rainCumVal > 0 && (rawRain == null || rawRain == 0)) ? rainCumVal : rawRain;
-    final num? pressVal = wsRaw?['now_pressure'] ?? wsRaw?['AtmPressure'];
-    final num? windSpdVal = wsRaw?['now_wind_speed'] ?? wsRaw?['WindSpeed'];
-    final dynamic windDirVal = wsRaw?['now_wind_direction'] ?? wsRaw?['WindDirection'];
-    final num? gustVal = wsRaw?['max_wind_gust'] ?? wsRaw?['WindGust'];
-    final dynamic battVal = wsRaw?['Battery_Voltage'];
-    final dynamic signalVal = wsRaw?['Signal_Strength'];
+    final num? rainVal = hasData
+        ? ((rainCumVal > 0 && (rawRain == null || rawRain == 0)) ? rainCumVal : rawRain)
+        : null;
+
+    final num? pressVal = (telemetryReading != null) ? (telemetryReading['now_pressure'] ?? telemetryReading['AtmPressure']) : null;
+    final num? windSpdVal = (telemetryReading != null) ? (telemetryReading['now_wind_speed'] ?? telemetryReading['WindSpeed']) : null;
+    final dynamic windDirVal = (telemetryReading != null) ? (telemetryReading['now_wind_direction'] ?? telemetryReading['WindDirection']) : null;
+    final num? gustVal = (telemetryReading != null) ? (telemetryReading['max_wind_gust'] ?? telemetryReading['WindGust']) : null;
+    final dynamic battVal = (telemetryReading != null) ? telemetryReading['Battery_Voltage'] : null;
+    final dynamic signalVal = (telemetryReading != null) ? telemetryReading['Signal_Strength'] : null;
     return KeyboardListener(
       focusNode: _keyboardFocusNode,
       autofocus: true,
@@ -655,13 +709,19 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
+                              Row(
                             children: [
-                              const Icon(Icons.sensors, color: Color(0xFF16A34A), size: 20),
+                              Icon(Icons.sensors, color: hasData ? const Color(0xFF16A34A) : const Color(0xFFDC2626), size: 20),
                               const SizedBox(width: 6),
                               Text(
-                                'Station ID: ${station.stationId} (${_historyData.length} Telemetry Points Loaded)',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                hasData
+                                    ? 'Station ID: ${station.stationId} (${_historyData.length} Telemetry Points Loaded)'
+                                    : 'Station ID: ${station.stationId} (0 Telemetry Points - No Data Found)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: hasData ? const Color(0xFF0F172A) : const Color(0xFFDC2626),
+                                ),
                               ),
                             ],
                           ),
@@ -708,10 +768,10 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Rainfall Bulletin',
-                                mainVal: rainVal != null ? '${rainVal.toStringAsFixed(1)} mm' : '—',
-                                subTitle: '24h Cumulative Rainfall: ${rainCumVal.toStringAsFixed(1)} mm',
-                                badgeText: _getRainfallClassification(rainCumVal),
-                                badgeColor: _getRainfallColor(rainCumVal),
+                                mainVal: hasData && rainVal != null ? '${rainVal.toStringAsFixed(1)} mm' : '—',
+                                subTitle: hasData ? 'Cumulative Rainfall: ${rainCumVal.toStringAsFixed(1)} mm' : 'No rainfall recorded for date',
+                                badgeText: hasData ? _getRainfallClassification(rainCumVal) : 'No Data',
+                                badgeColor: hasData ? _getRainfallColor(rainCumVal) : const Color(0xFF64748B),
                                 icon: Icons.water_drop,
                                 iconColor: const Color(0xFF2563EB),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)]),
@@ -721,10 +781,10 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Temperature & Comfort',
-                                mainVal: tempVal != null ? '${tempVal.toStringAsFixed(1)} °C' : 'N/A',
-                                subTitle: 'Humidity: ${humVal != null ? humVal.toStringAsFixed(1) : "N/A"}%',
-                                badgeText: _getHeatIndexAdvisory(tempVal?.toDouble(), humVal?.toDouble()),
-                                badgeColor: const Color(0xFFEA580C),
+                                mainVal: hasData && tempVal != null ? '${tempVal.toStringAsFixed(1)} °C' : 'N/A',
+                                subTitle: hasData ? 'Humidity: ${humVal != null ? humVal.toStringAsFixed(1) : "N/A"}%' : 'No telemetry data recorded',
+                                badgeText: hasData ? _getHeatIndexAdvisory(tempVal?.toDouble(), humVal?.toDouble()) : 'No Data for Date',
+                                badgeColor: hasData ? const Color(0xFFEA580C) : const Color(0xFF94A3B8),
                                 icon: Icons.thermostat,
                                 iconColor: const Color(0xFFEA580C),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFFFF7ED), Color(0xFFFFEDD5)]),
@@ -734,10 +794,10 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Atmospheric Pressure',
-                                mainVal: pressVal != null ? '${pressVal.toStringAsFixed(1)} hPa' : 'N/A',
-                                subTitle: 'Barometric Trend: ${pressVal != null ? (pressVal >= 1013.2 ? "High/Normal" : "Depression") : "N/A"}',
-                                badgeText: _getPressureAdvisory(pressVal?.toDouble()),
-                                badgeColor: const Color(0xFF0D9488),
+                                mainVal: hasData && pressVal != null ? '${pressVal.toStringAsFixed(1)} hPa' : 'N/A',
+                                subTitle: hasData ? 'Barometric Trend: ${pressVal != null ? (pressVal >= 1013.2 ? "High/Normal" : "Depression") : "N/A"}' : 'No barometric records',
+                                badgeText: hasData ? _getPressureAdvisory(pressVal?.toDouble()) : 'No Data',
+                                badgeColor: hasData ? const Color(0xFF0D9488) : const Color(0xFF94A3B8),
                                 icon: Icons.speed,
                                 iconColor: const Color(0xFF0D9488),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFF0FDFA), Color(0xFFCCFBF1)]),
@@ -747,10 +807,10 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Wind & Gust Profile',
-                                mainVal: windSpdVal != null ? '${windSpdVal.toStringAsFixed(1)} m/s' : 'N/A',
-                                subTitle: 'Heading: ${windDirVal ?? "N/A"}° | Gust: ${gustVal != null ? gustVal.toStringAsFixed(1) : "N/A"} m/s',
-                                badgeText: _getWindAdvisory(windSpdVal?.toDouble(), gustVal?.toDouble()),
-                                badgeColor: const Color(0xFF0288D1),
+                                mainVal: hasData && windSpdVal != null ? '${windSpdVal.toStringAsFixed(1)} m/s' : 'N/A',
+                                subTitle: hasData ? 'Heading: ${windDirVal ?? "N/A"}° | Gust: ${gustVal != null ? gustVal.toStringAsFixed(1) : "N/A"} m/s' : 'No anemometer records',
+                                badgeText: hasData ? _getWindAdvisory(windSpdVal?.toDouble(), gustVal?.toDouble()) : 'No Data',
+                                badgeColor: hasData ? const Color(0xFF0288D1) : const Color(0xFF94A3B8),
                                 icon: Icons.air,
                                 iconColor: const Color(0xFF0288D1),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFF0F9FF), Color(0xFFE0F2FE)]),
@@ -760,18 +820,55 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'AWS Diagnostics',
-                                mainVal: battVal != null ? '$battVal V' : '4.1 V',
-                                subTitle: 'Battery: ${battVal ?? "4.1"} V | Signal: ${signalVal ?? "-55"} dBm',
-                                badgeText: '🟢 Station Power OK',
-                                badgeColor: const Color(0xFF16A34A),
+                                mainVal: hasData && battVal != null ? '$battVal V' : (hasData ? '4.1 V' : '—'),
+                                subTitle: hasData ? 'Battery: ${battVal ?? "4.1"} V | Signal: ${signalVal ?? "-55"} dBm' : 'No telemetry received for date',
+                                badgeText: hasData ? '🟢 Station Power OK' : '🔴 No Telemetry for Date',
+                                badgeColor: hasData ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
                                 icon: Icons.battery_charging_full,
-                                iconColor: const Color(0xFF16A34A),
+                                iconColor: hasData ? const Color(0xFF16A34A) : const Color(0xFF64748B),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)]),
                               ),
                             ],
                           );
                         },
                       ),
+
+                      if (!hasData)
+                        Container(
+                          margin: const EdgeInsets.only(top: 18),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, color: Color(0xFFDC2626), size: 26),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _selectedPeriod == '1day'
+                                          ? 'No Telemetry Recorded for ${DateFormat('dd MMMM yyyy').format(_selectedSingleDate)}'
+                                          : _selectedPeriod == '1month'
+                                              ? 'No Telemetry Recorded for ${DateFormat('MMMM yyyy').format(_selectedMonthDate)}'
+                                              : 'No Telemetry Recorded for the Past 7 Days',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF991B1B)),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    const Text(
+                                      'The automatic weather observatory did not record telemetry data for this timeframe. Please select another date.',
+                                      style: TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
                       const SizedBox(height: 28),
 
@@ -963,8 +1060,29 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         ),
       );
 
+  Widget _buildEmptyChartPlaceholder() {
+    final String dateLabel = _selectedPeriod == '1day'
+        ? DateFormat('dd MMM yyyy').format(_selectedSingleDate)
+        : _selectedPeriod == '1month'
+            ? DateFormat('MMMM yyyy').format(_selectedMonthDate)
+            : 'the past 7 days';
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bar_chart_outlined, size: 36, color: Colors.grey.shade400),
+          const SizedBox(height: 8),
+          Text(
+            'No telemetry records for $dateLabel.',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTempHumChart() {
-    if (_historyData.isEmpty) return const Center(child: Text('No telemetry historical records.'));
+    if (_historyData.isEmpty) return _buildEmptyChartPlaceholder();
 
     return SfCartesianChart(
       legend: const Legend(isVisible: true, position: LegendPosition.top),
@@ -1015,7 +1133,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
   }
 
   Widget _buildRainfallChart() {
-    if (_historyData.isEmpty) return const Center(child: Text('No telemetry historical records.'));
+    if (_historyData.isEmpty) return _buildEmptyChartPlaceholder();
 
     return SfCartesianChart(
       legend: const Legend(isVisible: true, position: LegendPosition.top),
@@ -1047,7 +1165,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
   }
 
   Widget _buildPressureChart() {
-    if (_historyData.isEmpty) return const Center(child: Text('No telemetry historical records.'));
+    if (_historyData.isEmpty) return _buildEmptyChartPlaceholder();
 
     return SfCartesianChart(
       legend: const Legend(isVisible: true, position: LegendPosition.top),
@@ -1081,7 +1199,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
   }
 
   Widget _buildWindChart() {
-    if (_historyData.isEmpty) return const Center(child: Text('No telemetry historical records.'));
+    if (_historyData.isEmpty) return _buildEmptyChartPlaceholder();
 
     return SfCartesianChart(
       legend: const Legend(isVisible: true, position: LegendPosition.top),
