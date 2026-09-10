@@ -605,6 +605,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         _isParamHovering['Wind'] = false;
         _visibleParameters.add('Wind');
       }
+
+      final hasMultiMoisture = _config!.parameters.any((p) =>
+          p.key == 'Moisture1' || p.key == 'Moisture2' || p.key == 'Moisture3');
+      if (hasMultiMoisture) {
+        _chartKeys['Moisture'] = GlobalKey();
+        _sfChartKeys['Moisture'] = GlobalKey<SfCartesianChartState>();
+        _isParamHovering['Moisture'] = false;
+        _visibleParameters.add('Moisture');
+      }
     } else {
       // Fallback for unknown devices or legacy chlorine handling
       const params = [
@@ -2999,7 +3008,17 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             parameter == 'Wind_Speed' ||
             parameter == 'CurrentWindSpeed')
         ? 'Wind'
-        : parameter;
+        : (parameter == 'Moisture1' ||
+                parameter == 'Moisture2' ||
+                parameter == 'Moisture3' ||
+                parameter == 'MOISTURE' ||
+                parameter == 'Moisture' ||
+                parameter == 'Moisture 1' ||
+                parameter == 'Moisture 2' ||
+                parameter == 'Moisture 3' ||
+                parameter == 'Soil Moisture')
+            ? 'Moisture'
+            : parameter;
     setState(() {
       if (_selectedParam == targetParam) {
         // If the same parameter is clicked again, clear the selection to remove effects
@@ -3128,6 +3147,21 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           ),
         ),
         actions: [
+          if (title.toLowerCase().contains('moisture'))
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _scrollToChart('Moisture');
+              },
+              icon: const Icon(Icons.show_chart, color: Color(0xFF4CAF50), size: 18),
+              label: const Text(
+                'View Graph',
+                style: TextStyle(
+                  color: Color(0xFF4CAF50),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Close', style: TextStyle(color: Color(0xFF00BCD4), fontWeight: FontWeight.bold)),
@@ -4017,6 +4051,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                           .toSet()
                                           .toList();
 
+                                  final hasMultiMoistureData = ['Moisture1', 'Moisture2', 'Moisture3'].any(
+                                      (k) => _parametersData[k] != null && _parametersData[k]!.isNotEmpty);
+                                  if (hasMultiMoistureData && !allValidDisplayNames.contains('Moisture')) {
+                                    allValidDisplayNames.add('Moisture');
+                                  }
+
                                   List<PopupMenuEntry<String>> menuItems = [
                                     PopupMenuItem<String>(
                                       value: 'actions',
@@ -4347,6 +4387,28 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   p.key == 'NowWindSpeed') {
                                 displayName = 'Wind';
                               }
+
+                              if (p.key == 'Moisture1' ||
+                                  p.key == 'Moisture2' ||
+                                  p.key == 'Moisture3') {
+                                final firstMoisture = _config!.parameters.firstWhere(
+                                  (param) =>
+                                      param.key == 'Moisture1' ||
+                                      param.key == 'Moisture2' ||
+                                      param.key == 'Moisture3',
+                                );
+                                if (p.key != firstMoisture.key) return false;
+                                displayName = 'Moisture';
+                                final hasMoistureData = [
+                                  'Moisture1',
+                                  'Moisture2',
+                                  'Moisture3'
+                                ].any((k) =>
+                                    _parametersData[k] != null &&
+                                    _parametersData[k]!.isNotEmpty);
+                                if (!hasMoistureData) return false;
+                              }
+
                               if (!_visibleParameters.contains(displayName))
                                 return false;
                               if ((p.key == 'Heat_Index_Feels_Like' ||
@@ -4358,9 +4420,32 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                 return false;
                               }
 
+                              if (p.key == 'Moisture1' ||
+                                  p.key == 'Moisture2' ||
+                                  p.key == 'Moisture3') {
+                                return true;
+                              }
+
                               final data = _parametersData[p.key];
                               return data != null && data.isNotEmpty;
                             }).map((p) {
+                              if (p.key == 'Moisture1' ||
+                                  p.key == 'Moisture2' ||
+                                  p.key == 'Moisture3') {
+                                Widget moistureChart =
+                                    _buildMultiMoistureChartContainer(
+                                  'Moisture',
+                                  isDarkMode,
+                                );
+                                return SizedBox(
+                                  width: MediaQuery.of(context).size.width > 800
+                                      ? MediaQuery.of(context).size.width /
+                                          _graphsPerRow
+                                      : MediaQuery.of(context).size.width,
+                                  child: moistureChart,
+                                );
+                              }
+
                               var data = _parametersData[p.key]!;
                               if (p.key == 'WindSpeed' ||
                                   p.key == 'Wind_Speed' ||
@@ -5425,6 +5510,551 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMultiMoistureChartContainer(
+    String title,
+    bool isDarkMode,
+  ) {
+    final m1Data = _parametersData['Moisture1'];
+    final m2Data = _parametersData['Moisture2'];
+    final m3Data = _parametersData['Moisture3'];
+
+    final bool hasM1 = m1Data != null && m1Data.isNotEmpty;
+    final bool hasM2 = m2Data != null && m2Data.isNotEmpty;
+    final bool hasM3 = m3Data != null && m3Data.isNotEmpty;
+
+    if (!hasM1 && !hasM2 && !hasM3) return const SizedBox.shrink();
+
+    _chartKeys.putIfAbsent(title, () => GlobalKey());
+    _sfChartKeys.putIfAbsent(title, () => GlobalKey<SfCartesianChartState>());
+
+    // 3 distinct colors for the 3 moisture depths
+    const Color m1Color = Color(0xFF2196F3); // Blue for Top Level
+    const Color m2Color = Color(0xFF4CAF50); // Green for Mid Level
+    const Color m3Color = Color(0xFFFF9800); // Orange for Deep Level
+
+    bool isSelected = _selectedParam == title;
+
+    // Split each available moisture level into data segments and gap connectors
+    List<List<ChartData>> m1Segments = [];
+    List<List<ChartData>> m1GapConnectors = [];
+    if (hasM1) {
+      m1Segments = _splitDataByGaps(m1Data, maxGap: const Duration(days: 1));
+      for (int i = 0; i < m1Segments.length - 1; i++) {
+        m1GapConnectors.add(_createGapConnector(m1Segments[i].last, m1Segments[i + 1].first));
+      }
+    }
+
+    List<List<ChartData>> m2Segments = [];
+    List<List<ChartData>> m2GapConnectors = [];
+    if (hasM2) {
+      m2Segments = _splitDataByGaps(m2Data, maxGap: const Duration(days: 1));
+      for (int i = 0; i < m2Segments.length - 1; i++) {
+        m2GapConnectors.add(_createGapConnector(m2Segments[i].last, m2Segments[i + 1].first));
+      }
+    }
+
+    List<List<ChartData>> m3Segments = [];
+    List<List<ChartData>> m3GapConnectors = [];
+    if (hasM3) {
+      m3Segments = _splitDataByGaps(m3Data, maxGap: const Duration(days: 1));
+      for (int i = 0; i < m3Segments.length - 1; i++) {
+        m3GapConnectors.add(_createGapConnector(m3Segments[i].last, m3Segments[i + 1].first));
+      }
+    }
+
+    // Anomaly period bands
+    List<PlotBand> periodBands = [];
+    if (widget.anomalyName != null &&
+        widget.period != null &&
+        widget.period!.isNotEmpty) {
+      try {
+        final period = widget.period!;
+        final anomalies =
+            widget.anomalyName!.split(",").map((a) => a.trim()).toList();
+        String normalize(String s) => s.toLowerCase().replaceAll(' ', '');
+
+        for (final anomaly in anomalies) {
+          final cleanAnomaly =
+              anomaly.contains(":") ? anomaly.split(":").last.trim() : anomaly;
+          if (normalize(anomaly).contains('moisture') || normalize(anomaly).contains('soil')) {
+            if (period.startsWith("from") && period.contains("to")) {
+              final regex = RegExp(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})');
+              final matches = regex.allMatches(period).toList();
+
+              if (matches.length >= 2) {
+                final fromDate = DateTime.parse(matches[0].group(0)!);
+                final toDate = DateTime.parse(matches[1].group(0)!);
+                final midPoint = fromDate.add(Duration(
+                    milliseconds:
+                        toDate.difference(fromDate).inMilliseconds ~/ 2));
+                bool isRightSide = midPoint.hour >= 12;
+
+                periodBands.add(PlotBand(
+                  isVisible: true,
+                  start: fromDate,
+                  end: toDate,
+                  color: Colors.red.withOpacity(0.2),
+                  text: cleanAnomaly,
+                  textAngle: 0,
+                  verticalTextAlignment: TextAnchor.start,
+                  horizontalTextAlignment:
+                      isRightSide ? TextAnchor.end : TextAnchor.start,
+                ));
+              }
+            } else {
+              final dt = DateTime.parse(period);
+              bool isRightSide = dt.hour >= 12;
+
+              periodBands.add(PlotBand(
+                isVisible: true,
+                start: dt,
+                end: dt,
+                borderWidth: 2,
+                borderColor: Colors.red,
+                text: cleanAnomaly,
+                textAngle: 0,
+                verticalTextAlignment: TextAnchor.start,
+                horizontalTextAlignment:
+                    isRightSide ? TextAnchor.end : TextAnchor.start,
+              ));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Moisture anomaly period parse error: $e");
+      }
+    }
+
+    return Focus(
+      autofocus: false,
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
+            event.logicalKey == LogicalKeyboardKey.shiftRight) {
+          setState(() {
+            _isShiftPressed = event is KeyDownEvent;
+          });
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Listener(
+        onPointerSignal: (event) {
+          if (!_isShiftPressed && event is PointerScrollEvent) {
+            // Let scroll pass through — do nothing
+          }
+        },
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isParamHovering[title] = true),
+          onExit: (_) => setState(() => _isParamHovering[title] = false),
+          child: Padding(
+            padding: const EdgeInsets.all(0.0),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              key: _chartKeys[title],
+              width: double.infinity,
+              height: MediaQuery.of(context).size.width < 800 ? 400 : 500,
+              margin: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16.0),
+                color: isDarkMode ? const Color(0xFF14212B) : Colors.white,
+                border: Border.all(
+                  color: isDarkMode
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.08),
+                  width: 1.0,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+              ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.0),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: isSelected || _selectedParam == null ? 0.0 : 100.0,
+                sigmaY: isSelected || _selectedParam == null ? 0.0 : 100.0,
+              ),
+              child: Opacity(
+                opacity: isSelected || _selectedParam == null ? 1.0 : 0.2,
+                child: Column(
+                  children: [
+                    // Header with title and download button
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 12.0),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.grass,
+                                  color: Color(0xFF4CAF50),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "$title (%)",
+                                  style: TextStyle(
+                                    fontSize:
+                                        MediaQuery.of(context).size.width < 800
+                                            ? 18
+                                            : 22,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        isDarkMode ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.download_rounded,
+                                color: isDarkMode
+                                    ? Colors.white70
+                                    : Colors.black54,
+                                size: 20,
+                              ),
+                              tooltip: 'Download Chart as PNG',
+                              onPressed: () => _exportChart(title, 'png'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Custom Multi-line Legend Row showing all three depths with colors
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (hasM1)
+                            _buildMoistureLegendBadge('Moisture 1 (Top Level)', m1Color, isDarkMode),
+                          if (hasM1 && hasM2) const SizedBox(width: 16),
+                          if (hasM2)
+                            _buildMoistureLegendBadge('Moisture 2 (Mid Level)', m2Color, isDarkMode),
+                          if ((hasM1 || hasM2) && hasM3) const SizedBox(width: 16),
+                          if (hasM3)
+                            _buildMoistureLegendBadge('Moisture 3 (Deep Level)', m3Color, isDarkMode),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    Expanded(
+                      child: SfCartesianChart(
+                        key: _sfChartKeys[title],
+                        plotAreaBackgroundColor: Colors.transparent,
+                        primaryXAxis: DateTimeAxis(
+                          dateFormat: DateFormat('MM/dd HH:mm'),
+                          title: AxisTitle(
+                            text: 'Time',
+                            textStyle: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          labelStyle: TextStyle(
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
+                          labelRotation: 70,
+                          edgeLabelPlacement: EdgeLabelPlacement.shift,
+                          intervalType: DateTimeIntervalType.auto,
+                          enableAutoIntervalOnZooming: true,
+                          majorGridLines: MajorGridLines(
+                            width: MediaQuery.of(context).size.width > 900
+                                ? 0.4
+                                : 0,
+                            color: isDarkMode ? Colors.white10 : Colors.black12,
+                          ),
+                          minorGridLines: const MinorGridLines(width: 0),
+                          majorTickLines: const MajorTickLines(size: 0, width: 0),
+                          minorTickLines: const MinorTickLines(size: 0, width: 0),
+                          plotBands: [...periodBands],
+                        ),
+                        primaryYAxis: NumericAxis(
+                          title: AxisTitle(
+                            text: '%',
+                            textStyle: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          labelStyle: TextStyle(
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
+                          axisLine: const AxisLine(width: 1),
+                          majorGridLines: MajorGridLines(
+                            width: MediaQuery.of(context).size.width > 900
+                                ? 0.4
+                                : 0,
+                            color: isDarkMode ? Colors.white10 : Colors.black12,
+                          ),
+                          minorGridLines: const MinorGridLines(width: 0),
+                        ),
+                        trackballBehavior: TrackballBehavior(
+                          enable: true,
+                          activationMode: ActivationMode.singleTap,
+                          tooltipDisplayMode: TrackballDisplayMode.groupAllPoints,
+                          lineType: TrackballLineType.vertical,
+                          lineColor: isDarkMode ? Colors.white38 : Colors.black26,
+                          lineWidth: 1,
+                          builder: (BuildContext context, TrackballDetails details) {
+                            try {
+                              DateTime? time;
+                              if (details.point != null) {
+                                time = details.point?.x;
+                              } else if (details.groupingModeInfo != null &&
+                                  details.groupingModeInfo!.points.isNotEmpty) {
+                                time = details.groupingModeInfo!.points.first.x;
+                              }
+                              if (time == null) return const SizedBox();
+
+                              String formattedDate = DateFormat('MM/dd HH:mm').format(time);
+
+                              num? v1;
+                              num? v2;
+                              num? v3;
+
+                              if (hasM1) {
+                                try {
+                                  v1 = m1Data.firstWhere((d) => d.timestamp == time).value;
+                                } catch (_) {}
+                              }
+                              if (hasM2) {
+                                try {
+                                  v2 = m2Data.firstWhere((d) => d.timestamp == time).value;
+                                } catch (_) {}
+                              }
+                              if (hasM3) {
+                                try {
+                                  v3 = m3Data.firstWhere((d) => d.timestamp == time).value;
+                                } catch (_) {}
+                              }
+
+                              Widget buildRow(String name, num? val, Color col) {
+                                if (val == null) return const SizedBox.shrink();
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(color: col, shape: BoxShape.circle),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '$name: ',
+                                        style: TextStyle(
+                                          color: isDarkMode ? Colors.white70 : Colors.black54,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${val.toStringAsFixed(1)}%',
+                                        style: TextStyle(
+                                          color: isDarkMode ? Colors.white : Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              return Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode
+                                      ? const Color.fromARGB(220, 10, 20, 30)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 4,
+                                    )
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      formattedDate,
+                                      style: TextStyle(
+                                        color: isDarkMode ? Colors.white70 : Colors.black54,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    if (v1 != null) buildRow('Moisture 1', v1, m1Color),
+                                    if (v2 != null) buildRow('Moisture 2', v2, m2Color),
+                                    if (v3 != null) buildRow('Moisture 3', v3, m3Color),
+                                  ],
+                                ),
+                              );
+                            } catch (_) {
+                              return const SizedBox();
+                            }
+                          },
+                        ),
+                        zoomPanBehavior: ZoomPanBehavior(
+                          zoomMode: ZoomMode.x,
+                          enablePanning: true,
+                          enablePinching: true,
+                          enableMouseWheelZooming: _isShiftPressed,
+                        ),
+                        series: <CartesianSeries<ChartData, DateTime>>[
+                          // Moisture 1 series (Top Level)
+                          if (hasM1) ...[
+                            ...m1Segments.map((segment) {
+                              return LineSeries<ChartData, DateTime>(
+                                dataSource: segment,
+                                xValueMapper: (ChartData data, _) => data.timestamp,
+                                yValueMapper: (ChartData data, _) => data.value,
+                                name: 'Moisture 1 (Top Level)',
+                                color: m1Color,
+                                width: 2.5,
+                                markerSettings: const MarkerSettings(isVisible: false),
+                              );
+                            }),
+                            ...m1GapConnectors.map((connector) {
+                              return LineSeries<ChartData, DateTime>(
+                                dataSource: connector,
+                                xValueMapper: (ChartData data, _) => data.timestamp,
+                                yValueMapper: (ChartData data, _) => data.value,
+                                color: m1Color,
+                                width: 2.5,
+                                dashArray: const <double>[5, 5],
+                                markerSettings: const MarkerSettings(isVisible: false),
+                              );
+                            }),
+                          ],
+
+                          // Moisture 2 series (Mid Level)
+                          if (hasM2) ...[
+                            ...m2Segments.map((segment) {
+                              return LineSeries<ChartData, DateTime>(
+                                dataSource: segment,
+                                xValueMapper: (ChartData data, _) => data.timestamp,
+                                yValueMapper: (ChartData data, _) => data.value,
+                                name: 'Moisture 2 (Mid Level)',
+                                color: m2Color,
+                                width: 2.5,
+                                markerSettings: const MarkerSettings(isVisible: false),
+                              );
+                            }),
+                            ...m2GapConnectors.map((connector) {
+                              return LineSeries<ChartData, DateTime>(
+                                dataSource: connector,
+                                xValueMapper: (ChartData data, _) => data.timestamp,
+                                yValueMapper: (ChartData data, _) => data.value,
+                                color: m2Color,
+                                width: 2.5,
+                                dashArray: const <double>[5, 5],
+                                markerSettings: const MarkerSettings(isVisible: false),
+                              );
+                            }),
+                          ],
+
+                          // Moisture 3 series (Deep Level)
+                          if (hasM3) ...[
+                            ...m3Segments.map((segment) {
+                              return LineSeries<ChartData, DateTime>(
+                                dataSource: segment,
+                                xValueMapper: (ChartData data, _) => data.timestamp,
+                                yValueMapper: (ChartData data, _) => data.value,
+                                name: 'Moisture 3 (Deep Level)',
+                                color: m3Color,
+                                width: 2.5,
+                                markerSettings: const MarkerSettings(isVisible: false),
+                              );
+                            }),
+                            ...m3GapConnectors.map((connector) {
+                              return LineSeries<ChartData, DateTime>(
+                                dataSource: connector,
+                                xValueMapper: (ChartData data, _) => data.timestamp,
+                                yValueMapper: (ChartData data, _) => data.value,
+                                color: m3Color,
+                                width: 2.5,
+                                dashArray: const <double>[5, 5],
+                                markerSettings: const MarkerSettings(isVisible: false),
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+);
+  }
+
+  Widget _buildMoistureLegendBadge(String label, Color color, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.4), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isDarkMode ? Colors.white : Colors.black87,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
