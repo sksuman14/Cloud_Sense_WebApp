@@ -150,141 +150,223 @@ class DeviceUtils {
   static List<String> getPossibleInternalIDs(String input) {
     input = input.trim().toUpperCase();
 
-    // ── Handle WS_SHOBHA_NNN or WS_SOBHA_NNN format (Sobha sensors display name) ─────────────
-    if (input.startsWith('WS_SHOBHA_') || input.startsWith('WS_SOBHA_')) {
-      final prefix = input.startsWith('WS_SHOBHA_') ? 'WS_SHOBHA_' : 'WS_SOBHA_';
-      final suffix = input.substring(prefix.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['SH$paddedDigits'];
+    // ── Handle SOBHA-NNN, WS_SHOBHA_NNN, WS_SOBHA_NNN ────────────────────────
+    if (input.startsWith('SOBHA-') ||
+        input.startsWith('SOBHA_') ||
+        input.startsWith('WS_SHOBHA_') ||
+        input.startsWith('WS_SOBHA_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['SH${cleanDigits.padLeft(3, '0')}'];
       }
       return [];
     }
 
-    // ── Handle ANNAM0126_NNN format (WJ sensors display name) ─────────────────
-    if (input.startsWith('ANNAM0126_')) {
-      final suffix = input.substring('ANNAM0126_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['WJ$paddedDigits'];
+    // ── Handle ANNAM-PB-NNN (Punjab stations display name) ───────────────────
+    if (input.startsWith('ANNAM-PB-') ||
+        input.startsWith('ANNAM_PB_') ||
+        input.startsWith('ANNAM/PUNJAB/') ||
+        input.startsWith('WS_PUNJAB_') ||
+        input.startsWith('PJWS_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        final pad = cleanDigits.length == 1 ? cleanDigits.padLeft(2, '0') : cleanDigits;
+        return ['PJ$pad'];
       }
       return [];
     }
 
-    // ── Handle ANNAM_CP format (AM sensors display name) ───────────────────
-    if (input.startsWith('ANNAM_CP')) {
-      final suffix = input.substring('ANNAM_CP'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(2, '0');
-        return ['AM$paddedDigits'];
+    // ── Handle ANNAM-KL-NNN (Kerala stations display name) ───────────────────
+    if (input.startsWith('ANNAM-KL-') ||
+        input.startsWith('ANNAM_KL_') ||
+        input.startsWith('ANNAM/KERALA/') ||
+        input.startsWith('ANNAM6')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        final pad = cleanDigits.length == 1 ? cleanDigits.padLeft(2, '0') : cleanDigits;
+        return ['KR$pad'];
       }
       return [];
     }
 
-    // ── Handle ANNAM0226_NNN format (WF sensors display name) ─────────────────
-    if (input.startsWith('ANNAM0226_')) {
-      final suffix = input.substring('ANNAM0226_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['WF$paddedDigits'];
+    // ── Handle ANNAM-0126-NNN (WJ sensors display name) ──────────────────────
+    if (input.startsWith('ANNAM-0126-') ||
+        input.startsWith('ANNAM0126_') ||
+        input.startsWith('ANNAM0126-')) {
+      final suffix = input.substring(input.lastIndexOf(RegExp(r'[-_]')) + 1);
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['WJ${cleanDigits.padLeft(3, '0')}'];
       }
       return [];
     }
 
-    // ── Handle ANNAM/CPS_NNN format (CPS sensors display name) ────────────────
-    if (input.startsWith('ANNAM/CPS_')) {
-      final suffix = input.substring('ANNAM/CPS_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['PS$paddedDigits'];
+    // ── Handle ANNAM-0226-NNN (WF sensors display name) ──────────────────────
+    if (input.startsWith('ANNAM-0226-') ||
+        input.startsWith('ANNAM0226_') ||
+        input.startsWith('ANNAM0226-')) {
+      final suffix = input.substring(input.lastIndexOf(RegExp(r'[-_]')) + 1);
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['WF${cleanDigits.padLeft(3, '0')}'];
       }
       return [];
     }
 
-    // ── Handle ANNAM0426_NNN format (WA sensors display name) ─────────────────
-    if (input.startsWith('ANNAM0426_')) {
-      final suffix = input.substring('ANNAM0426_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['WA$paddedDigits'];
+    // ── Handle ANNAM-0426-NNN (WA sensors display name) ──────────────────────
+    if (input.startsWith('ANNAM-0426-') ||
+        input.startsWith('ANNAM0426_') ||
+        input.startsWith('ANNAM0426-')) {
+      final suffix = input.substring(input.lastIndexOf(RegExp(r'[-_]')) + 1);
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['WA${cleanDigits.padLeft(3, '0')}'];
       }
       return [];
     }
 
-    // ── Handle ANNAM0526_NNN or TS0526_NNN format (WM sensors display name) ───
-    if (input.startsWith('ANNAM0526_') || input.startsWith('TS0526_')) {
-      final prefixLen = input.startsWith('ANNAM0526_')
-          ? 'ANNAM0526_'.length
-          : 'TS0526_'.length;
-      final suffix = input.substring(prefixLen);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['WM$paddedDigits'];
+    // ── Handle TS-0526-NNN or ANNAM-0526-NNN (WM sensors display name) ───────
+    if (input.startsWith('TS-0526-') ||
+        input.startsWith('TS0526_') ||
+        input.startsWith('TS0526-') ||
+        input.startsWith('ANNAM-0526-') ||
+        input.startsWith('ANNAM0526_')) {
+      final suffix = input.substring(input.lastIndexOf(RegExp(r'[-_]')) + 1);
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['WM${cleanDigits.padLeft(3, '0')}'];
       }
       return [];
     }
 
-    // ── Extract trailing digits for all other ANNAM formats ───────────────────
+    // ── Handle ANNAM-CPS-NNN or ANNAM/CPS_ format (CPS sensors display name) ──
+    if (input.startsWith('ANNAM-CPS-') ||
+        input.startsWith('ANNAM-CPS') ||
+        input.startsWith('ANNAM/CPS_') ||
+        input.startsWith('ANNAM/CPS') ||
+        input.startsWith('CPS-') ||
+        input.startsWith('CPS_') ||
+        input.startsWith('CPS')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['PS${cleanDigits.padLeft(2, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle ANNAM-CP-NNN or ANNAM_CP format (AM sensors display name) ──────
+    if (!input.startsWith('ANNAM-CPS') &&
+        !input.startsWith('ANNAM/CPS') &&
+        (input.startsWith('ANNAM-CP-') ||
+         input.startsWith('ANNAM_CP') ||
+         input.startsWith('ANNAM-CP'))) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['AM${cleanDigits.padLeft(2, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle AWS-TESTING-NNN format ────────────────────────────────────────
+    if (input.startsWith('AWS-TESTING-') || input.startsWith('AWS_TESTING_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['AT${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle AWS-NNN or AWS_NNN format ─────────────────────────────────────
+    if (input.startsWith('AWS-') || input.startsWith('AWS_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['AW${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle WINDS-NNN or WINDS_NNN format ─────────────────────────────────
+    if (input.startsWith('WINDS-') || input.startsWith('WINDS_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['WN${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle JIO-WINDS-NNN or JIO_WINDS_NNN format ─────────────────────────
+    if (input.startsWith('JIO-WINDS-') ||
+        input.startsWith('JIO_WINDS_') ||
+        input.startsWith('JW-') ||
+        input.startsWith('JW_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['JW${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle ANNAM-PC-NNN or ANNAM/PC_NNN format ───────────────────────────
+    if (input.startsWith('ANNAM-PC-') ||
+        input.startsWith('ANNAM/PC_') ||
+        input.startsWith('ANNAM4')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['PC${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle ANNAM-GPC-NNN or ANNAM/GPC_NNN format ─────────────────────────
+    if (input.startsWith('ANNAM-GPC-') ||
+        input.startsWith('ANNAM/GPC_') ||
+        input.startsWith('ANNAM5')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['GP${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle TESTING-NNN or TS-NNN format (Testing group display name) ───────────
+    if (input.startsWith('TESTING-') ||
+        input.startsWith('TESTING_') ||
+        input.startsWith('TESTING') ||
+        input.startsWith('TS-') ||
+        input.startsWith('TS_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        final paddedDigits = cleanDigits.padLeft(3, '0');
+        return ['WM$paddedDigits', 'WT$paddedDigits', 'CP$paddedDigits'];
+      }
+      return [];
+    }
+
+    // ── Handle DM-NNN or DM_NNN format (Demo sensors display name) ───────────
+    if (input.startsWith('DM-') || input.startsWith('DM_')) {
+      final cleanDigits = input.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isNotEmpty) {
+        return ['DM${cleanDigits.padLeft(3, '0')}'];
+      }
+      return [];
+    }
+
+    // ── Handle standard [PREFIX]-[DIGITS] or [PREFIX]_[DIGITS] ───────────────
+    final standardMatch = RegExp(r'^([A-Z]{2})[-_]?(\d+)$').firstMatch(input);
+    if (standardMatch != null) {
+      final p = standardMatch.group(1)!;
+      final d = standardMatch.group(2)!;
+      if (validPrefixes.contains(p)) {
+        return ['$p${d.padLeft(3, '0')}'];
+      }
+    }
+
+    // ── Extract trailing digits for legacy ANNAM formats ─────────────────────
     final digitsMatch = RegExp(r'\d+$').firstMatch(input);
     if (digitsMatch == null) return [];
     final digits = digitsMatch.group(0)!;
     final paddedDigits = digits.padLeft(3, '0');
     final idInt = int.tryParse(digits) ?? 0;
-
-    // ── Handle TS_NNN format (Testing group display name) ───────────────────
-    if (input.startsWith('TS_')) {
-      return ['WT$paddedDigits', 'CP$paddedDigits'];
-    }
-
-    // ── Handle DM_NNN format (Demo sensors display name) ─────────────────────
-    if (input.startsWith('DM_')) {
-      return ['DM$paddedDigits'];
-    }
-
-    // ── Handle AWS_TESTING_NNN format (AWS Testing sensors display name) ─────
-    if (input.startsWith('AWS_TESTING_')) {
-      final suffix = input.substring('AWS_TESTING_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final pd = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['AT$pd'];
-      }
-      return [];
-    }
-
-    // ── Handle Winds_NNN format (Winds sensors display name) ───────────────────
-    if (input.startsWith('WINDS_')) {
-      return ['WN$paddedDigits'];
-    }
-
-    // ── Handle JIO_WINDS_NNN format ───────────────────
-    if (input.startsWith('JIO_WINDS_')) {
-      final suffix = input.substring('JIO_WINDS_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['JW$paddedDigits'];
-      }
-      return [];
-    }
-
-    // ── Handle JW_NNN format ───────────────────
-    if (input.startsWith('JW_')) {
-      final suffix = input.substring('JW_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        final paddedDigits = digitsOnly.group(0)!.padLeft(3, '0');
-        return ['JW$paddedDigits'];
-      }
-      return [];
-    }
 
     // Logic based on admin_page.dart categorization
     if (input.startsWith('ANNAM1')) {
@@ -301,46 +383,21 @@ class DeviceUtils {
     } else if (input.startsWith('ANNAM3')) {
       // IT
       return ['IT$paddedDigits'];
-    } else if (input.startsWith('ANNAM4') || input.startsWith('ANNAM/PC_')) {
-      // PC sensors (display name: ANNAM4NNN or ANNAM/PC_NNN)
-      return ['PC$paddedDigits'];
-    } else if (input.startsWith('ANNAM/PUNJAB/') || input.startsWith('WS_PUNJAB_') || input.startsWith('PJWS_')) {
-      // Punjab devices → resolve to PJ{num} which is in validPrefixes
-      final digitsOnly = RegExp(r'\d+$').firstMatch(input);
-      if (digitsOnly != null) {
-        final num = digitsOnly.group(0)!;
-        return ['PJ$num'];
-      }
-      return ['PJ$paddedDigits'];
-    } else if (input.startsWith('ANNAM6') ||
-        input.startsWith('ANNAM/KERALA/')) {
-      if (input.startsWith('ANNAM/KERALA/WS_')) {
-        final suffix = input.substring('ANNAM/KERALA/WS_'.length);
-        final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-        if (digitsOnly != null) {
-          return ['KRWS_${digitsOnly.group(0)!}'];
-        }
-      }
-      // Fallback for ANNAM6NNN or ANNAM/KERALA/NNN
-      return ['KR$paddedDigits'];
-    } else if (input.startsWith('AWS_')) {
-      final suffix = input.substring('AWS_'.length);
-      final digitsOnly = RegExp(r'^\d+').firstMatch(suffix);
-      if (digitsOnly != null) {
-        return ['AW${digitsOnly.group(0)!.padLeft(3, '0')}'];
-      }
-      return ['AW$paddedDigits'];
-    } else if (input.startsWith('ANNAM5') || input.startsWith('ANNAM/GPC_')) {
-      // PC sensors (display name: ANNAM4NNN or ANNAM/PC_NNN)
-      return ['GP$paddedDigits'];
-    } else if (input.startsWith('ANNAM/CPS_')) {
-      return ['PS$paddedDigits'];
     } else if (input.startsWith('ANNAM')) {
-      // ANNAM standard prefixes (CF, WJ, plus special cases)
-      if (idInt == 1) return ['CP001'];
-      if (idInt == 7) return ['SW007'];
-      if (idInt == 13) return ['SW013'];
-      return ['CF$paddedDigits', 'WJ$paddedDigits'];
+      // ANNAM standard prefixes (WJ, WA, WF, PJ, KR, AW, plus special cases)
+      final pad2 = digits.length == 1 ? digits.padLeft(2, '0') : digits;
+      if (idInt == 1) return ['CP001', 'PJ01', 'KR01', 'AW001'];
+      if (idInt == 2) return ['CF002', 'PJ02', 'KR02', 'AW002'];
+      if (idInt == 7) return ['WA007', 'SW007', 'PJ07', 'KR07', 'AW007'];
+      if (idInt == 13) return ['SW013', 'PJ13', 'KR13', 'AW013'];
+      return [
+        'WJ$paddedDigits',
+        'WA$paddedDigits',
+        'WF$paddedDigits',
+        'PJ$pad2',
+        'KR$pad2',
+        'AW$paddedDigits',
+      ];
     }
     return [];
   }
@@ -350,23 +407,105 @@ class DeviceUtils {
     BuildContext context,
     List<String> candidates,
   ) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Select Correct Prefix"),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          title: Row(
+            children: [
+              Icon(
+                Icons.alt_route,
+                size: 20,
+                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Select Device Topic",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
           content: SizedBox(
             width: double.maxFinite,
-            child: ListView.builder(
+            child: ListView.separated(
               shrinkWrap: true,
               itemCount: candidates.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final id = candidates[index];
-                String displayId = toDisplayId(id);
-                return ListTile(
-                  title: Text(displayId),
-                  subtitle: Text("${getSensorType(id)} ($id)"),
+                final displayId = toDisplayId(id);
+                final topic = DevicePrefixUtils.buildTopicFromSensorName(id).split('#').last;
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(10),
                   onTap: () => Navigator.pop(context, id),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isDark ? Colors.white12 : Colors.black.withOpacity(0.08),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.alt_route,
+                            size: 18,
+                            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayId,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                "Topic: $topic",
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'monospace',
+                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
@@ -390,8 +529,6 @@ class DeviceUtils {
       );
       return;
     }
-    String sensorType = getSensorType(deviceId);
-    String sensorPrefix = getSensorPrefix(deviceId);
 
     bool deviceExists =
         devices.values.any((deviceList) => deviceList.contains(deviceId));

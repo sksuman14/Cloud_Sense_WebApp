@@ -9,13 +9,8 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'dart:ui' show ImageFilter;
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
-import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart';
-import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
-import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
-import 'package:provider/provider.dart';
-import 'package:cloud_sense_webapp/main.dart';
+import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -505,11 +500,93 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       }).toList();
     }
 
-    devices.sort((a, b) {
-      if (a['isActive'] == b['isActive']) {
-        return (a['DeviceId'] as String).compareTo(b['DeviceId'] as String);
+    int naturalCompare(String a, String b) {
+      final regExp = RegExp(r'(\d+|\D+)');
+      final matchesA = regExp.allMatches(a).map((m) => m.group(0)!).toList();
+      final matchesB = regExp.allMatches(b).map((m) => m.group(0)!).toList();
+
+      final len = matchesA.length < matchesB.length ? matchesA.length : matchesB.length;
+      for (int i = 0; i < len; i++) {
+        final partA = matchesA[i];
+        final partB = matchesB[i];
+        final numA = int.tryParse(partA);
+        final numB = int.tryParse(partB);
+
+        if (numA != null && numB != null) {
+          final cmp = numA.compareTo(numB);
+          if (cmp != 0) return cmp;
+        } else {
+          final cmp = partA.compareTo(partB);
+          if (cmp != 0) return cmp;
+        }
       }
-      return (a['isActive'] as bool) ? -1 : 1;
+      return matchesA.length.compareTo(matchesB.length);
+    }
+
+    int getSortRank(Map<String, dynamic> d) {
+      final deviceId = (d['DeviceId'] ?? "").toString();
+      final topic = (d['Topic'] ?? "").toString();
+      final sn = DevicePrefixUtils.resolveSensorName(deviceId, topic);
+      final dn = _toAnnamDisplayName(sn).toUpperCase();
+      final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
+      final isActive = d['isActive'] == true;
+
+      final isKerala = mapped.prefix == 'KR' ||
+          sn.startsWith('KR') ||
+          topic.toLowerCase().contains('kerala');
+      final isPunjab = mapped.prefix == 'PJ' ||
+          sn.startsWith('PJ') ||
+          topic.toLowerCase().contains('punjab');
+      final isAnnam = DevicePrefixUtils.isAnnamCoreSensor(sn) || dn.startsWith('ANNAM');
+
+      // === ACTIVE SENSORS FIRST ===
+      // 1. Kerala ANNAM sensors (Active)
+      if (isAnnam && isKerala && isActive) return 0;
+
+      // 2. Punjab ANNAM sensors (Active)
+      if (isAnnam && isPunjab && isActive) return 1;
+
+      // 3. Other ANNAM sensors (Active)
+      if (isAnnam && isActive) return 2;
+
+      // 4. Non-ANNAM sensors (Active)
+      if (!isAnnam && isActive) return 3;
+
+      // === INACTIVE SENSORS LAST ===
+      // 5. Kerala ANNAM sensors (Inactive)
+      if (isAnnam && isKerala && !isActive) return 4;
+
+      // 6. Punjab ANNAM sensors (Inactive)
+      if (isAnnam && isPunjab && !isActive) return 5;
+
+      // 7. Other ANNAM sensors (Inactive)
+      if (isAnnam && !isActive) return 6;
+
+      // 8. Non-ANNAM sensors (Inactive)
+      return 7;
+    }
+
+    devices.sort((a, b) {
+      final rankA = getSortRank(a);
+      final rankB = getSortRank(b);
+      if (rankA != rankB) {
+        return rankA.compareTo(rankB);
+      }
+
+      final deviceIdA = (a['DeviceId'] ?? "").toString();
+      final topicA = (a['Topic'] ?? "").toString();
+      final snA = DevicePrefixUtils.resolveSensorName(deviceIdA, topicA);
+      final dnA = _toAnnamDisplayName(snA);
+
+      final deviceIdB = (b['DeviceId'] ?? "").toString();
+      final topicB = (b['Topic'] ?? "").toString();
+      final snB = DevicePrefixUtils.resolveSensorName(deviceIdB, topicB);
+      final dnB = _toAnnamDisplayName(snB);
+
+      final nameCmp = naturalCompare(dnA, dnB);
+      if (nameCmp != 0) return nameCmp;
+
+      return topicA.compareTo(topicB);
     });
 
     return devices;
@@ -1113,224 +1190,21 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                             ],
                           ),
                         ),
-                        PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_vert,
-                            size: getResponsiveFontSize(context, 18, 20),
-                            color: subtle,
-                          ),
-                          tooltip: 'Actions',
-                          onSelected: (String value) {
-                            switch (value) {
-                              case 'graph':
-                                if (sensorName.startsWith('BF')) {
-                                  String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
-                                  NavigationUtils.navigateTo(
-                                    context,
-                                    '/buffalodata',
-                                    arguments: {
-                                      'startDateTime': DateTime.now(),
-                                      'endDateTime': DateTime.now().add(const Duration(days: 1)),
-                                      'nodeId': numericNodeId,
-                                    },
-                                  );
-                                } else if (sensorName.startsWith('CS')) {
-                                  String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
-                                  NavigationUtils.navigateTo(
-                                    context,
-                                    '/cowdata',
-                                    arguments: {
-                                      'startDateTime': DateTime.now(),
-                                      'endDateTime': DateTime.now().add(const Duration(days: 1)),
-                                      'nodeId': numericNodeId,
-                                    },
-                                  );
-                                } else {
-                                  NavigationUtils.navigateTo(
-                                    context,
-                                    '/devicegraph',
-                                    arguments: {
-                                      'deviceName': sensorName,
-                                      'sequentialName': sequentialName,
-                                      'backgroundImagePath': 'assets/backgroundd.jpg',
-                                    },
-                                  );
-                                }
-                                break;
-                              case 'ota':
-                                final topic = (d['Topic'] ?? '').toString();
-                                final mappedPrefix = DevicePrefixUtils.mapCategoryAndPrefix(topic).prefix;
-                                final prefix = mappedPrefix.isNotEmpty ? mappedPrefix : 'WJ';
-                                final apiUrl = DevicePrefixUtils.getOtaApiUrl(prefix, sensorName: sensorName) ??
-                                    'https://2jajsh64sd.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_SSMet0126';
-
-                                AdvancedDataSendDialog.show(
-                                  context,
-                                  sensorName,
-                                  displayDeviceId: displaySensorName,
-                                  apiUrl: apiUrl,
-                                );
-                                break;
-                              case 'parameters':
-                                var paramNames = getParamNamesForSensor(sensorName);
-                                showDialog(
-                                  context: context,
-                                  builder: (context) {
-                                    return BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                                      child: AlertDialog(
-                                        title: Text("Parameters ($displaySensorName)", style: TextStyle(color: strong)),
-                                        content: SingleChildScrollView(
-                                          child: ListBody(
-                                            children: paramNames.asMap().entries.map((entry) {
-                                              int idx = entry.key;
-                                              String param = entry.value;
-                                              String displayName = parameterDisplayNames[param] ?? param;
-                                              return Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                  vertical: getResponsiveFontSize(context, 6, 8),
-                                                ),
-                                                child: Row(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    SizedBox(
-                                                      width: 40,
-                                                      child: Text(
-                                                        '${idx + 1}.',
-                                                        style: TextStyle(
-                                                          fontSize: getResponsiveFontSize(context, 14, 16),
-                                                          color: isDarkMode ? Colors.white70 : Colors.black87,
-                                                        ),
-                                                        textAlign: TextAlign.right,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: Text(
-                                                        displayName,
-                                                        style: TextStyle(
-                                                          fontSize: getResponsiveFontSize(context, 14, 16),
-                                                          color: isDarkMode ? Colors.white70 : Colors.black87,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                        backgroundColor: isDarkMode
-                                            ? const Color(0xFF2C3E50).withOpacity(0.85)
-                                            : Colors.white.withOpacity(0.85),
-                                        actions: [
-                                          TextButton(
-                                            child: Text("Close", style: TextStyle(color: strong)),
-                                            onPressed: () => Navigator.pop(context),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                );
-                                 break;
-                              case 'health':
-                                final topic = (d['Topic'] ?? '').toString();
-                                final devIdDigits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '';
-                                String? resolvedTopic = _healthTopicLookupMap[sensorName] ??
-                                    _healthTopicLookupMap[displaySensorName] ??
-                                    (devIdDigits.isNotEmpty ? _healthTopicLookupMap[devIdDigits] : null);
-
-                                if (resolvedTopic == null &&
-                                    (sensorName.toUpperCase().startsWith('SH') ||
-                                     sensorName.toUpperCase().contains('SHOBHA') ||
-                                     sensorName.toUpperCase().contains('SOBHA'))) {
-                                  final digits = int.tryParse(devIdDigits)?.toString() ?? '1';
-                                  resolvedTopic = "WS_Shobha_$digits#WS/Shobha/$digits";
-                                } else if (resolvedTopic == null && topic.contains('#')) {
-                                  final parts = topic.split('#');
-                                  if (parts.length > 1) {
-                                    resolvedTopic = "$sensorName#${parts.sublist(1).join('#')}";
-                                  }
-                                }
-
-                                final deviceIdTopic = resolvedTopic ?? (topic.isNotEmpty ? topic : "$sensorName#");
-
-                                showDeviceHealthDetailDialog(
-                                  context,
-                                  deviceIdTopic,
-                                  isDarkMode,
-                                );
-                                break;
-                              case 'delete':
-                                DeleteDeviceUtils.deleteSingleDevice(
-                                  context: context,
-                                  userEmail: _email ?? Provider.of<UserProvider>(context, listen: false).userEmail ?? '',
-                                  deviceId: sensorName,
-                                  displayDeviceId: displaySensorName,
-                                  onSuccess: () {
-                                    _fetchData();
-                                  },
-                                );
-                                break;
-                            }
-                          },
-                          itemBuilder: (BuildContext context) {
-                            final providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? '';
-                            final currentEmail = (_email ?? providerEmail).trim().toLowerCase();
-                            final allowedEmails = [
-                              'dev@navariti.com',
-                              'hello@navariti.com',
-                              'dejy91971@gmail.com',
-                              'krishnanpallavi63@gmail.com',
-                            ];
-                            final bool isOtaAllowedUser = allowedEmails.any((e) => currentEmail.contains(e.toLowerCase()));
-
-                            return <PopupMenuEntry<String>>[
-                              const PopupMenuItem<String>(
-                                value: 'graph',
-                                child: Row(children: [
-                                  Icon(Icons.bar_chart, color: Colors.blue, size: 18),
-                                  SizedBox(width: 10),
-                                  Text('Graph', style: TextStyle(fontSize: 13)),
-                                ]),
-                              ),
-                              if (isOtaAllowedUser)
-                                const PopupMenuItem<String>(
-                                  value: 'ota',
-                                  child: Row(children: [
-                                    Icon(Icons.settings_remote, color: Colors.orangeAccent, size: 18),
-                                    SizedBox(width: 10),
-                                    Text('OTA Update', style: TextStyle(fontSize: 13)),
-                                  ]),
-                                ),
-                              const PopupMenuItem<String>(
-                                value: 'parameters',
-                                child: Row(children: [
-                                  Icon(Icons.info_outline, color: Colors.teal, size: 18),
-                                  SizedBox(width: 10),
-                                  Text('Parameters', style: TextStyle(fontSize: 13)),
-                                ]),
-                              ),
-                              const PopupMenuItem<String>(
-                                value: 'health',
-                                child: Row(children: [
-                                  Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
-                                  SizedBox(width: 10),
-                                  Text('Health Status', style: TextStyle(fontSize: 13)),
-                                ]),
-                              ),
-                              const PopupMenuDivider(),
-                              const PopupMenuItem<String>(
-                                value: 'delete',
-                                child: Row(children: [
-                                  Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                                  SizedBox(width: 10),
-                                  Text('Delete Device', style: TextStyle(fontSize: 13, color: Colors.redAccent, fontWeight: FontWeight.w600)),
-                                ]),
-                              ),
-                            ];
-                          },
+                        DeviceActionButton(
+                          deviceId: sensorName,
+                          topic: (d['Topic'] ?? '').toString(),
+                          sensorName: sensorName,
+                          displaySensorName: displaySensorName,
+                          sequentialName: sequentialName,
+                          displayParamNames: getParamNamesForSensor(sensorName),
+                          parameterDisplayNames: parameterDisplayNames,
+                          userEmail: _email,
+                          isAdmin: false,
+                          isDark: isDarkMode,
+                          healthTopicLookupMap: _healthTopicLookupMap,
+                          onDeleteSuccess: () => _fetchData(),
+                          iconSize: getResponsiveFontSize(context, 18, 20),
+                          iconColor: subtle,
                         ),
                       ],
                     ),

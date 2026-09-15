@@ -253,7 +253,17 @@ class DeviceHealthData {
       final paddedId = deviceId.padLeft(3, '0');
       return DevicePrefixUtils.toAnnamDisplayName('WJ$paddedId');
     }
-    return deviceId;
+    return DevicePrefixUtils.toAnnamDisplayName(deviceId);
+  }
+
+  String get cleanTopic {
+    if (deviceIdTopic.contains('#')) return deviceIdTopic.split('#').last;
+    if (deviceIdTopic.contains('/')) return deviceIdTopic;
+    final sensorName =
+        DevicePrefixUtils.getSensorNameFromTopic(deviceIdTopic) ?? deviceId;
+    final built = DevicePrefixUtils.buildTopicFromSensorName(sensorName);
+    if (built.contains('#')) return built.split('#').last;
+    return '';
   }
 }
 
@@ -1568,13 +1578,34 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      device.displayName,
-                      textAlign: TextAlign.center, // Centered
-                      style: TextStyle(
-                          color: strong,
-                          fontWeight: FontWeight.bold,
-                          fontSize: isExpanded ? 13 : 11),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: device.displayName,
+                            style: TextStyle(
+                              color: strong,
+                              fontWeight: FontWeight.bold,
+                              fontSize: isExpanded ? 13 : 11,
+                            ),
+                          ),
+                          if (device.cleanTopic.isNotEmpty) ...[
+                            const WidgetSpan(child: SizedBox(width: 4)),
+                            TextSpan(
+                              text: "(${device.cleanTopic})",
+                              style: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF38BDF8)
+                                    : const Color(0xFF0284C7),
+                                fontSize: isExpanded ? 10.5 : 9,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -1962,13 +1993,31 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          device.displayName,
-                          style: TextStyle(
-                              color: strong,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.5),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: device.displayName,
+                                style: TextStyle(
+                                    color: strong,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.5),
+                              ),
+                              if (device.cleanTopic.isNotEmpty) ...[
+                                const WidgetSpan(child: SizedBox(width: 8)),
+                                TextSpan(
+                                  text: "(${device.cleanTopic})",
+                                  style: TextStyle(
+                                    color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                         if (device.location != 'Unknown') ...[
                           const SizedBox(height: 2),
@@ -3151,12 +3200,32 @@ class _HealthDetailDialogWidgetState extends State<_HealthDetailDialogWidget> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(device.displayName,
-                          style: TextStyle(
-                              color: strong,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.5)),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: device.displayName,
+                              style: TextStyle(
+                                  color: strong,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5),
+                            ),
+                            if (device.cleanTopic.isNotEmpty) ...[
+                              const WidgetSpan(child: SizedBox(width: 8)),
+                              TextSpan(
+                                text: "(${device.cleanTopic})",
+                                style: TextStyle(
+                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                       if (device.location != 'Unknown') ...[
                         const SizedBox(height: 2),
                         Text(device.location,

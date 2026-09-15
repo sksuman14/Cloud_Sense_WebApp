@@ -1292,14 +1292,50 @@ class DeviceConfig {
   static DeviceTypeConfig? getConfig(String deviceName) {
     if (deviceName == null || deviceName.isEmpty) return null;
     final name = deviceName.toUpperCase();
-    if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ')) {
+    if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ') || name.startsWith('ANNAM-PB')) {
       return _configs['PJ'];
     }
-    if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR')) {
+    if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR') || name.startsWith('ANNAM-KL')) {
       return _configs['KR'];
     }
-    if (name.startsWith('WS_SHOBHA') || name.startsWith('WS_SOBHA') || name.startsWith('SH')) {
+    if (name.startsWith('WS_SHOBHA') || name.startsWith('WS_SOBHA') || name.startsWith('SH') || name.startsWith('SOBHA')) {
       return _configs['SH'];
+    }
+    if (name.startsWith('ANNAM-0126') || name.startsWith('ANNAM0126') || name.startsWith('WJ')) {
+      return _configs['WJ'];
+    }
+    if (name.startsWith('ANNAM-0226') || name.startsWith('ANNAM0226') || name.startsWith('WF')) {
+      return _configs['WF'];
+    }
+    if (name.startsWith('ANNAM-0426') || name.startsWith('ANNAM0426') || name.startsWith('WA')) {
+      return _configs['WA'];
+    }
+    if (name.startsWith('TS-0526') || name.startsWith('TS0526') || name.startsWith('WM')) {
+      return _configs['WM'];
+    }
+    if (name.startsWith('ANNAM-CPS') || name.startsWith('ANNAM/CPS') || name.startsWith('CPS') || name.startsWith('PS')) {
+      return _configs['PS'];
+    }
+    if (name.startsWith('ANNAM-CP') || name.startsWith('ANNAM_CP') || name.startsWith('AM')) {
+      return _configs['AM'];
+    }
+    if (name.startsWith('AWS-TESTING') || name.startsWith('AWS_TESTING') || name.startsWith('AT')) {
+      return _configs['AT'];
+    }
+    if (name.startsWith('AWS-') || name.startsWith('AWS_') || name.startsWith('AW')) {
+      return _configs['AW'];
+    }
+    if (name.startsWith('WINDS-') || name.startsWith('WINDS_') || name.startsWith('WN')) {
+      return _configs['WN'];
+    }
+    if (name.startsWith('JIO-WINDS') || name.startsWith('JIO_WINDS') || name.startsWith('JW')) {
+      return _configs['JW'];
+    }
+    if (name.startsWith('ANNAM-') || name.startsWith('ANNAM_') || name.startsWith('ANNAM')) {
+      return _configs['WJ'];
+    }
+    if (name.startsWith('TS-') || name.startsWith('TS_') || name.startsWith('TESTING-') || name.startsWith('TESTING_') || name.startsWith('TESTING')) {
+      return _configs['WM'];
     }
     for (var prefix in _configs.keys) {
       if (name.startsWith(prefix)) {
@@ -1312,14 +1348,50 @@ class DeviceConfig {
   static String getPrefix(String deviceName) {
     if (deviceName == null || deviceName.isEmpty) return '';
     final name = deviceName.toUpperCase();
-    if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ')) {
+    if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ') || name.startsWith('ANNAM-PB')) {
       return 'PJ';
     }
-    if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR')) {
+    if (name.startsWith('ANNAM/KERALA/') || name.startsWith('KR') || name.startsWith('ANNAM-KL')) {
       return 'KR';
     }
-    if (name.startsWith('WS_SHOBHA') || name.startsWith('WS_SOBHA') || name.startsWith('SH')) {
+    if (name.startsWith('WS_SHOBHA') || name.startsWith('WS_SOBHA') || name.startsWith('SH') || name.startsWith('SOBHA')) {
       return 'SH';
+    }
+    if (name.startsWith('ANNAM-0126') || name.startsWith('ANNAM0126') || name.startsWith('WJ')) {
+      return 'WJ';
+    }
+    if (name.startsWith('ANNAM-0226') || name.startsWith('ANNAM0226') || name.startsWith('WF')) {
+      return 'WF';
+    }
+    if (name.startsWith('ANNAM-0426') || name.startsWith('ANNAM0426') || name.startsWith('WA')) {
+      return 'WA';
+    }
+    if (name.startsWith('TS-0526') || name.startsWith('TS0526') || name.startsWith('WM') || name.startsWith('TESTING-0526') || name.startsWith('TESTING0526')) {
+      return 'WM';
+    }
+    if (name.startsWith('ANNAM-CPS') || name.startsWith('ANNAM/CPS') || name.startsWith('CPS') || name.startsWith('PS')) {
+      return 'PS';
+    }
+    if (name.startsWith('ANNAM-CP') || name.startsWith('ANNAM_CP') || name.startsWith('AM')) {
+      return 'AM';
+    }
+    if (name.startsWith('AWS-TESTING') || name.startsWith('AWS_TESTING') || name.startsWith('AT')) {
+      return 'AT';
+    }
+    if (name.startsWith('AWS-') || name.startsWith('AWS_') || name.startsWith('AW')) {
+      return 'AW';
+    }
+    if (name.startsWith('WINDS-') || name.startsWith('WINDS_') || name.startsWith('WN')) {
+      return 'WN';
+    }
+    if (name.startsWith('JIO-WINDS') || name.startsWith('JIO_WINDS') || name.startsWith('JW')) {
+      return 'JW';
+    }
+    if (name.startsWith('ANNAM-') || name.startsWith('ANNAM_') || name.startsWith('ANNAM')) {
+      return 'WJ';
+    }
+    if (name.startsWith('TS-') || name.startsWith('TS_') || name.startsWith('TESTING-') || name.startsWith('TESTING_') || name.startsWith('TESTING')) {
+      return 'WM';
     }
     for (var prefix in _configs.keys) {
       if (name.startsWith(prefix)) {

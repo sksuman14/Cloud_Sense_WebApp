@@ -11,6 +11,7 @@ import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart
 import 'package:cloud_sense_webapp/src/views/devices/configuration.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
+import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -140,129 +141,17 @@ class _AdminPageState extends State<AdminPage> {
     required String? updateInterval,
     required List<String> displayParamNames,
     required Map<String, String> parameterDisplayNames,
+    String? topic,
+    String? deviceName,
   }) {
-    showDialog(
+    showDeviceParametersDialog(
       context: context,
-      builder: (context) {
-        return BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-          child: AlertDialog(
-            title: Text(
-              "Parameters",
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (updateInterval != null) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF3B6A7F).withOpacity(0.3)
-                            : const Color(0xFF5BAA9D).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF3B6A7F)
-                                : const Color(0xFF5BAA9D),
-                            width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.access_time,
-                              size: 16,
-                              color: isDark
-                                  ? const Color(0xFF5BAA9D)
-                                  : const Color(0xFF3B6A7F)),
-                          const SizedBox(width: 8),
-                          Text('Data Interval: ',
-                              style: TextStyle(
-                                  fontSize: getResponsiveFontSize(
-                                      context, 13, 14),
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54,
-                                  fontWeight: FontWeight.w500)),
-                          Text(updateInterval,
-                              style: TextStyle(
-                                  fontSize: getResponsiveFontSize(
-                                      context, 13, 14),
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontWeight: FontWeight.w800)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Divider(color: isDark ? Colors.white12 : Colors.black12),
-                    const SizedBox(height: 8),
-                  ],
-                  displayParamNames.isEmpty
-                      ? Text('No parameters available yet.',
-                          style: TextStyle(
-                              color: isDark ? Colors.white54 : Colors.black45,
-                              fontSize:
-                                  getResponsiveFontSize(context, 13, 14)))
-                      : ListBody(
-                          children: displayParamNames.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final param = entry.value;
-                            final displayName =
-                                parameterDisplayNames[param] ?? param;
-                            return Padding(
-                              padding: EdgeInsets.symmetric(
-                                  vertical: getResponsiveFontSize(
-                                      context, 6, 8)),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                      width: 40,
-                                      child: Text('${idx + 1}.',
-                                          style: TextStyle(
-                                              fontSize: getResponsiveFontSize(
-                                                  context, 14, 16),
-                                              color: isDark
-                                                  ? Colors.white70
-                                                  : Colors.black87),
-                                          textAlign: TextAlign.right)),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                      child: Text(displayName,
-                                          style: TextStyle(
-                                              fontSize: getResponsiveFontSize(
-                                                  context, 14, 16),
-                                              color: isDark
-                                                  ? Colors.white70
-                                                  : Colors.black87))),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                ],
-              ),
-            ),
-            backgroundColor: isDark
-                ? const Color(0xFF2C3E50).withOpacity(0.85)
-                : Colors.white.withOpacity(0.85),
-            actions: [
-              TextButton(
-                child: Text("Close",
-                    style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black)),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      },
+      isDark: isDark,
+      updateInterval: updateInterval,
+      displayParamNames: displayParamNames,
+      parameterDisplayNames: parameterDisplayNames,
+      topic: topic,
+      deviceName: deviceName,
     );
   }
 
@@ -275,9 +164,12 @@ class _AdminPageState extends State<AdminPage> {
     required Color subtle,
   }) {
     final deviceId = (d['DeviceId'] ?? "Unknown").toString();
-    final topic = (d['Topic'] ?? "Unknown").toString();
-    final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
-    final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, topic);
+    final rawTopic = (d['Topic'] ?? "").toString().trim();
+    final mapped = DevicePrefixUtils.mapCategoryAndPrefix(rawTopic);
+    final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, rawTopic);
+    final topic = (rawTopic.isNotEmpty && rawTopic != "Unknown")
+        ? rawTopic
+        : DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
     final displaySensorName = _toAnnamDisplayName(sensorName);
     final updateInterval = _getUpdateInterval(sensorName);
     final paramNames = getParamNamesForSensor(sensorName);
@@ -329,164 +221,68 @@ class _AdminPageState extends State<AdminPage> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              '${idx + 1}. ',
-                              style: TextStyle(
-                                color: strong,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
                             Expanded(
-                              child: Text(
-                                displaySensorName,
-                                style: TextStyle(
-                                  color: strong,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w700,
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '${idx + 1}. $displaySensorName',
+                                      style: TextStyle(
+                                        color: strong,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (topic.isNotEmpty && topic != 'Unknown') ...[
+                                      TextSpan(
+                                        text: '  ($topic)',
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? const Color(0xFF38BDF8)
+                                              : const Color(0xFF0284C7),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            PopupMenuButton<String>(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              icon: Icon(
-                                Icons.more_vert,
-                                color: isDark ? Colors.white54 : Colors.black54,
-                                size: 16,
+                            DeviceActionButton(
+                              deviceId: deviceId,
+                              topic: topic,
+                              sensorName: sensorName,
+                              displaySensorName: displaySensorName,
+                              sequentialName: mapped.category,
+                              updateInterval: updateInterval,
+                              displayParamNames: displayParamNames,
+                              parameterDisplayNames: parameterDisplayNames,
+                              userEmail: _currentUserEmail ?? widget.adminEmail,
+                              isAdmin: true,
+                              isDark: isDark,
+                              hideSensitiveSections: _hideSensitiveSections,
+                              onNavigateToOTA: _navigateToOTA,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                                child: Icon(
+                                  Icons.more_vert,
+                                  color: isDark ? Colors.white54 : Colors.black54,
+                                  size: 16,
+                                ),
                               ),
-                              tooltip: 'Actions',
-                              onSelected: (String value) {
-                                switch (value) {
-                                  case 'graph':
-                                    NavigationUtils.navigateTo(
-                                      context,
-                                      '/admin/devicegraph',
-                                      arguments: {
-                                        'deviceName': sensorName,
-                                        'sequentialName': mapped.category,
-                                        'backgroundImagePath': 'assets/backgroundd.jpg',
-                                      },
-                                    );
-                                    break;
-                                  case 'ota':
-                                    final bool isAnnamCp01 = sensorName == 'ANNAM_CP01' ||
-                                        sensorName == 'CP001' ||
-                                        displaySensorName == 'ANNAM_CP01' ||
-                                        sensorName.toUpperCase().contains('ANNAM_CP01') ||
-                                        sensorName.toUpperCase().contains('CP01');
-                                    if (['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) || isAnnamCp01) {
-                                      AdvancedDataSendDialog.show(
-                                        context,
-                                        sensorName,
-                                        displayDeviceId: displaySensorName,
-                                        apiUrl: _getOtaApiUrl(mapped.prefix, sensorName: sensorName) ??
-                                            'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata',
-                                      );
-                                    } else if (mapped.category == 'SSMet Soil sensor') {
-                                      _navigateToOTA(sensorName, updateInterval);
-                                    }
-                                    break;
-                                  case 'parameters':
-                                    _showParametersDialog(
-                                      context: context,
-                                      isDark: isDark,
-                                      updateInterval: updateInterval,
-                                      displayParamNames: displayParamNames,
-                                      parameterDisplayNames: parameterDisplayNames,
-                                    );
-                                    break;
-                                  case 'health':
-                                    showDeviceHealthDetailDialog(
-                                      context,
-                                      "$deviceId#$topic",
-                                      isDark,
-                                    );
-                                    break;
-                                  case 'quality':
-                                    NavigationUtils.navigateTo(
-                                      context,
-                                      '/admin/health/quality-diagnostics',
-                                      arguments: {
-                                        'deviceId': deviceId,
-                                        'deviceIdTopic': "$deviceId#$topic",
-                                        'displayName': displaySensorName,
-                                         'isDark': isDark,
-                                         'fromAdminPage': true,
-                                      },
-                                    );
-                                    break;
-                                }
-                              },
-                              itemBuilder: (BuildContext context) {
-                                final String providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? "";
-                                final String email = (_currentUserEmail ?? widget.adminEmail ?? providerEmail).trim().toLowerCase();
-                                final bool isSkusuman = email.contains('sksuman');
-                                final bool isAnnamCp01 = sensorName == 'ANNAM_CP01' ||
-                                    sensorName == 'CP001' ||
-                                    displaySensorName == 'ANNAM_CP01' ||
-                                    sensorName.toUpperCase().contains('ANNAM_CP01') ||
-                                    sensorName.toUpperCase().contains('CP01');
-                                final bool hasOtaSupport = ['CP','CF','WF','WJ','WM','WN','IT','WA','WT','JW','KR','SH','AM','AW'].contains(mapped.prefix) ||
-                                    mapped.category == 'SSMet Soil sensor' ||
-                                    _getOtaApiUrl(mapped.prefix, sensorName: sensorName) != null ||
-                                    isAnnamCp01;
-                                final bool showOtaOption = (isSkusuman || isAnnamCp01) && !_hideSensitiveSections && hasOtaSupport;
-                                return <PopupMenuEntry<String>>[
-                                  const PopupMenuItem<String>(
-                                    value: 'graph',
-                                    child: Row(children: [
-                                      Icon(Icons.bar_chart, color: Colors.blue, size: 18),
-                                      SizedBox(width: 10),
-                                      Text('Graph', style: TextStyle(fontSize: 13)),
-                                    ]),
-                                  ),
-                                  if (showOtaOption)
-                                    const PopupMenuItem<String>(
-                                      value: 'ota',
-                                      child: Row(children: [
-                                        Icon(Icons.settings_remote, color: Colors.orangeAccent, size: 18),
-                                        SizedBox(width: 10),
-                                        Text('OTA Update', style: TextStyle(fontSize: 13)),
-                                      ]),
-                                    ),
-                                  const PopupMenuItem<String>(
-                                    value: 'parameters',
-                                    child: Row(children: [
-                                      Icon(Icons.info_outline, color: Colors.teal, size: 18),
-                                      SizedBox(width: 10),
-                                      Text('Parameters', style: TextStyle(fontSize: 13)),
-                                    ]),
-                                  ),
-                                  const PopupMenuItem<String>(
-                                    value: 'health',
-                                    child: Row(children: [
-                                      Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
-                                      SizedBox(width: 10),
-                                      Text('Health Status', style: TextStyle(fontSize: 13)),
-                                    ]),
-                                  ),
-                                  const PopupMenuItem<String>(
-                                    value: 'quality',
-                                    child: Row(children: [
-                                      Icon(Icons.science_outlined, color: Colors.purple, size: 18),
-                                      SizedBox(width: 10),
-                                      Text('Quality Diagnostics', style: TextStyle(fontSize: 13)),
-                                    ]),
-                                  ),
-                                ];
-                              },
                             ),
                           ],
                         ),
                         if (loc != null && loc.isNotEmpty) ...[
-                          const SizedBox(height: 1),
+                          const SizedBox(height: 3),
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined, size: 11, color: subtle),
-                              const SizedBox(width: 2),
+                              Icon(Icons.location_on_outlined, size: 10, color: subtle),
+                              const SizedBox(width: 3),
                               Expanded(
                                 child: Text(
                                   loc,
@@ -534,29 +330,23 @@ class _AdminPageState extends State<AdminPage> {
                 ?.toString()
                 .toLowerCase() ??
             '';
-        final topic =
+        final rawTopic =
             (device['topic'] ?? device['Topic'])?.toString().toLowerCase() ??
                 '';
+        final cleanTopic = rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
         final flaggedFields =
             Map<String, dynamic>.from(device['flagged_fields'] ?? {});
         final params = flaggedFields.keys
             .map((k) => _getDisplayName(k).toLowerCase())
             .join(' ');
 
-        String displayName = deviceId;
-        try {
-          final fullTopic =
-              "${device['deviceId'] ?? device['DeviceId']}#${device['topic'] ?? device['Topic']}";
-          String? sensorName =
-              DevicePrefixUtils.getSensorNameFromTopic(fullTopic);
-          if (sensorName != null) {
-            displayName =
-                DevicePrefixUtils.toAnnamDisplayName(sensorName).toLowerCase();
-          }
-        } catch (_) {}
+        final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
+        final displayName =
+            DevicePrefixUtils.toAnnamDisplayName(sensorName).toLowerCase();
 
         return deviceId.contains(q) ||
-            topic.contains(q) ||
+            rawTopic.contains(q) ||
+            cleanTopic.contains(q) ||
             displayName.contains(q) ||
             params.contains(q);
       }).toList();
@@ -569,28 +359,20 @@ class _AdminPageState extends State<AdminPage> {
                 ?.toString()
                 .toLowerCase() ??
             '';
-        final topic = (device['deviceId_topic'] ??
+        final rawTopic = (device['deviceId_topic'] ??
                     device['deviceid#topic'] ??
                     device['Topic'])
                 ?.toString()
                 .toLowerCase() ??
             '';
-
-        String displayName = deviceId;
-        try {
-          String? sensorName = DevicePrefixUtils.getSensorNameFromTopic(
-              device['deviceId_topic'] ??
-                  device['deviceid#topic'] ??
-                  device['Topic'] ??
-                  '');
-          if (sensorName != null) {
-            displayName =
-                DevicePrefixUtils.toAnnamDisplayName(sensorName).toLowerCase();
-          }
-        } catch (_) {}
+        final cleanTopic = rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
+        final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
+        final displayName =
+            DevicePrefixUtils.toAnnamDisplayName(sensorName).toLowerCase();
 
         return deviceId.contains(q) ||
-            topic.contains(q) ||
+            rawTopic.contains(q) ||
+            cleanTopic.contains(q) ||
             displayName.contains(q);
       }).toList();
     }
@@ -777,7 +559,7 @@ class _AdminPageState extends State<AdminPage> {
   Widget _buildHorizontalHealthList(List<Map<String, dynamic>> devices,
       Color strong, Color subtle, Color cardColor, bool isDark) {
     return SizedBox(
-      height: 110,
+      height: 120,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
           dragDevices: {
@@ -794,7 +576,7 @@ class _AdminPageState extends State<AdminPage> {
             final deviceId =
                 (device['deviceId'] ?? device['DeviceId'])?.toString() ??
                     'Unknown';
-            final topic = (device['deviceId_topic'] ??
+            final rawTopic = (device['deviceId_topic'] ??
                         device['deviceid#topic'] ??
                         device['Topic'])
                     ?.toString() ??
@@ -807,25 +589,30 @@ class _AdminPageState extends State<AdminPage> {
                 .toUpperCase();
             final color = status == 'OFFLINE' ? Colors.grey : Colors.redAccent;
 
-            String displayName = deviceId;
-            try {
-              String? sensorName =
-                  DevicePrefixUtils.getSensorNameFromTopic(topic);
-              if (sensorName != null) {
-                displayName = DevicePrefixUtils.toAnnamDisplayName(sensorName);
-              }
-            } catch (_) {}
+            String cleanTopic = '';
+            if (rawTopic.isNotEmpty && rawTopic != 'Unknown') {
+              cleanTopic = rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
+            }
+
+            final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
+            if (cleanTopic.isEmpty) {
+              cleanTopic = DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
+            }
+            final displayName = _toAnnamDisplayName(sensorName);
 
             return Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: InkWell(
                 onTap: () {
-                  showDeviceHealthDetailDialog(context, topic, isDark);
+                  final targetTopic = cleanTopic.isNotEmpty
+                      ? (rawTopic.contains('#') ? rawTopic : "$deviceId#$cleanTopic")
+                      : rawTopic;
+                  showDeviceHealthDetailDialog(context, targetTopic, isDark);
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  width: 200,
-                  padding: const EdgeInsets.all(12),
+                  width: 210,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isDark
                         ? Colors.white.withOpacity(0.05)
@@ -842,7 +629,9 @@ class _AdminPageState extends State<AdminPage> {
                         children: [
                           Expanded(
                             child: Tooltip(
-                              message: displayName,
+                              message: cleanTopic.isNotEmpty
+                                  ? "$displayName ($cleanTopic)"
+                                  : displayName,
                               child: Text(
                                 displayName,
                                 style: TextStyle(
@@ -853,6 +642,7 @@ class _AdminPageState extends State<AdminPage> {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
@@ -870,6 +660,25 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                         ],
                       ),
+                      if (cleanTopic.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Tooltip(
+                          message: cleanTopic,
+                          child: Text(
+                            "($cleanTopic)",
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF38BDF8)
+                                  : const Color(0xFF0284C7),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'monospace',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -958,7 +767,7 @@ class _AdminPageState extends State<AdminPage> {
   Widget _buildHorizontalQualityList(List<Map<String, dynamic>> devices,
       Color strong, Color subtle, Color cardColor, bool isDark) {
     return SizedBox(
-      height: 110,
+      height: 122,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
           dragDevices: {
@@ -975,7 +784,7 @@ class _AdminPageState extends State<AdminPage> {
             final deviceId =
                 (device['deviceId'] ?? device['DeviceId'])?.toString() ??
                     'Unknown';
-            final topic =
+            final rawTopic =
                 (device['topic'] ?? device['Topic'])?.toString() ?? '';
             final timestamp =
                 (device['timestamp'] ?? device['TimeStamp_IST'])?.toString() ??
@@ -999,16 +808,16 @@ class _AdminPageState extends State<AdminPage> {
                 .map((e) => _getDisplayName(e.key))
                 .join(', ');
 
-            String displayName = deviceId;
-            String? sensorName;
-            try {
-              final fullTopic = "$deviceId#$topic";
-              sensorName =
-                  DevicePrefixUtils.getSensorNameFromTopic(fullTopic);
-              if (sensorName != null) {
-                displayName = DevicePrefixUtils.toAnnamDisplayName(sensorName);
-              }
-            } catch (_) {}
+            String cleanTopic = '';
+            if (rawTopic.isNotEmpty && rawTopic != 'Unknown') {
+              cleanTopic = rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
+            }
+
+            final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
+            if (cleanTopic.isEmpty) {
+              cleanTopic = DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
+            }
+            final displayName = _toAnnamDisplayName(sensorName);
 
             return Padding(
               padding: const EdgeInsets.only(right: 12.0),
@@ -1019,8 +828,12 @@ class _AdminPageState extends State<AdminPage> {
                     '/admin/health/quality-diagnostics',
                     arguments: {
                       'deviceId': deviceId,
-                      'deviceIdTopic': "$deviceId#$topic",
-                      'displayName': displayName,
+                      'deviceIdTopic': cleanTopic.isNotEmpty
+                          ? "$deviceId#$cleanTopic"
+                          : "$deviceId#$rawTopic",
+                      'displayName': cleanTopic.isNotEmpty
+                          ? "$displayName ($cleanTopic)"
+                          : displayName,
                       'isDark': isDark,
                       'fromAdminPage': true,
                     },
@@ -1028,8 +841,8 @@ class _AdminPageState extends State<AdminPage> {
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  width: 200,
-                  padding: const EdgeInsets.all(12),
+                  width: 210,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration( 
                     color: cardColor,
                     borderRadius: BorderRadius.circular(12),
@@ -1051,7 +864,9 @@ class _AdminPageState extends State<AdminPage> {
                         children: [
                           Expanded(
                             child: Tooltip(
-                              message: displayName,
+                              message: cleanTopic.isNotEmpty
+                                  ? "$displayName ($cleanTopic)"
+                                  : displayName,
                               child: Text(
                                 displayName,
                                 style: TextStyle(
@@ -1080,16 +895,38 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                         ],
                       ),
+                      if (cleanTopic.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Tooltip(
+                          message: cleanTopic,
+                          child: Text(
+                            "($cleanTopic)",
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF38BDF8)
+                                  : const Color(0xFF0284C7),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'monospace',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
 
                       if (flaggedParams.isNotEmpty)
-                        Text(
-                          "Issues: $flaggedParams",
-                          style: TextStyle(
-                              color: color,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        Tooltip(
+                          message: "Issues: $flaggedParams",
+                          child: Text(
+                            "Issues: $flaggedParams",
+                            style: TextStyle(
+                                color: color,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         )
                       else
                         const SizedBox.shrink(),
@@ -1886,20 +1723,70 @@ class _AdminPageState extends State<AdminPage> {
       return true;
     });
 
+    int naturalCompare(String a, String b) {
+      final regExp = RegExp(r'(\d+|\D+)');
+      final matchesA = regExp.allMatches(a).map((m) => m.group(0)!).toList();
+      final matchesB = regExp.allMatches(b).map((m) => m.group(0)!).toList();
+
+      final len = matchesA.length < matchesB.length ? matchesA.length : matchesB.length;
+      for (int i = 0; i < len; i++) {
+        final partA = matchesA[i];
+        final partB = matchesB[i];
+        final numA = int.tryParse(partA);
+        final numB = int.tryParse(partB);
+
+        if (numA != null && numB != null) {
+          final cmp = numA.compareTo(numB);
+          if (cmp != 0) return cmp;
+        } else {
+          final cmp = partA.compareTo(partB);
+          if (cmp != 0) return cmp;
+        }
+      }
+      return matchesA.length.compareTo(matchesB.length);
+    }
+
     int getSortRank(Map<String, dynamic> d) {
       final deviceId = (d['DeviceId'] ?? "").toString();
       final topic = (d['Topic'] ?? "").toString();
       final sn = DevicePrefixUtils.resolveSensorName(deviceId, topic);
-      final dn = _toAnnamDisplayName(sn);
+      final dn = _toAnnamDisplayName(sn).toUpperCase();
       final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
+      final isActive = d['isActive'] == true;
 
-      if (sn == 'CP001' || dn == 'ANNAM_CP01' || sn.contains('CP01') || dn.contains('ANNAM_CP01')) {
-        return 0;
-      }
-      if (mapped.prefix == 'KR' || mapped.prefix == 'PJ' || sn.startsWith('KR') || sn.startsWith('PJ') || topic.toLowerCase().contains('kerala') || topic.toLowerCase().contains('punjab')) {
-        return 1;
-      }
-      return 2;
+      final isKerala = mapped.prefix == 'KR' ||
+          sn.startsWith('KR') ||
+          topic.toLowerCase().contains('kerala');
+      final isPunjab = mapped.prefix == 'PJ' ||
+          sn.startsWith('PJ') ||
+          topic.toLowerCase().contains('punjab');
+      final isAnnam = _isAnnamSensor(sn) || dn.startsWith('ANNAM');
+
+      // === ACTIVE SENSORS FIRST ===
+      // 1. Kerala ANNAM sensors (Active)
+      if (isAnnam && isKerala && isActive) return 0;
+
+      // 2. Punjab ANNAM sensors (Active)
+      if (isAnnam && isPunjab && isActive) return 1;
+
+      // 3. Other ANNAM sensors (Active)
+      if (isAnnam && isActive) return 2;
+
+      // 4. Non-ANNAM sensors (Active)
+      if (!isAnnam && isActive) return 3;
+
+      // === INACTIVE SENSORS LAST ===
+      // 5. Kerala ANNAM sensors (Inactive)
+      if (isAnnam && isKerala && !isActive) return 4;
+
+      // 6. Punjab ANNAM sensors (Inactive)
+      if (isAnnam && isPunjab && !isActive) return 5;
+
+      // 7. Other ANNAM sensors (Inactive)
+      if (isAnnam && !isActive) return 6;
+
+      // 8. Non-ANNAM sensors (Inactive)
+      return 7;
     }
 
     final sorted = list.toList()
@@ -1909,10 +1796,21 @@ class _AdminPageState extends State<AdminPage> {
         if (rankA != rankB) {
           return rankA.compareTo(rankB);
         }
-        if (a['isActive'] == b['isActive']) {
-          return a['DeviceId'].toString().compareTo(b['DeviceId'].toString());
-        }
-        return (a['isActive'] as bool) ? -1 : 1;
+
+        final deviceIdA = (a['DeviceId'] ?? "").toString();
+        final topicA = (a['Topic'] ?? "").toString();
+        final snA = DevicePrefixUtils.resolveSensorName(deviceIdA, topicA);
+        final dnA = _toAnnamDisplayName(snA);
+
+        final deviceIdB = (b['DeviceId'] ?? "").toString();
+        final topicB = (b['Topic'] ?? "").toString();
+        final snB = DevicePrefixUtils.resolveSensorName(deviceIdB, topicB);
+        final dnB = _toAnnamDisplayName(snB);
+
+        final nameCmp = naturalCompare(dnA, dnB);
+        if (nameCmp != 0) return nameCmp;
+
+        return topicA.compareTo(topicB);
       });
     return sorted;
   }
@@ -2117,10 +2015,14 @@ class _AdminPageState extends State<AdminPage> {
       }
     }
     final displayDeviceId = _toAnnamDisplayName(sensorName);
+    final topic = DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
+    final fullDisplayName = (topic.isNotEmpty && topic != "Unknown")
+        ? "$displayDeviceId ($topic)"
+        : displayDeviceId;
     DataSendDialog.show(
       context,
       initialDeviceId: sensorName,
-      displayDeviceId: displayDeviceId,
+      displayDeviceId: fullDisplayName,
       initialIntervalType: intervalType,
       initialInterval: intervalValue,
     );
@@ -3189,7 +3091,7 @@ class _AdminPageState extends State<AdminPage> {
                                                  physics: const NeverScrollableScrollPhysics(),
                                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                                    crossAxisCount: crossAxisCount,
-                                                   mainAxisExtent: 76,
+                                                   mainAxisExtent: 74,
                                                    crossAxisSpacing: 14,
                                                    mainAxisSpacing: 14,
                                                  ),

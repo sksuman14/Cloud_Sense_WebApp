@@ -89,13 +89,14 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
 
     final isValid = DevicePrefixUtils.isValidDeviceId(targetId);
     final sensorType = DevicePrefixUtils.getSensorType(targetId);
-    final displayId = DevicePrefixUtils.toAnnamDisplayName(targetId);
+    final displayId = DevicePrefixUtils.toAnnamDisplayName(cleanInput.isNotEmpty ? cleanInput : targetId);
 
     return {
       'isValid': isValid,
       'sensorType': sensorType,
       'displayId': displayId,
       'targetId': targetId,
+      'candidateCount': candidates.length,
     };
   }
 
@@ -113,18 +114,15 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
     final hasInput = deviceIdController.text.trim().isNotEmpty;
 
     final List<Map<String, String>> templates = [
-      {'name': 'Annam CP Sensor 📡', 'prefix': 'ANNAM_CP'},
-      {'name': 'CPS Sensor 🌡️', 'prefix': 'ANNAM/CPS_'},
-      {'name': 'April Weather 📅', 'prefix': 'ANNAM0426_'},
-      {'name': 'Jan Weather ❄️', 'prefix': 'ANNAM0126_'},
-      {'name': 'Feb Weather 🌧️', 'prefix': 'ANNAM0226_'},
-      {'name': 'AWS Weather ⛅', 'prefix': 'AWS_'},
-      {'name': 'Soil Sensor 🌱', 'prefix': 'SS'},
-      {'name': 'Water Quality 💧', 'prefix': 'WQ'},
-      {'name': 'Chlorine 🧪', 'prefix': 'CL'},
-      {'name': 'IIT Bombay 🏛️', 'prefix': 'IT'},
-      {'name': 'Sobha 🏠', 'prefix': 'WS_Sobha_'},
-      {'name': 'Testing Device 🛠️', 'prefix': 'ANNAM0526_'},
+      {'name': 'ANNAM Weather ⛅', 'prefix': 'ANNAM-'},
+      {'name': 'Sobha Sensor 🏠', 'prefix': 'SOBHA-'},
+      {'name': 'Annam CP Sensor 📡', 'prefix': 'ANNAM-CP-'},
+      {'name': 'CPS Sensor 🌡️', 'prefix': 'ANNAM-CPS-'},
+      {'name': 'Soil Sensor 🌱', 'prefix': 'SS-'},
+      {'name': 'Water Quality 💧', 'prefix': 'WQ-'},
+      {'name': 'Chlorine 🧪', 'prefix': 'CL-'},
+      {'name': 'IIT Bombay 🏛️', 'prefix': 'IT-'},
+      {'name': 'Testing Device 🛠️', 'prefix': 'TESTING-'},
     ];
 
     return Dialog(
@@ -278,16 +276,48 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Resolved Type: ${details['sensorType']}',
-                        style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Display Name: ${details['displayId']}',
-                        style: TextStyle(color: subtitleColor, fontSize: 12),
-                      ),
+                      if (details['isValid'] == true) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Display Name: ${details['displayId']}',
+                          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        if (details['candidateCount'] != null && details['candidateCount'] > 1)
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.alt_route,
+                                size: 13,
+                                color: isDarkMode ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  'Topic will be chosen on confirm (${details['candidateCount']} options)',
+                                  style: TextStyle(
+                                    color: isDarkMode ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (details['sensorType'] != null &&
+                                 details['sensorType'] != 'Rain Sensors' &&
+                                 details['sensorType'] != 'ANNAM Sensors')
+                          Text(
+                            'Type: ${details['sensorType']}',
+                            style: TextStyle(color: subtitleColor, fontSize: 12),
+                          ),
+                      ] else ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Please enter the numeric ID to complete (e.g. 01, 101)',
+                          style: TextStyle(color: subtitleColor, fontSize: 12),
+                        ),
+                      ],
                     ],
                   ),
                 ),

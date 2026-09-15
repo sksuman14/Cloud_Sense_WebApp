@@ -14,11 +14,90 @@ class DevicePrefixUtils {
   ];
 
   static String getSensorType(String deviceId) {
-    final upper = deviceId.toUpperCase();
+    final upper = deviceId.toUpperCase().trim();
     if (upper.startsWith('SH') ||
         upper.startsWith('WS_SOBHA') ||
-        upper.startsWith('WS_SHOBHA')) {
+        upper.startsWith('WS_SHOBHA') ||
+        upper.startsWith('SOBHA')) {
       return 'Sobha Sensor';
+    }
+    if (upper.startsWith('PJ') ||
+        upper.startsWith('ANNAM/PUNJAB') ||
+        upper.startsWith('WS_PUNJAB') ||
+        upper.startsWith('ANNAM-PB') ||
+        upper.startsWith('ANNAM_PB')) {
+      return 'Punjab Sensor';
+    }
+    if (upper.startsWith('KR') ||
+        upper.startsWith('ANNAM/KERALA') ||
+        upper.startsWith('ANNAM-KL') ||
+        upper.startsWith('ANNAM_KL')) {
+      return 'Kerala Sensor';
+    }
+    if (upper.startsWith('WJ') ||
+        upper.startsWith('ANNAM-0126') ||
+        upper.startsWith('ANNAM0126') ||
+        upper.startsWith('WF') ||
+        upper.startsWith('ANNAM-0226') ||
+        upper.startsWith('ANNAM0226') ||
+        upper.startsWith('WA') ||
+        upper.startsWith('ANNAM-0426') ||
+        upper.startsWith('ANNAM0426')) {
+      return 'ANNAM Sensors';
+    }
+    if (upper.startsWith('WM') ||
+        upper.startsWith('TS-0526') ||
+        upper.startsWith('TS0526') ||
+        upper.startsWith('ANNAM-0526') ||
+        upper.startsWith('ANNAM0526') ||
+        upper.startsWith('TESTING')) {
+      return 'Testing Devices';
+    }
+    if (upper.startsWith('PS') ||
+        upper.startsWith('ANNAM-CPS') ||
+        upper.startsWith('ANNAM/CPS') ||
+        upper.startsWith('CPS')) {
+      return 'CPS Sensor';
+    }
+    if (upper.startsWith('AM') ||
+        (upper.startsWith('ANNAM-CP') && !upper.startsWith('ANNAM-CPS')) ||
+        upper.startsWith('ANNAM_CP')) {
+      return 'Annam CP Sensor';
+    }
+    if (upper.startsWith('AT') ||
+        upper.startsWith('AWS-TESTING') ||
+        upper.startsWith('AWS_TESTING')) {
+      return 'AWS Testing Sensor';
+    }
+    if (upper.startsWith('AW') ||
+        upper.startsWith('AWS-') ||
+        upper.startsWith('AWS_')) {
+      return 'AWS Sensor';
+    }
+    if (upper.startsWith('PC') ||
+        upper.startsWith('ANNAM-PC') ||
+        upper.startsWith('ANNAM/PC')) {
+      return 'Polytechnical Sensor';
+    }
+    if (upper.startsWith('GP') ||
+        upper.startsWith('ANNAM-GPC') ||
+        upper.startsWith('ANNAM/GPC')) {
+      return 'GPC Sensor';
+    }
+    if (upper.startsWith('WN') ||
+        upper.startsWith('WINDS')) {
+      return 'Winds Weather Sensor';
+    }
+    if (upper.startsWith('JW') ||
+        upper.startsWith('JIO-WINDS') ||
+        upper.startsWith('JIO_WINDS')) {
+      return 'Partnership Sensors';
+    }
+    if (upper.startsWith('ANNAM-') || upper.startsWith('ANNAM_') || upper.startsWith('ANNAM')) {
+      return 'ANNAM Sensors';
+    }
+    if (upper.startsWith('TS-') || upper.startsWith('TS_') || upper.startsWith('TESTING-') || upper.startsWith('TESTING_') || upper.startsWith('TESTING')) {
+      return 'Testing Devices';
     }
     if (deviceId.startsWith('WD')) return 'Weather Sensor';
     if (deviceId.startsWith('CL') || deviceId.startsWith('BD')) return 'Chlorine Sensor';
@@ -37,35 +116,18 @@ class DevicePrefixUtils {
     if (deviceId.startsWith('FS')) return 'Forest Sensor (Bhopal)';
     if (deviceId.startsWith('SM')) return 'SSMET Sensor';
     if (deviceId.startsWith('SW')) return 'SSMET Weather Sensor';
-    if (deviceId.startsWith('WJ')) return 'Jan Weather Sensors';
-    if (deviceId.startsWith('WA')) return 'April Weather Sensors';
     if (deviceId.startsWith('WT')) return 'Weather OTA Sensors';
-    if (deviceId.startsWith('WF')) return 'Feb Weather Sensors';
-    if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
-    if (deviceId.startsWith('WM')) return 'Testing Devices';
     if (deviceId.startsWith('SI')) return 'Synthite Industries Private Limited Sensor';
     if (deviceId.startsWith('CF')) return 'Sekhon Biotech Pvt Ltd Farm Sensor';
     if (deviceId.startsWith('SV')) return 'Sardar Vallabhbhai Patel University of Agriculture and TechnologySensor';
     if (deviceId.startsWith('CB')) return 'COD/BOD Sensor';
-    if (deviceId.startsWith('WF')) return 'WF Sensor';
     if (deviceId.startsWith('KD')) return 'Kargil Sensor';
     if (deviceId.startsWith('VD')) return 'Vanix Sensor';
-    if (deviceId.startsWith('PC')) return 'Polytechnical Sensor';
-    if (deviceId.startsWith('KR')) return 'Kerala Sensor';
-    if (deviceId.startsWith('PJ')) return 'Punjab Sensor';
-    if (deviceId.startsWith('AW')) return 'AWS Sensor';
-    if (deviceId.startsWith('GP')) return 'GPC Sensor';
     if (deviceId.startsWith('NA')) return 'National Atmospheric Research Labortary Sensor';
     if (deviceId.startsWith('KJ')) return 'KJ Somaiya College of Engineering';
     if (deviceId.startsWith('MY')) return 'Mysuru NIE';
     if (deviceId.startsWith('CP')) return 'IIT Ropar Campus Sensor';
     if (deviceId.startsWith('DM')) return 'Demo Sensor';
-    if (deviceId.startsWith('WN')) return 'Winds Weather Sensor';
-    if (deviceId.startsWith('JW')) return 'Partnership Sensors';
-    if (deviceId.startsWith('SH')) return 'Sobha Sensor';
-    if (deviceId.startsWith('AT')) return 'AWS Testing Sensor';
-    if (deviceId.startsWith('AM')) return 'Annam CP Sensor';
-    if (deviceId.startsWith('PS')) return 'CPS Sensor';
     return 'Rain Sensor';
   }
 
@@ -109,7 +171,7 @@ class DevicePrefixUtils {
       case 'WJ':
         return 'ANNAM Sensors';
       case 'WF':
-        return 'Feb Weather Sensors';
+        return 'ANNAM Sensors';
       case 'WA':
         return 'ANNAM Sensors';
       case 'SI':
@@ -163,34 +225,57 @@ class DevicePrefixUtils {
     deviceId = deviceId.trim().toUpperCase();
 
     // Ensure the display templates end with a numeric value
-    final bool isDisplayTemplate = deviceId.startsWith('ANNAM0126_') ||
+    final bool isDisplayTemplate = deviceId.startsWith('ANNAM-') ||
+        deviceId.startsWith('ANNAM_') ||
+        deviceId.startsWith('ANNAM0126_') ||
         deviceId.startsWith('ANNAM0226_') ||
         deviceId.startsWith('ANNAM0426_') ||
         deviceId.startsWith('ANNAM0526_') ||
+        deviceId.startsWith('ANNAM-0126-') ||
+        deviceId.startsWith('ANNAM-0226-') ||
+        deviceId.startsWith('ANNAM-0426-') ||
+        deviceId.startsWith('ANNAM-0526-') ||
         deviceId.startsWith('ANNAM/GPC_') ||
+        deviceId.startsWith('ANNAM-GPC-') ||
         deviceId.startsWith('ANNAM/KERALA/') ||
+        deviceId.startsWith('ANNAM-KL-') ||
         deviceId.startsWith('ANNAM/PUNJAB/') ||
+        deviceId.startsWith('ANNAM-PB-') ||
         deviceId.startsWith('WS_PUNJAB_') ||
         deviceId.startsWith('AWS_') ||
+        deviceId.startsWith('AWS-') ||
         deviceId.startsWith('TS0526_') ||
+        deviceId.startsWith('TS-0526-') ||
         deviceId.startsWith('TS_') ||
+        deviceId.startsWith('TS-') ||
+        deviceId.startsWith('TESTING_') ||
+        deviceId.startsWith('TESTING-') ||
         deviceId.startsWith('DM_') ||
-        deviceId.startsWith('Winds_') ||
+        deviceId.startsWith('DM-') ||
+        deviceId.startsWith('WINDS_') ||
+        deviceId.startsWith('WINDS-') ||
         deviceId.startsWith('JIO_WINDS_') ||
+        deviceId.startsWith('JIO-WINDS-') ||
         deviceId.startsWith('JW_') ||
+        deviceId.startsWith('JW-') ||
         deviceId.startsWith('WS_SHOBHA_') ||
         deviceId.startsWith('WS_SOBHA_') ||
+        deviceId.startsWith('SOBHA-') ||
         deviceId.startsWith('AWS_TESTING_') ||
+        deviceId.startsWith('AWS-TESTING-') ||
         deviceId.startsWith('ANNAM_CP') ||
+        deviceId.startsWith('ANNAM-CP-') ||
         deviceId.startsWith('ANNAM/CPS_') ||
-        RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId);
+        deviceId.startsWith('ANNAM-CPS-') ||
+        RegExp(r'^ANNAM/PC_\d+$').hasMatch(deviceId) ||
+        RegExp(r'^ANNAM-PC-\d+$').hasMatch(deviceId);
 
     if (isDisplayTemplate && RegExp(r'\d+$').hasMatch(deviceId)) {
       return true;
     }
 
-    // Must be at least 3 characters, start with a valid prefix, and end with a number (optionally with an underscore)
-    if (deviceId.length >= 3 && RegExp(r'^[A-Z]{2,}_?\d+$').hasMatch(deviceId)) {
+    // Must be at least 3 characters, start with a valid prefix, and end with a number (optionally with an underscore or hyphen)
+    if (deviceId.length >= 3 && RegExp(r'^[A-Z]{2,}[_-]?\d+$').hasMatch(deviceId)) {
       String prefix = deviceId.substring(0, 2);
       if (validPrefixes.contains(prefix)) {
         return true;
@@ -234,112 +319,251 @@ class DevicePrefixUtils {
   static final RegExp _prefixRegex = RegExp(r'^[A-Z]{2}');
 
   /// Converts an internal sensor name (e.g., WJ201) to its display-friendly
-  /// ANNAM-themed name (e.g., ANNAM0126_201).
+  /// ANNAM-themed name (e.g., ANNAM-0126-201).
   static String toAnnamDisplayName(String internalId) {
     if (internalId == null || internalId.isEmpty) return "";
 
     final upper = internalId.toUpperCase().trim();
+    // Already formatted ANNAM-<digits> (e.g. ANNAM-201, ANNAM-007, ANNAM-013)
+    if (RegExp(r'^ANNAM-\d+$').hasMatch(upper)) {
+      return upper;
+    }
+    // Already formatted TESTING-<digits> (e.g. TESTING-001, TESTING-101)
+    if (RegExp(r'^TESTING-\d+$').hasMatch(upper)) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      return 'TESTING-${cleanDigits.padLeft(3, '0')}';
+    }
+
     // Extract numeric part (e.g., WJ201 -> 201)
     final digits = upper.replaceAll(_prefixRegex, '');
     final prefix = _prefixRegex.stringMatch(upper) ?? '';
 
-    // NEW: SH sensors (Sobha) -> WS_Sobha_
-    if (upper.startsWith('SH') || upper.startsWith('WS_SHOBHA') || upper.startsWith('WS_SOBHA')) {
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // Sobha sensors -> SOBHA-01
+    if (upper.startsWith('SH') ||
+        upper.startsWith('WS_SHOBHA') ||
+        upper.startsWith('WS_SOBHA') ||
+        upper.startsWith('SOBHA')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'WS_Sobha_$num' : 'WS_Sobha_$cleanDigits';
+      return num != null ? 'SOBHA-${num.toString().padLeft(2, '0')}' : 'SOBHA-$cleanDigits';
     }
 
-    // 1. WJ sensors (Jan Weather 0126) -> ANNAM0126_
-    if (upper.startsWith('WJ')) return 'ANNAM0126_$digits';
-
-    // 2. WF sensors (Feb Weather 0226) -> ANNAM0226_
-    if (upper.startsWith('WF')) return 'ANNAM0226_$digits';
-
-    // 3. WA sensors (April Weather 0426) -> ANNAM0426_
-    if (upper.startsWith('WA')) return 'ANNAM0426_$digits';
-
-    // 4. WM sensors (May Weather 0526) -> TS0526_
-    if (upper.startsWith('WM')) return 'TS0526_$digits';
-
-    // NEW: WN sensors (Winds Weather) -> Winds_
-    if (upper.startsWith('WN')) return 'Winds_$digits';
-
-    // NEW: JW sensors (Jio Winds) -> JIO_WINDS_
-    if (upper.startsWith('JW')) return 'JIO_WINDS_$digits';
-
-    // NEW: AM sensors (Annam CP01) -> ANNAM_CP01
-    if (upper.startsWith('AM')) {
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // Punjab Stations -> ANNAM-01
+    if (upper.startsWith('PJ') ||
+        upper.startsWith('ANNAM/PUNJAB') ||
+        upper.startsWith('WS_PUNJAB') ||
+        upper.startsWith('ANNAM-PB') ||
+        upper.startsWith('ANNAM_PB')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'ANNAM_CP${num.toString().padLeft(2, '0')}' : 'ANNAM_CP$cleanDigits';
-    }
-    
-    if (upper.startsWith('ANNAM_CP')) {
-      return upper;
+      return num != null ? 'ANNAM-${num.toString().padLeft(2, '0')}' : 'ANNAM-$cleanDigits';
     }
 
-    // NEW: PS sensors (CPS) -> ANNAM/CPS_
-    if (upper.startsWith('PS')) {
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // Kerala Stations -> ANNAM-01
+    if (upper.startsWith('KR') ||
+        upper.startsWith('ANNAM/KERALA') ||
+        upper.startsWith('ANNAM-KL') ||
+        upper.startsWith('ANNAM_KL')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'ANNAM/CPS_$num' : 'ANNAM/CPS_$cleanDigits';
+      return num != null ? 'ANNAM-${num.toString().padLeft(2, '0')}' : 'ANNAM-$cleanDigits';
     }
 
-    // NEW: PJ sensors (Punjab) -> ANNAM/Punjab/WS_
-    if (upper.startsWith('PJ') || upper.startsWith('WS_PUNJAB')) {
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // 1. WJ sensors (Jan Weather) -> ANNAM-201
+    if (upper.startsWith('WJ') ||
+        upper.startsWith('ANNAM0126') ||
+        upper.startsWith('ANNAM-0126')) {
+      String suffix = upper;
+      if (upper.startsWith('WJ')) {
+        suffix = upper.substring(2);
+      } else if (upper.startsWith('ANNAM-0126-') || upper.startsWith('ANNAM-0126_')) {
+        suffix = upper.substring(11);
+      } else if (upper.startsWith('ANNAM0126_') || upper.startsWith('ANNAM0126-')) {
+        suffix = upper.substring(10);
+      } else if (upper.startsWith('ANNAM0126')) {
+        suffix = upper.substring(9);
+      }
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
+      final padDigits = cleanDigits.length == 1 ? cleanDigits.padLeft(2, '0') : cleanDigits;
+      return 'ANNAM-$padDigits';
+    }
+
+    // 2. WF sensors (Feb Weather) -> ANNAM-101
+    if (upper.startsWith('WF') ||
+        upper.startsWith('ANNAM0226') ||
+        upper.startsWith('ANNAM-0226')) {
+      String suffix = upper;
+      if (upper.startsWith('WF')) {
+        suffix = upper.substring(2);
+      } else if (upper.startsWith('ANNAM-0226-') || upper.startsWith('ANNAM-0226_')) {
+        suffix = upper.substring(11);
+      } else if (upper.startsWith('ANNAM0226_') || upper.startsWith('ANNAM0226-')) {
+        suffix = upper.substring(10);
+      } else if (upper.startsWith('ANNAM0226')) {
+        suffix = upper.substring(9);
+      }
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
+      final padDigits = cleanDigits.length == 1 ? cleanDigits.padLeft(2, '0') : cleanDigits;
+      return 'ANNAM-$padDigits';
+    }
+
+    // 3. WA sensors (April Weather) -> ANNAM-101 / ANNAM-007
+    if (upper.startsWith('WA') ||
+        upper.startsWith('ANNAM0426') ||
+        upper.startsWith('ANNAM-0426')) {
+      String suffix = upper;
+      if (upper.startsWith('WA')) {
+        suffix = upper.substring(2);
+      } else if (upper.startsWith('ANNAM-0426-') || upper.startsWith('ANNAM-0426_')) {
+        suffix = upper.substring(11);
+      } else if (upper.startsWith('ANNAM0426_') || upper.startsWith('ANNAM0426-')) {
+        suffix = upper.substring(10);
+      } else if (upper.startsWith('ANNAM0426')) {
+        suffix = upper.substring(9);
+      }
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
+      final padDigits = cleanDigits.length == 1 ? cleanDigits.padLeft(2, '0') : cleanDigits;
+      return 'ANNAM-$padDigits';
+    }
+
+    // 4. WM sensors (May Weather) -> TESTING-101 / TESTING-001
+    if (upper.startsWith('WM') ||
+        upper.startsWith('TS0526') ||
+        upper.startsWith('TS-0526') ||
+        upper.startsWith('ANNAM0526') ||
+        upper.startsWith('ANNAM-0526') ||
+        upper.startsWith('TESTING0526') ||
+        upper.startsWith('TESTING-0526')) {
+      String suffix = upper;
+      if (upper.startsWith('WM')) {
+        suffix = upper.substring(2);
+      } else if (upper.startsWith('TS-0526-') || upper.startsWith('TS-0526_') ||
+                 upper.startsWith('ANNAM-0526-') || upper.startsWith('ANNAM-0526_') ||
+                 upper.startsWith('TESTING-0526-') || upper.startsWith('TESTING-0526_')) {
+        final lastSep = upper.lastIndexOf(RegExp(r'[-_]'));
+        suffix = lastSep != -1 ? upper.substring(lastSep + 1) : upper;
+      } else if (upper.startsWith('TS0526_') || upper.startsWith('TS0526-') ||
+                 upper.startsWith('ANNAM0526_') || upper.startsWith('ANNAM0526-') ||
+                 upper.startsWith('TESTING0526_') || upper.startsWith('TESTING0526-')) {
+        final lastSep = upper.lastIndexOf(RegExp(r'[-_]'));
+        suffix = lastSep != -1 ? upper.substring(lastSep + 1) : upper;
+      } else {
+        final match = RegExp(r'\d+$').firstMatch(upper);
+        suffix = match != null ? match.group(0)! : '';
+      }
+      final cleanDigits = suffix.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
+      final padDigits = cleanDigits.padLeft(3, '0');
+      return 'TESTING-$padDigits';
+    }
+
+    // WN sensors (Winds Weather) -> WINDS-01
+    if (upper.startsWith('WN') || upper.startsWith('WINDS')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
       final num = int.tryParse(cleanDigits);
-      return num != null ? "ANNAM/Punjab/WS_$num" : "ANNAM/Punjab/WS_$cleanDigits";
+      return num != null ? 'WINDS-${num.toString().padLeft(2, '0')}' : 'WINDS-$cleanDigits';
     }
 
-    // NEW: KR sensors (Kerala) -> ANNAM/Kerala/WS_
-    if (upper.startsWith('KR')) {
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // JW sensors (Jio Winds) -> JIO-WINDS-01
+    if (upper.startsWith('JW') || upper.startsWith('JIO_WINDS') || upper.startsWith('JIO-WINDS')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'ANNAM/Kerala/WS_$num' : 'ANNAM/Kerala/WS_$cleanDigits';
+      return num != null ? 'JIO-WINDS-${num.toString().padLeft(2, '0')}' : 'JIO-WINDS-$cleanDigits';
     }
 
-    // NEW: AT sensors (AWS Testing) -> AWS_Testing_
-    if (upper.startsWith('AT') || upper.startsWith('AWS_TESTING')) {
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // PS sensors (CPS) -> ANNAM-CPS-01
+    if (upper.startsWith('PS') ||
+        upper.startsWith('ANNAM/CPS') ||
+        upper.startsWith('ANNAM-CPS') ||
+        upper.startsWith('CPS')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'AWS_Testing_$num' : 'AWS_Testing_$cleanDigits';
+      return num != null ? 'ANNAM-CPS-${num.toString().padLeft(2, '0')}' : 'ANNAM-CPS-$cleanDigits';
     }
 
-    // NEW: AW sensors (AWS) -> AWS_
-    if (upper.startsWith('AW')) {
-      // If it already starts with AWS_, the digits part might contain 'S_'
-      // Let's strip any non-digit characters to get just the number
-      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    // AM sensors (Annam CP01) -> ANNAM-CP-01
+    if (upper.startsWith('AM') ||
+        upper.startsWith('ANNAM_CP') ||
+        (upper.startsWith('ANNAM-CP') && !upper.startsWith('ANNAM-CPS'))) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
       final num = int.tryParse(cleanDigits);
-      return num != null ? 'AWS_$num' : 'AWS_$cleanDigits';
+      return num != null ? 'ANNAM-CP-${num.toString().padLeft(2, '0')}' : 'ANNAM-CP-$cleanDigits';
     }
 
-    // 5. PC sensors (Polytechnic) -> ANNAM/PC_
-    if (upper.startsWith('PC')) return 'ANNAM/PC_$digits';
+    // AT sensors (AWS Testing) -> AWS-TESTING-01
+    if (upper.startsWith('AT') || upper.startsWith('AWS_TESTING') || upper.startsWith('AWS-TESTING')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'AWS-TESTING-${num.toString().padLeft(2, '0')}' : 'AWS-TESTING-$cleanDigits';
+    }
 
-    // 6. GP sensors (Polytechnic) -> ANNAM/PC_
-    if (upper.startsWith('GP')) return 'ANNAM/GPC_$digits';
+    // AW sensors (AWS) -> ANNAM-01 / ANNAM-62
+    if (upper.startsWith('AW') || upper.startsWith('AWS_') || upper.startsWith('AWS-')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanDigits.isEmpty) return upper;
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'ANNAM-${num.toString().padLeft(2, '0')}' : 'ANNAM-$cleanDigits';
+    }
 
-    // 5. Testing group (CP other than CP001, plus WT) -> TS_
+    // PC sensors (Polytechnic) -> ANNAM-PC-01
+    if (upper.startsWith('PC') || upper.startsWith('ANNAM/PC') || upper.startsWith('ANNAM-PC')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'ANNAM-PC-${num.toString().padLeft(2, '0')}' : 'ANNAM-PC-$cleanDigits';
+    }
+
+    // GP sensors (Polytechnic) -> ANNAM-GPC-01
+    if (upper.startsWith('GP') || upper.startsWith('ANNAM/GPC') || upper.startsWith('ANNAM-GPC')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'ANNAM-GPC-${num.toString().padLeft(2, '0')}' : 'ANNAM-GPC-$cleanDigits';
+    }
+
+    // Testing group (CP other than CP001, plus WT, TS, TESTING) -> TESTING-001
     if (upper.startsWith('WT') ||
-        (upper.startsWith('CP') && upper != 'CP001')) {
-      return 'TS_$digits';
+        upper.startsWith('TS') ||
+        upper.startsWith('TESTING') ||
+        (upper.startsWith('CP') && !upper.startsWith('CPS') && upper != 'CP001' && upper != 'CP01' && upper != 'CP1')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'TESTING-${num.toString().padLeft(3, '0')}' : 'TESTING-$cleanDigits';
     }
 
-    // NEW: DM sensors under Testing with DM_ prefix
+    // DM sensors under Testing with DM- prefix
     if (upper.startsWith('DM')) {
-      return 'DM_$digits';
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'DM-${num.toString().padLeft(2, '0')}' : 'DM-$cleanDigits';
     }
 
-    // 6. Other ANNAM group (CF, CP001, SW007, SW013)
+    // Temperature Sensors -> TH-01
+    if (upper.startsWith('TH')) {
+      final cleanDigits = upper.replaceAll(RegExp(r'[^0-9]'), '');
+      final num = int.tryParse(cleanDigits);
+      return num != null ? 'TH-${num.toString().padLeft(2, '0')}' : 'TH-$cleanDigits';
+    }
+
+    // Other ANNAM group (CF, CP001, SW007, SW013)
     if (isAnnamCoreSensor(upper)) {
-      return 'ANNAM$digits';
+      final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+      return cleanDigits.isNotEmpty ? 'ANNAM-$cleanDigits' : upper;
     }
 
-    // 7. Default (Partnership/Others) - return prefix_digits or original if no digits
-    return digits.isNotEmpty ? '${prefix}_$digits' : upper;
+    // Default (Partnership/Others) - return prefix-digits or original if no digits
+    final cleanDigits = digits.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanDigits.isNotEmpty && prefix.isNotEmpty) {
+      final num = int.tryParse(cleanDigits);
+      final padDigits = (num != null && cleanDigits.length < 2)
+          ? num.toString().padLeft(2, '0')
+          : cleanDigits;
+      return '$prefix-$padDigits';
+    }
+    return upper;
   }
 
   /// Resolves a canonical internal sensor ID (e.g. 'SH001', 'WJ201') from
@@ -378,6 +602,10 @@ class DevicePrefixUtils {
     // Specific exclusions (Legacy sensors)
     if (upper == 'WJ156' || upper == 'WJ157') return false;
 
+    if (upper.startsWith('ANNAM-') || upper.startsWith('ANNAM_') || upper.startsWith('ANNAM/')) {
+      return true;
+    }
+
     return upper.startsWith('CF') ||
         upper.startsWith('WJ') ||
         upper.startsWith('WA') ||
@@ -398,7 +626,7 @@ class DevicePrefixUtils {
   static bool isAnnamTestingSensor(String internalId) {
     if (internalId == null) return false;
     final upper = internalId.toUpperCase().trim();
-    return (upper.startsWith('CP') && upper != 'CP001') ||
+    return (upper.startsWith('CP') && !upper.startsWith('CPS') && upper != 'CP001') ||
         upper.startsWith('WT') ||
         upper.startsWith('DM') ||
         upper.startsWith('WM') ||
@@ -636,10 +864,10 @@ class DevicePrefixUtils {
       return (category: 'SSMET Sensor', prefix: 'SM');
     }
     if (topic.contains('WS/SSMet_0126')) {
-      return (category: 'Jan Weather Sensors', prefix: 'WJ');
+      return (category: 'ANNAM Sensors', prefix: 'WJ');
     }
     if (topic.contains('Annam_0426')) {
-      return (category: 'April Weather Sensors', prefix: 'WA');
+      return (category: 'ANNAM Sensors', prefix: 'WA');
     }
     if (topic.contains('Annam_0526')) {
       return (category: 'Testing Devices', prefix: 'WM');
@@ -661,7 +889,7 @@ class DevicePrefixUtils {
       return (category: 'Testing Devices', prefix: 'WT');
     }
     if (topic.contains('WS/SSMet_0226')) {
-      return (category: 'Feb Weather Sensors', prefix: 'WF');
+      return (category: 'ANNAM Sensors', prefix: 'WF');
     }
     if (topic.contains('WS/SSMET_1225')) {
       if (topic.startsWith('13#') || topic.contains('/13')) {

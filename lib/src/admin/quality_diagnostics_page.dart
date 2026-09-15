@@ -229,7 +229,9 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
               Row(
                 children: [
                   Text(
-                    widget.displayName,
+                    (widget.deviceIdTopic.isNotEmpty && !widget.displayName.contains('('))
+                        ? '${widget.displayName} (${widget.deviceIdTopic.contains('#') ? widget.deviceIdTopic.split('#').last : widget.deviceIdTopic})'
+                        : widget.displayName,
                     style:
                         TextStyle(color: strong.withOpacity(0.5), fontSize: 12),
                   ),

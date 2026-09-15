@@ -990,13 +990,19 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       deviceIdStr = 'AWS_Testing_$deviceIdNumeric';
     }
 
-    if (((widget.deviceName.startsWith('KR') || widget.deviceName.startsWith('PJ') || widget.deviceName.contains('Punjab')) || widget.deviceName.startsWith('PJ'))) {
+    if (((widget.deviceName.startsWith('KR') ||
+            widget.deviceName.startsWith('PJ') ||
+            widget.deviceName.contains('Punjab') ||
+            widget.deviceName.contains('ANNAM-PB') ||
+            widget.deviceName.contains('ANNAM-KL')) ||
+        widget.deviceName.startsWith('PJ'))) {
       deviceIdStr = deviceIdNumeric.toString();
     }
 
     if (widget.deviceName.toUpperCase().startsWith('SH') ||
         widget.deviceName.toUpperCase().startsWith('WS_SHOBHA') ||
-        widget.deviceName.toUpperCase().startsWith('WS_SOBHA')) {
+        widget.deviceName.toUpperCase().startsWith('WS_SOBHA') ||
+        widget.deviceName.toUpperCase().startsWith('SOBHA')) {
       deviceIdStr = (deviceIdNumeric != 0 ? deviceIdNumeric : 1).toString();
     }
 
