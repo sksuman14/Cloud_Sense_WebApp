@@ -1,3 +1,4 @@
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
 import 'package:cloud_sense_webapp/src/views/devices/qr_scan_add_device.dart';
@@ -16,12 +17,6 @@ import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
 
 String _toAnnamDisplayName(String internalSensorName) =>
     DevicePrefixUtils.toAnnamDisplayName(internalSensorName);
-
-bool _isAnnamSensor(String internalSensorName) =>
-    DevicePrefixUtils.isAnnamCoreSensor(internalSensorName);
-
-bool _isAnnamTestingSensor(String internalSensorName) =>
-    DevicePrefixUtils.isAnnamTestingSensor(internalSensorName);
 
 // ── Internal Helpers for prefixing ──
 // (Unused helpers removed. Logic now handled via RegExp in _toAnnamDisplayName)
@@ -45,6 +40,9 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
   Map<String, String> _locationMap = {};
   Map<String, String> _healthTopicLookupMap = {};
   final TextEditingController _searchController = TextEditingController();
+  bool _isSelectionMode = false;
+  final Set<String> _selectedDeviceIds = {};
+  bool _isBatchDeleting = false;
 
   Future<void> _fetchHealthTopicLookup() async {
     try {
@@ -76,6 +74,105 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       }
     } catch (e) {
       debugPrint("Error fetching health topic lookup: $e");
+    }
+  }
+
+  Future<void> _deleteSelectedDevices() async {
+    if (_selectedDeviceIds.isEmpty || _email == null) return;
+
+    final selectedList = _selectedDeviceIds.toList();
+    final selectedCount = selectedList.length;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDarkMode = Theme.of(ctx).brightness == Brightness.dark;
+        final strong = isDarkMode ? Colors.white : Colors.black87;
+        final subtle = isDarkMode ? Colors.white70 : Colors.black54;
+
+        return AlertDialog(
+          backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 24),
+              const SizedBox(width: 10),
+              Text('Delete $selectedCount Device${selectedCount > 1 ? 's' : ''}',
+                  style: TextStyle(color: strong, fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to remove $selectedCount selected device${selectedCount > 1 ? 's' : ''} from your account? This action cannot be undone.',
+            style: TextStyle(color: subtle, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: TextStyle(color: subtle)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isBatchDeleting = true;
+    });
+
+    int successCount = 0;
+    List<String> failedIds = [];
+
+    for (final deviceId in selectedList) {
+      try {
+        final url =
+            'https://25e5bsdhwd.execute-api.us-east-1.amazonaws.com/default/CloudSense_users_delete_function?email_id=$_email&action=delete_devices&device_id=$deviceId';
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          successCount++;
+        } else {
+          failedIds.add(deviceId);
+        }
+      } catch (e) {
+        failedIds.add(deviceId);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isBatchDeleting = false;
+        _isSelectionMode = false;
+        _selectedDeviceIds.clear();
+      });
+
+      if (successCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$successCount device${successCount > 1 ? 's' : ''} deleted successfully.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchData();
+      }
+
+      if (failedIds.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: ${failedIds.join(', ')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -633,81 +730,202 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Your Devices",
-                      style: TextStyle(
-                        color: strong,
-                        fontSize: getResponsiveFontSize(context, 18, 22),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) {
-                            return AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              title: Center(
+                child: _isSelectionMode
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: Colors.redAccent.withOpacity(0.3)),
+                                ),
                                 child: Text(
-                                  "Add New Device",
-                                  style: TextStyle(
+                                  "${_selectedDeviceIds.length} Selected",
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
                                     fontWeight: FontWeight.bold,
-                                    color: strong,
+                                    fontSize: 14,
                                   ),
                                 ),
                               ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      showDialog(
-                                        context: context,
-                                        barrierDismissible: false,
-                                        builder: (context) => QRScannerPopup(
-                                            devices: _deviceCategories),
-                                      );
-                                    },
-                                    child: const Text("Scan QR Code"),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    final currentIds = filteredDevices
+                                        .map((d) => d['DeviceId'] as String)
+                                        .toSet();
+                                    if (_selectedDeviceIds
+                                        .containsAll(currentIds)) {
+                                      _selectedDeviceIds.removeAll(currentIds);
+                                    } else {
+                                      _selectedDeviceIds.addAll(currentIds);
+                                    }
+                                  });
+                                },
+                                child: Text(
+                                  _selectedDeviceIds.containsAll(
+                                              filteredDevices.map((d) =>
+                                                  d['DeviceId'] as String)) &&
+                                          filteredDevices.isNotEmpty
+                                      ? "Deselect All"
+                                      : "Select All",
+                                  style: TextStyle(
+                                    color: subtle,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
                                   ),
-                                  const SizedBox(height: 12),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) =>
-                                            ManualEntryPopup(
-                                                devices: _deviceCategories),
-                                      );
-                                    },
-                                    child: const Text("Add Manually"),
-                                  ),
-                                ],
+                                ),
                               ),
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _selectedDeviceIds.isNotEmpty &&
+                                        !_isBatchDeleting
+                                    ? _deleteSelectedDevices
+                                    : null,
+                                icon: const Icon(Icons.delete_outline, size: 18),
+                                label: Text(
+                                    "Delete (${_selectedDeviceIds.length})"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      Colors.redAccent.withOpacity(0.3),
+                                  disabledForegroundColor: Colors.white70,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _isSelectionMode = false;
+                                    _selectedDeviceIds.clear();
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                      color: isDarkMode
+                                          ? Colors.white24
+                                          : Colors.black26),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: Text("Cancel",
+                                    style: TextStyle(color: strong)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Your Devices",
+                            style: TextStyle(
+                              color: strong,
+                              fontSize: getResponsiveFontSize(context, 18, 22),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              if (allDevs.isNotEmpty) ...[
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isSelectionMode = true;
+                                      _selectedDeviceIds.clear();
+                                    });
+                                  },
+                                  icon: Icon(Icons.checklist_rounded,
+                                      size: 18, color: subtle),
+                                  label: Text(
+                                    "Manage",
+                                    style: TextStyle(
+                                      color: strong,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                        color: isDarkMode
+                                            ? Colors.white24
+                                            : Colors.black26),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              ElevatedButton(
+                                onPressed: () =>
+                                    _showAddDeviceDialog(context, strong),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF10B981),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                ),
+                                child: const Text("Add Device"),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+              if (_isBatchDeleting) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: const [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.redAccent),
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        "Deleting selected devices...",
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
-                      child: const Text("Add Device"),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
               // Top Metric Summary Cards (Total, Active, Inactive)
               _buildMetricSummaryCards(
@@ -807,7 +1025,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                       physics: const NeverScrollableScrollPhysics(),
                                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: gridCols,
-                                        mainAxisExtent: 76,
+                                        mainAxisExtent: 92,
                                         crossAxisSpacing: 12,
                                         mainAxisSpacing: 12,
                                       ),
@@ -850,6 +1068,15 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                         ),
                       ),
                     ),
+              const SizedBox(height: 16),
+              // Account & Security Section
+              _buildAccountSecuritySection(
+                isDarkMode: isDarkMode,
+                card: card,
+                strong: strong,
+                subtle: subtle,
+                screenWidth: screenWidth,
+              ),
             ],
           ),
         ),
@@ -1049,6 +1276,8 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
     final displaySensorName = _toAnnamDisplayName(sensorName);
     final isActive = d['isActive'] == true;
     final location = _getLocationForSensor(sensorName) ?? '';
+    final topic = (d['Topic'] ?? '').toString();
+    final isSelected = _selectedDeviceIds.contains(sensorName);
 
     String sequentialName = '';
     String category = d['Category'] ?? '';
@@ -1094,18 +1323,24 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: card,
+          color: isSelected
+              ? (isDarkMode
+                  ? Colors.redAccent.withOpacity(0.14)
+                  : const Color(0xFFFEE2E2).withOpacity(0.7))
+              : card,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _hoverStates[sensorName] == true
-                ? accent.withOpacity(0.5)
-                : (isDarkMode ? Colors.white12 : Colors.black.withOpacity(0.08)),
-            width: 1.2,
+            color: isSelected
+                ? Colors.redAccent
+                : (_hoverStates[sensorName] == true
+                    ? accent.withOpacity(0.5)
+                    : (isDarkMode ? Colors.white12 : Colors.black.withOpacity(0.08))),
+            width: isSelected ? 1.5 : 1.2,
           ),
           boxShadow: [
-            if (_hoverStates[sensorName] == true)
+            if (_hoverStates[sensorName] == true || isSelected)
               BoxShadow(
-                color: accent.withOpacity(0.15),
+                color: (isSelected ? Colors.redAccent : accent).withOpacity(0.15),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),
@@ -1115,7 +1350,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Vertical status indicator bar on left edge (matching Admin page)
+              // Vertical status indicator bar on left edge
               Container(
                 width: 4.0,
                 color: statusColor,
@@ -1124,6 +1359,17 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () {
+                    if (_isSelectionMode) {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedDeviceIds.remove(sensorName);
+                        } else {
+                          _selectedDeviceIds.add(sensorName);
+                        }
+                      });
+                      return;
+                    }
+
                     if (sensorName.startsWith('BF')) {
                       String numericNodeId = sensorName.replaceAll(RegExp(r'\D'), '');
                       NavigationUtils.navigateTo(
@@ -1159,7 +1405,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                     }
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(
                       children: [
                         Expanded(
@@ -1176,36 +1422,85 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (topic.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: (isDarkMode ? Colors.white : Colors.black)
+                                        .withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    "Topic: $topic",
+                                    style: TextStyle(
+                                      color: subtle,
+                                      fontFamily: 'monospace',
+                                      fontSize: screenWidth < 600 ? 9.5 : 10.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                               if (location.isNotEmpty) ...[
                                 const SizedBox(height: 2),
-                                Text(
-                                  location,
-                                  style: TextStyle(
-                                    color: subtle,
-                                    fontSize: screenWidth < 600 ? 10 : 11.5,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                                Row(
+                                  children: [
+                                    Icon(Icons.location_on_outlined,
+                                        size: screenWidth < 600 ? 11 : 12,
+                                        color: subtle),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(
+                                        location,
+                                        style: TextStyle(
+                                          color: subtle,
+                                          fontSize: screenWidth < 600 ? 10 : 11,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ],
                           ),
                         ),
-                        DeviceActionButton(
-                          deviceId: sensorName,
-                          topic: (d['Topic'] ?? '').toString(),
-                          sensorName: sensorName,
-                          displaySensorName: displaySensorName,
-                          sequentialName: sequentialName,
-                          displayParamNames: getParamNamesForSensor(sensorName),
-                          parameterDisplayNames: parameterDisplayNames,
-                          userEmail: _email,
-                          isAdmin: false,
-                          isDark: isDarkMode,
-                          healthTopicLookupMap: _healthTopicLookupMap,
-                          onDeleteSuccess: () => _fetchData(),
-                          iconSize: getResponsiveFontSize(context, 18, 20),
-                          iconColor: subtle,
-                        ),
+                        if (_isSelectionMode)
+                          Checkbox(
+                            value: isSelected,
+                            activeColor: Colors.redAccent,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedDeviceIds.add(sensorName);
+                                } else {
+                                  _selectedDeviceIds.remove(sensorName);
+                                }
+                              });
+                            },
+                          )
+                        else
+                          DeviceActionButton(
+                            deviceId: sensorName,
+                            topic: topic,
+                            sensorName: sensorName,
+                            displaySensorName: displaySensorName,
+                            sequentialName: sequentialName,
+                            displayParamNames: getParamNamesForSensor(sensorName),
+                            parameterDisplayNames: parameterDisplayNames,
+                            userEmail: _email,
+                            isAdmin: false,
+                            isDark: isDarkMode,
+                            healthTopicLookupMap: _healthTopicLookupMap,
+                            onDeleteSuccess: () => _fetchData(),
+                            iconSize: getResponsiveFontSize(context, 18, 20),
+                            iconColor: subtle,
+                          ),
                       ],
                     ),
                   ),
@@ -1214,6 +1509,255 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showAddDeviceDialog(BuildContext context, Color strong) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Center(
+            child: Text(
+              "Add New Device",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: strong,
+              ),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) =>
+                        QRScannerPopup(devices: _deviceCategories),
+                  );
+                },
+                child: const Text("Scan QR Code"),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) =>
+                        ManualEntryPopup(devices: _deviceCategories),
+                  );
+                },
+                child: const Text("Add Manually"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAccountSecuritySection({
+    required bool isDarkMode,
+    required Color card,
+    required Color strong,
+    required Color subtle,
+    required double screenWidth,
+  }) {
+    final email = _email ?? '';
+    final initial = email.isNotEmpty ? email[0].toUpperCase() : 'U';
+    final isMobile = screenWidth < 600;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16, bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.08),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDarkMode ? 0.25 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined,
+                  color: Color(0xFF0EA5E9), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                "Account & Security",
+                style: TextStyle(
+                  color: strong,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor:
+                          const Color(0xFF0EA5E9).withOpacity(0.15),
+                      child: Text(
+                        initial,
+                        style: const TextStyle(
+                          color: Color(0xFF0EA5E9),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            email.isNotEmpty ? email : "CloudSense User",
+                            style: TextStyle(
+                              color: strong,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "CloudSense IoT Member",
+                            style: TextStyle(
+                              color: subtle,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      if (_email != null && _email!.isNotEmpty) {
+                        DeleteDeviceUtils.deleteAccount(
+                            context, _email!, _email);
+                      }
+                    },
+                    icon: const Icon(Icons.delete_forever_outlined,
+                        size: 18, color: Colors.redAccent),
+                    label: const Text(
+                      "Delete Account",
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.redAccent),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor:
+                      const Color(0xFF0EA5E9).withOpacity(0.15),
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Color(0xFF0EA5E9),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        email.isNotEmpty ? email : "CloudSense User",
+                        style: TextStyle(
+                          color: strong,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "CloudSense IoT Member",
+                        style: TextStyle(
+                          color: subtle,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    if (_email != null && _email!.isNotEmpty) {
+                      DeleteDeviceUtils.deleteAccount(
+                          context, _email!, _email);
+                    }
+                  },
+                  icon: const Icon(Icons.delete_forever_outlined,
+                      size: 18, color: Colors.redAccent),
+                  label: const Text(
+                    "Delete Account",
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.redAccent),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -1294,27 +1838,6 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusDot extends StatelessWidget {
-  final Color color;
-  const _StatusDot({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-              color: color.withOpacity(.35), blurRadius: 8, spreadRadius: 1)
-        ],
       ),
     );
   }

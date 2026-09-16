@@ -1,14 +1,11 @@
-import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/data/datasheets_download.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
-import 'package:cloud_sense_webapp/src/views/devices/configuration.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'dart:ui' as ui;
 
 class AppBarWidget extends StatefulWidget implements PreferredSizeWidget {
@@ -289,19 +286,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                     ],
                   ),
                 ),
-                if (!isSpecialUser)
-                  PopupMenuItem(
-                    value: 'account',
-                    child: Row(
-                      children: [
-                        Icon(Icons.account_circle,
-                            color: isDarkMode ? Colors.white : Colors.black,
-                            size: 20),
-                        const SizedBox(width: 8),
-                        const Text('Account Info'),
-                      ],
-                    ),
-                  ),
               ],
               PopupMenuItem(
                 value: 'logout',
@@ -320,14 +304,12 @@ class _AppBarWidgetState extends State<AppBarWidget> {
 
           if (selected == 'data') {
             NavigationUtils.navigateTo(context, '/admin');
-          } else if (selected == 'devices') {
+          } else if (selected == 'devices' || selected == 'account') {
             if (isSpecialUser) {
               NavigationUtils.navigateTo(context, '/deviceinfo');
             } else {
               NavigationUtils.navigateTo(context, '/devicelist');
             }
-          } else if (selected == 'account') {
-            NavigationUtils.navigateTo(context, '/accountinfo');
           } else if (selected == 'logout') {
             _handleLogout(context);
           }

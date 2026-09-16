@@ -2,7 +2,6 @@ import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/data/datasheets_download.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
-import 'package:cloud_sense_webapp/src/views/devices/configuration.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
 import 'package:flutter/foundation.dart';
@@ -151,19 +150,7 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                       }
                     },
                   ),
-                  // ✨ CHANGE: Only show 'Account Info' if the user is NOT the special user.
-                  if (!isSpecialUser)
-                    ListTile(
-                      leading: Icon(Icons.account_circle,
-                          color: isDarkMode ? Colors.white : Colors.black),
-                      title: const Text('Account Info'),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await Future.delayed(const Duration(milliseconds: 200));
-                        Navigator.of(context, rootNavigator: true)
-                            .pushNamed('/accountinfo');
-                      },
-                    ),
+
                   ListTile(
                     leading: Icon(
                         isDarkMode ? Icons.light_mode : Icons.dark_mode,

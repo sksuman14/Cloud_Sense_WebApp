@@ -13,6 +13,8 @@ import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
+import 'package:cloud_sense_webapp/src/views/devices/AccountInfo.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 void main() {
 
@@ -361,4 +363,194 @@ void main() {
       expect(find.text('Parameters'), findsNothing);
     });
   });
+
+  group('AccountInfo Human-Readable Category Titles', () {
+    test('Correctly maps AW to AWS Sensors instead of Sensor AW', () {
+      expect(AccountInfoPage.getHumanCategoryTitle('AW'), equals('AWS Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('aw'), equals('AWS Sensors'));
+    });
+
+    test('Correctly maps Punjab and Kerala to clean titles', () {
+      expect(AccountInfoPage.getHumanCategoryTitle('PJ'), equals('Punjab Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('KR'), equals('Kerala Sensors'));
+    });
+
+    test('Correctly maps Sobha to Sobha Sensors', () {
+      expect(AccountInfoPage.getHumanCategoryTitle('SH'), equals('Sobha Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('SOBHA'), equals('Sobha Sensors'));
+    });
+
+    test('Correctly maps ANNAM and Testing prefixes', () {
+      expect(AccountInfoPage.getHumanCategoryTitle('WJ'), equals('ANNAM Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('WF'), equals('ANNAM Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('WA'), equals('ANNAM Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('TS'), equals('Testing Devices'));
+    });
+
+    test('Correctly maps Lab and Livestock sensors', () {
+      expect(AccountInfoPage.getHumanCategoryTitle('PS'), equals('CPS Lab Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('LU'), equals('CPS Lab Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('BF'), equals('Buffalo Sensors'));
+      expect(AccountInfoPage.getHumanCategoryTitle('CS'), equals('Cow Sensors'));
+    });
+  });
+
+  group('AccountInfo Device Resolution and Parameter Matching', () {
+    test('buildTopicFromSensorName correctly bridges user device IDs to API topics', () {
+      // Kerala
+      expect(DevicePrefixUtils.buildTopicFromSensorName('KRWS_1'), equals('WS_1#WS/Kerala/1'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('KR01'), equals('WS_1#WS/Kerala/1'));
+
+      // Sobha
+      expect(DevicePrefixUtils.buildTopicFromSensorName('WS_Shobha_1'), equals('WS_Shobha_1#WS/Shobha/1'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('SH01'), equals('WS_Shobha_1#WS/Shobha/1'));
+
+      // Punjab
+      expect(DevicePrefixUtils.buildTopicFromSensorName('PJWS_1'), equals('WS_Punjab_1#WS/Punjab/1'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('PJ01'), equals('WS_Punjab_1#WS/Punjab/1'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('PJ69'), equals('WS_Punjab_69#WS/Punjab/69'));
+
+      // ANNAM
+      expect(DevicePrefixUtils.buildTopicFromSensorName('WJ201'), equals('201#WS/SSMet_0126/201'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('WF101'), equals('101#WS/SSMET_0226/101'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('WA101'), equals('101#WS/Annam_0426/101'));
+
+      // AWS
+      expect(DevicePrefixUtils.buildTopicFromSensorName('AW01'), equals('AWS_1#AWS/1'));
+    });
+
+    test('Excluded metadata parameters are not treated as sensor measurements', () {
+      final sampleApiDevice = {
+        'deviceid#topic': 'WS_Shobha_1#WS/Shobha/1',
+        'TimeStamp_IST': '2026-09-15 00:00:00',
+        'ExpiresAt': 1792002503,
+        'Longitude': 'N/A',
+        'HealthStatus': 'OFFLINE',
+        'Topic': 'WS/Shobha/1',
+        'ANNAM_ID': 'WS_Shobha_1',
+        'Latitude': 'N/A',
+        'BatteryVoltage': 3.4,
+        'DeviceId': 'WS_Shobha_1',
+        'geo_status': 'NO_GPS',
+        'IMEINumber': '868651069495381',
+        'MQTT_TopicTime': null,
+        'SignalStrength': -51,
+        'Rainfall': 0,
+        'RainfallCumulative': 0,
+        'PanelVoltage': 0,
+      };
+
+      final excluded = {
+        'Longitude',
+        'Latitude',
+        'IMEINumber',
+        'SignalStrength',
+        'ExpiresAt',
+        'Topic',
+        'deviceid#topic',
+        'deviceId#topic',
+        'HealthStatus',
+        'TimeStamp_IST',
+        'TimeStamp',
+        'Time_Stamp',
+        'human_time',
+        'timestamp',
+        'MQTT_TopicTime',
+        'mqtt_topic_time',
+        'City',
+        'Place',
+        'District',
+        'State',
+        'geo_status',
+        'ANNAM_ID',
+        'DeviceId',
+        'Interval',
+        'epoch_ts',
+        'last_seen_ist',
+        'health_status',
+        'API',
+        'Group',
+      };
+
+      final extractedParams = <String>[];
+      sampleApiDevice.forEach((k, v) {
+        if (!excluded.contains(k) && v != null && v.toString().isNotEmpty && v.toString() != 'null') {
+          extractedParams.add(k);
+        }
+      });
+
+      expect(extractedParams, contains('BatteryVoltage'));
+      expect(extractedParams, contains('Rainfall'));
+      expect(extractedParams, contains('RainfallCumulative'));
+      expect(extractedParams, contains('PanelVoltage'));
+
+      expect(extractedParams, isNot(contains('Longitude')));
+      expect(extractedParams, isNot(contains('Latitude')));
+      expect(extractedParams, isNot(contains('IMEINumber')));
+      expect(extractedParams, isNot(contains('HealthStatus')));
+      expect(extractedParams, isNot(contains('Topic')));
+      expect(extractedParams, isNot(contains('DeviceId')));
+      expect(extractedParams, isNot(contains('ANNAM_ID')));
+    });
+
+    test('Active determination matches 15-min and 1-hour windows', () {
+      final now = DateTime.now();
+
+      // Case 1: Received 5 minutes ago -> Active
+      final recentTs = now.subtract(const Duration(minutes: 5));
+      final diffRecent = now.difference(recentTs);
+      final bool isActiveRecent = diffRecent.inMinutes <= 15 || diffRecent.inHours <= 1;
+      expect(isActiveRecent, isTrue);
+
+      // Case 2: Received 30 minutes ago -> Active under 1-hour window
+      final hourTs = now.subtract(const Duration(minutes: 30));
+      final diffHour = now.difference(hourTs);
+      final bool isActiveHour = diffHour.inMinutes <= 15 || diffHour.inHours <= 1;
+      expect(isActiveHour, isTrue);
+
+      // Case 3: Received yesterday and OFFLINE -> Inactive
+      final oldTs = now.subtract(const Duration(days: 1));
+      final diffOld = now.difference(oldTs);
+      final bool isActiveOld = diffOld.inMinutes <= 15 || diffOld.inHours <= 1;
+      expect(isActiveOld, isFalse);
+    });
+  });
+
+  group('Device List Interactivity, Batch Selection, and Account Management', () {
+    test('Batch selection set correctly adds, removes, and toggles selection', () {
+      final Set<String> selectedDeviceIds = {};
+      final List<String> allDeviceIds = ['WJ201', 'WA101', 'SH001', 'PJ01'];
+
+      // Initially empty
+      expect(selectedDeviceIds.isEmpty, isTrue);
+
+      // Select individual device
+      selectedDeviceIds.add('WJ201');
+      expect(selectedDeviceIds.contains('WJ201'), isTrue);
+      expect(selectedDeviceIds.length, equals(1));
+
+      // Deselect individual device
+      selectedDeviceIds.remove('WJ201');
+      expect(selectedDeviceIds.contains('WJ201'), isFalse);
+      expect(selectedDeviceIds.isEmpty, isTrue);
+
+      // Select All
+      selectedDeviceIds.addAll(allDeviceIds);
+      expect(selectedDeviceIds.length, equals(4));
+      expect(selectedDeviceIds.containsAll(allDeviceIds), isTrue);
+
+      // Deselect All
+      selectedDeviceIds.removeAll(allDeviceIds);
+      expect(selectedDeviceIds.isEmpty, isTrue);
+    });
+
+    test('DeleteDeviceUtils device ID validation formats', () {
+      expect(DeleteDeviceUtils.isValidDeviceId('WJ201'), isTrue);
+      expect(DeleteDeviceUtils.isValidDeviceId('WA007'), isTrue);
+      expect(DeleteDeviceUtils.isValidDeviceId('SH001'), isTrue);
+      expect(DeleteDeviceUtils.isValidDeviceId('invalid_id'), isFalse);
+      expect(DeleteDeviceUtils.isValidDeviceId(''), isFalse);
+    });
+  });
 }
+

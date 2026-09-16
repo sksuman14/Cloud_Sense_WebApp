@@ -11,7 +11,6 @@ import 'package:cloud_sense_webapp/src/views/dashboard/GPS.dart';
 import 'package:cloud_sense_webapp/src/views/dashboard/buffalodata.dart';
 import 'package:cloud_sense_webapp/src/views/dashboard/cowdata.dart';
 import 'package:cloud_sense_webapp/src/views/dashboard/device_graph.dart';
-import 'package:cloud_sense_webapp/src/views/devices/AccountInfo.dart';
 import 'package:cloud_sense_webapp/src/views/devices/device_list.dart';
 import 'package:cloud_sense_webapp/src/views/devices/device_map.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
@@ -749,7 +748,7 @@ class MyApp extends StatelessWidget {
           case '/accountinfo':
             pageContent = RouteGuard(
               requirement: GuardRequirement.authenticatedUser,
-              child: AccountInfoPage(),
+              child: DataDisplayPage(),
             );
             break;
           case '/deviceinfo':
