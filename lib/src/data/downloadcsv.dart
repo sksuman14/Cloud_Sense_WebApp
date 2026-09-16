@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:cloud_sense_webapp/src/utils/device_config.dart';
 import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 /// ---------------------------------------------------------------
 ///  CALL THIS FROM ANYWHERE
@@ -1012,9 +1013,14 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     }
   }
 
-  void _showSnack(String msg) {
+  void _showSnack(String msg, {bool isError = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Success',
+      message: msg,
+      isError: isError,
+    );
   }
 
   void _finishDownload({required bool success, String? fileName}) {

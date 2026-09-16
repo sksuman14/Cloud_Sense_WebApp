@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import 'ksdma_aws_station_detail_view.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 enum MapViewLevel { state, district, taluk, panchayat }
 
@@ -1393,11 +1394,11 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
       html.Url.revokeObjectUrl(url);
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF146356),
-        content: Text('📥 Successfully downloaded CSV data for $count stations in $_selectedDistrict!'),
-      ),
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: 'Success',
+      message: '📥 Successfully downloaded CSV data for $count stations in $_selectedDistrict!',
+      isError: false,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import 'ksdma_portal_main.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaLoginGatePage extends StatefulWidget {
   const KsdmaLoginGatePage({super.key});
@@ -62,13 +63,14 @@ class _KsdmaLoginGatePageState extends State<KsdmaLoginGatePage>
     super.dispose();
   }
 
-  // ── Snackbar helper ───────────────────────────────────────────────────────
+  // ── Toast helper ─────────────────────────────────────────────────────────
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('⚠️ $msg'),
-      backgroundColor: Colors.redAccent,
-      behavior: SnackBarBehavior.floating,
-    ));
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: 'Alert',
+      message: msg,
+      isError: true,
+    );
   }
 
   // ── Text field helper ─────────────────────────────────────────────────────
@@ -379,8 +381,10 @@ class _KsdmaLoginGatePageState extends State<KsdmaLoginGatePage>
                   if (_volLoginPhoneCtrl.text.trim().isEmpty) { _showError('Mobile Number is mandatory!'); return; }
                   if (!_isOtpSent) {
                     setState(() => _isOtpSent = true);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('📱 OTP sent to your mobile!'), backgroundColor: Colors.blue),
+                    DeleteDeviceUtils.showToastNotification(
+                      context: context,
+                      title: 'OTP Sent',
+                      message: 'OTP sent to your mobile!',
                     );
                   } else {
                     if (_volOtpCtrl.text.trim().isEmpty) { _showError('OTP is mandatory!'); return; }

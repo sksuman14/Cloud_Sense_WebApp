@@ -10,6 +10,7 @@ import '../services/ksdma_state_service.dart';
 import '../services/ksdma_api_service.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaRegistrationView extends StatefulWidget {
   final VoidCallback? onSuccess;
@@ -109,14 +110,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
         final gp = geoRes['grama_panchayat'] ?? '';
 
         if (dist == 'Outside Kerala' || geoRes['is_in_kerala'] == 'false') {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('⚠️ Coordinates (${lat.toStringAsFixed(4)}°N, ${lng.toStringAsFixed(4)}°E) lie outside Kerala state boundaries!'),
-                backgroundColor: Colors.orange.shade800,
-              ),
-            );
-          }
+          _showError('⚠️ Coordinates (${lat.toStringAsFixed(4)}°N, ${lng.toStringAsFixed(4)}°E) lie outside Kerala state boundaries!');
           return;
         }
 
@@ -142,14 +136,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
         }
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚡ PostGIS Dynamic Geolocation Sync: ${_districtController.text} → ${_talukController.text} → ${_gpController.text}'),
-            backgroundColor: const Color(0xFF16A34A),
-          ),
-        );
-      }
+      _showToast('⚡ PostGIS Dynamic Geolocation Sync: ${_districtController.text} → ${_talukController.text} → ${_gpController.text}');
     } catch (e) {
       _showError('PostGIS Sync Error: $e');
     }
@@ -211,19 +198,22 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white, size: 18),
-            const SizedBox(width: 10),
-            Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-          ],
-        ),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ),
+    if (!mounted) return;
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: 'Alert',
+      message: msg,
+      isError: true,
+    );
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Success',
+      message: msg,
+      isError: isError,
     );
   }
 
@@ -981,14 +971,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
           setState(() {
             _photoUrlController.text = dataUrl;
           });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('📸 Device photo selected from your device successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+          _showToast('📸 Device photo selected from your device successfully!');
         }
       }
     } catch (e) {
@@ -1232,12 +1215,7 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
                   await state.registerStation(newStation);
 
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Instrument $stationId registered! Saved to Cloud & Queued for Admin Approval.'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    _showToast('Instrument $stationId registered! Saved to Cloud & Queued for Admin Approval.');
                     widget.onSuccess?.call();
                   }
                 },

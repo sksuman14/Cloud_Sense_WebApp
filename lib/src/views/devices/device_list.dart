@@ -80,99 +80,46 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
   Future<void> _deleteSelectedDevices() async {
     if (_selectedDeviceIds.isEmpty || _email == null) return;
 
-    final selectedList = _selectedDeviceIds.toList();
-    final selectedCount = selectedList.length;
-
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final isDarkMode = Theme.of(ctx).brightness == Brightness.dark;
-        final strong = isDarkMode ? Colors.white : Colors.black87;
-        final subtle = isDarkMode ? Colors.white70 : Colors.black54;
-
-        return AlertDialog(
-          backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 24),
-              const SizedBox(width: 10),
-              Text('Delete $selectedCount Device${selectedCount > 1 ? 's' : ''}',
-                  style: TextStyle(color: strong, fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: Text(
-            'Are you sure you want to remove $selectedCount selected device${selectedCount > 1 ? 's' : ''} from your account? This action cannot be undone.',
-            style: TextStyle(color: subtle, fontSize: 14),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel', style: TextStyle(color: subtle)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    setState(() {
-      _isBatchDeleting = true;
-    });
-
-    int successCount = 0;
-    List<String> failedIds = [];
-
-    for (final deviceId in selectedList) {
-      try {
-        final url =
-            'https://25e5bsdhwd.execute-api.us-east-1.amazonaws.com/default/CloudSense_users_delete_function?email_id=$_email&action=delete_devices&device_id=$deviceId';
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode == 200) {
-          successCount++;
-        } else {
-          failedIds.add(deviceId);
-        }
-      } catch (e) {
-        failedIds.add(deviceId);
+    // Build a Map<prefix, List<deviceId>> filtered to only selected devices
+    // so we can reuse the shared DeleteDeviceUtils.deleteDevices() dialog & logic.
+    final Map<String, List<String>> selectedCategories = {};
+    for (final entry in _deviceCategories.entries) {
+      final selected =
+          entry.value.where((id) => _selectedDeviceIds.contains(id)).toList();
+      if (selected.isNotEmpty) {
+        selectedCategories[entry.key] = selected;
       }
     }
 
-    if (mounted) {
-      setState(() {
-        _isBatchDeleting = false;
-        _isSelectionMode = false;
-        _selectedDeviceIds.clear();
-      });
+    if (selectedCategories.isEmpty) return;
 
-      if (successCount > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$successCount device${successCount > 1 ? 's' : ''} deleted successfully.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _fetchData();
-      }
+    // Show in-page loading banner while API calls are in progress
+    setState(() => _isBatchDeleting = true);
 
-      if (failedIds.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete: ${failedIds.join(', ')}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    await DeleteDeviceUtils.deleteDevices(
+      context,
+      _email!,
+      selectedCategories,
+      (updatedCategories) {
+        // Merge the deletions back into the full _deviceCategories map
+        if (mounted) {
+          setState(() {
+            for (final entry in updatedCategories.entries) {
+              _deviceCategories[entry.key] = entry.value;
+            }
+            _deviceCategories.removeWhere((_, v) => v.isEmpty);
+            _isSelectionMode = false;
+            _selectedDeviceIds.clear();
+            _isBatchDeleting = false; // hide loading banner
+          });
+          _fetchData(); // full refresh after batch delete
+        }
+      },
+    );
+
+    // Also reset if user cancelled the dialog (confirmed == false)
+    if (mounted && _isBatchDeleting) {
+      setState(() => _isBatchDeleting = false);
     }
   }
 

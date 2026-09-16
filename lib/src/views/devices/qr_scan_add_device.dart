@@ -6,8 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class QRScannerPopup extends StatefulWidget {
   final Map<String, List<String>> devices;
+  final String? targetUserEmail;
+  final VoidCallback? onDeviceAdded;
 
-  QRScannerPopup({required this.devices});
+  QRScannerPopup({
+    required this.devices,
+    this.targetUserEmail,
+    this.onDeviceAdded,
+  });
 
   @override
   _QRScannerPopupState createState() => _QRScannerPopupState();
@@ -44,6 +50,12 @@ class _QRScannerPopupState extends State<QRScannerPopup> {
   }
 
   Future<void> _loadEmail() async {
+    if (widget.targetUserEmail != null && widget.targetUserEmail!.isNotEmpty) {
+      setState(() {
+        _email = widget.targetUserEmail;
+      });
+      return;
+    }
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? email = prefs.getString('email');
     setState(() {
@@ -51,39 +63,6 @@ class _QRScannerPopupState extends State<QRScannerPopup> {
     });
   }
 
-  // ✅ Unified dialog for success/failure
-  Future<void> _showResultMessage(String msg, Color color) async {
-    setState(() {
-      message = msg;
-      messageColor = color;
-    });
-
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          content: Text(
-            message,
-            style: TextStyle(
-              color: messageColor,
-              fontSize: 16,
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.pop(context); // close dialog
-                Navigator.pop(context); // close popup
-                NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,12 +91,15 @@ class _QRScannerPopupState extends State<QRScannerPopup> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'QR Scanner',
+              widget.targetUserEmail != null
+                  ? 'Scan QR for ${widget.targetUserEmail}'
+                  : 'QR Scanner',
               style: TextStyle(
                 color: isDarkMode ? Colors.white : Colors.black,
-                fontSize: 20,
+                fontSize: widget.targetUserEmail != null ? 16 : 20,
                 fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
             ),
             SizedBox(height: 20),
             Container(
@@ -171,13 +153,14 @@ class _QRScannerPopupState extends State<QRScannerPopup> {
                             deviceId: finalDeviceId!,
                           );
 
-                          String displayId = DeviceUtils.toDisplayId(finalDeviceId);
-                          await _showResultMessage(
-                            success
-                                ? "Device $displayId added successfully."
-                                : "Failed to add device $displayId.",
-                            success ? Colors.green : Colors.red,
-                          );
+                          if (context.mounted) {
+                            Navigator.pop(context); // close QR scan popup
+                            if (widget.targetUserEmail != null) {
+                              widget.onDeviceAdded?.call();
+                            } else if (success) {
+                              NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
+                            }
+                          }
                         },
                       );
                       break;

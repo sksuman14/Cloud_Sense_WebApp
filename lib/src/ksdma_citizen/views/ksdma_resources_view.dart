@@ -5,6 +5,7 @@ import 'package:universal_html/html.dart' as html;
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
 import 'ksdma_auth_modal.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaResourcesView extends StatelessWidget {
   const KsdmaResourcesView({super.key});
@@ -173,11 +174,11 @@ class KsdmaResourcesView extends StatelessWidget {
                                     await state.completeTraining(type);
                                     setDialogState(() {});
                                     if (dialogCtx.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('🎉 Training Completed for ${type.displayName}! Observation Entry unlocked.'),
-                                          backgroundColor: Colors.green,
-                                        ),
+                                      DeleteDeviceUtils.showToastNotification(
+                                        context: context,
+                                        title: 'Success',
+                                        message: '🎉 Training Completed for ${type.displayName}! Observation Entry unlocked.',
+                                        isError: false,
                                       );
                                     }
                                   },
@@ -443,8 +444,11 @@ class KsdmaResourcesView extends StatelessWidget {
                       SizedBox(width: isMobile ? 0 : 16, height: isMobile ? 12 : 0),
                       ElevatedButton.icon(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Opening Official KSDMA WhatsApp Observer Group...'), backgroundColor: Color(0xFF16A34A)),
+                          DeleteDeviceUtils.showToastNotification(
+                            context: context,
+                            title: 'Notice',
+                            message: 'Opening Official KSDMA WhatsApp Observer Group...',
+                            isError: false,
                           );
                         },
                         icon: const Icon(Icons.open_in_new, color: Colors.white, size: 14),
@@ -648,18 +652,18 @@ startxref
         ..click();
       html.Url.revokeObjectUrl(url);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('📥 Downloaded "$fileName" successfully!'),
-          backgroundColor: const Color(0xFF00897B),
-        ),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Success',
+        message: '📥 Downloaded "$fileName" successfully!',
+        isError: false,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('📥 Downloaded $title!'),
-          backgroundColor: const Color(0xFF2563EB),
-        ),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Success',
+        message: '📥 Downloaded $title!',
+        isError: false,
       );
     }
   }

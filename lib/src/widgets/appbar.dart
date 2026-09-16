@@ -4,6 +4,7 @@ import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui' as ui;
@@ -42,11 +43,11 @@ class _AppBarWidgetState extends State<AppBarWidget> {
       if (mounted) {}
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error refreshing data: $e'),
-            backgroundColor: Colors.red,
-          ),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Error',
+          message: 'Error refreshing data: $e',
+          isError: true,
         );
       }
     } finally {

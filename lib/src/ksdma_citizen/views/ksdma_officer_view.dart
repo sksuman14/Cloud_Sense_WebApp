@@ -10,6 +10,7 @@ import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
 import '../../utils/api_keys.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaOfficerView extends StatefulWidget {
   const KsdmaOfficerView({super.key});
@@ -29,6 +30,15 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
   void dispose() {
     _tableSearchTextController.dispose();
     super.dispose();
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Notice',
+      message: msg,
+      isError: isError,
+    );
   }
   // Export State Variables
   String _exportDataSource = 'Volunteer'; // 'Volunteer' or 'AWS'
@@ -121,13 +131,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
       final String apiUrl =
           'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$krStartDate&enddate=$krEndDate&annam_id=$annamId&key=${ApiKeys.annamApiKey}&mode=download';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('⏳ Requesting AWS S3 Download for $annamId ($krStartDate to $krEndDate)...'),
-          backgroundColor: const Color(0xFF2563EB),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showToast('⏳ Requesting AWS S3 Download for $annamId ($krStartDate to $krEndDate)...');
 
       try {
         final response = await http.get(Uri.parse(apiUrl));
@@ -145,12 +149,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
                 ..setAttribute('download', fileName)
                 ..click();
             }
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('📥 Downloaded AWS S3 Telemetry ($fileName)'),
-                backgroundColor: const Color(0xFF15803D),
-              ),
-            );
+            _showToast('📥 Downloaded AWS S3 Telemetry ($fileName)');
             return;
           }
         }
@@ -258,12 +257,7 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
       html.Url.revokeObjectUrl(url);
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('📥 Downloaded CSV with $count observation records!'),
-        backgroundColor: isAwsMode ? const Color(0xFF2563EB) : const Color(0xFF146356),
-      ),
-    );
+    _showToast('📥 Downloaded CSV with $count observation records!');
   }
 
   @override

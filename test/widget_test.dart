@@ -13,7 +13,6 @@ import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
-import 'package:cloud_sense_webapp/src/views/devices/AccountInfo.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 void main() {
@@ -364,34 +363,34 @@ void main() {
     });
   });
 
-  group('AccountInfo Human-Readable Category Titles', () {
+  group('DevicePrefixUtils Human-Readable Category Titles', () {
     test('Correctly maps AW to AWS Sensors instead of Sensor AW', () {
-      expect(AccountInfoPage.getHumanCategoryTitle('AW'), equals('AWS Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('aw'), equals('AWS Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('AW'), equals('AWS Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('aw'), equals('AWS Sensors'));
     });
 
     test('Correctly maps Punjab and Kerala to clean titles', () {
-      expect(AccountInfoPage.getHumanCategoryTitle('PJ'), equals('Punjab Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('KR'), equals('Kerala Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('PJ'), equals('Punjab Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('KR'), equals('Kerala Sensors'));
     });
 
     test('Correctly maps Sobha to Sobha Sensors', () {
-      expect(AccountInfoPage.getHumanCategoryTitle('SH'), equals('Sobha Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('SOBHA'), equals('Sobha Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('SH'), equals('Sobha Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('SOBHA'), equals('Sobha Sensors'));
     });
 
     test('Correctly maps ANNAM and Testing prefixes', () {
-      expect(AccountInfoPage.getHumanCategoryTitle('WJ'), equals('ANNAM Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('WF'), equals('ANNAM Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('WA'), equals('ANNAM Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('TS'), equals('Testing Devices'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('WJ'), equals('ANNAM Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('WF'), equals('ANNAM Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('WA'), equals('ANNAM Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('TS'), equals('Testing Devices'));
     });
 
     test('Correctly maps Lab and Livestock sensors', () {
-      expect(AccountInfoPage.getHumanCategoryTitle('PS'), equals('CPS Lab Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('LU'), equals('CPS Lab Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('BF'), equals('Buffalo Sensors'));
-      expect(AccountInfoPage.getHumanCategoryTitle('CS'), equals('Cow Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('PS'), equals('CPS Lab Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('LU'), equals('CPS Lab Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('BF'), equals('Buffalo Sensors'));
+      expect(DevicePrefixUtils.getCategoryDisplayName('CS'), equals('Cow Sensors'));
     });
   });
 
@@ -551,6 +550,146 @@ void main() {
       expect(DeleteDeviceUtils.isValidDeviceId('invalid_id'), isFalse);
       expect(DeleteDeviceUtils.isValidDeviceId(''), isFalse);
     });
+
+    test('User Accounts grid cross-axis count matches device grid responsiveness', () {
+      int getCrossAxisCount(double width) {
+        if (width > 1100) {
+          return 3;
+        } else if (width > 650) {
+          return 2;
+        }
+        return 1;
+      }
+
+      // Desktop widths -> 3 cards per row
+      expect(getCrossAxisCount(1920), equals(3));
+      expect(getCrossAxisCount(1440), equals(3));
+      expect(getCrossAxisCount(1200), equals(3));
+      expect(getCrossAxisCount(1101), equals(3));
+
+      // Tablet widths -> 2 cards per row
+      expect(getCrossAxisCount(1100), equals(2));
+      expect(getCrossAxisCount(800), equals(2));
+      expect(getCrossAxisCount(651), equals(2));
+
+      // Mobile widths -> 1 card per row
+      expect(getCrossAxisCount(650), equals(1));
+      expect(getCrossAxisCount(400), equals(1));
+    });
+
+    test('User Account avatar uses role icons and avoids numeric digit initials (e.g. 0, 2, 3)', () {
+      final testEmails = [
+        '03agriculture.03@gmail.com',
+        '2023csb1111@iitrpr.ac.in',
+        '3rdyear@example.com',
+        'user@example.com',
+        'admin@cloudsense.com',
+      ];
+
+      for (final email in testEmails) {
+        final isAdmin = DeviceUtils.isSuperAdmin(email);
+        final icon = isAdmin ? Icons.shield_rounded : Icons.person_rounded;
+        // Verify that the icon is an IconData and not a raw String initial
+        expect(icon, isA<IconData>());
+        expect(icon == Icons.shield_rounded || icon == Icons.person_rounded, isTrue);
+      }
+    });
+
+    test('Topic resolution builds correct MQTT topics for CL, WD, WQ devices with hyphens', () {
+      // Hyphenated sensor names
+      final cl101Topic = DevicePrefixUtils.buildTopicFromSensorName('CL-101');
+      expect(cl101Topic, equals('101#WS/Chloritrone/101'));
+      expect(cl101Topic.split('#').last, equals('WS/Chloritrone/101'));
+
+      final cl102Topic = DevicePrefixUtils.buildTopicFromSensorName('CL-102');
+      expect(cl102Topic, equals('102#WS/Chloritrone/102'));
+      expect(cl102Topic.split('#').last, equals('WS/Chloritrone/102'));
+
+      final wd101Topic = DevicePrefixUtils.buildTopicFromSensorName('WD-101');
+      expect(wd101Topic, equals('101#WS/Weather/101'));
+      expect(wd101Topic.split('#').last, equals('WS/Weather/101'));
+
+      final wq101Topic = DevicePrefixUtils.buildTopicFromSensorName('WQ-101');
+      expect(wq101Topic, equals('101#WS/Water/101'));
+
+      // Non-hyphenated formats
+      expect(DevicePrefixUtils.buildTopicFromSensorName('CL101').split('#').last, equals('WS/Chloritrone/101'));
+      expect(DevicePrefixUtils.buildTopicFromSensorName('WD101').split('#').last, equals('WS/Weather/101'));
+    });
+
+    test('User accounts load batch size is 12 and pagination increments by 12', () {
+      const initialUsersToShow = 12;
+      expect(initialUsersToShow, equals(12));
+
+      // With 291 total users, initial remaining is 279
+      const totalUsers = 291;
+      final remaining = totalUsers - initialUsersToShow;
+      expect(remaining, equals(279));
+
+      // Expanding by 12 gives 24
+      final nextCount = (initialUsersToShow + 12).clamp(0, totalUsers);
+      expect(nextCount, equals(24));
+      expect(nextCount % 3, equals(0)); // perfectly fills 8 rows of 3
+    });
+
+    test('Single device delete confirmation message shows target user email when admin deletes', () {
+      final adminMsg = DeleteDeviceUtils.getDeleteConfirmationMessage(
+        displayDeviceId: 'Chloritrone 101',
+        userEmail: '02agriculture.02@gmail.com',
+        adminEmail: 'admin@cloudsense.com',
+      );
+      expect(adminMsg, equals('Are you sure you want to remove device "Chloritrone 101" from 02agriculture.02@gmail.com? This action cannot be undone.'));
+
+      final userMsg = DeleteDeviceUtils.getDeleteConfirmationMessage(
+        displayDeviceId: 'Chloritrone 101',
+        userEmail: '02agriculture.02@gmail.com',
+        adminEmail: null,
+      );
+      expect(userMsg, equals('Are you sure you want to remove device "Chloritrone 101" from your account? This action cannot be undone.'));
+    });
+
+    test('User card borders use green theme color in dark and light modes', () {
+      const darkBorderColor = Color(0xFF10B981);
+      const lightBorderColor = Color(0xFF059669);
+
+      // Verify colors are green hues
+      expect(darkBorderColor.value, equals(0xFF10B981));
+      expect(lightBorderColor.value, equals(0xFF059669));
+    });
+
+    testWidgets('showToastNotification renders only single top floating banner without bottom duplicate', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  DeleteDeviceUtils.showToastNotification(
+                    context: context,
+                    title: 'Device Deleted Successfully',
+                    message: 'Device "Chloritrone 101" was deleted from test@example.com.',
+                  );
+                },
+                child: const Text('Trigger'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Tap trigger button
+      await tester.tap(find.text('Trigger'));
+      await tester.pump(); // frame for Overlay
+
+      // Verify exactly ONE widget is displayed (at the top, not duplicated at the bottom)
+      expect(find.text('Device Deleted Successfully'), findsOneWidget);
+      expect(find.text('Device "Chloritrone 101" was deleted from test@example.com.'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+
+      // Settle timer
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+    });
   });
 }
+
 

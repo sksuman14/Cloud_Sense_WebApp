@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import 'ksdma_resources_view.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaObservationEntryView extends StatefulWidget {
   final String stationId;
@@ -30,6 +31,15 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
   final TextEditingController _humidityCtrl = TextEditingController();
 
   TimeOfDay _observationTime = const TimeOfDay(hour: 8, minute: 0);
+
+  void _showToast(String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Notice',
+      message: msg,
+      isError: isError,
+    );
+  }
 
   void _navigateToTutorials(InstrumentType instrumentType) {
     if (widget.onGoToTutorials != null) {
@@ -72,22 +82,12 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
       final station = state.stations.firstWhere((s) => s.stationId == widget.stationId);
 
       if (station.category == StationCategory.aws || station.stationId.startsWith('WS_')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🤖 Automated Weather Station (AWS) - Telemetry is received directly from IoT hardware sensors. Manual editing is disabled.'),
-            backgroundColor: Colors.amber,
-          ),
-        );
+        _showToast('🤖 Automated Weather Station (AWS) - Telemetry is received directly from IoT hardware sensors. Manual editing is disabled.', isError: true);
         return;
       }
 
       if (station.approvalStatus != ApprovalStatus.approved) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🔒 Station Pending Approval - You cannot enter observation data until KSDMA Admin HQ approves this instrument.'),
-            backgroundColor: Colors.amber,
-          ),
-        );
+        _showToast('🔒 Station Pending Approval - You cannot enter observation data until KSDMA Admin HQ approves this instrument.', isError: true);
         return;
       }
 
@@ -149,21 +149,15 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
 
       // Mandatory validation check
       if (station.instrumentType == InstrumentType.rainGauge && _rainfallCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ Rainfall (mm) reading is mandatory! Please enter the observed value.'), backgroundColor: Colors.redAccent),
-        );
+        _showToast('⚠️ Rainfall (mm) reading is mandatory! Please enter the observed value.', isError: true);
         return;
       }
       if (station.instrumentType == InstrumentType.maxMinThermometer && (_maxTempCtrl.text.trim().isEmpty || _minTempCtrl.text.trim().isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ Maximum & Minimum Temperature (°C) values are mandatory!'), backgroundColor: Colors.redAccent),
-        );
+        _showToast('⚠️ Maximum & Minimum Temperature (°C) values are mandatory!', isError: true);
         return;
       }
       if (station.instrumentType == InstrumentType.riverGauge && _riverLevelCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ River Water Level (m) is mandatory! Please enter the observed stage.'), backgroundColor: Colors.redAccent),
-        );
+        _showToast('⚠️ River Water Level (m) is mandatory! Please enter the observed stage.', isError: true);
         return;
       }
 
@@ -186,12 +180,7 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
         );
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Observation Data Saved Successfully to AWS Database & Published Live!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showToast('✅ Observation Data Saved Successfully to AWS Database & Published Live!');
           widget.onSubmitted();
         }
       } catch (e) {

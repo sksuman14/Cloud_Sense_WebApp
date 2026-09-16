@@ -3,14 +3,12 @@ import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/device_activity.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/GPS.dart';
-import 'package:cloud_sense_webapp/src/views/devices/device_map.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/device_graph.dart';
-import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart';
 import 'package:cloud_sense_webapp/src/views/devices/configuration.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
+import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
+import 'package:cloud_sense_webapp/src/views/devices/qr_scan_add_device.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
 
 import 'package:flutter/foundation.dart';
@@ -20,8 +18,6 @@ import 'dart:ui' as ui;
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:cloud_sense_webapp/main.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -80,7 +76,7 @@ class _AdminPageState extends State<AdminPage> {
   final GlobalKey _devicesSectionKey = GlobalKey();
   final GlobalKey _usersSectionKey = GlobalKey();
   int devicesToShow = 12;
-  int usersToShow = 10;
+  int usersToShow = 12;
   String? selectedCategory;
   String selectedBrand = "All"; // ← Default to All initially
   Map<String, DateTime> _timestampMap = {};
@@ -126,6 +122,61 @@ class _AdminPageState extends State<AdminPage> {
     return null;
   }
 
+  String _resolveCleanTopic(String sensorName) {
+    final raw = sensorName.trim();
+    if (raw.isEmpty) return '';
+    final upperId = raw.toUpperCase();
+    final normalized = upperId.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+    // 1. Search in allDevices by exact, normalized, or resolved sensor name
+    for (var d in allDevices) {
+      final dId = (d['DeviceId'] ?? d['deviceId'] ?? '').toString().trim().toUpperCase();
+      final dTopic = (d['Topic'] ?? d['topic'] ?? '').toString().trim();
+      final normDId = dId.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+      final sName =
+          DevicePrefixUtils.resolveSensorName(dId, dTopic).toUpperCase();
+      final normSName = sName.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+      if (dId == upperId ||
+          (normDId.isNotEmpty && normDId == normalized) ||
+          sName == upperId ||
+          (normSName.isNotEmpty && normSName == normalized)) {
+        if (dTopic.isNotEmpty) {
+          return dTopic.contains('#') ? dTopic.split('#').last : dTopic;
+        }
+      }
+    }
+
+    // 2. Build topic using DevicePrefixUtils
+    final built = DevicePrefixUtils.buildTopicFromSensorName(sensorName);
+    if (built.isNotEmpty) {
+      final clean = built.contains('#') ? built.split('#').last : built;
+      if (clean != 'Unknown' && !clean.contains('Unknown')) {
+        return clean;
+      }
+    }
+
+    // 3. Fallback extraction: prefix and number
+    final reg = RegExp(r'^([A-Za-z]+)[-_]?(\d+)$');
+    final match = reg.firstMatch(raw);
+    if (match != null) {
+      final pfx = match.group(1)!.toUpperCase();
+      final num = match.group(2)!;
+      if (pfx == 'CL' || pfx == 'BD') return 'WS/Chloritrone/$num';
+      if (pfx == 'WD') return 'WS/Weather/$num';
+      if (pfx == 'WQ') return 'WS/Water/$num';
+      if (pfx == 'SS') return 'SSMet/Soil/$num';
+      if (pfx == 'AM') return 'WS/ANNAM_CP${num.padLeft(2, '0')}';
+      if (pfx == 'PJ') return 'WS/Punjab/$num';
+      if (pfx == 'KR') return 'WS/Kerala/$num';
+      if (pfx == 'SH') return 'WS/Shobha/$num';
+      if (pfx == 'AW') return 'AWS/$num';
+      return 'WS/$pfx/$num';
+    }
+
+    return '';
+  }
+
   String _getStateForSensor(String sensorName) {
     final location = _getLocationForSensor(sensorName);
     if (location != null && location.isNotEmpty) {
@@ -135,25 +186,6 @@ class _AdminPageState extends State<AdminPage> {
     return 'Unknown';
   }
 
-  void _showParametersDialog({
-    required BuildContext context,
-    required bool isDark,
-    required String? updateInterval,
-    required List<String> displayParamNames,
-    required Map<String, String> parameterDisplayNames,
-    String? topic,
-    String? deviceName,
-  }) {
-    showDeviceParametersDialog(
-      context: context,
-      isDark: isDark,
-      updateInterval: updateInterval,
-      displayParamNames: displayParamNames,
-      parameterDisplayNames: parameterDisplayNames,
-      topic: topic,
-      deviceName: deviceName,
-    );
-  }
 
   Widget _buildDeviceCard({
     required BuildContext context,
@@ -305,6 +337,195 @@ class _AdminPageState extends State<AdminPage> {
       ),
     );
   }
+
+  Widget _buildUserCard({
+    required BuildContext context,
+    required Map<String, dynamic> u,
+    required bool isDark,
+    required Color strong,
+    required Color subtle,
+  }) {
+    final email = (u["email"] ?? "").toString();
+    final isAdmin = DeviceUtils.isSuperAdmin(email);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161A22) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF10B981).withOpacity(0.55)
+              : const Color(0xFF059669).withOpacity(0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: isAdmin
+                        ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                        : [const Color(0xFF2563EB), const Color(0xFF1D4ED8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  isAdmin ? Icons.shield_rounded : Icons.person_rounded,
+                  color: Colors.white,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      email,
+                      style: TextStyle(
+                        color: strong,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: isAdmin
+                            ? Colors.amber.withOpacity(0.15)
+                            : const Color(0xFF1976D2).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isAdmin
+                                ? Icons.shield_rounded
+                                : Icons.person_rounded,
+                            size: 11,
+                            color: isAdmin
+                                ? Colors.amber[800]
+                                : const Color(0xFF1976D2),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            isAdmin ? "Admin" : "User",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isAdmin
+                                  ? Colors.amber[800]
+                                  : const Color(0xFF1976D2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 20,
+                ),
+                tooltip: "Delete Account",
+                onPressed: () => _deleteUser(email),
+              ),
+            ],
+          ),
+          const Divider(height: 1),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.devices_rounded, size: 14),
+                  label: const Text(
+                    "Manage Devices",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1976D2),
+                    side: const BorderSide(
+                        color: Color(0xFF1976D2), width: 1.2),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 6, horizontal: 4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => _showUserDevices(email),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add_rounded, size: 15),
+                  label: const Text(
+                    "Add Device",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark
+                        ? const Color(0xFF0F766E)
+                        : Colors.teal,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 6, horizontal: 4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => _showAddDeviceDialog(email,
+                      onAdded: fetchUsers),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAlertsDashboardSection(
       Color strong, Color subtle, Color cardColor, bool isDark) {
     List<Map<String, dynamic>> allQualityAlerts = [
@@ -581,10 +802,6 @@ class _AdminPageState extends State<AdminPage> {
                         device['Topic'])
                     ?.toString() ??
                 '';
-            final timestamp =
-                (device['last_seen_ist'] ?? device['TimeStamp_IST'])
-                        ?.toString() ??
-                    '';
             final status = (device['health_status']?.toString() ?? 'OFFLINE')
                 .toUpperCase();
             final color = status == 'OFFLINE' ? Colors.grey : Colors.redAccent;
@@ -957,6 +1174,7 @@ class _AdminPageState extends State<AdminPage> {
   @override
   void initState() {
     super.initState();
+    usersToShow = 12;
     _initAdmin();
     _loadDeviceData();
     fetchUsers();
@@ -1263,6 +1481,7 @@ class _AdminPageState extends State<AdminPage> {
     }
     setState(() {
       filteredUsers = tempFilteredList;
+      usersToShow = 12;
     });
   }
 
@@ -1289,6 +1508,7 @@ class _AdminPageState extends State<AdminPage> {
             setState(() {
               users = userList;
               filteredUsers = userList;
+              usersToShow = 12;
               isUsersLoading = false;
             });
             if (users.isEmpty) {
@@ -1316,12 +1536,20 @@ class _AdminPageState extends State<AdminPage> {
   Future<void> _showUserDevices(String email) async {
     Map<String, List<String>> deviceCategories = {};
     bool isLoadingDevices = true;
+    bool hasInitiatedLoad = false;
+    bool isSelectionMode = false;
+    Set<String> selectedDeviceIds = {};
+
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, dialogSetState) {
           Future<void> _refreshDevices() async {
-            dialogSetState(() => isLoadingDevices = true);
+            dialogSetState(() {
+              isLoadingDevices = true;
+              isSelectionMode = false;
+              selectedDeviceIds.clear();
+            });
             try {
               final response = await http
                   .get(Uri.parse("$userDevicesApiUrl?email_id=$email"));
@@ -1348,200 +1576,692 @@ class _AdminPageState extends State<AdminPage> {
             }
           }
 
-          if (isLoadingDevices) {
+          if (!hasInitiatedLoad) {
+            hasInitiatedLoad = true;
             _refreshDevices();
           }
+
           final isDark = Theme.of(context).brightness == Brightness.dark;
           final subtle = isDark ? Colors.white70 : Colors.black54;
           final strong = isDark ? Colors.white : Colors.black87;
           final bgColor = isDark ? const Color(0xFF161A22) : Colors.white;
+          final cardBg =
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+          final borderColor = isDark
+              ? const Color(0xFF10B981).withOpacity(0.45)
+              : const Color(0xFF059669).withOpacity(0.35);
+
+          int totalDevices = 0;
+          for (var list in deviceCategories.values) {
+            totalDevices += list.length;
+          }
+
+          final _screen = MediaQuery.of(dialogContext).size;
+          final _dialogMaxW =
+              _screen.width < 720 ? _screen.width - 32 : 680.0;
+          final _dialogMaxH = _screen.height < 700
+              ? _screen.height - 48
+              : _screen.height * 0.88;
 
           return Dialog(
             backgroundColor: bgColor,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
+              constraints:
+                  BoxConstraints(maxWidth: _dialogMaxW, maxHeight: _dialogMaxH),
               padding: const EdgeInsets.all(20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // --- Dialog Header ---
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Text(
-                          "Devices for $email",
-                          style: TextStyle(
-                              color: strong,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900),
-                          overflow: TextOverflow.ellipsis,
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isSelectionMode
+                              ? Colors.redAccent.withOpacity(0.12)
+                              : const Color(0xFF1976D2).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isSelectionMode
+                              ? Icons.checklist_rtl_rounded
+                              : Icons.devices_other_rounded,
+                          color: isSelectionMode
+                              ? Colors.redAccent
+                              : const Color(0xFF1976D2),
+                          size: 24,
                         ),
                       ),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.redAccent),
-                            onPressed: () async {
-                              await DeleteDeviceUtils.deleteDevices(
-                                dialogContext,
-                                email,
-                                deviceCategories,
-                                (updatedCategories) {
-                                  dialogSetState(() {
-                                    deviceCategories = updatedCategories;
-                                  });
-                                },
-                              );
-                            },
-                            tooltip: 'Delete Devices',
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.refresh,
-                                color: const Color(0xFF1976D2)),
-                            onPressed: _refreshDevices,
-                            tooltip: 'Refresh',
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.close, color: subtle),
-                            onPressed: () => Navigator.pop(dialogContext),
-                          ),
-                        ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isSelectionMode
+                                  ? "Select devices to delete"
+                                  : "Devices for $email",
+                              style: TextStyle(
+                                color: strong,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isLoadingDevices
+                                  ? "Loading devices..."
+                                  : isSelectionMode
+                                      ? selectedDeviceIds.isEmpty
+                                          ? "Tap a device to select it"
+                                          : "${selectedDeviceIds.length} selected"
+                                      : "$totalDevices device${totalDevices == 1 ? '' : 's'} assigned",
+                              style: TextStyle(
+                                color: isSelectionMode &&
+                                        selectedDeviceIds.isNotEmpty
+                                    ? Colors.redAccent
+                                    : subtle,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!isSelectionMode)
+                        IconButton(
+                          icon: const Icon(Icons.refresh_rounded,
+                              size: 20, color: Color(0xFF1976D2)),
+                          onPressed: _refreshDevices,
+                          tooltip: 'Refresh',
+                        ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            size: 20, color: subtle),
+                        onPressed: () {
+                          if (isSelectionMode) {
+                            dialogSetState(() {
+                              isSelectionMode = false;
+                              selectedDeviceIds.clear();
+                            });
+                          } else {
+                            Navigator.pop(dialogContext);
+                          }
+                        },
+                        tooltip: isSelectionMode ? 'Cancel selection' : 'Close',
                       ),
                     ],
                   ),
+                  const SizedBox(height: 14),
                   const Divider(height: 1),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
+
+                  // --- Dialog Body ---
                   Expanded(
                     child: isLoadingDevices
-                        ? const Center(child: CircularProgressIndicator())
-                        : deviceCategories.isEmpty
-                            ? Center(
-                                child: Text("No devices found",
+                        ? const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 12),
+                                Text("Loading devices...",
                                     style: TextStyle(
-                                        color: subtle,
-                                        fontWeight: FontWeight.w500)))
-                            : ListView.builder(
-                                itemCount: deviceCategories.keys.length,
-                                itemBuilder: (ctx, index) {
-                                  final category =
-                                      deviceCategories.keys.elementAt(index);
-                                  final devices = deviceCategories[category]!;
-                                  return ExpansionTile(
-                                    iconColor: const Color(0xFF1976D2),
-                                    collapsedIconColor: subtle,
-                                    title: Text(
-                                      category.trim(),
-                                      style: TextStyle(
-                                        color: strong,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15,
+                                        fontSize: 13, color: Colors.grey)),
+                              ],
+                            ),
+                          )
+                        : totalDevices == 0
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.device_unknown_outlined,
+                                          size: 52,
+                                          color: subtle.withOpacity(0.4)),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "No devices assigned yet",
+                                        style: TextStyle(
+                                            color: strong,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
                                       ),
-                                    ),
-                                    children: devices.map((device) {
-                                      return ListTile(
-                                        leading: const Icon(Icons.device_hub,
-                                            color: Color(0xFF1976D2), size: 18),
-                                        title: Text(
-                                          device,
-                                          style: TextStyle(
-                                              color: strong,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Add devices to this account using QR scan or manual entry.",
+                                        style: TextStyle(
+                                            color: subtle, fontSize: 13),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.add, size: 16),
+                                        label:
+                                            const Text("Add First Device"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF1976D2),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10)),
+                                        ),
+                                        onPressed: () {
+                                          _showAddDeviceDialog(email,
+                                              onAdded: _refreshDevices);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Builder(
+                                builder: (context) {
+                                  final allAssignedDevices = <String>[];
+                                  for (var list in deviceCategories.values) {
+                                    allAssignedDevices.addAll(list);
+                                  }
+                                  allAssignedDevices.sort((a, b) {
+                                    return _toAnnamDisplayName(a)
+                                        .compareTo(_toAnnamDisplayName(b));
+                                  });
+
+                                  return ListView.separated(
+                                    itemCount: allAssignedDevices.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 8),
+                                    itemBuilder: (ctx, index) {
+                                      final device = allAssignedDevices[index];
+                                      final displayName =
+                                          _toAnnamDisplayName(device);
+                                      final location =
+                                          _getLocationForSensor(device);
+                                      final topic = _resolveCleanTopic(device);
+                                      final isSelected = selectedDeviceIds
+                                          .contains(device);
+
+                                      return GestureDetector(
+                                        onTap: isSelectionMode
+                                            ? () {
+                                                dialogSetState(() {
+                                                  if (isSelected) {
+                                                    selectedDeviceIds
+                                                        .remove(device);
+                                                  } else {
+                                                    selectedDeviceIds
+                                                        .add(device);
+                                                  }
+                                                });
+                                              }
+                                            : null,
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                              milliseconds: 150),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: isSelectionMode && isSelected
+                                                ? Colors.redAccent.withOpacity(
+                                                    isDark ? 0.18 : 0.07)
+                                                : cardBg,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isSelectionMode && isSelected
+                                                  ? Colors.redAccent
+                                                      .withOpacity(0.5)
+                                                  : borderColor,
+                                              width: isSelectionMode && isSelected
+                                                  ? 1.5
+                                                  : 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              // Checkbox (only in selection mode)
+                                              if (isSelectionMode) ...[
+                                                SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: Checkbox(
+                                                    value: isSelected,
+                                                    activeColor:
+                                                        Colors.redAccent,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    onChanged: (val) {
+                                                      dialogSetState(() {
+                                                        if (val == true) {
+                                                          selectedDeviceIds
+                                                              .add(device);
+                                                        } else {
+                                                          selectedDeviceIds
+                                                              .remove(device);
+                                                        }
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                              ],
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF1976D2)
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: const Icon(
+                                                    Icons.sensors_rounded,
+                                                    size: 20,
+                                                    color: Color(0xFF1976D2)),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            displayName,
+                                                            style: TextStyle(
+                                                              color: strong,
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight.w700,
+                                                            ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                        if (topic.isNotEmpty) ...[
+                                                          const SizedBox(
+                                                              width: 8),
+                                                          Flexible(
+                                                            child: Container(
+                                                              padding: const EdgeInsets.symmetric(
+                                                                  horizontal: 7,
+                                                                  vertical: 2),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: const Color(
+                                                                        0xFF1976D2)
+                                                                    .withOpacity(
+                                                                        0.12),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            6),
+                                                              ),
+                                                              child: Text(
+                                                                topic,
+                                                                style: const TextStyle(
+                                                                  color: Color(
+                                                                      0xFF1976D2),
+                                                                  fontSize: 11,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                ),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                    if (location != null &&
+                                                        location
+                                                            .isNotEmpty) ...[
+                                                      const SizedBox(height: 3),
+                                                      Row(
+                                                        children: [
+                                                          Icon(
+                                                              Icons
+                                                                  .location_on_outlined,
+                                                              size: 13,
+                                                              color: subtle),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Expanded(
+                                                            child: Text(
+                                                              location,
+                                                              style: TextStyle(
+                                                                color: subtle,
+                                                                fontSize: 11,
+                                                              ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                              // Delete icon (only in normal mode)
+                                              if (!isSelectionMode)
+                                                IconButton(
+                                                  icon: const Icon(
+                                                      Icons
+                                                          .delete_outline_rounded,
+                                                      color: Colors.redAccent,
+                                                      size: 20),
+                                                  tooltip: "Delete device",
+                                                  onPressed: () async {
+                                                    await DeleteDeviceUtils
+                                                        .deleteSingleDevice(
+                                                      context: dialogContext,
+                                                      userEmail: email,
+                                                      deviceId: device,
+                                                      displayDeviceId:
+                                                          displayName,
+                                                      adminEmail:
+                                                          widget.adminEmail,
+                                                      onSuccess: () {
+                                                        dialogSetState(() {
+                                                          for (var list in deviceCategories
+                                                              .values) {
+                                                            list.remove(device);
+                                                          }
+                                                        });
+                                                        _refreshDevices();
+                                                        _loadDeviceData();
+                                                      },
+                                                    );
+                                                  },
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       );
-                                    }).toList(),
+                                    },
                                   );
                                 },
                               ),
+                  ),
+
+                  // --- Dialog Footer Action Bar ---
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Left side
+                      if (!isSelectionMode)
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.person_remove_outlined,
+                              size: 16, color: Colors.redAccent),
+                          label: const Text("Delete Account",
+                              style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                                color: Colors.redAccent, width: 1.2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () async {
+                            Navigator.pop(dialogContext);
+                            await _deleteUser(email);
+                          },
+                        )
+                      else
+                        TextButton(
+                          onPressed: () {
+                            dialogSetState(() {
+                              isSelectionMode = false;
+                              selectedDeviceIds.clear();
+                            });
+                          },
+                          child: Text('Cancel',
+                              style: TextStyle(color: subtle)),
+                        ),
+
+                      // Right side
+                      if (!isSelectionMode && totalDevices > 0)
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.checklist_rtl_rounded,
+                              size: 16),
+                          label: const Text("Batch Delete",
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            dialogSetState(() {
+                              isSelectionMode = true;
+                              selectedDeviceIds.clear();
+                            });
+                          },
+                        )
+                      else if (isSelectionMode)
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.delete_rounded, size: 16),
+                          label: Text(
+                            selectedDeviceIds.isEmpty
+                                ? 'Select devices'
+                                : 'Delete (${selectedDeviceIds.length})',
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: selectedDeviceIds.isNotEmpty
+                                ? Colors.redAccent
+                                : Colors.grey,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          onPressed: selectedDeviceIds.isNotEmpty
+                              ? () async {
+                                  // Build selected map from selectedDeviceIds
+                                  final Map<String, List<String>>
+                                      selectedCategories = {};
+                                  for (final entry
+                                      in deviceCategories.entries) {
+                                    final sel = entry.value
+                                        .where((id) =>
+                                            selectedDeviceIds.contains(id))
+                                        .toList();
+                                    if (sel.isNotEmpty) {
+                                      selectedCategories[entry.key] = sel;
+                                    }
+                                  }
+                                  await DeleteDeviceUtils.deleteDevices(
+                                    dialogContext,
+                                    email,
+                                    selectedCategories,
+                                    (updatedCategories) {
+                                      dialogSetState(() {
+                                        // Merge back: remove deleted from full map
+                                        for (final entry
+                                            in updatedCategories.entries) {
+                                          deviceCategories[entry.key] =
+                                              entry.value;
+                                        }
+                                        deviceCategories.removeWhere(
+                                            (_, v) => v.isEmpty);
+                                        isSelectionMode = false;
+                                        selectedDeviceIds.clear();
+                                      });
+                                      _loadDeviceData();
+                                    },
+                                  );
+                                }
+                              : null,
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
           );
         },
+
       ),
     );
   }
 
-  Future<void> _addDeviceToUser(String email, String deviceId) async {
-    await DeviceUtils.addDeviceToUser(
-      context: context,
-      email: email,
-      deviceId: deviceId,
-      allDevices: allDevices,
-    );
-    await _loadDeviceData();
-  }
+  void _showAddDeviceDialog(String email, {VoidCallback? onAdded}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final strong = isDark ? Colors.white : Colors.black87;
+    final subtle = isDark ? Colors.white70 : Colors.black54;
 
-  void _showAddDeviceDialog(String email) {
-    final TextEditingController deviceIdController = TextEditingController();
     showDialog(
       context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
-          final strong = isDark ? Colors.white : Colors.black87;
-          return AlertDialog(
-            backgroundColor: isDark ? const Color(0xFF161A22) : Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text("Add Device to $email",
-                style: TextStyle(color: strong, fontWeight: FontWeight.w900)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: deviceIdController,
-                  style: TextStyle(color: strong),
-                  decoration: InputDecoration(
-                    labelText: "Enter Device ID (e.g., CP001)",
-                    labelStyle: TextStyle(
-                        color: isDark ? Colors.white70 : Colors.black54),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                          color: Color(0xFF1976D2), width: 1.5),
-                    ),
-                    helperText: "Use 2 uppercase letters + 3 digits",
-                    helperStyle: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.black38),
-                  ),
-                  onChanged: (value) {
-                    setState(() {});
-                  },
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1976D2).withOpacity(0.12),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
+                child: const Icon(Icons.add_to_photos_rounded,
+                    color: Color(0xFF1976D2), size: 28),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1976D2),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+              const SizedBox(height: 12),
+              Text(
+                "Add Device to User",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: strong,
                 ),
-                onPressed: deviceIdController.text.trim().isEmpty
-                    ? null
-                    : () {
-                        final deviceId =
-                            deviceIdController.text.trim().toUpperCase();
-                        Navigator.pop(context);
-                        _addDeviceToUser(email, deviceId);
-                      },
-                child: const Text("Add"),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                email,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: subtle,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
-          );
-        },
-      ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                  label: const Text("Scan QR Code",
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1976D2),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => QRScannerPopup(
+                        devices: const {},
+                        targetUserEmail: email,
+                        onDeviceAdded: () {
+                          onAdded?.call();
+                          _loadDeviceData();
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.keyboard_alt_outlined, size: 20),
+                  label: const Text("Add Manually",
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1976D2),
+                    side: const BorderSide(
+                        color: Color(0xFF1976D2), width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    showDialog(
+                      context: context,
+                      builder: (context) => ManualEntryPopup(
+                        devices: const {},
+                        targetUserEmail: email,
+                        onDeviceAdded: () {
+                          onAdded?.call();
+                          _loadDeviceData();
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text("Cancel", style: TextStyle(color: subtle)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1815,16 +2535,18 @@ class _AdminPageState extends State<AdminPage> {
     return sorted;
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Error' : 'Notification',
+      message: msg,
+      isError: isError,
+    );
   }
 
-  ({String category, String prefix}) _mapCategoryAndPrefix(String topic) =>
-      DevicePrefixUtils.mapCategoryAndPrefix(topic);
-
   Future<void> _deleteUser(String email) async {
-    await DeleteDeviceUtils.deleteAccount(context, email, null);
+    await DeleteDeviceUtils.deleteAccount(context, email, widget.adminEmail);
     await fetchUsers();
   }
 
@@ -2001,9 +2723,6 @@ class _AdminPageState extends State<AdminPage> {
     return DevicePrefixUtils.getExpectedInterval(sensorName);
   }
 
-  String? _getOtaApiUrl(String prefix, {String sensorName = ''}) =>
-      DevicePrefixUtils.getOtaApiUrl(prefix, sensorName: sensorName);
-
   void _navigateToOTA(String sensorName, String? updateInterval) {
     String? intervalType;
     int? intervalValue;
@@ -2025,47 +2744,6 @@ class _AdminPageState extends State<AdminPage> {
       displayDeviceId: fullDisplayName,
       initialIntervalType: intervalType,
       initialInterval: intervalValue,
-    );
-  }
-
-  void _showIntervalPopup(String updateInterval) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF161A22) : Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            "Device Data Interval",
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          content: Text(
-            "Device Data Interval: $updateInterval",
-            style: TextStyle(
-              color: isDark ? Colors.white70 : Colors.black54,
-              fontSize: getResponsiveFontSize(context, 14, 16),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1976D2),
-              ),
-              child: const Text(
-                "Close",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -3220,6 +3898,7 @@ class _AdminPageState extends State<AdminPage> {
                                 ),
                               )
                             : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _SearchField(
                                     hint: "Search user by email...",
@@ -3229,190 +3908,224 @@ class _AdminPageState extends State<AdminPage> {
                                     isDark: isDark,
                                   ),
                                   const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF1976D2)
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: const Color(0xFF1976D2)
+                                                  .withOpacity(0.2)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                                Icons.people_alt_rounded,
+                                                size: 14,
+                                                color: Color(0xFF1976D2)),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              "Total: ${filteredUsers.length} Users",
+                                              style: const TextStyle(
+                                                color: Color(0xFF1976D2),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.refresh_rounded,
+                                            size: 20),
+                                        color: subtle,
+                                        tooltip: "Refresh Users",
+                                        onPressed: fetchUsers,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
                                   filteredUsers.isEmpty
                                       ? Center(
                                           child: Padding(
                                             padding: const EdgeInsets.symmetric(
                                                 vertical: 24.0),
-                                            child: Text(
-                                              userSearchQuery.isNotEmpty
-                                                  ? "No users found for '$userSearchQuery'"
-                                                  : "No users available",
-                                              style: TextStyle(color: subtle),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                    Icons
+                                                        .person_search_outlined,
+                                                    size: 40,
+                                                    color: subtle
+                                                        .withOpacity(0.4)),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  userSearchQuery.isNotEmpty
+                                                      ? "No users found for '$userSearchQuery'"
+                                                      : "No users available",
+                                                  style: TextStyle(
+                                                      color: subtle,
+                                                      fontWeight:
+                                                          FontWeight.w500),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         )
                                       : Column(
                                           children: [
-                                            Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                "Total ${filteredUsers.length}",
-                                                style: TextStyle(color: subtle),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            const Divider(height: 1),
-                                            const SizedBox(height: 8),
-                                            Column(
-                                              children: [
-                                                ...filteredUsers
+                                            LayoutBuilder(
+                                              builder: (context, constraints) {
+                                                final width = constraints.maxWidth;
+                                                int crossAxisCount = 1;
+                                                if (width > 1100) {
+                                                  crossAxisCount = 3;
+                                                } else if (width > 650) {
+                                                  crossAxisCount = 2;
+                                                }
+
+                                                final visibleUsers = filteredUsers
                                                     .take(usersToShow)
-                                                    .map((u) => Column(
-                                                          children: [
-                                                            InkWell(
-                                                              hoverColor: isDark
-                                                                  ? const Color(
-                                                                          0xFF2C3E50)
-                                                                      .withOpacity(
-                                                                          0.6)
-                                                                  : const Color(
-                                                                          0xFF1976D2)
-                                                                      .withOpacity(
-                                                                          0.08),
-                                                              onTap: () =>
-                                                                  _showUserDevices(
-                                                                      u["email"]!),
-                                                              child: ListTile(
-                                                                contentPadding:
-                                                                    EdgeInsets
-                                                                        .symmetric(
-                                                                  horizontal:
-                                                                      getResponsiveFontSize(
-                                                                          context,
-                                                                          8,
-                                                                          16),
-                                                                ),
-                                                                leading:
-                                                                    CircleAvatar(
-                                                                  radius:
-                                                                      getResponsiveFontSize(
-                                                                          context,
-                                                                          12,
-                                                                          22),
-                                                                  backgroundColor: Colors
-                                                                      .blue
-                                                                      .withOpacity(
-                                                                          0.12),
-                                                                  child: Icon(
-                                                                    Icons
-                                                                        .person,
-                                                                    color: Colors
-                                                                        .blue,
-                                                                    size: getResponsiveFontSize(
-                                                                        context,
-                                                                        14,
-                                                                        24),
-                                                                  ),
-                                                                ),
-                                                                title: Text(
-                                                                  u["email"] ??
-                                                                      "",
-                                                                  style:
-                                                                      TextStyle(
-                                                                    color:
-                                                                        strong,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w700,
-                                                                    fontSize:
-                                                                        getResponsiveFontSize(
-                                                                            context,
-                                                                            12,
-                                                                            14),
-                                                                  ),
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  maxLines: 2,
-                                                                ),
-                                                                trailing: Row(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .min,
-                                                                  children: [
-                                                                    IconButton(
-                                                                      tooltip:
-                                                                          "Add Device",
-                                                                      padding:
-                                                                          EdgeInsets
-                                                                              .zero,
-                                                                      constraints:
-                                                                          const BoxConstraints(),
-                                                                      iconSize: getResponsiveFontSize(
-                                                                          context,
-                                                                          14,
-                                                                          28),
-                                                                      onPressed:
-                                                                          () =>
-                                                                              _showAddDeviceDialog(u["email"]!),
-                                                                      icon: const Icon(
-                                                                          Icons
-                                                                              .add,
-                                                                          color:
-                                                                              Colors.blue),
-                                                                    ),
-                                                                    SizedBox(
-                                                                        width: getResponsiveFontSize(
-                                                                            context,
-                                                                            2,
-                                                                            12)),
-                                                                    IconButton(
-                                                                      tooltip:
-                                                                          "Delete",
-                                                                      padding:
-                                                                          EdgeInsets
-                                                                              .zero,
-                                                                      constraints:
-                                                                          const BoxConstraints(),
-                                                                      iconSize: getResponsiveFontSize(
-                                                                          context,
-                                                                          14,
-                                                                          28),
-                                                                      onPressed:
-                                                                          () =>
-                                                                              _deleteUser(u["email"]!),
-                                                                      icon: const Icon(
-                                                                          Icons
-                                                                              .delete,
-                                                                          color:
-                                                                              Colors.red),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
+                                                    .toList();
+
+                                                if (crossAxisCount > 1) {
+                                                  return GridView.builder(
+                                                    shrinkWrap: true,
+                                                    physics:
+                                                        const NeverScrollableScrollPhysics(),
+                                                    gridDelegate:
+                                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                                      crossAxisCount:
+                                                          crossAxisCount,
+                                                      mainAxisExtent: 130,
+                                                      crossAxisSpacing: 14,
+                                                      mainAxisSpacing: 14,
+                                                    ),
+                                                    itemCount:
+                                                        visibleUsers.length,
+                                                    itemBuilder: (context, i) {
+                                                      final u = visibleUsers[i];
+                                                      return _buildUserCard(
+                                                        context: context,
+                                                        u: u,
+                                                        isDark: isDark,
+                                                        strong: strong,
+                                                        subtle: subtle,
+                                                      );
+                                                    },
+                                                  );
+                                                }
+
+                                                return Column(
+                                                  children: visibleUsers
+                                                      .map((u) => Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                                    bottom: 12),
+                                                            child: _buildUserCard(
+                                                              context: context,
+                                                              u: u,
+                                                              isDark: isDark,
+                                                              strong: strong,
+                                                              subtle: subtle,
                                                             ),
-                                                            Divider(
-                                                                color: subtle
-                                                                    .withOpacity(
-                                                                        0.12)),
-                                                          ],
-                                                        )),
-                                                if (usersToShow <
-                                                    filteredUsers.length)
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        setState(() {
-                                                      usersToShow =
-                                                          (usersToShow + 10)
-                                                              .clamp(
-                                                                  0,
-                                                                  filteredUsers
-                                                                      .length);
-                                                    }),
-                                                    child:
-                                                        const Text("Show More"),
-                                                  )
-                                                else if (filteredUsers.length >
-                                                    10)
-                                                  TextButton(
-                                                    onPressed: () => setState(
-                                                        () => usersToShow = 10),
-                                                    child:
-                                                        const Text("Show Less"),
-                                                  ),
-                                              ],
+                                                          ))
+                                                      .toList(),
+                                                );
+                                              },
                                             ),
+                                            if (usersToShow <
+                                                    filteredUsers.length ||
+                                                filteredUsers.length > 12)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 14),
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    if (usersToShow <
+                                                        filteredUsers.length)
+                                                      ElevatedButton.icon(
+                                                        icon: const Icon(
+                                                            Icons
+                                                                .expand_more_rounded,
+                                                            size: 16),
+                                                        label: Text(
+                                                            "Show More (${filteredUsers.length - usersToShow} remaining)"),
+                                                        style: ElevatedButton
+                                                            .styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                  0xFF1976D2),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          shape:
+                                                              RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                          ),
+                                                        ),
+                                                        onPressed: () =>
+                                                            setState(() {
+                                                          usersToShow =
+                                                              (usersToShow + 12)
+                                                                  .clamp(
+                                                                      0,
+                                                                      filteredUsers
+                                                                          .length);
+                                                        }),
+                                                      ),
+                                                    if (usersToShow <
+                                                            filteredUsers
+                                                                .length &&
+                                                        filteredUsers.length >
+                                                            12)
+                                                      const SizedBox(width: 12),
+                                                    if (usersToShow > 12)
+                                                      OutlinedButton.icon(
+                                                        icon: const Icon(
+                                                            Icons
+                                                                .expand_less_rounded,
+                                                            size: 16),
+                                                        label: const Text(
+                                                            "Show Less"),
+                                                        style: OutlinedButton
+                                                            .styleFrom(
+                                                          foregroundColor:
+                                                              subtle,
+                                                          side: BorderSide(
+                                                              color: subtle
+                                                                  .withOpacity(
+                                                                      0.3)),
+                                                          shape:
+                                                              RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                          ),
+                                                        ),
+                                                        onPressed: () =>
+                                                            setState(() =>
+                                                                usersToShow =
+                                                                    12),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
                                           ],
                                         ),
                                 ],
@@ -3969,28 +4682,6 @@ class _StatusDot extends StatelessWidget {
               color: color.withOpacity(0.35), blurRadius: 8, spreadRadius: 1)
         ],
       ),
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  final Color color;
-  final String text;
-  const _LegendDot({required this.color, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(3)),
-        ),
-        const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-      ],
     );
   }
 }

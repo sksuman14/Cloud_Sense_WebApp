@@ -2,6 +2,7 @@ import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -47,8 +48,10 @@ class AuthUtils {
 
       userProvider.setUser(null);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged out successfully')),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Logged Out',
+        message: 'Logged out successfully',
       );
 
       // For Google sign-in, Cognito performs a full-page browser redirect
@@ -63,8 +66,11 @@ class AuthUtils {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       userProvider.setUser(null);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged out with some errors')),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Notice',
+        message: 'Logged out with some errors',
+        isError: true,
       );
 
       if (!isGoogle) {

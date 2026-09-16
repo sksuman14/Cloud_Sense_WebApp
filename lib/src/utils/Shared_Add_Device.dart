@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class DeviceUtils {
   static const List<String> rawAdminEmails = [
@@ -26,9 +27,6 @@ class DeviceUtils {
   static String toDisplayId(String internalSensorName) =>
       DevicePrefixUtils.toAnnamDisplayName(internalSensorName);
 
-  static bool _isAnnamSensor(String internalSensorName) =>
-      DevicePrefixUtils.isAnnamCoreSensor(internalSensorName);
-
   // ✅ NEW: The centralized function to add a device via API call
   static Future<bool> addDeviceToUser({
     required BuildContext context,
@@ -39,10 +37,11 @@ class DeviceUtils {
     // --- 1. Validate Inputs ---
     if (email == null || email.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("User email is not available."),
-              backgroundColor: Colors.orange),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Validation Error',
+          message: 'User email is not available.',
+          isError: true,
         );
       }
       return false;
@@ -50,8 +49,11 @@ class DeviceUtils {
 
     if (!isValidDeviceId(deviceId)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid Device ID format or prefix.")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Invalid Device',
+          message: 'Invalid Device ID format or prefix.',
+          isError: true,
         );
       }
       return false;
@@ -61,10 +63,11 @@ class DeviceUtils {
     if (allDevices != null &&
         allDevices.any((d) => d['DeviceId'] == deviceId)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  "Device $deviceId is already registered in the system.")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Already Registered',
+          message: 'Device $deviceId is already registered in the system.',
+          isError: true,
         );
       }
       return false;
@@ -74,8 +77,58 @@ class DeviceUtils {
     final String apiUrl =
         "https://ymfmk699j5.execute-api.us-east-1.amazonaws.com/default/Cloudsense_user_add_devices?email_id=$email&device_id=$deviceId";
 
+    // Show non-dismissible loading spinner so user knows add is in progress
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => PopScope(
+          canPop: false,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF10B981)),
+                  SizedBox(height: 16),
+                  Text(
+                    'Adding device...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Please wait',
+                    style: TextStyle(fontSize: 12, color: Colors.black45),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     try {
       final response = await http.get(Uri.parse(apiUrl));
+
+      // Close spinner
+      if (context.mounted) Navigator.pop(context);
       if (!context.mounted) return false;
 
       if (response.statusCode == 200) {
@@ -102,28 +155,35 @@ class DeviceUtils {
           }
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          DeleteDeviceUtils.showToastNotification(
+            context: context,
+            title: success ? 'Device Added Successfully' : 'Failed to Add Device',
+            message: message,
+            isError: !success,
+          );
+        }
         return success;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  "API Error: Failed to add device (Status ${response.statusCode})"),
-              backgroundColor: Colors.red),
-        );
+        if (context.mounted) {
+          DeleteDeviceUtils.showToastNotification(
+            context: context,
+            title: 'API Error',
+            message: 'Failed to add device (Status ${response.statusCode})',
+            isError: true,
+          );
+        }
         return false;
       }
     } catch (e) {
+      // Close spinner on error too
+      if (context.mounted) Navigator.pop(context);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("An error occurred: $e"),
-              backgroundColor: Colors.red),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Error',
+          message: 'An error occurred: $e',
+          isError: true,
         );
       }
       return false;

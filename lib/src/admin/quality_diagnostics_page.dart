@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:provider/provider.dart';

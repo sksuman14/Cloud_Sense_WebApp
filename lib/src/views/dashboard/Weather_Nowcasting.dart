@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cloud_sense_webapp/src/utils/device_config.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class WeatherNowcastingPage extends StatefulWidget {
   final String deviceName;
@@ -86,8 +87,11 @@ class _WeatherNowcastingPageState extends State<WeatherNowcastingPage>
       await Future.wait([_fetchHistoricalData(), _fetchForecastData()]);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load data: $e')),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Data Load Error',
+          message: 'Failed to load data: $e',
+          isError: true,
         );
       }
     } finally {

@@ -132,13 +132,17 @@ class DevicePrefixUtils {
   }
 
   static String getCategoryDisplayName(String prefix) {
-    switch (prefix) {
+    final upper = prefix.toUpperCase().trim();
+    switch (upper) {
       case 'CL':
       case 'BD':
         return 'Chlorine Sensors';
       case 'WD':
         return 'Weather Sensors';
+      case 'TS':
       case 'WT':
+      case 'DM':
+      case 'WN':
         return 'Testing Devices';
       case 'SS':
         return 'SSMet Soil Sensors';
@@ -150,6 +154,7 @@ class DevicePrefixUtils {
         return 'IIT Bombay\nSensors';
       case 'WS':
         return 'Water Sensors';
+      case 'PS':
       case 'LU':
       case 'TE':
       case 'AC':
@@ -169,15 +174,12 @@ class DevicePrefixUtils {
       case 'SW':
         return 'SSMET Weather Sensors';
       case 'WJ':
-        return 'ANNAM Sensors';
       case 'WF':
-        return 'ANNAM Sensors';
       case 'WA':
+      case 'CF':
         return 'ANNAM Sensors';
       case 'SI':
         return 'Synthite Industries\nPrivate Limited Sensors';
-      case 'CF':
-        return 'ANNAM Sensors';
       case 'SV':
         return 'Sardar Vallabhbhai Patel University of Agriculture\nand Technology Sensors (Meerut)';
       case 'CB':
@@ -200,8 +202,6 @@ class DevicePrefixUtils {
         return 'National Atmospheric Research Labortary\nSensors';
       case 'CP':
         return 'IIT Ropar Campus\nSensors';
-      case 'DM':
-        return 'Testing Devices';
       case 'KJ':
         return 'KJ Somaiya College of Engineering Sensors';
       case 'MY':
@@ -209,11 +209,8 @@ class DevicePrefixUtils {
       case 'JW':
         return 'Partnership Sensors';
       case 'SH':
-        return 'Partnership Sensors';
-      case 'WN':
-        return 'Testing Devices';
-      case 'PS':
-        return 'CPS Sensors';
+      case 'SOBHA':
+        return 'Sobha Sensors';
       default:
         return 'Rain Sensors';
     }
@@ -687,13 +684,21 @@ class DevicePrefixUtils {
       return "WS_Shobha_$id#WS/Shobha/$id";
     }
 
-    // 2. Standard numeric extraction for standard prefixes
-    final reg = RegExp(r'^([A-Z]{1,3})(\d{1,4})$');
+    // 2. Standard numeric extraction for standard prefixes (handles CL-101, WD-101, etc.)
+    final reg = RegExp(r'^([A-Z]{1,4})[-_]?(\d{1,5})$');
     final match = reg.firstMatch(sensorName);
 
     if (match == null) {
       final digits = RegExp(r'\d+$').firstMatch(sensorName)?.group(0) ?? '0';
       final id = int.tryParse(digits) ?? 0;
+      final prefixMatch = RegExp(r'^([A-Z]+)').firstMatch(sensorName);
+      if (prefixMatch != null) {
+        final p = prefixMatch.group(1)!;
+        if (p == 'CL' || p == 'BD') return "$id#WS/Chloritrone/$id";
+        if (p == 'WD') return "$id#WS/Weather/$id";
+        if (p == 'WQ') return "$id#WS/Water/$id";
+        return "$id#WS/$p/$id";
+      }
       return "$id#WS/Unknown/$id";
     }
 
@@ -701,6 +706,13 @@ class DevicePrefixUtils {
     final int id = int.parse(match.group(2)!);
 
     switch (prefix) {
+      case "CL":
+      case "BD":
+        return "$id#WS/Chloritrone/$id";
+      case "WD":
+        return "$id#WS/Weather/$id";
+      case "WQ":
+        return "$id#WS/Water/$id";
       case "NA":
         return "$id#WS/SSMet/NARL/$id";
       case "CP":
@@ -762,7 +774,7 @@ class DevicePrefixUtils {
       case "PS":
         return "$id#WS/CPS/$id";
       default:
-        return "$id#WS/Unknown/$id";
+        return "$id#WS/$prefix/$id";
     }
   }
 

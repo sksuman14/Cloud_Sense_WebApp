@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaAdminView extends StatefulWidget {
   const KsdmaAdminView({super.key});
@@ -38,6 +39,15 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
   void dispose() {
     _pendingSearchTextController.dispose();
     super.dispose();
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Success',
+      message: msg,
+      isError: isError,
+    );
   }
 
   void _showZoomDialog(BuildContext context, String imageUrl) {
@@ -450,12 +460,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                                 onPressed: () async {
                                   await state.approveStation(station.stationId);
                                   if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('✅ Station ${station.stationId} Approved & Live on Public Map!'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
+                                    _showToast('Station ${station.stationId} Approved & Live on Public Map!');
                                   }
                                 },
                                 icon: const Icon(Icons.check, size: 16, color: Colors.white),
@@ -498,9 +503,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                                     final reason = reasonCtrl.text.trim().isNotEmpty ? reasonCtrl.text.trim() : 'Rejected by Admin HQ';
                                     await state.rejectStationWithReason(station.stationId, reason);
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('🚫 Station ${station.stationId} Rejected.'), backgroundColor: Colors.red),
-                                      );
+                                      _showToast('Station ${station.stationId} Rejected.', isError: true);
                                     }
                                   }
                                 },
@@ -613,9 +616,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
               onTap: targetStation != null
                   ? () => _pickAndReadFile(targetStation)
                   : () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please select an active volunteer station first.')),
-                      );
+                      _showToast('Please select an active volunteer station first.', isError: true);
                     },
               borderRadius: BorderRadius.circular(10),
               child: Container(
@@ -703,13 +704,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
               _selectedFileName = file.name;
               _uploadedCsvContent = content;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('📄 File "${file.name}" loaded successfully! Ready for validation & upload.'),
-                backgroundColor: const Color(0xFF2563EB),
-                duration: const Duration(seconds: 3),
-              ),
-            );
+            _showToast('File "${file.name}" loaded successfully! Ready for validation & upload.');
           });
         }
       });
@@ -720,12 +715,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
 
   Future<void> _processAndSubmitCsv(KsdmaStateService state, KsdmaStation targetStation) async {
     if (_uploadedCsvContent == null || _uploadedCsvContent!.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ Please choose a CSV/Excel file first before tapping Upload.'),
-          backgroundColor: Color(0xFFD97706),
-        ),
-      );
+      _showToast('Please choose a CSV/Excel file first before tapping Upload.', isError: true);
       return;
     }
 
@@ -910,22 +900,10 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         _uploadedCsvContent = null;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Bulk Upload Successful! $count unique daily observation records saved to database for station ${targetStation.stationId}.'),
-          backgroundColor: const Color(0xFF15803D),
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      _showToast('Bulk Upload Successful! $count unique daily observation records saved to database for station ${targetStation.stationId}.');
     } catch (e) {
       final errClean = e.toString().replaceAll('Exception:', '').trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errClean),
-          backgroundColor: const Color(0xFFDC2626),
-          duration: const Duration(seconds: 6),
-        ),
-      );
+      _showToast(errClean, isError: true);
     } finally {
       setState(() => _isProcessingUpload = false);
     }
@@ -1076,14 +1054,10 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                   final targetId = _selectedObsId ?? (activeObs.isNotEmpty ? activeObs.first.observationId : null);
                   if (targetId != null) {
                     state.removeObservation(targetId, _selectedModerationReason);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Flagged & Removed observation $targetId (${_selectedModerationReason})')),
-                    );
+                    _showToast('Flagged & Removed observation $targetId ($_selectedModerationReason)');
                     setState(() => _selectedObsId = null);
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No active observations available to flag.')),
-                    );
+                    _showToast('No active observations available to flag.', isError: true);
                   }
                 },
                 style: OutlinedButton.styleFrom(

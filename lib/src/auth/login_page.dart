@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class SignInSignUpScreen extends StatefulWidget {
   @override
@@ -274,13 +275,13 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
     }
   }
 
-  void _showSnackbar(String message) {
-    final snackBar = SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 3),
+  void _showSnackbar(String message, {bool isError = true, String? title}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: title ?? (isError ? 'Notice' : 'Success'),
+      message: message,
+      isError: isError,
     );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   Future<void> _forgotPassword() async {
@@ -288,10 +289,10 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
     if (email != null && EmailValidator.validate(email)) {
       try {
         await Amplify.Auth.resetPassword(username: email);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('A password reset code has been sent to your email.'),
-          ),
+        _showSnackbar(
+          'A password reset code has been sent to your email.',
+          isError: false,
+          title: 'Reset Code Sent',
         );
         _showPasswordResetCodeDialog(email);
       } on AuthException catch (e) {
@@ -450,10 +451,10 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
         confirmationCode: resetCode,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Password has been reset. Please log in with your new password.')),
+      _showSnackbar(
+        'Password has been reset. Please log in with your new password.',
+        isError: false,
+        title: 'Password Reset',
       );
     } on AuthException catch (e) {
       setState(() {
@@ -537,9 +538,8 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
 
       // ✅ Here we check if sign-up is complete
       if (res.isSignUpComplete) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign-up successful! Please sign in.')),
-        );
+        _showSnackbar('Sign-up successful! Please sign in.',
+            isError: false, title: 'Success');
         setState(() {
           _isSignIn = true; // Switch to sign-in mode
         });
@@ -628,9 +628,8 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
         _isSignIn = true;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign-up successful! Please sign in.')),
-      );
+      _showSnackbar('Sign-up successful! Please sign in.',
+          isError: false, title: 'Success');
     } on AuthException catch (e) {
       setState(() {
         _errorMessage = e.message;
@@ -1354,11 +1353,10 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
           final userProvider =
               Provider.of<UserProvider>(context, listen: false);
           userProvider.setUser(email);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Account migrated! Welcome to the new system.'),
-              backgroundColor: Colors.green,
-            ),
+          _showSnackbar(
+            'Account migrated! Welcome to the new system.',
+            isError: false,
+            title: 'Welcome',
           );
           NavigationUtils.navigateTo(context, '/', removeUntil: true);
         }

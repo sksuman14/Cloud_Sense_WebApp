@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:cloud_sense_webapp/src/auth/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
@@ -18,12 +15,14 @@ static Future<void> deleteAccount(
   String? currentUserEmail,
 ) async {
   if (emailToDelete.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Please enter an email ID to delete."),
-        backgroundColor: Colors.orange,
-      ),
-    );
+    if (context.mounted) {
+      showToastNotification(
+        context: context,
+        title: 'Validation Error',
+        message: 'Please enter an email ID to delete.',
+        isError: true,
+      );
+    }
     return;
   }
 
@@ -60,12 +59,13 @@ static Future<void> deleteAccount(
       if (response.statusCode == 200 ||
           response.statusCode == 404 ||
           response.body.toLowerCase().contains("user not found")) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Account deleted successfully."),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (context.mounted) {
+          showToastNotification(
+            context: context,
+            title: 'Account Deleted Successfully',
+            message: 'User account $emailToDelete has been deleted.',
+          );
+        }
 
         if (emailToDelete == currentUserEmail) {
           try {
@@ -85,24 +85,148 @@ static Future<void> deleteAccount(
 
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to delete account. ${response.body}"),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          showToastNotification(
+            context: context,
+            title: 'Account Deletion Failed',
+            message: 'Failed to delete account. ${response.body}',
+            isError: true,
+          );
+        }
       }
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Error occurred while deleting account."),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (context.mounted) {
+        showToastNotification(
+          context: context,
+          title: 'Error Deleting Account',
+          message: '$error',
+          isError: true,
+        );
+      }
       print('Error deleting account: $error');
     }
   }
 }
+
+  /// Helper to get the delete confirmation message
+  static String getDeleteConfirmationMessage({
+    required String displayDeviceId,
+    required String userEmail,
+    String? adminEmail,
+  }) {
+    final bool isAdminDeleting = adminEmail != null && adminEmail.isNotEmpty;
+    final String targetAccount = isAdminDeleting ? userEmail : 'your account';
+    return 'Are you sure you want to remove device "$displayDeviceId" from $targetAccount? This action cannot be undone.';
+  }
+
+  /// Displays high-visibility feedback via top floating banner only (highest Z-index above all dialogs)
+  static void showToastNotification({
+    required BuildContext context,
+    required String title,
+    required String message,
+    bool isError = false,
+  }) {
+    // Dismiss any existing bottom snackbar so only the top banner is visible
+    try {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+    } catch (_) {}
+
+    // High-priority Top Overlay Banner (renders directly above any open dialog and modal barrier)
+    try {
+      final overlay = Overlay.maybeOf(context);
+      if (overlay != null) {
+        late OverlayEntry entry;
+        entry = OverlayEntry(
+          builder: (ctx) => Positioned(
+            top: 24,
+            left: 24,
+            right: 24,
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isError
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFF059669),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isError
+                            ? Icons.error_outline_rounded
+                            : Icons.check_circle_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              message,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () {
+                          if (entry.mounted) {
+                            entry.remove();
+                          }
+                        },
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        overlay.insert(entry);
+        Future.delayed(const Duration(seconds: 4), () {
+          if (entry.mounted) {
+            entry.remove();
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   static Future<void> deleteSingleDevice({
     required BuildContext context,
@@ -110,6 +234,7 @@ static Future<void> deleteAccount(
     required String deviceId,
     required String displayDeviceId,
     required VoidCallback onSuccess,
+    String? adminEmail,
   }) async {
     bool? confirmed = await showDialog(
       context: context,
@@ -117,6 +242,12 @@ static Future<void> deleteAccount(
         final isDarkMode = Theme.of(context).brightness == Brightness.dark;
         final strong = isDarkMode ? Colors.white : Colors.black87;
         final subtle = isDarkMode ? Colors.white70 : Colors.black54;
+
+        final confirmationMessage = getDeleteConfirmationMessage(
+          displayDeviceId: displayDeviceId,
+          userEmail: userEmail,
+          adminEmail: adminEmail,
+        );
 
         return AlertDialog(
           backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
@@ -129,7 +260,7 @@ static Future<void> deleteAccount(
             ],
           ),
           content: Text(
-            'Are you sure you want to remove device "$displayDeviceId" from your account? This action cannot be undone.',
+            confirmationMessage,
             style: TextStyle(color: subtle, fontSize: 14),
           ),
           actions: [
@@ -166,34 +297,38 @@ static Future<void> deleteAccount(
         if (context.mounted) Navigator.pop(context); // close spinner
 
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
+          final bool isAdminDeleting =
+              adminEmail != null && adminEmail.isNotEmpty;
+          final String successMsg = isAdminDeleting
+              ? 'Device "$displayDeviceId" was deleted from $userEmail.'
+              : 'Device "$displayDeviceId" was deleted from your account.';
+
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(data['message'] ?? 'Device deleted successfully.'),
-                backgroundColor: Colors.green,
-              ),
+            showToastNotification(
+              context: context,
+              title: 'Device Deleted Successfully',
+              message: successMsg,
             );
           }
           onSuccess();
         } else {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to delete device: ${response.body}'),
-                backgroundColor: Colors.red,
-              ),
+            showToastNotification(
+              context: context,
+              title: 'Deletion Failed',
+              message: 'Failed to delete device "$displayDeviceId".',
+              isError: true,
             );
           }
         }
       } catch (error) {
         if (context.mounted) {
           Navigator.pop(context); // close spinner on error
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting device: $error'),
-              backgroundColor: Colors.red,
-            ),
+          showToastNotification(
+            context: context,
+            title: 'Error Deleting Device',
+            message: '$error',
+            isError: true,
           );
         }
       }
@@ -207,88 +342,146 @@ static Future<void> deleteAccount(
     Function(Map<String, List<String>>) onDevicesUpdated,
   ) async {
     if (deviceCategories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("No devices available to delete."),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (context.mounted) {
+        showToastNotification(
+          context: context,
+          title: 'Notice',
+          message: 'No devices available to delete.',
+          isError: true,
+        );
+      }
       return;
     }
 
-    Map<String, List<bool>> selectedDevices = {
-      for (var key in deviceCategories.keys)
-        key: List<bool>.filled(deviceCategories[key]!.length, false),
-    };
+    // Confirmation dialog
+    int totalDeviceCount = 0;
+    for (var list in deviceCategories.values) {
+      totalDeviceCount += list.length;
+    }
 
     bool? confirmed = await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text('Delete Devices'),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: deviceCategories.entries.map((entry) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sensor: ${entry.key}',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      ...List.generate(entry.value.length, (index) {
-                        return CheckboxListTile(
-                          title: Text('Device ID - ${entry.value[index]}'),
-                          value: selectedDevices[entry.key]![index],
-                          onChanged: (value) {
-                            setState(() {
-                              selectedDevices[entry.key]![index] =
-                                  value ?? false;
-                            });
-                          },
-                        );
-                      }),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text('Delete'),
+      builder: (ctx) {
+        final isDarkMode = Theme.of(ctx).brightness == Brightness.dark;
+        final strong = isDarkMode ? Colors.white : Colors.black87;
+        final subtle = isDarkMode ? Colors.white70 : Colors.black54;
+
+        return AlertDialog(
+          backgroundColor:
+              isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: Colors.redAccent, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Delete $totalDeviceCount Device${totalDeviceCount > 1 ? 's' : ''}',
+                  style: TextStyle(
+                      color: strong,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18),
+                ),
               ),
             ],
-          );
-        },
-      ),
+          ),
+          content: Text(
+            'Are you sure you want to remove $totalDeviceCount selected device${totalDeviceCount > 1 ? 's' : ''} from ${userEmail.isNotEmpty ? userEmail : 'this account'}? This action cannot be undone.',
+            style: TextStyle(color: subtle, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: TextStyle(color: subtle)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
       List<String> devicesToDelete = [];
-      selectedDevices.forEach((sensor, selections) {
-        for (int i = 0; i < selections.length; i++) {
-          if (selections[i]) {
-            devicesToDelete.add(deviceCategories[sensor]![i]);
-          }
-        }
-      });
+      for (var list in deviceCategories.values) {
+        devicesToDelete.addAll(list);
+      }
 
       if (devicesToDelete.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("No devices selected for deletion."),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        if (context.mounted) {
+          showToastNotification(
+            context: context,
+            title: 'Notice',
+            message: 'No devices selected for deletion.',
+            isError: true,
+          );
+        }
         return;
       }
+
+      // Show non-dismissible loading spinner so user can't navigate away
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => PopScope(
+            canPop: false,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.redAccent),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Deleting ${devicesToDelete.length} device${devicesToDelete.length > 1 ? 's' : ''}...',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Please wait',
+                      style: TextStyle(fontSize: 12, color: Colors.black45),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      int successCount = 0;
+      List<String> failedIds = [];
+      // Start from full deviceCategories so we return the remaining full list
+      Map<String, List<String>> updatedCategories =
+          Map<String, List<String>>.from(
+              deviceCategories.map((k, v) => MapEntry(k, List<String>.from(v))));
 
       try {
         for (var deviceId in devicesToDelete) {
@@ -298,43 +491,40 @@ static Future<void> deleteAccount(
           final response = await http.get(Uri.parse(url));
 
           if (response.statusCode == 200) {
-            final data = json.decode(response.body);
-            print('Response: $data');
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(data['message']),
-                backgroundColor: Colors.green,
-              ),
-            );
-
-            // Update local state
-            final updatedCategories =
-                Map<String, List<String>>.from(deviceCategories);
-            updatedCategories.forEach((sensor, devices) {
-              devices.remove(deviceId);
-            });
-            updatedCategories.removeWhere((key, value) => value.isEmpty);
-            onDevicesUpdated(updatedCategories);
+            successCount++;
+            updatedCategories.forEach((_, devices) => devices.remove(deviceId));
           } else {
-            print('Response Status Code: ${response.statusCode}');
-            print('Response Body: ${response.body}');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Failed to delete device ID $deviceId."),
-                backgroundColor: Colors.red,
-              ),
-            );
+            failedIds.add(deviceId);
           }
         }
       } catch (error) {
         print('Exception occurred: $error');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error occurred while deleting devices."),
-            backgroundColor: Colors.red,
-          ),
-        );
+      }
+
+      // Close spinner
+      if (context.mounted) Navigator.pop(context);
+
+      updatedCategories.removeWhere((_, v) => v.isEmpty);
+      onDevicesUpdated(updatedCategories);
+
+      // Summary toast
+      if (context.mounted) {
+        if (successCount > 0) {
+          showToastNotification(
+            context: context,
+            title: 'Devices Deleted',
+            message:
+                '$successCount device${successCount > 1 ? 's' : ''} deleted successfully.',
+          );
+        }
+        if (failedIds.isNotEmpty) {
+          showToastNotification(
+            context: context,
+            title: 'Some Deletions Failed',
+            message: 'Failed to delete: ${failedIds.length} device${failedIds.length > 1 ? 's' : ''}.',
+            isError: true,
+          );
+        }
       }
     }
   }

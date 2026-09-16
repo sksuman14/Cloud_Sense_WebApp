@@ -20,6 +20,7 @@ import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/device_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -637,8 +638,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     try {
       final key = _sfChartKeys[title];
       if (key == null || key.currentState == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Chart state not found for $title")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Notice',
+          message: 'Chart state not found for $title',
+          isError: true,
         );
         return;
       }
@@ -666,20 +670,26 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           ..click();
         html.Url.revokeObjectUrl(url);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Downloading $title chart as PNG")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Exporting Chart',
+          message: 'Downloading $title chart as PNG',
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text("Image download is only supported on Web currently")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Notice',
+          message: 'Image download is only supported on Web currently',
+          isError: true,
         );
       }
     } catch (e) {
       debugPrint("Export error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error exporting chart: $e")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Error',
+        message: 'Error exporting chart: $e',
+        isError: true,
       );
     }
   }
@@ -1190,8 +1200,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     // For now, if _csvRows is empty, we fall back to generic checks or show error.
 
     if (_csvRows.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No data available for download.")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Notice',
+        message: 'No data available for download.',
+        isError: true,
       );
       return;
     }
@@ -1209,18 +1222,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         ..click();
       html.Url.revokeObjectUrl(url);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Downloading"),
-          duration: Duration(seconds: 1),
-        ),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Downloading',
+        message: 'Downloading $fileName',
       );
     } else {
       try {
         await saveCSVFile(csvData, fileName);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error downloading: $e")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Error',
+          message: 'Error downloading: $e',
+          isError: true,
         );
       }
     }
@@ -1241,19 +1256,25 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
         await file.writeAsString(csvData);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("File downloaded to $filePath"),
-          ),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Downloaded',
+          message: 'File downloaded to $filePath',
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Unable to find Downloads directory")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Notice',
+          message: 'Unable to find Downloads directory',
+          isError: true,
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving file: $e")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Error',
+        message: 'Error saving file: $e',
+        isError: true,
       );
     }
   }

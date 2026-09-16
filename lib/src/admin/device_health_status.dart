@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'package:http/http.dart' as http;
@@ -14,12 +13,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:cloud_sense_webapp/src/views/dashboard/device_graph.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cloud_sense_webapp/src/admin/quality_diagnostics_page.dart';
-import 'package:cloud_sense_webapp/src/admin/admin_page.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class DeviceHealthData {
   final String deviceId;
@@ -491,8 +488,11 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Error',
+          message: 'Error: ${e.toString()}',
+          isError: true,
         );
       }
     }
@@ -677,8 +677,11 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
       debugPrint('Pagination Error: $e');
       if (mounted) {
         setState(() => _isLoadingMore = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: ${e.toString()}')),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Error',
+          message: 'Error loading more: ${e.toString()}',
+          isError: true,
         );
       }
     }
@@ -1383,8 +1386,11 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
     } else if (mounted) {
       // Fallback: show what we have but maybe warn?
       _showHealthDetailsDialog(device, isDark);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load detailed diagnostics.')),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Alert',
+        message: 'Could not load detailed diagnostics.',
+        isError: true,
       );
     }
   }

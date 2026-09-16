@@ -444,6 +444,7 @@ class DeviceActionButton extends StatelessWidget {
               userEmail: currentEmail,
               deviceId: sn,
               displayDeviceId: dn,
+              adminEmail: isAdmin ? (providerEmail.isNotEmpty ? providerEmail : 'admin') : null,
               onSuccess: () {
                 onDeleteSuccess?.call();
               },

@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class BuffaloData extends StatefulWidget {
   final DateTime startDateTime;
@@ -53,26 +54,31 @@ class _BuffaloDataState extends State<BuffaloData> {
     _fetchData();
   }
 
-  Future<void> _fetchData() async {
+  void _showToast(String message, {bool isError = true, String? title}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: title ?? (isError ? 'Notice' : 'Success'),
+      message: message,
+      isError: isError,
+    );
+  }
+
+  Future<void> _fetchData([String nodeId = '']) async {
     setState(() => _isLoading = true);
 
-    String nodeIdToUse = selectedNodeId.replaceFirst('BF', '').trim();
+    String nodeIdToUse = nodeId.isNotEmpty ? nodeId : selectedNodeId;
 
     final startTime = selectedStartDate.millisecondsSinceEpoch ~/ 1000;
     final endTime = selectedEndDate.millisecondsSinceEpoch ~/ 1000;
 
     if (startTime > endTime) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Start time cannot be after end time!")),
-      );
+      _showToast("Start time cannot be after end time!");
       setState(() => _isLoading = false);
       return;
     }
 
     if (nodeIdToUse.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Node ID is empty or invalid.")),
-      );
+      _showToast("Node ID is empty or invalid.");
       setState(() => _isLoading = false);
       return;
     }
@@ -95,10 +101,7 @@ class _BuffaloDataState extends State<BuffaloData> {
         print("✅ Received ${responseData.length} records");
 
         if (responseData.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text("No activities found in selected range.")),
-          );
+          _showToast("No activities found in selected range.");
           setState(() {
             _data = [];
             _totalActivityTimes.clear();
@@ -123,10 +126,7 @@ class _BuffaloDataState extends State<BuffaloData> {
           } catch (e) {
             print(
                 "⚠️ Invalid timestamp at index $i: $timestampStr, skipping...");
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text("Invalid timestamp skipped: $timestampStr")),
-            );
+            _showToast("Invalid timestamp skipped: $timestampStr");
             continue; // Skip this record
           }
 
@@ -156,9 +156,7 @@ class _BuffaloDataState extends State<BuffaloData> {
       }
     } catch (e) {
       print("❌ ERROR: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to fetch: $e")),
-      );
+      _showToast("Failed to fetch: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -226,9 +224,7 @@ class _BuffaloDataState extends State<BuffaloData> {
 
       // Check if there is data to export
       if (groupedActivities.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No data available to download.")),
-        );
+        _showToast("No data available to download.");
         return; // Exit the function early if no data is available
       }
 
@@ -271,21 +267,14 @@ class _BuffaloDataState extends State<BuffaloData> {
           ..click();
         html.Url.revokeObjectUrl(url);
 
-        // Show Snackbar and clean up
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Downloading $fileName"),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        // Show Toast and clean up
+        _showToast("Downloading $fileName", isError: false, title: 'Download');
       } else {
         // Non-web platforms
         await saveCSVFile(csvData, fileName);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error generating CSV: $e")),
-      );
+      _showToast("Error generating CSV: $e");
     }
   }
 
@@ -305,18 +294,12 @@ class _BuffaloDataState extends State<BuffaloData> {
         // Write the CSV data to the file.
         await file.writeAsString(csvData);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("File downloaded to $filePath")),
-        );
+        _showToast("File downloaded to $filePath", isError: false, title: 'Download');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Unable to find Downloads directory")),
-        );
+        _showToast("Unable to find Downloads directory");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving file: $e")),
-      );
+      _showToast("Error saving file: $e");
     }
   }
 

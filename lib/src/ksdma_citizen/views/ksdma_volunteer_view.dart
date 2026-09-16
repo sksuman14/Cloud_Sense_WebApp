@@ -4,6 +4,7 @@ import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 void _showZoomDialog(BuildContext context, String imageUrl) {
   if (imageUrl.isEmpty) return;
@@ -76,6 +77,15 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Notice',
+      message: msg,
+      isError: isError,
+    );
   }
 
   @override
@@ -177,9 +187,7 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
-                        );
+                        _showToast('Downloading Official KSDMA Volunteer Recognition Certificate...');
                       },
                       icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
                       label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -217,9 +225,7 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                     const SizedBox(width: 12),
                     OutlinedButton.icon(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Downloading Official KSDMA Volunteer Recognition Certificate...')),
-                        );
+                        _showToast('Downloading Official KSDMA Volunteer Recognition Certificate...');
                       },
                       icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
                       label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
@@ -649,16 +655,11 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                               onPressed: s.approvalStatus == ApprovalStatus.approved
                                   ? () => widget.onEnterObservation(s.stationId)
                                   : () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            s.approvalStatus == ApprovalStatus.rejected
-                                                ? '❌ This station registration was rejected. Reason: ${s.rejectionReason.isNotEmpty ? s.rejectionReason : "Contact Admin HQ"}'
-                                                : '🔒 Station Pending Approval by Admin HQ. Data entry is locked until approved.',
-                                          ),
-                                          backgroundColor: s.approvalStatus == ApprovalStatus.rejected ? Colors.red.shade700 : Colors.amber,
-                                          duration: const Duration(seconds: 5),
-                                        ),
+                                      _showToast(
+                                        s.approvalStatus == ApprovalStatus.rejected
+                                            ? '❌ This station registration was rejected. Reason: ${s.rejectionReason.isNotEmpty ? s.rejectionReason : "Contact Admin HQ"}'
+                                            : '🔒 Station Pending Approval by Admin HQ. Data entry is locked until approved.',
+                                        isError: s.approvalStatus == ApprovalStatus.rejected,
                                       );
                                     },
                               icon: Icon(

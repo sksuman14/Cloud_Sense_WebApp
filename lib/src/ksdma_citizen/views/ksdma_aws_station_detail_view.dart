@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import '../models/ksdma_models.dart';
 import '../services/ksdma_state_service.dart';
 import '../../utils/api_keys.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaAwsStationDetailView extends StatefulWidget {
   final String stationId;
@@ -41,6 +42,15 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
   void dispose() {
     _keyboardFocusNode.dispose();
     super.dispose();
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Notice',
+      message: msg,
+      isError: isError,
+    );
   }
 
   String _formatDeviceId(String rawId) {
@@ -387,13 +397,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     final String apiUrl =
         'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$krStartDate&enddate=$krEndDate&annam_id=$annamId&key=${ApiKeys.annamApiKey}&mode=download';
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('⏳ Requesting AWS S3 Download for $annamId ($krStartDate to $krEndDate)...'),
-        backgroundColor: const Color(0xFF2563EB),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    _showToast('⏳ Requesting AWS S3 Download for $annamId ($krStartDate to $krEndDate)...');
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -411,12 +415,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
               ..setAttribute('download', fileName)
               ..click();
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('📥 Downloaded AWS S3 Telemetry ($fileName)'),
-              backgroundColor: const Color(0xFF15803D),
-            ),
-          );
+          _showToast('📥 Downloaded AWS S3 Telemetry ($fileName)');
           return;
         }
       }

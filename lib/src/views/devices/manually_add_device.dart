@@ -1,13 +1,21 @@
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ManualEntryPopup extends StatefulWidget {
   final Map<String, List<String>> devices;
+  final String? targetUserEmail;
+  final VoidCallback? onDeviceAdded;
 
-  ManualEntryPopup({required this.devices});
+  ManualEntryPopup({
+    Key? key,
+    required this.devices,
+    this.targetUserEmail,
+    this.onDeviceAdded,
+  }) : super(key: key);
 
   @override
   _ManualEntryPopupState createState() => _ManualEntryPopupState();
@@ -33,6 +41,12 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
   }
 
   Future<void> _loadEmail() async {
+    if (widget.targetUserEmail != null && widget.targetUserEmail!.isNotEmpty) {
+      setState(() {
+        _email = widget.targetUserEmail;
+      });
+      return;
+    }
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? email = prefs.getString('email');
 
@@ -41,39 +55,6 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
     });
   }
 
-  // ✅ Unified dialog for success/failure
-  Future<void> _showResultMessage(String msg, Color color) async {
-    setState(() {
-      message = msg;
-      messageColor = color;
-    });
-
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          content: Text(
-            message,
-            style: TextStyle(
-              color: messageColor,
-              fontSize: 16,
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.pop(context); // close dialog
-                Navigator.pop(context); // close dialog
-                NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   // Resolve prefix details and validate in real-time as the user types
   Map<String, dynamic> _resolveInputDetails(String text) {
@@ -151,7 +132,9 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
             children: [
               // Header
               Text(
-                'Add Device Manually',
+                widget.targetUserEmail != null
+                    ? 'Add Device to ${widget.targetUserEmail}'
+                    : 'Add Device Manually',
                 style: TextStyle(
                   color: textColor,
                   fontSize: 20,
@@ -341,9 +324,11 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                     onPressed: () async {
                       String inputId = deviceIdController.text.trim().toUpperCase();
                       if (inputId.isEmpty) {
-                        await _showResultMessage(
-                          "Please enter a valid device ID.",
-                          Colors.red,
+                        DeleteDeviceUtils.showToastNotification(
+                          context: context,
+                          title: 'Validation Error',
+                          message: 'Please enter a valid device ID.',
+                          isError: true,
                         );
                         return;
                       }
@@ -372,13 +357,14 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                             deviceId: finalDeviceId!,
                           );
 
-                          String displayId = DeviceUtils.toDisplayId(finalDeviceId!);
-                          await _showResultMessage(
-                            success
-                                ? "Device $displayId added successfully."
-                                : "Failed to add device $displayId.",
-                            success ? Colors.green : Colors.red,
-                          );
+                          if (context.mounted) {
+                            Navigator.pop(context); // close manual entry popup
+                            if (widget.targetUserEmail != null) {
+                              widget.onDeviceAdded?.call();
+                            } else if (success) {
+                              NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
+                            }
+                          }
                         },
                       );
                     },

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../views/home/home_theme.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaAuthModal extends StatefulWidget {
   final KsdmaStateService stateService;
@@ -73,8 +74,20 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('⚠️ $msg'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: 'Alert',
+      message: msg,
+      isError: true,
+    );
+  }
+
+  void _showSuccess(String msg) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: 'Success',
+      message: msg,
+      isError: false,
     );
   }
 
@@ -368,9 +381,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                     if (result['success'] == true) {
                       Navigator.of(context).pop();
                       widget.onLoginSuccess?.call(0);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✅ Account created & logged in successfully!'), backgroundColor: Colors.green),
-                      );
+                      _showSuccess('Account created & logged in successfully!');
                     } else {
                       _showError(result['message'] ?? 'Registration failed. Please try again.');
                     }
@@ -531,12 +542,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                             if (res['success'] == true) {
                               if (context.mounted) {
                                 Navigator.of(dialogCtx).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('✅ ${res['message']}'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
+                                _showSuccess('${res['message']}');
                               }
                             } else {
                               setDialogState(() => statusMsg = res['message'] ?? 'Failed to reset password.');
@@ -645,12 +651,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 if (result['success'] == true) {
                   Navigator.of(context).pop();
                   widget.onLoginSuccess?.call(0);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Logged in successfully as ${widget.stateService.currentUser.fullName}'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  _showSuccess('Logged in successfully as ${widget.stateService.currentUser.fullName}');
                 } else {
                   _showError(result['message'] ?? 'Login failed. Please check your password or register.');
                 }
@@ -747,9 +748,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 if (error == null) {
                   Navigator.of(context).pop();
                   widget.onLoginSuccess?.call(_getRoleTargetMenuIndex());
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Authenticated as Officer ${widget.stateService.currentUser.fullName}'), backgroundColor: Colors.blue),
-                  );
+                  _showSuccess('Authenticated as Officer ${widget.stateService.currentUser.fullName}');
                 } else {
                   _showError(error);
                 }
@@ -848,9 +847,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                 if (error == null) {
                   Navigator.of(context).pop();
                   widget.onLoginSuccess?.call(_getRoleTargetMenuIndex());
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Authenticated as Admin ${widget.stateService.currentUser.fullName}'), backgroundColor: Colors.purple),
-                  );
+                  _showSuccess('Authenticated as Admin ${widget.stateService.currentUser.fullName}');
                 } else {
                   _showError(error);
                 }

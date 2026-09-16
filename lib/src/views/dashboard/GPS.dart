@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -362,12 +363,11 @@ class _MapPageState extends State<MapPage> {
           mapController.move(centerCoordinates, zoomLevel);
         });
         if (deviceId != null && deviceId != 'None' && selectedDate != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('No data found'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
+          DeleteDeviceUtils.showToastNotification(
+            context: context,
+            title: 'Notice',
+            message: 'No data found',
+            isError: true,
           );
         }
       } else {
@@ -692,8 +692,11 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: 'Error',
+      message: message,
+      isError: true,
     );
   }
 
@@ -735,15 +738,21 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> fetchDistanceData() async {
     if (startDater == null || endDater == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select start and end dates")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Validation Error',
+        message: 'Please select start and end dates',
+        isError: true,
       );
       return;
     }
 
     if (selectedDeviceIdr == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a device from the map")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Validation Error',
+        message: 'Please select a device from the map',
+        isError: true,
       );
       return;
     }
@@ -783,16 +792,22 @@ class _MapPageState extends State<MapPage> {
         setState(() {
           filteredData = [];
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${response.statusCode}")),
+        DeleteDeviceUtils.showToastNotification(
+          context: context,
+          title: 'Error',
+          message: 'Error: ${response.statusCode}',
+          isError: true,
         );
       }
     } catch (e) {
       setState(() {
         filteredData = [];
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Error',
+        message: 'Error: $e',
+        isError: true,
       );
     }
 

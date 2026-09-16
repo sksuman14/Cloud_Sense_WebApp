@@ -13,6 +13,7 @@ import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
 import 'ksdma_aws_station_detail_view.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class KsdmaPublicDashboardView extends StatefulWidget {
   final Function(int tabIndex)? onNavigate;
@@ -38,6 +39,16 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   String? _expandedDeltaDistrict;
 
   late final MapController _mapController = MapController();
+
+  void _showToast(String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Notice',
+      message: msg,
+      isError: isError,
+    );
+  }
+
   String _mapSearchQuery = '';
   final TextEditingController _mapSearchTextController = TextEditingController();
   String _breakdownSearchQuery = '';
@@ -85,27 +96,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
       if (inDistrict.isEmpty) {
         // Show message and reset district back to previous value
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            duration: const Duration(seconds: 4),
-            content: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Color(0xFFFBBF24), size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'No stations found in "$_selectedDistrict". Filter not applied.',
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        _showToast('No stations found in "$_selectedDistrict". Filter not applied.', isError: true);
         // Reset district selection back to All Districts
         setState(() => _selectedDistrict = 'All Districts');
         return;
@@ -261,12 +252,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       html.Url.revokeObjectUrl(url);
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('📥 Exported Previous Day Comparison CSV for $_activeDeltaTab'),
-        backgroundColor: const Color(0xFF2563EB),
-      ),
-    );
+    _showToast('📥 Exported Previous Day Comparison CSV for $_activeDeltaTab');
   }
 
   void _showWhatsAppShareDialog(BuildContext context) {

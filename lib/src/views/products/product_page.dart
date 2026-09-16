@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 // ─────────────────────────────────────────────
 //  Design Tokens — dark teal industrial theme
@@ -2710,15 +2711,21 @@ Future<void> _sendEmail(BuildContext context, String email) async {
     }
 
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Could not open email client.")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Error',
+        message: 'Could not open email client.',
+        isError: true,
       );
     }
   } catch (e) {
     debugPrint("Email error: $e");
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Unable to open email client.")),
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Error',
+        message: 'Unable to open email client.',
+        isError: true,
       );
     }
   }

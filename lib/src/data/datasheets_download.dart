@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 class DownloadManager {
   static final Map<String, Map<String, String>> sensorFiles = {
@@ -82,9 +83,12 @@ class DownloadManager {
     }
   }
 
-  static void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+  static void _toast(BuildContext context, String msg, {bool isError = false}) {
+    DeleteDeviceUtils.showToastNotification(
+      context: context,
+      title: isError ? 'Alert' : 'Notice',
+      message: msg,
+      isError: isError,
     );
   }
 }
