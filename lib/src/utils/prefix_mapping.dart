@@ -591,6 +591,33 @@ class DevicePrefixUtils {
     return '$prefix${digits.padLeft(3, '0')}';
   }
 
+  /// Resolves canonical internal sensor name directly from a raw device Map entry.
+  static String resolveSensorNameFromDevice(Map<String, dynamic>? d) {
+    if (d == null) return "";
+    final devKey = d["deviceid#topic"]?.toString() ?? "";
+    final deviceId = (d['DeviceId'] ??
+            d['Device_ID'] ??
+            d['ANNAM_ID'] ??
+            (devKey.contains('#') ? devKey.split('#')[0] : devKey))
+        .toString();
+    final rawTopic = (d['Topic'] ??
+            d['topic'] ??
+            (devKey.contains('#') ? devKey.split('#')[1] : ""))
+        .toString()
+        .trim();
+    return resolveSensorName(deviceId, rawTopic);
+  }
+
+  /// Resolves user-facing display name (e.g. 'ANNAM-07') directly from a raw device Map entry.
+  static String getDisplaySensorName(Map<String, dynamic>? d) {
+    if (d == null) return "";
+    final sensorName = resolveSensorNameFromDevice(d);
+    final displayName = toAnnamDisplayName(sensorName);
+    if (displayName.isNotEmpty) return displayName;
+    final devKey = d["deviceid#topic"]?.toString() ?? "";
+    return (d['DeviceId'] ?? d['Device_ID'] ?? (devKey.contains('#') ? devKey.split('#')[0] : devKey)).toString();
+  }
+
   /// Categorizes if a sensor belongs to the core ANNAM group (non-testing).
   static bool isAnnamCoreSensor(String internalId) {
     if (internalId == null) return false;

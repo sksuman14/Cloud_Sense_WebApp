@@ -313,6 +313,47 @@ class HomeUtils {
     return null;
   }
 
+  static List<Map<String, dynamic>> getAllDevicesByDisplayId(
+      String displayId, List<dynamic> devicesList) {
+    if (displayId.trim().isEmpty) return [];
+    final searchLower = displayId.trim().toLowerCase();
+    final topic = buildTopicFromDisplayId(displayId).toLowerCase();
+    final List<Map<String, dynamic>> results = [];
+
+    for (var item in devicesList) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+
+      final devIdTopic = map["deviceid#topic"]?.toString().toLowerCase() ?? '';
+      final deviceId = map["Device_ID"]?.toString().toLowerCase() ?? '';
+      final annamId = map["ANNAM_ID"]?.toString().toLowerCase() ?? '';
+      final devId = map["DeviceId"]?.toString().toLowerCase() ?? '';
+      final topicStr = map["Topic"]?.toString().toLowerCase() ?? '';
+
+      if (devIdTopic == searchLower || devIdTopic == topic ||
+          deviceId == searchLower || deviceId == topic ||
+          annamId == searchLower || annamId == topic ||
+          devId == searchLower || devId == topic ||
+          topicStr == searchLower || topicStr == topic ||
+          topicStr.replaceAll('/', '_') == searchLower ||
+          topicStr.replaceAll('/', '_') == topic) {
+        results.add(map);
+        continue;
+      }
+
+      final searchClean = searchLower.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '');
+      if (searchClean.isNotEmpty) {
+        if (devIdTopic.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean ||
+            deviceId.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean ||
+            annamId.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean ||
+            topicStr.replaceAll('_', '').replaceAll('/', '').replaceAll('-', '') == searchClean) {
+          results.add(map);
+        }
+      }
+    }
+    return results;
+  }
+
   static int getCrossAxisCount(double screenWidth) {
     if (screenWidth < 600) {
       return 1;

@@ -26,6 +26,7 @@ import 'package:universal_html/html.dart' as html;
 import 'home_theme.dart';
 export 'home_theme.dart';
 import 'home_utils.dart';
+import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'widgets/battery_indicator.dart';
 import 'widgets/pressure_card.dart';
 import 'widgets/humidity_card.dart';
@@ -50,13 +51,10 @@ class _HomePageState extends State<HomePage> {
   String _dataPointsCount = "--";
   int _statesCount = 0;
   int _districtsCount = 0;
-  bool _isHoveredMyDevicesButton = false;
-  bool _isPressedMyDevicesButton = false;
   // NEW: For device dropdown
   String? selectedDeviceId;
+  String? selectedDeviceTopicKey;
   bool showNearestDevice = false;
-  final TextEditingController _deviceIdController =
-      TextEditingController(text: "ANNAM_CP02");
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _scrollController = ScrollController();
@@ -89,9 +87,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    if (selectedDeviceId != null && selectedDeviceId!.isNotEmpty) {
-      _deviceIdController.text = selectedDeviceId!;
-    }
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -213,7 +208,6 @@ class _HomePageState extends State<HomePage> {
     _authSubscription?.cancel();
     _scrollController.dispose();
     _pollingTimer?.cancel();
-    _deviceIdController.dispose();
     super.dispose();
   }
 
@@ -451,6 +445,24 @@ class _HomePageState extends State<HomePage> {
               },
             );
             selectedDevice = Map<String, dynamic>.from(updated);
+          } else if (selectedDeviceTopicKey != null) {
+            Map<String, dynamic>? match;
+            for (var d in allDevices) {
+              if (d is Map &&
+                  d["deviceid#topic"]?.toString() == selectedDeviceTopicKey) {
+                match = Map<String, dynamic>.from(d);
+                break;
+              }
+            }
+            if (match != null) {
+              selectedDevice = match;
+            } else if (selectedDeviceId != null) {
+              final device =
+                  HomeUtils.getDeviceByDisplayId(selectedDeviceId!, allDevices);
+              selectedDevice = device != null
+                  ? Map<String, dynamic>.from(device)
+                  : Map<String, dynamic>.from(allDevices.first);
+            }
           } else if (selectedDeviceId != null) {
             final device =
                 HomeUtils.getDeviceByDisplayId(selectedDeviceId!, allDevices);
@@ -472,8 +484,10 @@ class _HomePageState extends State<HomePage> {
           }
 
           if (selectedDevice != null) {
-            final actualId = HomeUtils.getDeviceIdFromTopic(
-                selectedDevice!["deviceid#topic"]?.toString());
+            selectedDeviceTopicKey =
+                selectedDevice!["deviceid#topic"]?.toString();
+            final actualId =
+                DevicePrefixUtils.getDisplaySensorName(selectedDevice);
             if (actualId.isNotEmpty) {
               selectedDeviceId = actualId;
             }
@@ -484,9 +498,6 @@ class _HomePageState extends State<HomePage> {
           _districtsCount = districtsCount;
           errorMessage = null;
         });
-        if (selectedDeviceId != null && selectedDeviceId!.isNotEmpty) {
-          _deviceIdController.text = selectedDeviceId!;
-        }
         _updateNativeWidget();
       }
     } catch (e) {
@@ -638,6 +649,496 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _showSensorSearchDialog(BuildContext context, bool isDarkMode) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        String searchQuery = "";
+
+        final strong = isDarkMode ? Colors.white : const Color(0xFF0D1B1E);
+        final subtle = isDarkMode ? Colors.white70 : Colors.black54;
+        final cardColor = isDarkMode ? const Color(0xFF192430) : Colors.white;
+        final dialogBg =
+            isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+        final borderColor = isDarkMode ? Colors.white12 : Colors.black12;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final allDevs = devices.cast<Map<String, dynamic>>();
+
+            // 1. Enrich raw devices using shared DevicePrefixUtils directly matching Admin
+            final List<Map<String, dynamic>> enriched = [];
+            for (var d in allDevs) {
+              final devKey = d["deviceid#topic"]?.toString() ?? "";
+              final deviceId = (d['DeviceId'] ??
+                      d['Device_ID'] ??
+                      d['ANNAM_ID'] ??
+                      (devKey.contains('#') ? devKey.split('#')[0] : devKey))
+                  .toString();
+              final sensorName =
+                  DevicePrefixUtils.resolveSensorNameFromDevice(d);
+              final displaySensorName =
+                  DevicePrefixUtils.toAnnamDisplayName(sensorName);
+              final rawTopic = (d['Topic'] ??
+                      d['topic'] ??
+                      (devKey.contains('#') ? devKey.split('#')[1] : ""))
+                  .toString()
+                  .trim();
+              final mapped = DevicePrefixUtils.mapCategoryAndPrefix(rawTopic);
+              final topic = (rawTopic.isNotEmpty && rawTopic != "Unknown")
+                  ? rawTopic
+                  : DevicePrefixUtils.buildTopicFromSensorName(sensorName)
+                      .split('#')
+                      .last;
+
+              // Filter out TS018 and ANNAM001 matching Admin
+              final snUpper = sensorName.toUpperCase();
+              final dnUpper = displaySensorName.toUpperCase();
+              if (snUpper == 'TS018' ||
+                  snUpper == 'TS_018' ||
+                  dnUpper == 'TS018' ||
+                  dnUpper == 'TS_018' ||
+                  snUpper == 'ANNAM001' ||
+                  dnUpper == 'ANNAM001') {
+                continue;
+              }
+
+              // Calculate isActive
+              DateTime? lastTime;
+              final rawTime = d['TimeStamp_IST'] ??
+                  d['TimeStamp'] ??
+                  d['Time_Stamp'] ??
+                  d['human_time'] ??
+                  d['timestamp'];
+              if (rawTime != null) {
+                lastTime = DateTime.tryParse(rawTime.toString());
+                if (lastTime == null) {
+                  try {
+                    lastTime = DateFormat("yyyy-MM-dd HH:mm:ss")
+                        .parse(rawTime.toString());
+                  } catch (_) {}
+                }
+              }
+              final bool isActive = lastTime != null &&
+                  DateTime.now().difference(lastTime).inHours <= 1;
+
+              final bool isAnnam =
+                  DevicePrefixUtils.isAnnamCoreSensor(sensorName);
+
+              final location = HomeUtils.getFormattedLocation(d);
+
+              enriched.add({
+                'raw': d,
+                'devKey': devKey,
+                'deviceId': deviceId,
+                'rawTopic': rawTopic,
+                'topic': topic,
+                'sensorName': sensorName,
+                'displaySensorName': displaySensorName,
+                'category': mapped.category,
+                'location': location,
+                'isActive': isActive,
+                'isAnnam': isAnnam,
+              });
+            }
+
+            // 2. Filter by Search Query
+            Iterable<Map<String, dynamic>> list = enriched;
+            if (searchQuery.isNotEmpty) {
+              final q = searchQuery.toLowerCase();
+              list = list.where((d) {
+                final did = (d['deviceId'] as String).toLowerCase();
+                final t = (d['topic'] as String).toLowerCase();
+                final sn = (d['sensorName'] as String).toLowerCase();
+                final dsn = (d['displaySensorName'] as String).toLowerCase();
+                final loc = (d['location'] as String).toLowerCase();
+                final cat = (d['category'] as String).toLowerCase();
+                return did.contains(q) ||
+                    t.contains(q) ||
+                    sn.contains(q) ||
+                    dsn.contains(q) ||
+                    loc.contains(q) ||
+                    cat.contains(q);
+              });
+            }
+
+            // 3. Natural Sorting matching Admin
+            int naturalCompare(String a, String b) {
+              final regExp = RegExp(r'(\d+|\D+)');
+              final matchesA =
+                  regExp.allMatches(a).map((m) => m.group(0)!).toList();
+              final matchesB =
+                  regExp.allMatches(b).map((m) => m.group(0)!).toList();
+              final len = matchesA.length < matchesB.length
+                  ? matchesA.length
+                  : matchesB.length;
+              for (int i = 0; i < len; i++) {
+                final partA = matchesA[i];
+                final partB = matchesB[i];
+                final numA = int.tryParse(partA);
+                final numB = int.tryParse(partB);
+                if (numA != null && numB != null) {
+                  final cmp = numA.compareTo(numB);
+                  if (cmp != 0) return cmp;
+                } else {
+                  final cmp = partA.compareTo(partB);
+                  if (cmp != 0) return cmp;
+                }
+              }
+              return matchesA.length.compareTo(matchesB.length);
+            }
+
+            int getSortRank(Map<String, dynamic> d) {
+              final sn = d['sensorName'] as String;
+              final dn = (d['displaySensorName'] as String).toUpperCase();
+              final topic = (d['topic'] as String).toLowerCase();
+              final isActive = d['isActive'] as bool;
+              final isKerala = topic.contains('kerala') || sn.startsWith('KR');
+              final isPunjab = topic.contains('punjab') || sn.startsWith('PJ');
+              final isAnnam = d['isAnnam'] as bool || dn.startsWith('ANNAM');
+
+              if (isAnnam && isKerala && isActive) return 0;
+              if (isAnnam && isPunjab && isActive) return 1;
+              if (isAnnam && isActive) return 2;
+              if (!isAnnam && isActive) return 3;
+              if (isAnnam && isKerala && !isActive) return 4;
+              if (isAnnam && isPunjab && !isActive) return 5;
+              if (isAnnam && !isActive) return 6;
+              return 7;
+            }
+
+            final sortedDevices = list.toList()
+              ..sort((a, b) {
+                final rankA = getSortRank(a);
+                final rankB = getSortRank(b);
+                if (rankA != rankB) return rankA.compareTo(rankB);
+                final nameCmp = naturalCompare(
+                    a['displaySensorName'] as String,
+                    b['displaySensorName'] as String);
+                if (nameCmp != 0) return nameCmp;
+                return (a['topic'] as String).compareTo(b['topic'] as String);
+              });
+
+            final currentKey = selectedDevice?["deviceid#topic"]?.toString();
+
+            return Dialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 720, maxHeight: 700),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          const Icon(Icons.devices,
+                              color: Color(0xFF007AFF), size: 22),
+                          const SizedBox(width: 10),
+                          Text(
+                            "Devices",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: strong,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF007AFF).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              "${sortedDevices.length}",
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF007AFF),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: Icon(Icons.close, size: 20, color: subtle),
+                            onPressed: () => Navigator.of(dialogCtx).pop(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Search field
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? const Color(0xFF1E293B)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: TextField(
+                          autofocus: false,
+                          style: TextStyle(color: strong, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: "Search Device ID, Group, Location...",
+                            hintStyle: TextStyle(
+                                color: subtle.withOpacity(0.6), fontSize: 12),
+                            prefixIcon:
+                                Icon(Icons.search, size: 18, color: subtle),
+                            suffixIcon: searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear,
+                                        size: 16, color: subtle),
+                                    onPressed: () => setDialogState(
+                                        () => searchQuery = ""),
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onChanged: (val) =>
+                              setDialogState(() => searchQuery = val.trim()),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Device Cards List
+                      Flexible(
+                        child: sortedDevices.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.search_off,
+                                          size: 40,
+                                          color: subtle.withOpacity(0.5)),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        "No devices found",
+                                        style: TextStyle(
+                                            color: subtle, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isTwoCol = constraints.maxWidth >= 520;
+                                  if (isTwoCol) {
+                                    return GridView.builder(
+                                      shrinkWrap: true,
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        mainAxisExtent: 68,
+                                        crossAxisSpacing: 10,
+                                        mainAxisSpacing: 10,
+                                      ),
+                                      itemCount: sortedDevices.length,
+                                      itemBuilder: (context, idx) {
+                                        return _buildDialogDeviceCard(
+                                          item: sortedDevices[idx],
+                                          idx: idx,
+                                          isSelected: sortedDevices[idx]
+                                                  ['devKey'] ==
+                                              currentKey,
+                                          isDark: isDarkMode,
+                                          strong: strong,
+                                          subtle: subtle,
+                                          cardColor: cardColor,
+                                          borderColor: borderColor,
+                                          onTap: () {
+                                            final dev = sortedDevices[idx];
+                                            final dispId = dev[
+                                                'displaySensorName'] as String;
+                                            final devKey =
+                                                dev['devKey'] as String;
+                                            setState(() {
+                                              selectedDevice = dev['raw'];
+                                              selectedDeviceId =
+                                                  dispId.isNotEmpty
+                                                      ? dispId
+                                                      : devKey;
+                                              selectedDeviceTopicKey = devKey;
+                                              showNearestDevice = false;
+                                              errorMessage = null;
+                                            });
+                                            _updateNativeWidget();
+                                            Navigator.of(dialogCtx).pop();
+                                          },
+                                        );
+                                      },
+                                    );
+                                  }
+
+                                  return ListView.separated(
+                                    shrinkWrap: true,
+                                    itemCount: sortedDevices.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 8),
+                                    itemBuilder: (context, idx) {
+                                      return _buildDialogDeviceCard(
+                                        item: sortedDevices[idx],
+                                        idx: idx,
+                                        isSelected: sortedDevices[idx]
+                                                ['devKey'] ==
+                                            currentKey,
+                                        isDark: isDarkMode,
+                                        strong: strong,
+                                        subtle: subtle,
+                                        cardColor: cardColor,
+                                        borderColor: borderColor,
+                                        onTap: () {
+                                          final dev = sortedDevices[idx];
+                                          final dispId = dev[
+                                              'displaySensorName'] as String;
+                                          final devKey =
+                                              dev['devKey'] as String;
+                                          setState(() {
+                                            selectedDevice = dev['raw'];
+                                            selectedDeviceId =
+                                                dispId.isNotEmpty
+                                                    ? dispId
+                                                    : devKey;
+                                            selectedDeviceTopicKey = devKey;
+                                            showNearestDevice = false;
+                                            errorMessage = null;
+                                          });
+                                          _updateNativeWidget();
+                                          Navigator.of(dialogCtx).pop();
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDialogDeviceCard({
+    required Map<String, dynamic> item,
+    required int idx,
+    required bool isSelected,
+    required bool isDark,
+    required Color strong,
+    required Color subtle,
+    required Color cardColor,
+    required Color borderColor,
+    required VoidCallback onTap,
+  }) {
+    final displaySensorName = item['displaySensorName'] as String;
+    final topic = item['topic'] as String;
+    final location = item['location'] as String;
+    final category = item['category'] as String;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: isSelected
+            ? const Color(0xFF007AFF).withOpacity(0.12)
+            : cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? const Color(0xFF007AFF) : borderColor,
+          width: isSelected ? 1.5 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 12.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${idx + 1}. $displaySensorName',
+                              style: TextStyle(
+                                color: strong,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (topic.isNotEmpty &&
+                                topic != 'Unknown') ...[
+                              TextSpan(
+                                text: '  ($topic)',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? const Color(0xFF38BDF8)
+                                      : const Color(0xFF0284C7),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isSelected)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(Icons.check_circle,
+                            size: 16, color: Color(0xFF007AFF)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  location.isNotEmpty ? location : category,
+                  style: TextStyle(
+                    color: subtle,
+                    fontSize: 10.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.sizeOf(context).width;
@@ -780,111 +1281,89 @@ class _HomePageState extends State<HomePage> {
                                                 SizedBox(
                                                   height:
                                                       isSmallScreen ? 38 : 42,
-                                                  child: Container(
-                                                    width: isSmallScreen
-                                                        ? 115
-                                                        : 150,
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 8),
-                                                    decoration: BoxDecoration(
-                                                      color: !isDarkMode
-                                                          ? Colors.white
-                                                          : const Color(
-                                                                  0xFF0D1F2D)
-                                                              .withOpacity(0.5),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              6),
-                                                      border: Border.all(
-                                                        color: isDarkMode
-                                                            ? Colors.white30
-                                                            : Colors.black26,
-                                                        width: 1,
-                                                      ),
-                                                    ),
-                                                    alignment: Alignment.center,
-                                                    child: TextField(
-                                                      controller:
-                                                          _deviceIdController,
-                                                      style: TextStyle(
-                                                        color: isDarkMode
+                                                  child: InkWell(
+                                                    borderRadius:
+                                                        BorderRadius.circular(8),
+                                                    onTap: () =>
+                                                        _showSensorSearchDialog(
+                                                            context, isDarkMode),
+                                                    child: Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 10),
+                                                      decoration: BoxDecoration(
+                                                        color: !isDarkMode
                                                             ? Colors.white
-                                                            : Colors.black,
-                                                        fontFamily: 'OpenSans',
-                                                        fontSize: isSmallScreen
-                                                            ? 10
-                                                            : 13,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                      decoration:
-                                                          InputDecoration(
-                                                        hintText: "e.g., DM001",
-                                                        hintStyle: TextStyle(
+                                                            : const Color(
+                                                                    0xFF0D1F2D)
+                                                                .withOpacity(0.8),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                                8),
+                                                        border: Border.all(
                                                           color: isDarkMode
-                                                              ? Colors.white38
-                                                              : Colors.black38,
-                                                          fontSize:
-                                                              isSmallScreen
-                                                                  ? 9
-                                                                  : 12,
+                                                              ? Colors.white30
+                                                              : Colors.black26,
+                                                          width: 1,
                                                         ),
-                                                        border:
-                                                            InputBorder.none,
-                                                        isDense: true,
-                                                        contentPadding:
-                                                            EdgeInsets.zero,
                                                       ),
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      onSubmitted:
-                                                          (String value) {
-                                                        if (value
-                                                            .trim()
-                                                            .isNotEmpty) {
-                                                          final deviceId = value
-                                                              .trim()
-                                                              .toUpperCase();
-                                                          final device = HomeUtils
-                                                              .getDeviceByDisplayId(
-                                                            deviceId,
-                                                            devices.cast<
-                                                                Map<String,
-                                                                    dynamic>>(),
-                                                          );
-
-                                                          if (device != null) {
-                                                            setState(() {
-                                                              selectedDeviceId =
-                                                                  deviceId;
-                                                              showNearestDevice =
-                                                                  false;
-                                                              selectedDevice =
-                                                                  device;
-                                                              errorMessage =
-                                                                  null;
-                                                            });
-                                                            _updateNativeWidget();
-                                                          } else {
-                                                            setState(() {
-                                                              errorMessage =
-                                                                  "Device $deviceId not found. Please check the ID.";
-                                                            });
-                                                            Future.delayed(
-                                                                const Duration(
-                                                                    seconds: 3),
-                                                                () {
-                                                              if (mounted) {
-                                                                setState(() {
-                                                                  errorMessage =
-                                                                      null;
-                                                                });
-                                                              }
-                                                            });
-                                                          }
-                                                        }
-                                                      },
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.search,
+                                                            size: 16,
+                                                            color: Color(
+                                                                0xFF007AFF),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 6),
+                                                          ConstrainedBox(
+                                                            constraints:
+                                                                BoxConstraints(
+                                                              maxWidth:
+                                                                  isSmallScreen
+                                                                      ? 95
+                                                                      : 135,
+                                                            ),
+                                                            child: Text(
+                                                              selectedDeviceId ??
+                                                                  "Select Sensor",
+                                                              style: TextStyle(
+                                                                color: isDarkMode
+                                                                    ? Colors.white
+                                                                    : Colors.black,
+                                                                fontFamily:
+                                                                    'OpenSans',
+                                                                fontSize:
+                                                                    isSmallScreen
+                                                                        ? 11
+                                                                        : 13,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              maxLines: 1,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Icon(
+                                                            Icons
+                                                                .arrow_drop_down,
+                                                            size: 18,
+                                                            color: isDarkMode
+                                                                ? Colors.white70
+                                                                : Colors.black54,
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 )
@@ -908,16 +1387,32 @@ class _HomePageState extends State<HomePage> {
                                                                       null &&
                                                                   selectedDeviceId !=
                                                                       "ANNAM001")
-                                                              ? selectedDeviceId!
-                                                              : "ANNAM_CP02";
+                                                               ? selectedDeviceId!
+                                                               : "ANNAM_CP02";
                                                       selectedDeviceId =
                                                           targetId;
-                                                      selectedDevice = HomeUtils
-                                                              .getDeviceByDisplayId(
-                                                                  targetId,
-                                                                  devices.cast<
-                                                                      Map<String,
-                                                                          dynamic>>()) ??
+                                                      Map<String, dynamic>? dev;
+                                                      if (selectedDeviceTopicKey !=
+                                                          null) {
+                                                        for (var d
+                                                            in devices) {
+                                                          if (d is Map &&
+                                                              d["deviceid#topic"]
+                                                                      ?.toString() ==
+                                                                  selectedDeviceTopicKey) {
+                                                            dev = Map<
+                                                                String,
+                                                                dynamic>.from(d);
+                                                            break;
+                                                          }
+                                                        }
+                                                      }
+                                                      selectedDevice = dev ??
+                                                          HomeUtils.getDeviceByDisplayId(
+                                                              targetId,
+                                                              devices.cast<
+                                                                  Map<String,
+                                                                      dynamic>>()) ??
                                                           HomeUtils.getDeviceByDisplayId(
                                                               "ANNAM_CP02",
                                                               devices.cast<
@@ -926,9 +1421,6 @@ class _HomePageState extends State<HomePage> {
                                                       nearestDevice = null;
                                                       errorMessage = null;
                                                     });
-                                                    _deviceIdController.text =
-                                                        selectedDeviceId ??
-                                                            'ANNAM_CP02';
                                                     _updateNativeWidget();
                                                   },
                                                   child: const Icon(
@@ -1088,64 +1580,60 @@ class _HomePageState extends State<HomePage> {
                                                                 crossAxisAlignment:
                                                                     CrossAxisAlignment
                                                                         .start,
-                                                                children: [
-                                                                  // Add Device ID display
-                                                                  if (HomeUtils.getDeviceIdFromTopic(
-                                                                          selectedDevice?["deviceid#topic"]
-                                                                              ?.toString())
-                                                                      .isNotEmpty)
+                                                                  children: [
+                                                                    // Add Device ID display
+                                                                    Builder(
+                                                                      builder: (_) {
+                                                                        final devDisplayId = selectedDeviceId ??
+                                                                            DevicePrefixUtils.getDisplaySensorName(
+                                                                                selectedDevice);
+                                                                        if (devDisplayId.isEmpty) return const SizedBox.shrink();
+                                                                        return Column(
+                                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                                          children: [
+                                                                            Text(
+                                                                              "Device ID: $devDisplayId",
+                                                                              style: TextStyle(
+                                                                                fontSize: 14,
+                                                                                fontWeight: FontWeight.bold,
+                                                                                color: isDarkMode
+                                                                                    ? Colors.white
+                                                                                    : Colors.black,
+                                                                              ),
+                                                                              overflow: TextOverflow.ellipsis,
+                                                                              maxLines: 1,
+                                                                            ),
+                                                                            const SizedBox(height: 4),
+                                                                          ],
+                                                                        );
+                                                                      },
+                                                                    ),
                                                                     Text(
-                                                                      "Device ID: ${HomeUtils.getDeviceIdFromTopic(selectedDevice?["deviceid#topic"]?.toString())}",
+                                                                      HomeUtils.shouldHideLocation(selectedDevice?["deviceid#topic"]
+                                                                              ?.toString())
+                                                                          ? ""
+                                                                          : HomeUtils.getFormattedLocation(
+                                                                              selectedDevice),
                                                                       style:
                                                                           TextStyle(
                                                                         fontSize:
-                                                                            14,
+                                                                            12,
                                                                         fontWeight:
-                                                                            FontWeight.bold,
+                                                                            FontWeight
+                                                                                .bold,
                                                                         color: isDarkMode
-                                                                            ? Colors.white
-                                                                            : Colors.black,
+                                                                            ? Colors
+                                                                                .white
+                                                                            : Colors
+                                                                                .black,
                                                                       ),
                                                                       overflow:
                                                                           TextOverflow
                                                                               .ellipsis,
-                                                                      maxLines:
-                                                                          1,
+                                                                      maxLines: 1,
                                                                     ),
-                                                                  if (HomeUtils.getDeviceIdFromTopic(
-                                                                          selectedDevice?["deviceid#topic"]
-                                                                              ?.toString())
-                                                                      .isNotEmpty)
                                                                     const SizedBox(
-                                                                        height:
-                                                                            4),
-                                                                  Text(
-                                                                    HomeUtils.shouldHideLocation(selectedDevice?["deviceid#topic"]
-                                                                            ?.toString())
-                                                                        ? ""
-                                                                        : HomeUtils.getFormattedLocation(
-                                                                            selectedDevice),
-                                                                    style:
-                                                                        TextStyle(
-                                                                      fontSize:
-                                                                          12,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .bold,
-                                                                      color: isDarkMode
-                                                                          ? Colors
-                                                                              .white
-                                                                          : Colors
-                                                                              .black,
-                                                                    ),
-                                                                    overflow:
-                                                                        TextOverflow
-                                                                            .ellipsis,
-                                                                    maxLines: 1,
-                                                                  ),
-                                                                  const SizedBox(
-                                                                      height:
-                                                                          2),
+                                                                        height: 2),
                                                                   Text(
                                                                     currentDate,
                                                                     style:
@@ -1183,32 +1671,34 @@ class _HomePageState extends State<HomePage> {
                                                                         .start,
                                                                 children: [
                                                                   // Add Device ID display
-                                                                  if (HomeUtils.getDeviceIdFromTopic(
-                                                                          selectedDevice?["deviceid#topic"]
-                                                                              ?.toString())
-                                                                      .isNotEmpty)
-                                                                    Text(
-                                                                      "Device ID: ${HomeUtils.getDeviceIdFromTopic(selectedDevice?["deviceid#topic"]?.toString())}",
-                                                                      style:
-                                                                          TextStyle(
-                                                                        fontSize: screenWidth <
-                                                                                800
-                                                                            ? 15
-                                                                            : 18,
-                                                                        fontWeight:
-                                                                            FontWeight.bold,
-                                                                        color: isDarkMode
-                                                                            ? Colors.white
-                                                                            : Colors.black,
-                                                                      ),
-                                                                    ),
-                                                                  if (HomeUtils.getDeviceIdFromTopic(
-                                                                          selectedDevice?["deviceid#topic"]
-                                                                              ?.toString())
-                                                                      .isNotEmpty)
-                                                                    const SizedBox(
-                                                                        height:
-                                                                            4),
+                                                                  Builder(
+                                                                    builder: (_) {
+                                                                      final devDisplayId = selectedDeviceId ??
+                                                                          DevicePrefixUtils.getDisplaySensorName(
+                                                                              selectedDevice);
+                                                                      if (devDisplayId.isEmpty) return const SizedBox.shrink();
+                                                                      return Column(
+                                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                                        children: [
+                                                                          Text(
+                                                                            "Device ID: $devDisplayId",
+                                                                            style: TextStyle(
+                                                                              fontSize: screenWidth <
+                                                                                      800
+                                                                                  ? 15
+                                                                                  : 18,
+                                                                              fontWeight:
+                                                                                  FontWeight.bold,
+                                                                              color: isDarkMode
+                                                                                  ? Colors.white
+                                                                                  : Colors.black,
+                                                                            ),
+                                                                          ),
+                                                                          const SizedBox(height: 4),
+                                                                        ],
+                                                                      );
+                                                                    },
+                                                                  ),
                                                                   Text(
                                                                     HomeUtils.shouldHideLocation(selectedDevice?["deviceid#topic"]
                                                                             ?.toString())
