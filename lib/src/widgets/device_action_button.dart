@@ -8,6 +8,7 @@ import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart';
+import 'package:cloud_sense_webapp/src/widgets/device_spec_meta_dialogs.dart';
 
 const Map<String, String> defaultParameterDisplayNames = {
   'temperature': 'Temperature',
@@ -420,6 +421,28 @@ class DeviceActionButton extends StatelessWidget {
             );
             break;
 
+          case 'specification':
+            showDeviceSpecificationDialog(
+              context: context,
+              deviceId: deviceId,
+              topic: topic,
+              sensorName: sn,
+              displayName: dn,
+              isDark: isDark,
+            );
+            break;
+
+          case 'metadata':
+            showDeviceMetadataDialog(
+              context: context,
+              deviceId: deviceId,
+              topic: topic,
+              sensorName: sn,
+              displayName: dn,
+              isDark: isDark,
+            );
+            break;
+
           case 'quality':
             NavigationUtils.navigateTo(
               context,
@@ -513,6 +536,22 @@ class DeviceActionButton extends StatelessWidget {
               Icon(Icons.health_and_safety_outlined, color: Colors.green, size: 18),
               SizedBox(width: 10),
               Expanded(child: Text('Health Status', style: TextStyle(fontSize: 13))),
+            ]),
+          ),
+          const PopupMenuItem<String>(
+            value: 'specification',
+            child: Row(children: [
+              Icon(Icons.tune_rounded, color: Colors.cyan, size: 18),
+              SizedBox(width: 10),
+              Expanded(child: Text('Specification', style: TextStyle(fontSize: 13))),
+            ]),
+          ),
+          const PopupMenuItem<String>(
+            value: 'metadata',
+            child: Row(children: [
+              Icon(Icons.travel_explore_rounded, color: Colors.amber, size: 18),
+              SizedBox(width: 10),
+              Expanded(child: Text('Metadata', style: TextStyle(fontSize: 13))),
             ]),
           ),
           if (isAdmin)
