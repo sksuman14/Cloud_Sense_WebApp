@@ -443,11 +443,11 @@ class KsdmaApiService {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/observations'),
-        headers: {'Content-Type': 'application/json'},
+        headers: authHeaders,
         body: jsonEncode({
           'observation_id': obs.observationId,
           'station_id': obs.stationId,
-          'submitted_by_user_id': obs.submittedByUserId,
+          'submitted_by_user_id': obs.submittedByUserId.isNotEmpty ? obs.submittedByUserId : 'usr_admin_hq',
           'observation_date': obs.observationDate.toIso8601String().split('T')[0],
           'observation_time': '${obs.observationTime.hour.toString().padLeft(2, '0')}:${obs.observationTime.minute.toString().padLeft(2, '0')}:00',
           'rainfall_mm': obs.rainfallMm,
@@ -461,11 +461,15 @@ class KsdmaApiService {
           'is_edited': obs.isEdited,
           'status': obs.isRemoved ? 'removed' : 'approved',
         }),
-      ).timeout(const Duration(seconds: 4));
-      return response.statusCode == 200 || response.statusCode == 201;
+      ).timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      }
+      print('❌ submitObservation API HTTP ${response.statusCode}: ${response.body}');
+      return false;
     } catch (e) {
-      debugPrint('API observation sync notice ($e). Saved locally in state.');
-      return true;
+      debugPrint('API observation sync error: $e');
+      return false;
     }
   }
 
@@ -474,30 +478,35 @@ class KsdmaApiService {
     try {
       final response = await http.put(
         Uri.parse('$apiBaseUrl/observations/$observationId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: authHeaders,
         body: jsonEncode({
           'is_removed': true,
           'status': 'removed',
           'removal_reason': reason,
         }),
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(seconds: 6));
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 
   // 11. POST /api/observations/bulk - Admin Bulk Import
   Future<int> bulkUploadObservations(List<Map<String, dynamic>> records) async {
+    if (records.isEmpty) return 0;
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/observations/bulk'),
-        headers: {'Content-Type': 'application/json'},
+        headers: authHeaders,
         body: jsonEncode({'records': records}),
-      );
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> body = jsonDecode(response.body);
-        return body['count'] ?? records.length;
+      ).timeout(const Duration(seconds: 15));
+      print('Bulk Upload HTTP Response Status: ${response.statusCode}, Body: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = jsonDecode(response.body);
+        if (body is Map && (body['success'] == true || body['count'] != null)) {
+          return body['count'] ?? records.length;
+        }
+        return records.length;
       }
     } catch (e) {
       print('Error performing bulk upload via API: $e');

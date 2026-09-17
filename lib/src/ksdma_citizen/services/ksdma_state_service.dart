@@ -1006,6 +1006,30 @@ class KsdmaStateService extends ChangeNotifier {
     return insertedCount;
   }
 
+  /// Bulk upload list of parsed KsdmaObservation records directly into state & AWS API database
+  Future<int> addBulkObservations(List<KsdmaObservation> obsList) async {
+    if (obsList.isEmpty) return 0;
+
+    int successCount = 0;
+
+    // Concurrently upload records in batches of 5 to AWS RDS PostgreSQL via submitObservation API
+    const batchSize = 5;
+    for (int i = 0; i < obsList.length; i += batchSize) {
+      final chunk = obsList.skip(i).take(batchSize).toList();
+      final results = await Future.wait(chunk.map((obs) => apiService.submitObservation(obs)));
+      successCount += results.where((r) => r).length;
+    }
+
+    // Always update local in-memory state so user sees imported data immediately
+    for (var obs in obsList) {
+      _observations.removeWhere((o) => o.observationId == obs.observationId);
+      _observations.add(obs);
+    }
+    notifyListeners();
+
+    return successCount;
+  }
+
   // Submit or Edit Observation and sync to AWS RDS via API
   Future<void> submitObservation({
     required String stationId,

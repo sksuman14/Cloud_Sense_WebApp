@@ -562,15 +562,29 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: const [
-                Icon(Icons.upload_file, color: Color(0xFFD97706), size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Bulk upload (WhatsApp / Volunteer Data)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+              children: [
+                const Icon(Icons.upload_file, color: Color(0xFFD97706), size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Bulk upload (WhatsApp / Volunteer Data)',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showCsvGuideDialog(context),
+                  icon: const Icon(Icons.help_outline, size: 16, color: Color(0xFFD97706)),
+                  label: const Text(
+                    'Upload Guide',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
               ],
@@ -726,25 +740,92 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         throw Exception('Operation Blocked: Station "${targetStation.stationId}" is REJECTED or Pending. Data upload is strictly restricted to Active Approved Stations only.');
       }
 
-      final lines = _uploadedCsvContent!.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty).toList();
+      String content = _uploadedCsvContent!.replaceAll('\uFEFF', '').replaceAll('\u200B', '').trim();
+
+      // 1. Binary Excel File Detector (.xlsx / .xls)
+      if (content.startsWith('PK\x03\x04') || content.startsWith('PK')) {
+        throw Exception('File Format Error: You uploaded a raw binary Excel (.xlsx) file. Please save or export your sheet as "CSV (Comma delimited) (*.csv)" in Excel before uploading.');
+      }
+
+      final lines = content.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty).toList();
       if (lines.isEmpty) {
         throw Exception('CSV file is empty!');
       }
 
-      // 1. Identify Columns from Header
-      final headerCols = lines[0].split(',').map((c) => c.trim().replaceAll('"', '').toLowerCase()).toList();
+      // 2. Delimiter Auto-Detection (Comma, Semicolon, Tab, Pipe)
+      String detectDelimiter(String sampleLine) {
+        if (sampleLine.contains('\t')) return '\t';
+        if (sampleLine.contains(';')) return ';';
+        if (sampleLine.contains('|')) return '|';
+        return ',';
+      }
 
-      int stnIdIdx = headerCols.indexWhere((c) => c.contains('station') || c.contains('device') || (c.contains('id') && !c.contains('date')));
-      int instTypeIdx = headerCols.indexWhere((c) => c.contains('instrument') || (c.contains('type') && !c.contains('boundary')));
-      int dateIdx = headerCols.indexWhere((c) => c.contains('date'));
-      int timeIdx = headerCols.indexWhere((c) => c.contains('time'));
-      int rainIdx = headerCols.indexWhere((c) => c.contains('rain'));
-      int maxTempIdx = headerCols.indexWhere((c) => c.contains('max') || (c.contains('temp') && !c.contains('min')));
-      int minTempIdx = headerCols.indexWhere((c) => c.contains('min'));
-      int humIdx = headerCols.indexWhere((c) => c.contains('hum'));
-      int riverIdx = headerCols.indexWhere((c) => c.contains('river') || c.contains('level'));
+      final String delimiter = detectDelimiter(lines[0]);
 
-      // 2. Instrument Type Validation Check
+      // Helper for CSV Date Parsing
+      DateTime? parseCsvDate(String raw) {
+        if (raw.trim().isEmpty) return null;
+        final s = raw.trim();
+        final iso = DateTime.tryParse(s);
+        if (iso != null) return iso.toLocal();
+
+        final datePart = s.split(RegExp(r'[\sT]+'))[0];
+        final tokens = datePart.split(RegExp(r'[-/.]'));
+        if (tokens.length == 3) {
+          int? p1 = int.tryParse(tokens[0]);
+          int? p2 = int.tryParse(tokens[1]);
+          int? p3 = int.tryParse(tokens[2]);
+
+          if (p2 == null) {
+            const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+            final monthIdx = months.indexWhere((m) => tokens[1].toLowerCase().startsWith(m));
+            if (monthIdx != -1) p2 = monthIdx + 1;
+          }
+
+          if (p1 != null && p2 != null && p3 != null) {
+            if (p1 > 1000) return DateTime(p1, p2, p3); // YYYY-MM-DD
+            if (p3 > 1000) {
+              if (p2 > 12) return DateTime(p3, p1, p2); // MM/DD/YYYY
+              return DateTime(p3, p2, p1); // DD/MM/YYYY (Indian Standard)
+            }
+            if (p3 < 100) {
+              final fullYear = 2000 + p3;
+              if (p2 > 12) return DateTime(fullYear, p1, p2);
+              return DateTime(fullYear, p2, p1);
+            }
+          }
+        }
+        return null;
+      }
+
+      TimeOfDay parseCsvTime(String raw) {
+        if (raw.trim().isEmpty) return const TimeOfDay(hour: 8, minute: 0);
+        final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(raw);
+        if (match != null) {
+          int h = int.tryParse(match.group(1)!) ?? 8;
+          int m = int.tryParse(match.group(2)!) ?? 0;
+          final sLower = raw.toLowerCase();
+          if (sLower.contains('pm') && h < 12) h += 12;
+          if (sLower.contains('am') && h == 12) h = 0;
+          return TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+        }
+        return const TimeOfDay(hour: 8, minute: 0);
+      }
+
+      // 3. Identify Columns from Header (Flexible fuzzy matching via .contains)
+      final headerCols = lines[0].split(delimiter).map((c) => c.trim().replaceAll('"', '').replaceAll("'", '').toLowerCase()).toList();
+
+      int stnIdIdx = headerCols.indexWhere((c) => c.contains('station') || c.contains('device') || c.contains('stn') || (c.contains('id') && !c.contains('date') && !c.contains('valid')));
+      int instTypeIdx = headerCols.indexWhere((c) => c.contains('instrument') || (c.contains('type') && !c.contains('boundary') && !c.contains('data')));
+      int dateIdx = headerCols.indexWhere((c) => (c.contains('date') || c.contains('timestamp') || c.contains('day') || c.contains('created') || c.contains('dt') || c.contains('when')) && !c.contains('type') && !c.contains('station') && !c.contains('update'));
+      int timeIdx = headerCols.indexWhere((c) => c.contains('time') && !c.contains('date') && !c.contains('timestamp'));
+      int rainIdx = headerCols.indexWhere((c) => c.contains('rain') || c.contains('precip') || c.contains('rf') || c.contains('fall') || c.contains('val') || c.contains('reading') || c.contains('mm'));
+      int maxTempIdx = headerCols.indexWhere((c) => c.contains('max') || c.contains('maxtemp') || c.contains('tmax') || (c.contains('temp') && !c.contains('min')));
+      int minTempIdx = headerCols.indexWhere((c) => c.contains('min') || c.contains('mintemp') || c.contains('tmin'));
+      int humIdx = headerCols.indexWhere((c) => c.contains('hum') || c.contains('rh') || c.contains('humidity'));
+      int riverIdx = headerCols.indexWhere((c) => c.contains('river') || c.contains('water') || c.contains('level') || c.contains('wl') || c.contains('stage'));
+
+      // 4. Instrument Type Validation Check
       bool hasRain = rainIdx != -1;
       bool hasTemp = maxTempIdx != -1 || minTempIdx != -1;
       bool hasRiver = riverIdx != -1;
@@ -768,7 +849,10 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         }
       }
 
-      final Map<String, KsdmaObservation> dailyObsMap = {};
+      final List<KsdmaObservation> parsedObservations = [];
+      final Set<String> seenDatesInCsv = {};
+      final Set<String> duplicateDatesInCsv = {};
+      final Set<String> duplicateDatesInDb = {};
       int lineNo = 1;
 
       for (int i = 1; i < lines.length; i++) {
@@ -776,51 +860,71 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         final rawLine = lines[i].trim();
         if (rawLine.isEmpty) continue;
 
-        final row = rawLine.split(',').map((c) => c.trim().replaceAll('"', '')).toList();
+        final row = rawLine.split(delimiter).map((c) => c.trim().replaceAll('"', '').replaceAll("'", '')).toList();
 
-        // 1. Station ID Mismatch Check (If CSV contains Station/Device ID column)
+        // 1. Station ID Validation (CSV DeviceId must match selected target station)
+        KsdmaStation rowStation = targetStation;
         if (stnIdIdx != -1 && stnIdIdx < row.length) {
           final rowStnId = row[stnIdIdx].trim();
           if (rowStnId.isNotEmpty && rowStnId.toLowerCase() != targetStation.stationId.toLowerCase()) {
-            throw Exception('Station Mismatch Error (Row $lineNo): CSV row contains Station ID "$rowStnId", but you selected "${targetStation.stationId}" in the dropdown! Please select the matching station or update your CSV.');
+            throw Exception('Station Mismatch Error (Row $lineNo): CSV specifies DeviceId "$rowStnId", but you selected station "${targetStation.stationId}" in the dropdown! Please select "${rowStnId}" in the dropdown or update your CSV file.');
           }
         }
 
-        // 2. Instrument Type Mismatch Check (If CSV contains Instrument Type column)
+        // 2. Instrument Type Mismatch Check
         if (instTypeIdx != -1 && instTypeIdx < row.length) {
           final rowInstType = row[instTypeIdx].trim().toLowerCase();
           if (rowInstType.isNotEmpty) {
-            final targetTypeStr = targetStation.instrumentType.displayName.toLowerCase();
+            final targetTypeStr = rowStation.instrumentType.displayName.toLowerCase();
             if (!targetTypeStr.contains(rowInstType) && !rowInstType.contains(targetTypeStr.split(' ')[0])) {
-              throw Exception('Instrument Mismatch Error (Row $lineNo): CSV row specifies Instrument "$rowInstType", but target station "${targetStation.stationId}" is registered as "${targetStation.instrumentType.displayName}"!');
+              throw Exception('Instrument Mismatch Error (Row $lineNo): CSV row specifies Instrument "$rowInstType", but station "${rowStation.stationId}" is registered as "${rowStation.instrumentType.displayName}"!');
             }
           }
         }
 
-        // Extract Date
+        // Extract Date & Time from CSV row
         String dateStr = dateIdx != -1 && dateIdx < row.length ? row[dateIdx] : '';
-        DateTime? obsDate;
-        if (dateStr.isNotEmpty) {
-          try {
-            obsDate = DateTime.tryParse(dateStr);
-            if (obsDate == null && dateStr.contains('/')) {
-              final parts = dateStr.split('/');
-              if (parts.length == 3) {
-                obsDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        DateTime? parsedDate = parseCsvDate(dateStr);
+
+        // Fallback: If dateIdx wasn't auto-detected from header, check cells in row
+        if (parsedDate == null) {
+          for (int c = 0; c < row.length; c++) {
+            if (c != stnIdIdx && c != instTypeIdx && c != rainIdx && c != riverIdx && c != maxTempIdx && c != minTempIdx && c != humIdx) {
+              final dt = parseCsvDate(row[c]);
+              if (dt != null) {
+                parsedDate = dt;
+                dateStr = row[c];
+                break;
               }
             }
-          } catch (_) {}
+          }
         }
-        obsDate ??= DateTime.now();
 
-        final dateKey = "${obsDate.year}-${obsDate.month.toString().padLeft(2, '0')}-${obsDate.day.toString().padLeft(2, '0')}";
+        if (parsedDate == null) {
+          throw Exception('Date Error (Row $lineNo): Could not parse date "$dateStr". Every CSV row must contain a valid observation date (e.g. YYYY-MM-DD or DD/MM/YYYY).');
+        }
 
-        // Extract Time
-        String timeStr = timeIdx != -1 && timeIdx < row.length ? row[timeIdx] : '08:00';
-        TimeOfDay obsTime = const TimeOfDay(hour: 8, minute: 0);
-        if (timeStr.contains(':')) {
-          final tParts = timeStr.split(':');
-          obsTime = TimeOfDay(hour: int.tryParse(tParts[0]) ?? 8, minute: int.tryParse(tParts[1]) ?? 0);
+        DateTime obsDate = parsedDate;
+        String timeStr = timeIdx != -1 && timeIdx < row.length ? row[timeIdx] : dateStr;
+        TimeOfDay obsTime = parseCsvTime(timeStr);
+
+        // Duplicate Date Tracking (Per device/station)
+        final dateKey = "${rowStation.stationId}_${obsDate.year}-${obsDate.month.toString().padLeft(2, '0')}-${obsDate.day.toString().padLeft(2, '0')}";
+        if (seenDatesInCsv.contains(dateKey)) {
+          duplicateDatesInCsv.add("${rowStation.stationId} ($dateKey)");
+        } else {
+          seenDatesInCsv.add(dateKey);
+        }
+
+        final existsInDb = state.observations.any((o) =>
+          !o.isRemoved &&
+          o.stationId.toLowerCase() == rowStation.stationId.toLowerCase() &&
+          o.observationDate.year == obsDate.year &&
+          o.observationDate.month == obsDate.month &&
+          o.observationDate.day == obsDate.day
+        );
+        if (existsInDb) {
+          duplicateDatesInDb.add("${rowStation.stationId} ($dateKey)");
         }
 
         // Extract Parameter Values
@@ -848,20 +952,20 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         }
 
         // Instrument Field Guard: Clear mismatched non-null values if present in unexpected columns
-        if (targetStation.instrumentType == InstrumentType.rainGauge) {
+        if (rowStation.instrumentType == InstrumentType.rainGauge) {
           riverLevel = null; maxTemp = null; minTemp = null; humidity = null;
-        } else if (targetStation.instrumentType == InstrumentType.riverGauge) {
+        } else if (rowStation.instrumentType == InstrumentType.riverGauge) {
           rainfall = null; maxTemp = null; minTemp = null; humidity = null;
-        } else if (targetStation.instrumentType == InstrumentType.maxMinThermometer) {
+        } else if (rowStation.instrumentType == InstrumentType.maxMinThermometer) {
           rainfall = null; riverLevel = null; humidity = null;
-        } else if (targetStation.instrumentType == InstrumentType.hygrometer) {
+        } else if (rowStation.instrumentType == InstrumentType.hygrometer) {
           rainfall = null; riverLevel = null; maxTemp = null; minTemp = null;
         }
 
         final obs = KsdmaObservation(
-          observationId: 'OBS_${targetStation.stationId}_${obsDate.year}_${obsDate.month}_${obsDate.day}',
-          stationId: targetStation.stationId,
-          submittedByUserId: targetStation.ownerUserId,
+          observationId: 'OBS_${rowStation.stationId}_${obsDate.year}_${obsDate.month}_${obsDate.day}_${obsTime.hour}_${obsTime.minute}_$i',
+          stationId: rowStation.stationId,
+          submittedByUserId: rowStation.ownerUserId,
           observationDate: obsDate,
           observationTime: obsTime,
           submissionTimestamp: DateTime(obsDate.year, obsDate.month, obsDate.day, obsTime.hour, obsTime.minute),
@@ -873,26 +977,24 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
           source: 'BULK_CSV_UPLOAD',
         );
 
-        // One Observation Per Day Check: Overwrites duplicate same-day rows with the latest valid row
-        dailyObsMap[dateKey] = obs;
+        parsedObservations.add(obs);
       }
 
-      if (dailyObsMap.isEmpty) {
+      if (parsedObservations.isEmpty) {
         throw Exception('No valid data rows found in CSV!');
       }
 
-      int count = 0;
-      for (var obs in dailyObsMap.values) {
-        state.submitObservation(
-          stationId: obs.stationId,
-          rainfallMm: obs.rainfallMm,
-          maxTempC: obs.maxTemperatureC,
-          minTempC: obs.minTemperatureC,
-          riverLevelM: obs.riverWaterLevelM,
-          humidityPercent: obs.humidityPercent,
-        );
-        await state.apiService.submitObservation(obs);
-        count++;
+      // STRICT DUPLICATE DATE GUARD: Cancel upload completely if ANY duplicate dates exist!
+      final allDupes = {...duplicateDatesInCsv, ...duplicateDatesInDb}.toList();
+      if (allDupes.isNotEmpty) {
+        throw Exception('Duplicate Date Error: Upload CANCELLED! Your file contains duplicate dates for station ${targetStation.stationId} (${allDupes.take(5).join(', ')}). Please remove duplicate dates from your file before uploading.');
+      }
+
+      // Submit all parsed records to KsdmaStateService & AWS Lambda RDS Database
+      final count = await state.addBulkObservations(parsedObservations);
+
+      if (count == 0) {
+        throw Exception('Database Upload Failed: 0 records were saved to the database. Please check your network connection or AWS server status.');
       }
 
       setState(() {
@@ -900,13 +1002,130 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         _uploadedCsvContent = null;
       });
 
-      _showToast('Bulk Upload Successful! $count unique daily observation records saved to database for station ${targetStation.stationId}.');
+      _showToast('Bulk Upload Successful! $count out of ${parsedObservations.length} observation record(s) saved to database for station ${targetStation.stationId}.');
     } catch (e) {
       final errClean = e.toString().replaceAll('Exception:', '').trim();
       _showToast(errClean, isError: true);
     } finally {
       setState(() => _isProcessingUpload = false);
     }
+  }
+
+  void _showCsvGuideDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.help_outline, color: Color(0xFFD97706), size: 24),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Bulk CSV Upload Guidelines',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Follow these strict rules to ensure your CSV dataset uploads cleanly to the database:',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 14),
+
+                _buildGuideRuleItem(
+                  icon: Icons.table_chart_outlined,
+                  title: '1. File Format: CSV (Comma Delimited)',
+                  description: 'In Excel, click "File > Save As" and choose "CSV (Comma delimited) (*.csv)". Raw binary .xlsx files will be rejected.',
+                ),
+                const SizedBox(height: 12),
+
+                _buildGuideRuleItem(
+                  icon: Icons.devices_outlined,
+                  title: '2. Device ID Must Match Selected Station',
+                  description: 'Every row in your file must match the station selected in the dropdown. If any row specifies a different Device ID, the upload is CANCELLED.',
+                ),
+                const SizedBox(height: 12),
+
+                _buildGuideRuleItem(
+                  icon: Icons.event_repeat_outlined,
+                  title: '3. No Duplicate Dates Allowed',
+                  description: 'Duplicate dates for the same station are strictly prohibited. If duplicate dates are found in the CSV or database, the upload is CANCELLED.',
+                ),
+                const SizedBox(height: 12),
+
+                _buildGuideRuleItem(
+                  icon: Icons.calendar_today_outlined,
+                  title: '4. Valid Date on Every Row',
+                  description: 'Each row must contain a valid date (e.g., 2025-01-01 or 01/01/2025). Missing dates will fail validation.',
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Sample Header & Data Format:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                      SizedBox(height: 6),
+                      SelectableText(
+                        'DeviceId, Date, MinTemp_C, MaxTemp_C\nDEV-001, 2025-01-01, 16.4, 21.7\nDEV-001, 2025-01-02, 12.8, 20.0',
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF146356),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideRuleItem({required IconData icon, required String title, required String description}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF146356), size: 18),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 2),
+              Text(description, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDataModerationCard(KsdmaStateService state) {
