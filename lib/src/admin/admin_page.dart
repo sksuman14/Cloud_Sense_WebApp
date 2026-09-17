@@ -1597,10 +1597,11 @@ class _AdminPageState extends State<AdminPage> {
           }
 
           final _screen = MediaQuery.of(dialogContext).size;
+          final isMobile = _screen.width < 600;
           final _dialogMaxW =
-              _screen.width < 720 ? _screen.width - 32 : 680.0;
+              _screen.width < 720 ? _screen.width - 24 : 680.0;
           final _dialogMaxH = _screen.height < 700
-              ? _screen.height - 48
+              ? _screen.height - 32
               : _screen.height * 0.88;
 
           return Dialog(
@@ -1610,7 +1611,7 @@ class _AdminPageState extends State<AdminPage> {
             child: Container(
               constraints:
                   BoxConstraints(maxWidth: _dialogMaxW, maxHeight: _dialogMaxH),
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(isMobile ? 14 : 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -1804,8 +1805,9 @@ class _AdminPageState extends State<AdminPage> {
                                         child: AnimatedContainer(
                                           duration: const Duration(
                                               milliseconds: 150),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 14, vertical: 12),
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: isMobile ? 10 : 14,
+                                              vertical: isMobile ? 10 : 12),
                                           decoration: BoxDecoration(
                                             color: isSelectionMode && isSelected
                                                 ? Colors.redAccent.withOpacity(
@@ -1856,49 +1858,108 @@ class _AdminPageState extends State<AdminPage> {
                                                 const SizedBox(width: 10),
                                               ],
                                               Container(
-                                                padding:
-                                                    const EdgeInsets.all(8),
+                                                padding: EdgeInsets.all(
+                                                    isMobile ? 7 : 8),
                                                 decoration: BoxDecoration(
                                                   color: const Color(0xFF1976D2)
                                                       .withOpacity(0.1),
                                                   borderRadius:
                                                       BorderRadius.circular(10),
                                                 ),
-                                                child: const Icon(
+                                                child: Icon(
                                                     Icons.sensors_rounded,
-                                                    size: 20,
-                                                    color: Color(0xFF1976D2)),
+                                                    size: isMobile ? 18 : 20,
+                                                    color: const Color(0xFF1976D2)),
                                               ),
-                                              const SizedBox(width: 12),
+                                              SizedBox(
+                                                  width: isMobile ? 10 : 12),
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    Row(
-                                                      children: [
-                                                        Flexible(
+                                                    if (isMobile) ...[
+                                                      Text(
+                                                        displayName,
+                                                        style: TextStyle(
+                                                          color: strong,
+                                                          fontSize: 13.5,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      if (topic.isNotEmpty) ...[
+                                                        const SizedBox(
+                                                            height: 3),
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .symmetric(
+                                                                  horizontal:
+                                                                      6,
+                                                                  vertical:
+                                                                      1.5),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: const Color(
+                                                                    0xFF1976D2)
+                                                                .withOpacity(
+                                                                    0.12),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        5),
+                                                          ),
                                                           child: Text(
-                                                            displayName,
-                                                            style: TextStyle(
-                                                              color: strong,
-                                                              fontSize: 14,
+                                                            topic,
+                                                            style:
+                                                                const TextStyle(
+                                                              color: Color(
+                                                                  0xFF1976D2),
+                                                              fontSize: 10.5,
                                                               fontWeight:
-                                                                  FontWeight.w700,
+                                                                  FontWeight
+                                                                      .w700,
+                                                              fontFamily:
+                                                                  'monospace',
                                                             ),
                                                             overflow:
                                                                 TextOverflow
                                                                     .ellipsis,
                                                           ),
                                                         ),
-                                                        if (topic.isNotEmpty) ...[
-                                                          const SizedBox(
-                                                              width: 8),
+                                                      ],
+                                                    ] else ...[
+                                                      Row(
+                                                        children: [
                                                           Flexible(
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(
-                                                                  horizontal: 7,
-                                                                  vertical: 2),
+                                                            child: Text(
+                                                              displayName,
+                                                              style: TextStyle(
+                                                                color: strong,
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                              ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                          if (topic.isNotEmpty) ...[
+                                                            const SizedBox(
+                                                                width: 8),
+                                                            Container(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          7,
+                                                                      vertical:
+                                                                          2),
                                                               decoration:
                                                                   BoxDecoration(
                                                                 color: const Color(
@@ -1908,27 +1969,30 @@ class _AdminPageState extends State<AdminPage> {
                                                                 borderRadius:
                                                                     BorderRadius
                                                                         .circular(
-                                                                            6),
+                                                                            5),
                                                               ),
                                                               child: Text(
                                                                 topic,
-                                                                style: const TextStyle(
+                                                                style:
+                                                                    const TextStyle(
                                                                   color: Color(
                                                                       0xFF1976D2),
                                                                   fontSize: 11,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w700,
+                                                                  fontFamily:
+                                                                      'monospace',
                                                                 ),
                                                                 overflow:
                                                                     TextOverflow
                                                                         .ellipsis,
                                                               ),
                                                             ),
-                                                          ),
+                                                          ],
                                                         ],
-                                                      ],
-                                                    ),
+                                                      ),
+                                                    ],
                                                     if (location != null &&
                                                         location
                                                             .isNotEmpty) ...[
