@@ -2506,15 +2506,15 @@ class _HeroSectionState extends State<HeroSection> {
   Timer? _timer;                  // single auto-scroll timer
 
   final List<Map<String, String>> _slides = [
-    {"path": "assets/images/site10.jpg", "location": "Udhampur"},
-    {"path": "assets/images/site1.jpg", "location": "Nehon, Punjab"},
+    {"path": "assets/images/site9.jpg", "location": ""},
+    {"path": "assets/images/site1.jpg", "location": "Udhampur"},
     {"path": "assets/images/site2.jpg", "location": "Machhiwara, Punjab"},
-    {"path": "assets/images/site3.jpg", "location": "Abohar, Punjab"},
-    {"path": "assets/images/site4.jpg", "location": "Khanna, Punjab"},
-    {"path": "assets/images/site5.jpg", "location": "Bhagta Bhai Ka, Punjab"},
+    {"path": "assets/images/site3.jpg", "location": "Khanna, Punjab"},
+    {"path": "assets/images/site4.jpg", "location": "Jandiala, Punjab"},
+    {"path": "assets/images/site5.jpg", "location": "Nehon, Punjab"},
     {"path": "assets/images/site6.jpg", "location": "Maur, Punjab"},
-    {"path": "assets/images/site8.jpg", "location": "Jandiala, Punjab"},
-    {"path": "assets/images/site9.jpg", "location": "Fazilka, Punjab"},
+    {"path": "assets/images/site7.jpg", "location": "Bhagta Bhai Ka, Punjab"},
+    {"path": "assets/images/site8.jpg", "location": "Abohar, Punjab"},
   ];
 
   static const int _initialVirtualMultiplier = 1000;
@@ -2616,13 +2616,13 @@ class _HeroSectionState extends State<HeroSection> {
                       alignment: Alignment.center,
                     ),
                   ),
-                  // Blurred overlay to create matching blurry space filler (lower blur sigma!)
+                  // Blurred overlay to create matching blurry space filler (clean & bright)
                   Positioned.fill(
                     child: ClipRRect(
                       child: BackdropFilter(
                         filter: ui.ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                         child: Container(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withOpacity(0.05),
                         ),
                       ),
                     ),
@@ -2688,7 +2688,7 @@ class _HeroSectionState extends State<HeroSection> {
               );
             },
           ),
-          // 2. Dark Overlay Gradient for Readability — IgnorePointer so drag works through it
+          // 2. Bright Edge-only Gradient: subtle top shadow for AppBar, smooth bottom blend, 100% bright in the middle
           IgnorePointer(
             child: Container(
               decoration: BoxDecoration(
@@ -2696,16 +2696,34 @@ class _HeroSectionState extends State<HeroSection> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.65),
-                    Colors.black.withOpacity(0.3),
+                    Colors.black.withOpacity(0.35),
+                    Colors.transparent,
+                    Colors.transparent,
                     widget.isDarkMode ? const Color(0xFF0B141D) : const Color(0xFFFFFFFF),
                   ],
-                  stops: const [0.0, 0.5, 1.0],
+                  stops: const [0.0, 0.12, 0.88, 1.0],
                 ),
               ),
             ),
           ),
-          // 3. Left-Aligned Content Overlay on Desktop (Tesla Style)
+          // 3. Localized Left-Side Scrim for Text Contrast — keeps the center & right station image 100% natural & bright
+          IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: isMobile ? Alignment.topCenter : Alignment.centerLeft,
+                  end: isMobile ? Alignment.bottomCenter : Alignment.centerRight,
+                  colors: [
+                    Colors.black.withOpacity(isMobile ? 0.30 : 0.40),
+                    Colors.black.withOpacity(isMobile ? 0.12 : 0.12),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, isMobile ? 0.50 : 0.35, isMobile ? 0.80 : 0.60],
+                ),
+              ),
+            ),
+          ),
+          // 4. Left-Aligned Content Overlay on Desktop (Tesla Style)
           Padding(
             padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
             child: Align(
@@ -2729,9 +2747,14 @@ class _HeroSectionState extends State<HeroSection> {
                         letterSpacing: 4.0,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withOpacity(0.85),
+                            offset: const Offset(0, 2),
+                            blurRadius: 8,
+                          ),
+                          Shadow(
+                            color: Colors.black.withOpacity(0.60),
                             offset: const Offset(0, 4),
-                            blurRadius: 10,
+                            blurRadius: 18,
                           ),
                         ],
                       ),
@@ -2742,15 +2765,15 @@ class _HeroSectionState extends State<HeroSection> {
                       "Industrial-grade telemetry. Real-time agricultural decision intelligence.",
                       textAlign: isMobile ? TextAlign.center : TextAlign.left,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white,
                         fontSize: isMobile ? 14 : 18,
-                        fontWeight: FontWeight.w400,
+                        fontWeight: FontWeight.w500,
                         letterSpacing: 0.5,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withOpacity(0.85),
                             offset: const Offset(0, 2),
-                            blurRadius: 5,
+                            blurRadius: 8,
                           ),
                         ],
                       ),
