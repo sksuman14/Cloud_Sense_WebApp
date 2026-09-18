@@ -1177,13 +1177,13 @@ class KsdmaStateService extends ChangeNotifier {
   bool isObservationWindowOpen(InstrumentType instrumentType, {bool isEdit = false}) {
     final now = TimeOfDay.now();
 
-    // Morning entry window for all instruments: 8:00 AM - 9:00 AM (hour == 8)
-    final isMorningWindow = now.hour >= 8 && now.hour < 21 ;
+    // Morning entry & edit window for all instruments: strictly 8:00 AM - 9:00 AM IST (hour == 8)
+    final isMorningWindow = now.hour >= 8 && now.hour < 9;
 
-    // Evening Thermometer update window: 4:00 PM - 5:00 PM (16:00 - 17:00 IST, hour == 16)
+    // Evening Thermometer update window: 4:00 PM - 5:00 PM IST (16:00 - 17:00 IST, hour == 16)
     final isEveningTempWindow = instrumentType == InstrumentType.maxMinThermometer && now.hour >= 16 && now.hour < 17;
 
-    return isMorningWindow || (isEdit && isEveningTempWindow) || isEveningTempWindow;
+    return isMorningWindow || isEveningTempWindow;
   }
 
   bool isRainfallEditWindowOpen() {

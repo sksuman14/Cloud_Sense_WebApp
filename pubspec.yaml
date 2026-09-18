@@ -88,6 +88,8 @@ dependencies:
   flutter_map_marker_cluster: ^8.2.2
   model_viewer_plus: ^1.9.3
   upgrader: ^11.3.0
+  pdf: ^3.11.1
+  printing: ^5.13.2
 
  
  

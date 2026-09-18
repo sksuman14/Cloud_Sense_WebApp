@@ -4,6 +4,7 @@ import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import '../theme/ksdma_theme.dart';
 import 'ksdma_auth_modal.dart';
+import '../services/ksdma_certificate_service.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 
 void _showZoomDialog(BuildContext context, String imageUrl) {
@@ -77,6 +78,31 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool _isGeneratingCert = false;
+
+  Future<void> _downloadCertificate(KsdmaUser user, List<KsdmaStation> myStations) async {
+    if (_isGeneratingCert) return;
+    setState(() => _isGeneratingCert = true);
+    _showToast('📜 Generating Official KSDMA Volunteer Recognition PDF Certificate...');
+
+    try {
+      final userStation = myStations.isNotEmpty ? myStations.first : null;
+      await KsdmaCertificateService.generateAndDownloadCertificate(
+        user: user,
+        station: userStation,
+      );
+      if (mounted) {
+        _showToast('✅ Certificate Downloaded Successfully!');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('❌ Certificate Generation Failed: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingCert = false);
+    }
   }
 
   void _showToast(String msg, {bool isError = false}) {
@@ -186,11 +212,9 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: () {
-                        _showToast('Downloading Official KSDMA Volunteer Recognition Certificate...');
-                      },
+                      onPressed: _isGeneratingCert ? null : () => _downloadCertificate(user, myStations),
                       icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
-                      label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      label: Text(_isGeneratingCert ? 'Generating...' : 'Download Certificate', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: KsdmaColors.goldDark,
                         side: const BorderSide(color: KsdmaColors.gold, width: 1.5),
@@ -224,11 +248,9 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                     ),
                     const SizedBox(width: 12),
                     OutlinedButton.icon(
-                      onPressed: () {
-                        _showToast('Downloading Official KSDMA Volunteer Recognition Certificate...');
-                      },
+                      onPressed: _isGeneratingCert ? null : () => _downloadCertificate(user, myStations),
                       icon: const Icon(Icons.workspace_premium, color: KsdmaColors.goldDark, size: 16),
-                      label: const Text('Download Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      label: Text(_isGeneratingCert ? 'Generating...' : 'Download Certificate', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: KsdmaColors.goldDark,
                         side: const BorderSide(color: KsdmaColors.gold, width: 1.5),
