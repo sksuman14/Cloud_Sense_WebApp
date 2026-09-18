@@ -96618,7 +96618,7 @@ aKh(a,b,c,d){var s=null,r=A.B(12),q=t.p
 q=d?A.R(A.a([B.aIO,B.a4,B.aYS,B.b1,A.b_(A.ew(B.aoL,B.aWO,new A.bRI(this,a,b,c),A.cR(s,s,B.d,s,s,s,s,s,s,B.wi,s,s,B.nZ,s,new A.b1(A.B(8),B.v),s,s,s,s,s)),s,1/0)],q),B.u,B.f,B.h,0,B.n):A.P(A.a([A.G(s,B.aoC,B.l,s,s,new A.M(B.d.b4(0.15),s,s,s,s,s,B.aj),s,s,s,s,B.bV,s,s,s),B.ct,A.ai(A.R(A.a([B.aWb,B.au,A.l("Live telemetry auto-synced across "+b.length+" active stations for state disaster preparedness and early warnings.",s,s,s,s,s,B.aTU,s,s,s)],q),B.u,B.f,B.h,0,B.n),1,s),B.ct,A.ew(B.K5,B.aWP,new A.bRJ(this,a,b,c),A.cR(s,s,B.d,s,s,s,2,s,s,B.wi,s,s,B.agv,s,new A.b1(A.B(8),B.v),s,s,s,s,s))],q),B.j,B.f,B.h,0,s,s)
 return A.G(s,q,B.l,s,s,new A.M(s,s,s,r,B.avY,B.arP,B.o),s,s,s,s,B.k3,s,s,s)},
 af5(a,b,c){var s,r,q,p,o,n,m,l,k,j,i,h,g,f=null
-for(s=b.length,r=0,q=0,p="Station ID,District,Taluk,Grama Panchayat,Instrument Type,Observation Date,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)\n";q<b.length;b.length===s||(0,A.Z)(b),++q){o=b[q]
+for(s=b.length,r=0,q=0,p="Station ID,District,Taluk,Grama Panchayat,Latitude,Longitude,Instrument Type,Observation Date,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)\n";q<b.length;b.length===s||(0,A.Z)(b),++q){o=b[q]
 n=o.a
 m=c.hw(n)
 l=m==null
@@ -96633,7 +96633,7 @@ h=A.h(h==null?"":h)
 g=l?f:m.Q
 g=A.h(g==null?"":g)
 l=l?f:m.z
-p+='"'+n+'","'+o.Q+'","'+o.as+'","'+o.at+'","'+o.f.b+'","'+j+'",'+k+","+i+","+h+","+g+","+A.h(l==null?"":l)+"\n";++r}s=(self.URL||self.webkitURL).createObjectURL(A.Bu([B.d9.bI(p.charCodeAt(0)==0?p:p)],"text/csv"))
+p+='"'+n+'","'+o.Q+'","'+o.as+'","'+o.at+'",'+A.h(o.y)+","+A.h(o.z)+',"'+o.f.b+'","'+j+'",'+k+","+i+","+h+","+g+","+A.h(l==null?"":l)+"\n";++r}s=(self.URL||self.webkitURL).createObjectURL(A.Bu([B.d9.bI(p.charCodeAt(0)==0?p:p)],"text/csv"))
 s.toString
 p=this.e
 p=A.aW(p," ","_")
@@ -97256,17 +97256,17 @@ if(o!=null)q.A(new A.bTA(q,a,o))
 return A.r(null,r)}})
 return A.t($async$GB,r)},
 FN(a){return this.aRb(a)},
-aRb(e4){var s=0,r=A.u(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3,b4,b5,b6,b7,b8,b9,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,e0,e1,e2,e3
-var $async$FN=A.v(function(e5,e6){if(e5===1){o.push(e6)
-s=p}while(true)switch(s){case 0:d9=n.x==="AWS"
-e0=n.at
-e1=A.ba(A.aL(e0),A.aN(e0),A.bd(e0),0,0,0,0,0)
-e0=n.ax
-a1=A.ba(A.aL(e0),A.aN(e0),A.bd(e0),23,59,59,0,0)
-e0=t.X0
-a2=A.em(e4.e,e0)
-m=A.dF(new A.ac(a2,new A.bTs(),A.V(a2).i("ac<1>")),!0,e0)
-s=d9?3:4
+aRb(e8){var s=0,r=A.u(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3,b4,b5,b6,b7,b8,b9,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,e0,e1,e2,e3,e4,e5,e6,e7
+var $async$FN=A.v(function(e9,f0){if(e9===1){o.push(f0)
+s=p}while(true)switch(s){case 0:e3=n.x==="AWS"
+e4=n.at
+e5=A.ba(A.aL(e4),A.aN(e4),A.bd(e4),0,0,0,0,0)
+e4=n.ax
+a1=A.ba(A.aL(e4),A.aN(e4),A.bd(e4),23,59,59,0,0)
+e4=t.X0
+a2=A.em(e8.e,e4)
+m=A.dF(new A.ac(a2,new A.bTs(),A.V(a2).i("ac<1>")),!0,e4)
+s=e3?3:4
 break
 case 3:a3=A.br("dd-MM-yyyy",null)
 l=a3.bh(n.at)
@@ -97279,61 +97279,61 @@ n.a1m("\u23f3 Requesting AWS S3 Download for "+A.h(j)+" ("+A.h(l)+" to "+A.h(k)+
 p=6
 s=9
 return A.i(A.dg(A.bB(i,0,null),null),$async$FN)
-case 9:h=e6
-if(h.b===200){e0=h
-g=B.D.aJ(0,A.cf(A.ce(e0.e)).aJ(0,e0.w))
+case 9:h=f0
+if(h.b===200){e4=h
+g=B.D.aJ(0,A.cf(A.ce(e4.e)).aJ(0,e4.w))
 f=null
 if(t.P.b(g))f=A.aC(J.e(g,"download_url"))
 if(f!=null&&f.length!==0){e=A.h(j)+"_"+A.h(l)+"_to_"+A.h(k)+"_AWS_Telemetry.csv"
-e0=A.ud(f)
-e0.setAttribute("download",e)
-e0.click()
+e4=A.ud(f)
+e4.setAttribute("download",e)
+e4.click()
 n.a1m("\ud83d\udce5 Downloaded AWS S3 Telemetry ("+A.h(e)+")")
 s=1
 break}}p=2
 s=8
 break
 case 6:p=5
-e2=o.pop()
-d=A.a5(e2)
+e6=o.pop()
+d=A.a5(e6)
 A.dP().$1("AWS keraladata API S3 Download Error: "+A.h(d))
 s=8
 break
 case 5:s=2
 break
-case 8:e0=A.em(e4.d,t._0)
-a2=A.V(e0)
+case 8:e4=A.em(e8.d,t._0)
+a2=A.V(e4)
 a5=a2.i("dO<1,c>")
-a6=A.J(new A.dO(new A.ac(e0,new A.bTt(),a2.i("ac<1>")),new A.bTu(),a5),a5.i("D.E"))
+a6=A.J(new A.dO(new A.ac(e4,new A.bTt(),a2.i("ac<1>")),new A.bTu(),a5),a5.i("D.E"))
 c=a6
 s=J.aD(c)!==0?10:11
 break
 case 10:p=13
 s=16
-return A.i(e4.a.Sb(c,n.at,n.ax),$async$FN)
-case 16:b=e6
+return A.i(e8.a.Sb(c,n.at,n.ax),$async$FN)
+case 16:b=f0
 if(J.cM(b)){a=J.cP(b,new A.bTv(),t.N).fH(0)
 J.aMy(m,new A.bTw(a))
 J.u5(m,b)}p=2
 s=15
 break
 case 13:p=12
-e3=o.pop()
-a0=A.a5(e3)
+e7=o.pop()
+a0=A.a5(e7)
 A.dP().$1("Error fetching AWS range observations: "+A.h(a0))
 s=15
 break
 case 12:s=2
 break
-case 15:case 11:case 4:a7=d9?"all":B.b.a0(n.z.toLowerCase())
+case 15:case 11:case 4:a7=e3?"all":B.b.a0(n.z.toLowerCase())
 a8=new A.e_("")
-e0=a7==="rainfall"
-if(e0)a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Rainfall (mm)\n"
-else if(a7==="temperature")a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)\n"
-else if(a7==="riverlevel")a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,River Level (m)\n"
-else if(a7==="humidity")a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Humidity (%)\n"
-else a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)\n"
-for(a2=m,a5=a2.length,a9=a7==="humidity",b0=a7==="riverlevel",b1=a7==="temperature",b2=e4.d,b3=t._0,b4=e1.a,b5=e1.b,b6=a1.a,b7=a1.b,b8=0,b9=0;b9<a2.length;a2.length===a5||(0,A.Z)(a2),++b9){c0=a2[b9]
+e4=a7==="rainfall"
+if(e4)a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Rainfall (mm)\n"
+else if(a7==="temperature")a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)\n"
+else if(a7==="riverlevel")a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,River Level (m)\n"
+else if(a7==="humidity")a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Humidity (%)\n"
+else a8.a="Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)\n"
+for(a2=m,a5=a2.length,a9=a7==="humidity",b0=a7==="riverlevel",b1=a7==="temperature",b2=e8.d,b3=t._0,b4=e5.a,b5=e5.b,b6=a1.a,b7=a1.b,b8=0,b9=0;b9<a2.length;a2.length===a5||(0,A.Z)(a2),++b9){c0=a2[b9]
 c1=c0.d
 c2=c1.a
 if(c2>=b4)c3=c2===b4&&c1.b<b5
@@ -97351,13 +97351,13 @@ c6=A.J(new A.ac(c2,new A.bTx(c0),c3),c3.i("D.E"))
 c7=c6.length!==0?B.c.ga7(c6):null
 c2=c7==null
 c8=(c2?null:c7.e)===B.bo||B.b.t(c0.b,"WS_")
-if(d9){if(!c8)continue
+if(e3){if(!c8)continue
 c3=n.y
 if(c3!=="ALL_AWS"&&c0.b!==c3)continue}else{if(c8)continue
 c9=c2?null:c7.Q
 if(c9==null)c9=""
 c3=n.Q
-if(c3!=="All Districts"&&B.b.a0(c9.toLowerCase())!==B.b.a0(c3.toLowerCase()))continue}if(e0&&c0.w==null)continue
+if(c3!=="All Districts"&&B.b.a0(c9.toLowerCase())!==B.b.a0(c3.toLowerCase()))continue}if(e4&&c0.w==null)continue
 if(b1&&c0.x==null&&c0.y==null)continue
 if(a9&&c0.Q==null)continue
 if(b0&&c0.z==null)continue
@@ -97369,40 +97369,46 @@ d1=c2?null:c7.as
 if(d1==null)d1=""
 d2=c2?null:c7.at
 if(d2==null)d2=""
-d3=c8?"Automatic Weather Station (AWS)":"Manual Volunteer PWS"
-d4=A.br("yyyy-MM-dd",null).bh(c1)
+d3=c2?null:c7.y
+if(d3==null)d3=0
+d4=c2?null:c7.z
+if(d4==null)d4=0
+d5=c8?"Automatic Weather Station (AWS)":"Manual Volunteer PWS"
+d6=A.br("yyyy-MM-dd",null).bh(c1)
 c1=c0.e
-d5=B.b.aU(B.m.k(c1.a),2,"0")+":"+B.b.aU(B.m.k(c1.b),2,"0")
-if(e0){c1=c0.w
-c1='"'+c0.b+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'","'+d3+'","'+d4+'","'+d5+'",'+A.h(c1==null?"":c1)+"\n"
+d7=B.b.aU(B.m.k(c1.a),2,"0")+":"+B.b.aU(B.m.k(c1.b),2,"0")
+if(e4){c1=c0.w
+c1='"'+c0.b+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'",'+A.h(d3)+","+A.h(d4)+',"'+d5+'","'+d6+'","'+d7+'",'+A.h(c1==null?"":c1)+"\n"
 a8.a+=c1}else if(b1){c1=c0.x
 c1=A.h(c1==null?"":c1)
 c2=c0.y
-c1='"'+c0.b+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'","'+d3+'","'+d4+'","'+d5+'",'+c1+","+A.h(c2==null?"":c2)+"\n"
+c1='"'+c0.b+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'",'+A.h(d3)+","+A.h(d4)+',"'+d5+'","'+d6+'","'+d7+'",'+c1+","+A.h(c2==null?"":c2)+"\n"
 a8.a+=c1}else if(b0){c1=c0.z
-c1='"'+c0.b+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'","'+d3+'","'+d4+'","'+d5+'",'+A.h(c1==null?"":c1)+"\n"
-a8.a+=c1}else{c1='"'+c0.b
-if(a9){c2=c0.Q
-c1=c1+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'","'+d3+'","'+d4+'","'+d5+'",'+A.h(c2==null?"":c2)+"\n"
-a8.a+=c1}else{c2=c0.w
-c2=A.h(c2==null?"":c2)
-c3=c0.x
-c3=A.h(c3==null?"":c3)
-c4=c0.y
+c1='"'+c0.b+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'",'+A.h(d3)+","+A.h(d4)+',"'+d5+'","'+d6+'","'+d7+'",'+A.h(c1==null?"":c1)+"\n"
+a8.a+=c1}else{c1=A.h(d3)
+c2=A.h(d4)
+c3='"'+c0.b
+if(a9){c4=c0.Q
+c1=c3+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'",'+c1+","+c2+',"'+d5+'","'+d6+'","'+d7+'",'+A.h(c4==null?"":c4)+"\n"
+a8.a+=c1}else{c4=c0.w
 c4=A.h(c4==null?"":c4)
-d6=c0.Q
-d6=A.h(d6==null?"":d6)
-d7=c0.z
-c1=c1+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'","'+d3+'","'+d4+'","'+d5+'",'+c2+","+c3+","+c4+","+d6+","+A.h(d7==null?"":d7)+"\n"
-a8.a+=c1}}++b8}e0=a8.a
-e0=(self.URL||self.webkitURL).createObjectURL(A.Bu([B.d9.bI(e0.charCodeAt(0)==0?e0:e0)],"text/csv"))
-e0.toString
-d8=d9?"AWS_Telemetry":"Volunteer_Readings"
+d8=c0.x
+d8=A.h(d8==null?"":d8)
+d9=c0.y
+d9=A.h(d9==null?"":d9)
+e0=c0.Q
+e0=A.h(e0==null?"":e0)
+e1=c0.z
+c1=c3+'","'+d0+'","'+c9+'","'+d1+'","'+d2+'",'+c1+","+c2+',"'+d5+'","'+d6+'","'+d7+'",'+c4+","+d8+","+d9+","+e0+","+A.h(e1==null?"":e1)+"\n"
+a8.a+=c1}}++b8}e4=a8.a
+e4=(self.URL||self.webkitURL).createObjectURL(A.Bu([B.d9.bI(e4.charCodeAt(0)==0?e4:e4)],"text/csv"))
+e4.toString
+e2=e3?"AWS_Telemetry":"Volunteer_Readings"
 a2=A.br("yyyyMMdd",null).bh(n.at)
 a5=A.br("yyyyMMdd",null).bh(n.ax)
-a9=A.ud(e0)
-a9.setAttribute("download","KSDMA_"+d8+"_"+a2+"_to_"+a5+".csv")
-a9.click();(self.URL||self.webkitURL).revokeObjectURL(e0)
+a9=A.ud(e4)
+a9.setAttribute("download","KSDMA_"+e2+"_"+a2+"_to_"+a5+".csv")
+a9.click();(self.URL||self.webkitURL).revokeObjectURL(e4)
 n.a1m("\ud83d\udce5 Downloaded CSV with "+b8+" observation records!")
 case 1:return A.r(q,r)
 case 2:return A.q(o.at(-1),r)}})

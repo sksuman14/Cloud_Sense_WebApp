@@ -181,15 +181,15 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
 
     // Dynamic CSV Header
     if (selectedParam == 'rainfall') {
-      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Rainfall (mm)');
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Rainfall (mm)');
     } else if (selectedParam == 'temperature') {
-      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)');
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Max Temp (C),Min Temp (C)');
     } else if (selectedParam == 'riverlevel') {
-      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,River Level (m)');
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,River Level (m)');
     } else if (selectedParam == 'humidity') {
-      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Humidity (%)');
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Humidity (%)');
     } else {
-      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Network Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
+      csv.writeln('Station ID,Station Name,District,Taluk,Grama Panchayat,Latitude,Longitude,Network Type,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
     }
 
     int count = 0;
@@ -226,21 +226,23 @@ class _KsdmaOfficerViewState extends State<KsdmaOfficerView> {
       final district = stn?.district ?? '';
       final taluk = stn?.taluk ?? '';
       final panchayat = stn?.gramaPanchayat ?? '';
+      final lat = stn?.latitude ?? 0.0;
+      final lng = stn?.longitude ?? 0.0;
       final networkTypeLabel = isAwsStation ? 'Automatic Weather Station (AWS)' : 'Manual Volunteer PWS';
 
       final dateStr = DateFormat('yyyy-MM-dd').format(o.observationDate);
       final timeStr = "${o.observationTime.hour.toString().padLeft(2, '0')}:${o.observationTime.minute.toString().padLeft(2, '0')}";
 
       if (selectedParam == 'rainfall') {
-        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""}');
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}",${lat},${lng},"${networkTypeLabel}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""}');
       } else if (selectedParam == 'temperature') {
-        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""}');
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}",${lat},${lng},"${networkTypeLabel}","${dateStr}","${timeStr}",${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""}');
       } else if (selectedParam == 'riverlevel') {
-        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.riverWaterLevelM ?? ""}');
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}",${lat},${lng},"${networkTypeLabel}","${dateStr}","${timeStr}",${o.riverWaterLevelM ?? ""}');
       } else if (selectedParam == 'humidity') {
-        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.humidityPercent ?? ""}');
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}",${lat},${lng},"${networkTypeLabel}","${dateStr}","${timeStr}",${o.humidityPercent ?? ""}');
       } else {
-        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}","${networkTypeLabel}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""}');
+        csv.writeln('"${o.stationId}","${stnName}","${district}","${taluk}","${panchayat}",${lat},${lng},"${networkTypeLabel}","${dateStr}","${timeStr}",${o.rainfallMm ?? ""},${o.maxTemperatureC ?? ""},${o.minTemperatureC ?? ""},${o.humidityPercent ?? ""},${o.riverWaterLevelM ?? ""}');
       }
       count++;
     }

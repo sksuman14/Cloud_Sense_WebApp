@@ -1370,7 +1370,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
 
   void _exportMapDataCsv(BuildContext context, List<KsdmaStation> stations, KsdmaStateService state) {
     final StringBuffer csv = StringBuffer();
-    csv.writeln('Station ID,District,Taluk,Grama Panchayat,Instrument Type,Observation Date,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
+    csv.writeln('Station ID,District,Taluk,Grama Panchayat,Latitude,Longitude,Instrument Type,Observation Date,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m)');
 
     int count = 0;
     for (var s in stations) {
@@ -1378,7 +1378,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
       final dateStr = obs != null ? "${obs.observationDate.year}-${obs.observationDate.month.toString().padLeft(2, '0')}-${obs.observationDate.day.toString().padLeft(2, '0')}" : 'No Report Today';
 
       csv.writeln(
-        '"${s.stationId}","${s.district}","${s.taluk}","${s.gramaPanchayat}","${s.instrumentType.name}","${dateStr}",${obs?.rainfallMm ?? ""},${obs?.maxTemperatureC ?? ""},${obs?.minTemperatureC ?? ""},${obs?.humidityPercent ?? ""},${obs?.riverWaterLevelM ?? ""}'
+        '"${s.stationId}","${s.district}","${s.taluk}","${s.gramaPanchayat}",${s.latitude},${s.longitude},"${s.instrumentType.name}","${dateStr}",${obs?.rainfallMm ?? ""},${obs?.maxTemperatureC ?? ""},${obs?.minTemperatureC ?? ""},${obs?.humidityPercent ?? ""},${obs?.riverWaterLevelM ?? ""}'
       );
       count++;
     }
