@@ -3283,13 +3283,13 @@ class _WavePainter extends CustomPainter {
     final level = (1.0 - (fillPercentage / 100.0).clamp(0.0, 1.0));
     final fillRect = Rect.fromLTWH(0, size.height * level - 10, size.width, size.height * (1.0 - level) + 10);
 
-    // Primary wave with rich dark gradient fill
+    // Primary wave with soft translucent gradient fill
     final waveGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        color.withOpacity(0.58),
         color.withOpacity(0.22),
+        color.withOpacity(0.08),
       ],
     ).createShader(fillRect);
 
@@ -3300,20 +3300,20 @@ class _WavePainter extends CustomPainter {
     final path = Path();
     path.moveTo(0, size.height);
     for (double x = 0; x <= size.width; x++) {
-      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 6;
+      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 5;
       path.lineTo(x, y);
     }
     path.lineTo(size.width, size.height);
     path.close();
     canvas.drawPath(path, paint);
 
-    // Secondary wave with rich translucency
+    // Secondary wave with subtle translucency
     final waveGradient2 = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        color.withOpacity(0.35),
-        color.withOpacity(0.12),
+        color.withOpacity(0.14),
+        color.withOpacity(0.04),
       ],
     ).createShader(fillRect);
 
@@ -3324,18 +3324,18 @@ class _WavePainter extends CustomPainter {
     final path2 = Path();
     path2.moveTo(0, size.height);
     for (double x = 0; x <= size.width; x++) {
-      final y = size.height * (level + 0.03).clamp(0.0, 1.0) + sin(x / size.width * 2 * pi - progress * 2 * pi + pi / 2) * 5;
+      final y = size.height * (level + 0.03).clamp(0.0, 1.0) + sin(x / size.width * 2 * pi - progress * 2 * pi + pi / 2) * 4;
       path2.lineTo(x, y);
     }
     path2.lineTo(size.width, size.height);
     path2.close();
     canvas.drawPath(path2, paint2);
 
-    // Dark glowing wave crest line along top edge
+    // Subtle wave crest line along top edge
     final crestPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..color = color.withOpacity(0.92);
+      ..strokeWidth = 1.4
+      ..color = color.withOpacity(0.55);
 
     final crestPath = Path();
     for (double x = 0; x <= size.width; x++) {
@@ -3364,15 +3364,19 @@ class _PressureLinePainter extends CustomPainter {
     final center = Offset(size.width * 0.85, size.height * 0.25);
     final maxRadius = size.width * 0.85;
 
+    // Responsive element density: 2 rings on mobile/small cards, 4 on desktop
+    final ringCount = size.width < 220 ? 2 : 4;
+    final particleCount = size.width < 220 ? 4 : 10;
+
     // Atmospheric Isobar Expanding Rings (Barometer Radar Effect)
-    for (int i = 0; i < 4; i++) {
-      final ringProgress = (progress + i * 0.25) % 1.0;
+    for (int i = 0; i < ringCount; i++) {
+      final ringProgress = (progress + i * (1.0 / ringCount)) % 1.0;
       final radius = maxRadius * ringProgress;
-      final opacity = (1.0 - ringProgress) * 0.65;
+      final opacity = (1.0 - ringProgress) * 0.35;
 
       final ringPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
+        ..strokeWidth = 1.4
         ..color = color.withOpacity(opacity.clamp(0.0, 1.0));
 
       canvas.drawCircle(center, radius, ringPaint);
@@ -3380,12 +3384,12 @@ class _PressureLinePainter extends CustomPainter {
 
     // Floating Barometric Micro Density Particles
     final particlePaint = Paint()..style = PaintingStyle.fill;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < particleCount; i++) {
       final px = size.width * ((0.1 * i + progress * 0.08) % 1.0);
       final py = size.height * (0.15 + 0.7 * ((i * 0.31 + progress * 0.2) % 1.0));
-      final particleOpacity = 0.65 * sin(((progress + i * 0.12) % 1.0) * pi);
+      final particleOpacity = 0.30 * sin(((progress + i * 0.12) % 1.0) * pi);
       particlePaint.color = color.withOpacity(particleOpacity.clamp(0.0, 1.0));
-      canvas.drawCircle(Offset(px, py), 1.8, particlePaint);
+      canvas.drawCircle(Offset(px, py), 1.5, particlePaint);
     }
   }
 
@@ -3409,14 +3413,22 @@ class _WindLinePainter extends CustomPainter {
     // Rich dark teal accent color for crisp high-contrast theme visibility
     final darkTeal = isDarkMode ? const Color(0xFF14B8A6) : const Color(0xFF0D9488);
 
-    // 5 Organic Aerodynamic Airflow Streamlines
-    final List<Map<String, double>> airflowCurves = [
-      {'yRatio': 0.22, 'lenRatio': 0.50, 'speed': 1.0, 'phase': 0.0, 'waveAmp': 4.0},
-      {'yRatio': 0.40, 'lenRatio': 0.38, 'speed': 1.4, 'phase': 0.3, 'waveAmp': 3.0},
-      {'yRatio': 0.58, 'lenRatio': 0.55, 'speed': 0.9, 'phase': 0.65, 'waveAmp': 5.0},
-      {'yRatio': 0.75, 'lenRatio': 0.42, 'speed': 1.2, 'phase': 0.18, 'waveAmp': 3.5},
-      {'yRatio': 0.88, 'lenRatio': 0.32, 'speed': 1.5, 'phase': 0.8, 'waveAmp': 2.5},
-    ];
+    // Responsive streamline density: 2 clean lines on mobile cards, 5 on desktop
+    final bool isSmallCard = size.width < 220;
+    final List<Map<String, double>> airflowCurves = isSmallCard
+        ? [
+            {'yRatio': 0.30, 'lenRatio': 0.45, 'speed': 1.0, 'phase': 0.0, 'waveAmp': 3.5},
+            {'yRatio': 0.70, 'lenRatio': 0.40, 'speed': 1.3, 'phase': 0.4, 'waveAmp': 3.0},
+          ]
+        : [
+            {'yRatio': 0.22, 'lenRatio': 0.50, 'speed': 1.0, 'phase': 0.0, 'waveAmp': 4.0},
+            {'yRatio': 0.40, 'lenRatio': 0.38, 'speed': 1.4, 'phase': 0.3, 'waveAmp': 3.0},
+            {'yRatio': 0.58, 'lenRatio': 0.55, 'speed': 0.9, 'phase': 0.65, 'waveAmp': 5.0},
+            {'yRatio': 0.75, 'lenRatio': 0.42, 'speed': 1.2, 'phase': 0.18, 'waveAmp': 3.5},
+            {'yRatio': 0.88, 'lenRatio': 0.32, 'speed': 1.5, 'phase': 0.8, 'waveAmp': 2.5},
+          ];
+
+    final int particleCount = isSmallCard ? 3 : 8;
 
     for (var stream in airflowCurves) {
       final yBase = size.height * stream['yRatio']!;
@@ -3441,9 +3453,9 @@ class _WindLinePainter extends CustomPainter {
       final alpha = sin(localProgress * pi).clamp(0.0, 1.0);
       final streamPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
+        ..strokeWidth = 1.6
         ..strokeCap = StrokeCap.round
-        ..color = darkTeal.withOpacity((isDarkMode ? 0.65 : 0.85) * alpha);
+        ..color = darkTeal.withOpacity((isDarkMode ? 0.35 : 0.50) * alpha);
 
       canvas.drawPath(path, streamPaint);
 
@@ -3452,22 +3464,22 @@ class _WindLinePainter extends CustomPainter {
         final headY = yBase + sin((endX / size.width * 2.5 * pi) + (progress * 2.5 * pi)) * waveAmp * 0.2;
         final headPaint = Paint()
           ..style = PaintingStyle.fill
-          ..color = darkTeal.withOpacity((isDarkMode ? 0.85 : 0.95) * alpha);
+          ..color = darkTeal.withOpacity((isDarkMode ? 0.55 : 0.70) * alpha);
 
-        canvas.drawCircle(Offset(endX, headY), 2.0, headPaint);
+        canvas.drawCircle(Offset(endX, headY), 1.8, headPaint);
       }
     }
 
     // Drifting Wind Density Particles
     final particlePaint = Paint()..style = PaintingStyle.fill;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < particleCount; i++) {
       final pProgress = (progress + i * 0.12) % 1.0;
       final px = size.width * (pProgress * 1.3 - 0.15);
       final py = size.height * (0.15 + (i * 0.11 + sin(pProgress * 2 * pi) * 0.05) % 0.75);
-      final pAlpha = sin(pProgress * pi).clamp(0.0, 1.0) * (isDarkMode ? 0.5 : 0.7);
+      final pAlpha = sin(pProgress * pi).clamp(0.0, 1.0) * (isDarkMode ? 0.25 : 0.35);
 
       particlePaint.color = darkTeal.withOpacity(pAlpha);
-      canvas.drawCircle(Offset(px, py), 1.5, particlePaint);
+      canvas.drawCircle(Offset(px, py), 1.2, particlePaint);
     }
   }
 
@@ -3603,15 +3615,15 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
                   animation: _animController,
                   builder: (context, child) {
                     if (widget.type == SensorType.temperature) {
-                      final opacity = (0.1 + 0.3 * sin(_animController.value * 2 * pi).abs());
+                      final opacity = (0.05 + 0.10 * sin(_animController.value * 2 * pi).abs());
                       return Container(
                         decoration: BoxDecoration(
                           gradient: RadialGradient(
-                            center: Alignment.center,
-                            radius: 1.2,
+                            center: const Alignment(-0.6, -0.6),
+                            radius: 0.75,
                             colors: [
                               widget.glowColor.withOpacity(opacity),
-                              widget.glowColor.withOpacity(opacity * 0.2),
+                              Colors.transparent,
                             ],
                           ),
                         ),
