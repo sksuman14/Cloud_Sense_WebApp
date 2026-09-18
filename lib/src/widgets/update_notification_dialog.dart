@@ -64,9 +64,19 @@ class UpdateNotificationDialog extends StatelessWidget {
   }
 
   Future<void> _launchUrl(String targetUrl) async {
-    final uri = Uri.parse(targetUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse(targetUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        // Fallback for market:// schema or fallback HTTPS
+        final playStoreUri = Uri.parse('https://play.google.com/store/apps/details?id=com.CloudSenseVis');
+        if (await canLaunchUrl(playStoreUri)) {
+          await launchUrl(playStoreUri, mode: LaunchMode.externalApplication);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error launching update URL: $e");
     }
   }
 

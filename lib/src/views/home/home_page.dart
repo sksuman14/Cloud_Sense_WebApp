@@ -3334,12 +3334,12 @@ class _WavePainter extends CustomPainter {
     // Subtle wave crest line along top edge
     final crestPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..color = color.withOpacity(0.55);
+      ..strokeWidth = 2.2
+      ..color = color.withOpacity(0.70);
 
     final crestPath = Path();
     for (double x = 0; x <= size.width; x++) {
-      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 6;
+      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 5;
       if (x == 0) {
         crestPath.moveTo(x, y);
       } else {
@@ -3372,11 +3372,11 @@ class _PressureLinePainter extends CustomPainter {
     for (int i = 0; i < ringCount; i++) {
       final ringProgress = (progress + i * (1.0 / ringCount)) % 1.0;
       final radius = maxRadius * ringProgress;
-      final opacity = (1.0 - ringProgress) * 0.35;
+      final opacity = (1.0 - ringProgress) * 0.45;
 
       final ringPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
+        ..strokeWidth = 2.2
         ..color = color.withOpacity(opacity.clamp(0.0, 1.0));
 
       canvas.drawCircle(center, radius, ringPaint);
@@ -3387,9 +3387,9 @@ class _PressureLinePainter extends CustomPainter {
     for (int i = 0; i < particleCount; i++) {
       final px = size.width * ((0.1 * i + progress * 0.08) % 1.0);
       final py = size.height * (0.15 + 0.7 * ((i * 0.31 + progress * 0.2) % 1.0));
-      final particleOpacity = 0.30 * sin(((progress + i * 0.12) % 1.0) * pi);
+      final particleOpacity = 0.45 * sin(((progress + i * 0.12) % 1.0) * pi);
       particlePaint.color = color.withOpacity(particleOpacity.clamp(0.0, 1.0));
-      canvas.drawCircle(Offset(px, py), 1.5, particlePaint);
+      canvas.drawCircle(Offset(px, py), 2.2, particlePaint);
     }
   }
 
@@ -3453,9 +3453,9 @@ class _WindLinePainter extends CustomPainter {
       final alpha = sin(localProgress * pi).clamp(0.0, 1.0);
       final streamPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6
+        ..strokeWidth = 2.5
         ..strokeCap = StrokeCap.round
-        ..color = darkTeal.withOpacity((isDarkMode ? 0.35 : 0.50) * alpha);
+        ..color = darkTeal.withOpacity((isDarkMode ? 0.50 : 0.65) * alpha);
 
       canvas.drawPath(path, streamPaint);
 
@@ -3464,9 +3464,9 @@ class _WindLinePainter extends CustomPainter {
         final headY = yBase + sin((endX / size.width * 2.5 * pi) + (progress * 2.5 * pi)) * waveAmp * 0.2;
         final headPaint = Paint()
           ..style = PaintingStyle.fill
-          ..color = darkTeal.withOpacity((isDarkMode ? 0.55 : 0.70) * alpha);
+          ..color = darkTeal.withOpacity((isDarkMode ? 0.70 : 0.85) * alpha);
 
-        canvas.drawCircle(Offset(endX, headY), 1.8, headPaint);
+        canvas.drawCircle(Offset(endX, headY), 2.5, headPaint);
       }
     }
 
@@ -3476,10 +3476,10 @@ class _WindLinePainter extends CustomPainter {
       final pProgress = (progress + i * 0.12) % 1.0;
       final px = size.width * (pProgress * 1.3 - 0.15);
       final py = size.height * (0.15 + (i * 0.11 + sin(pProgress * 2 * pi) * 0.05) % 0.75);
-      final pAlpha = sin(pProgress * pi).clamp(0.0, 1.0) * (isDarkMode ? 0.25 : 0.35);
+      final pAlpha = sin(pProgress * pi).clamp(0.0, 1.0) * (isDarkMode ? 0.35 : 0.50);
 
       particlePaint.color = darkTeal.withOpacity(pAlpha);
-      canvas.drawCircle(Offset(px, py), 1.2, particlePaint);
+      canvas.drawCircle(Offset(px, py), 2.0, particlePaint);
     }
   }
 
@@ -3572,11 +3572,11 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
 
     final cardBorder = widget.isDarkMode
         ? (_isHovered
-            ? widget.glowColor.withOpacity(0.55)
-            : widget.glowColor.withOpacity(0.25))
+            ? widget.glowColor.withOpacity(0.80)
+            : widget.glowColor.withOpacity(0.48))
         : (_isHovered
-            ? widget.glowColor.withOpacity(0.7)
-            : widget.glowColor.withOpacity(0.35));
+            ? widget.glowColor.withOpacity(0.85)
+            : widget.glowColor.withOpacity(0.58));
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -3588,7 +3588,7 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cardBorder, width: 1.2),
+          border: Border.all(color: cardBorder, width: 1.8),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -3826,11 +3826,11 @@ class _HoverableCompassCardState extends State<_HoverableCompassCard> with Singl
 
     final cardBorder = widget.isDarkMode
         ? (_isHovered
-            ? glowColor.withOpacity(0.55)
-            : glowColor.withOpacity(0.25))
+            ? glowColor.withOpacity(0.80)
+            : glowColor.withOpacity(0.48))
         : (_isHovered
-            ? glowColor.withOpacity(0.7)
-            : glowColor.withOpacity(0.35));
+            ? glowColor.withOpacity(0.85)
+            : glowColor.withOpacity(0.58));
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -3842,7 +3842,7 @@ class _HoverableCompassCardState extends State<_HoverableCompassCard> with Singl
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cardBorder, width: 1.2),
+          border: Border.all(color: cardBorder, width: 1.8),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
