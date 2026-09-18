@@ -1884,7 +1884,7 @@ class _HomePageState extends State<HomePage> {
                                                                 icon: Icons.water_drop_outlined,
                                                                 label: "Humidity",
                                                                 value: "${HomeUtils.formatValue(humidityVal)} %",
-                                                                glowColor: Colors.cyan,
+                                                                glowColor: const Color(0xFF0284C7),
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                                 type: SensorType.humidity,
                                                                 numericValue: double.tryParse(humidityVal.toString()),
@@ -1904,7 +1904,7 @@ class _HomePageState extends State<HomePage> {
                                                                 icon: Icons.compress,
                                                                 label: "Atm Pressure",
                                                                 value: "${HomeUtils.formatValue(pressureVal)} hPa",
-                                                                glowColor: Colors.purpleAccent,
+                                                                glowColor: const Color(0xFF9333EA),
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                                 type: SensorType.pressure,
                                                                 numericValue: double.tryParse(pressureVal.toString()),
@@ -3281,32 +3281,72 @@ class _WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final level = (1.0 - (fillPercentage / 100.0).clamp(0.0, 1.0));
+    final fillRect = Rect.fromLTWH(0, size.height * level - 10, size.width, size.height * (1.0 - level) + 10);
+
+    // Primary wave with rich dark gradient fill
+    final waveGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        color.withOpacity(0.58),
+        color.withOpacity(0.22),
+      ],
+    ).createShader(fillRect);
+
     final paint = Paint()
-      ..color = color.withOpacity(0.4)
+      ..shader = waveGradient
       ..style = PaintingStyle.fill;
 
     final path = Path();
     path.moveTo(0, size.height);
     for (double x = 0; x <= size.width; x++) {
-      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 8;
+      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 6;
       path.lineTo(x, y);
     }
     path.lineTo(size.width, size.height);
     path.close();
     canvas.drawPath(path, paint);
 
+    // Secondary wave with rich translucency
+    final waveGradient2 = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        color.withOpacity(0.35),
+        color.withOpacity(0.12),
+      ],
+    ).createShader(fillRect);
+
     final paint2 = Paint()
-      ..color = color.withOpacity(0.22)
+      ..shader = waveGradient2
       ..style = PaintingStyle.fill;
+
     final path2 = Path();
     path2.moveTo(0, size.height);
     for (double x = 0; x <= size.width; x++) {
-      final y = size.height * (level + 0.03).clamp(0.0, 1.0) + sin(x / size.width * 2 * pi - progress * 2 * pi + pi / 2) * 6;
+      final y = size.height * (level + 0.03).clamp(0.0, 1.0) + sin(x / size.width * 2 * pi - progress * 2 * pi + pi / 2) * 5;
       path2.lineTo(x, y);
     }
     path2.lineTo(size.width, size.height);
     path2.close();
     canvas.drawPath(path2, paint2);
+
+    // Dark glowing wave crest line along top edge
+    final crestPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = color.withOpacity(0.92);
+
+    final crestPath = Path();
+    for (double x = 0; x <= size.width; x++) {
+      final y = size.height * level + sin(x / size.width * 2 * pi + progress * 2 * pi) * 6;
+      if (x == 0) {
+        crestPath.moveTo(x, y);
+      } else {
+        crestPath.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(crestPath, crestPaint);
   }
 
   @override
@@ -3321,20 +3361,31 @@ class _PressureLinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2;
+    final center = Offset(size.width * 0.85, size.height * 0.25);
+    final maxRadius = size.width * 0.85;
 
+    // Atmospheric Isobar Expanding Rings (Barometer Radar Effect)
     for (int i = 0; i < 4; i++) {
-      final path = Path();
-      final baseHeight = size.height * (0.35 + i * 0.14);
-      path.moveTo(0, baseHeight);
-      for (double x = 0; x <= size.width; x++) {
-        final y = baseHeight + sin(x / size.width * 3 * pi + progress * 2 * pi + i * pi / 4) * 8;
-        path.lineTo(x, y);
-      }
-      paint.color = color.withOpacity(0.2 + 0.08 * (4 - i));
-      canvas.drawPath(path, paint);
+      final ringProgress = (progress + i * 0.25) % 1.0;
+      final radius = maxRadius * ringProgress;
+      final opacity = (1.0 - ringProgress) * 0.65;
+
+      final ringPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..color = color.withOpacity(opacity.clamp(0.0, 1.0));
+
+      canvas.drawCircle(center, radius, ringPaint);
+    }
+
+    // Floating Barometric Micro Density Particles
+    final particlePaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 10; i++) {
+      final px = size.width * ((0.1 * i + progress * 0.08) % 1.0);
+      final py = size.height * (0.15 + 0.7 * ((i * 0.31 + progress * 0.2) % 1.0));
+      final particleOpacity = 0.65 * sin(((progress + i * 0.12) % 1.0) * pi);
+      particlePaint.color = color.withOpacity(particleOpacity.clamp(0.0, 1.0));
+      canvas.drawCircle(Offset(px, py), 1.8, particlePaint);
     }
   }
 
@@ -3345,30 +3396,78 @@ class _PressureLinePainter extends CustomPainter {
 class _WindLinePainter extends CustomPainter {
   final double progress;
   final Color color;
+  final bool isDarkMode;
 
-  _WindLinePainter({required this.progress, required this.color});
+  _WindLinePainter({
+    required this.progress,
+    required this.color,
+    this.isDarkMode = true,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
+    // Rich dark teal accent color for crisp high-contrast theme visibility
+    final darkTeal = isDarkMode ? const Color(0xFF14B8A6) : const Color(0xFF0D9488);
 
-    for (int i = 0; i < 5; i++) {
+    // 5 Organic Aerodynamic Airflow Streamlines
+    final List<Map<String, double>> airflowCurves = [
+      {'yRatio': 0.22, 'lenRatio': 0.50, 'speed': 1.0, 'phase': 0.0, 'waveAmp': 4.0},
+      {'yRatio': 0.40, 'lenRatio': 0.38, 'speed': 1.4, 'phase': 0.3, 'waveAmp': 3.0},
+      {'yRatio': 0.58, 'lenRatio': 0.55, 'speed': 0.9, 'phase': 0.65, 'waveAmp': 5.0},
+      {'yRatio': 0.75, 'lenRatio': 0.42, 'speed': 1.2, 'phase': 0.18, 'waveAmp': 3.5},
+      {'yRatio': 0.88, 'lenRatio': 0.32, 'speed': 1.5, 'phase': 0.8, 'waveAmp': 2.5},
+    ];
+
+    for (var stream in airflowCurves) {
+      final yBase = size.height * stream['yRatio']!;
+      final streamLen = size.width * stream['lenRatio']!;
+      final speedMult = stream['speed']!;
+      final phaseOffset = stream['phase']!;
+      final waveAmp = stream['waveAmp']!;
+
+      final localProgress = (progress * speedMult + phaseOffset) % 1.0;
+      final startX = size.width * 1.4 * localProgress - size.width * 0.4;
+      final endX = startX + streamLen;
+
       final path = Path();
-      final startY = size.height * (0.2 + i * 0.16);
-      final localProgress = (progress + i * 0.22) % 1.0;
-      final startX = size.width * (localProgress - 0.2);
-      final endX = startX + size.width * 0.35;
-      
-      path.moveTo(startX, startY);
-      for (double x = startX; x <= endX; x++) {
-        final y = startY + sin(x / size.width * 4 * pi + progress * 2 * pi) * 4;
-        path.lineTo(x, y);
+      path.moveTo(startX, yBase);
+
+      for (double x = startX; x <= endX; x += 4) {
+        final normX = ((x - startX) / streamLen).clamp(0.0, 1.0);
+        final yWave = yBase + sin((x / size.width * 2.5 * pi) + (progress * 2.5 * pi)) * waveAmp * sin(normX * pi);
+        path.lineTo(x, yWave);
       }
-      
-      paint.color = color.withOpacity(0.55 * sin(localProgress * pi));
-      canvas.drawPath(path, paint);
+
+      final alpha = sin(localProgress * pi).clamp(0.0, 1.0);
+      final streamPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..color = darkTeal.withOpacity((isDarkMode ? 0.65 : 0.85) * alpha);
+
+      canvas.drawPath(path, streamPaint);
+
+      // Glowing leading air particle at head of stream
+      if (endX > 0 && endX < size.width) {
+        final headY = yBase + sin((endX / size.width * 2.5 * pi) + (progress * 2.5 * pi)) * waveAmp * 0.2;
+        final headPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = darkTeal.withOpacity((isDarkMode ? 0.85 : 0.95) * alpha);
+
+        canvas.drawCircle(Offset(endX, headY), 2.0, headPaint);
+      }
+    }
+
+    // Drifting Wind Density Particles
+    final particlePaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 8; i++) {
+      final pProgress = (progress + i * 0.12) % 1.0;
+      final px = size.width * (pProgress * 1.3 - 0.15);
+      final py = size.height * (0.15 + (i * 0.11 + sin(pProgress * 2 * pi) * 0.05) % 0.75);
+      final pAlpha = sin(pProgress * pi).clamp(0.0, 1.0) * (isDarkMode ? 0.5 : 0.7);
+
+      particlePaint.color = darkTeal.withOpacity(pAlpha);
+      canvas.drawCircle(Offset(px, py), 1.5, particlePaint);
     }
   }
 
@@ -3555,6 +3654,7 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
                         painter: _WindLinePainter(
                           progress: _animController.value,
                           color: widget.glowColor,
+                          isDarkMode: widget.isDarkMode,
                         ),
                       );
                     } else if (widget.type == SensorType.rainfall) {
@@ -3697,7 +3797,7 @@ class _HoverableCompassCardState extends State<_HoverableCompassCard> with Singl
     super.initState();
     _rotationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 4),
     )..repeat();
   }
 
@@ -3761,7 +3861,7 @@ class _HoverableCompassCardState extends State<_HoverableCompassCard> with Singl
                         colors: [
                           Colors.transparent,
                           glowColor.withOpacity(0.01),
-                          glowColor.withOpacity(0.12),
+                          glowColor.withOpacity(0.18),
                           glowColor.withOpacity(0.01),
                           Colors.transparent,
                         ],

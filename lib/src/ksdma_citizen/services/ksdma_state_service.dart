@@ -1009,25 +1009,48 @@ class KsdmaStateService extends ChangeNotifier {
   /// Bulk upload list of parsed KsdmaObservation records directly into state & AWS API database
   Future<int> addBulkObservations(List<KsdmaObservation> obsList) async {
     if (obsList.isEmpty) return 0;
+    final fallbackUserId = currentUser.userId.isNotEmpty ? currentUser.userId : 'usr_admin_hq';
 
-    int successCount = 0;
+    final List<Map<String, dynamic>> recordsPayload = obsList.map((obs) {
+      return {
+        'observation_id': obs.observationId,
+        'station_id': obs.stationId,
+        'submitted_by_user_id': obs.submittedByUserId.isNotEmpty ? obs.submittedByUserId : fallbackUserId,
+        'observation_date': "${obs.observationDate.year}-${obs.observationDate.month.toString().padLeft(2, '0')}-${obs.observationDate.day.toString().padLeft(2, '0')}",
+        'observation_time': '${obs.observationTime.hour.toString().padLeft(2, '0')}:${obs.observationTime.minute.toString().padLeft(2, '0')}:00',
+        'rainfall_mm': obs.rainfallMm,
+        'max_temperature_c': obs.maxTemperatureC,
+        'min_temperature_c': obs.minTemperatureC,
+        'river_water_level_m': obs.riverWaterLevelM,
+        'humidity_percent': obs.humidityPercent,
+        'source': obs.source,
+        'status': 'approved',
+      };
+    }).toList();
 
-    // Concurrently upload records in batches of 5 to AWS RDS PostgreSQL via submitObservation API
-    const batchSize = 5;
-    for (int i = 0; i < obsList.length; i += batchSize) {
-      final chunk = obsList.skip(i).take(batchSize).toList();
-      final results = await Future.wait(chunk.map((obs) => apiService.submitObservation(obs)));
-      successCount += results.where((r) => r).length;
+    // Send full array payload in single/batch API request to AWS Lambda (/api/observations/bulk)
+    int apiCount = 0;
+    const int bulkChunkSize = 300;
+    for (int i = 0; i < recordsPayload.length; i += bulkChunkSize) {
+      final chunkPayload = recordsPayload.skip(i).take(bulkChunkSize).toList();
+      final count = await apiService.bulkUploadObservations(chunkPayload);
+      if (count == 0) {
+        // Atomic Failure Guard: If Lambda bulk endpoint returns 0/fails, stop immediately
+        return 0;
+      }
+      apiCount += count;
     }
 
-    // Always update local in-memory state so user sees imported data immediately
-    for (var obs in obsList) {
-      _observations.removeWhere((o) => o.observationId == obs.observationId);
-      _observations.add(obs);
+    if (apiCount > 0) {
+      // Update local in-memory state so user sees imported data immediately
+      for (var obs in obsList) {
+        _observations.removeWhere((o) => o.observationId == obs.observationId);
+        _observations.add(obs);
+      }
+      notifyListeners();
     }
-    notifyListeners();
 
-    return successCount;
+    return apiCount;
   }
 
   // Submit or Edit Observation and sync to AWS RDS via API

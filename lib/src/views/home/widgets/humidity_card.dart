@@ -23,15 +23,15 @@ class AnimatedWaveHumidityCard extends StatefulWidget {
 class _AnimatedWaveHumidityCardState extends State<AnimatedWaveHumidityCard> {
   List<Color> _getWaveColors(double humidity) {
     final t = (humidity / 100.0).clamp(0.0, 1.0);
-    const Color lowHumidityColor = Color.fromARGB(255, 61, 142, 180);
-    const Color highHumidityColor = Color.fromARGB(255, 4, 116, 168);
+    const Color lowHumidityColor = Color(0xFF039BE5);
+    const Color highHumidityColor = Color(0xFF01579B);
 
     final Color primaryColor =
         Color.lerp(lowHumidityColor, highHumidityColor, t)!;
 
     return [
-      primaryColor.withOpacity(0.5),
-      primaryColor,
+      primaryColor.withOpacity(0.40),
+      primaryColor.withOpacity(0.70),
     ];
   }
 

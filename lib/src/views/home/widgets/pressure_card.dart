@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
-import 'dart:ui' as ui;
 import '../home_theme.dart';
 
 class AnimatedPressureCard extends StatefulWidget {
@@ -123,27 +122,32 @@ class _PressurePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double t = ((pressure - 980) / (1040 - 980)).clamp(0.0, 1.0);
-    final int lineCount = ui.lerpDouble(4, 9, t)!.toInt();
-    final double amplitude =
-        ui.lerpDouble(size.height * 0.09, size.height * 0.03, t)!;
+    final progress = animation.value;
+    final center = Offset(size.width * 0.85, size.height * 0.25);
+    final maxRadius = size.width * 0.85;
 
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+    // 1. Isobaric Radar Ring Expansion
+    for (int i = 0; i < 4; i++) {
+      final ringProgress = (progress + i * 0.25) % 1.0;
+      final radius = maxRadius * ringProgress;
+      final opacity = (1.0 - ringProgress) * 0.25;
 
-    for (int i = 1; i <= lineCount; i++) {
-      final path = Path();
-      path.moveTo(-5, (size.height / (lineCount + 1)) * i);
+      final ringPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0));
 
-      for (double x = 0; x <= size.width + 5; x++) {
-        final double wave =
-            sin((x * 0.02) + (animation.value * 2 * pi) + (i * 0.5));
-        path.lineTo(
-            x, ((size.height / (lineCount + 1)) * i) + wave * amplitude);
-      }
-      canvas.drawPath(path, paint);
+      canvas.drawCircle(center, radius, ringPaint);
+    }
+
+    // 2. Barometric Micro Floating Particles
+    final particlePaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 8; i++) {
+      final px = size.width * ((0.12 * i + progress * 0.1) % 1.0);
+      final py = size.height * (0.15 + 0.7 * ((i * 0.31 + progress * 0.2) % 1.0));
+      final particleOpacity = 0.35 * sin(((progress + i * 0.12) % 1.0) * pi);
+      particlePaint.color = Colors.white.withOpacity(particleOpacity.clamp(0.0, 1.0));
+      canvas.drawCircle(Offset(px, py), 1.5, particlePaint);
     }
   }
 

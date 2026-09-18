@@ -27,7 +27,7 @@ class _AnimatedWindCardState extends State<AnimatedWindCard>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
     );
     if (widget.windSpeed > 0) {
       _controller.repeat();
@@ -116,50 +116,74 @@ class _AnimatedWindCardState extends State<AnimatedWindCard>
   }
 }
 
-class _WindParticle {
-  double x;
-  double y;
-  final double size;
-  final double offset;
-
-  _WindParticle()
-      : x = Random().nextDouble(),
-        y = Random().nextDouble(),
-        size = Random().nextDouble() * 2 + 1,
-        offset = Random().nextDouble();
-}
-
 class _WindPainter extends CustomPainter {
   final Animation<double> animation;
   final double windSpeed;
-  late final List<_WindParticle> particles;
 
   _WindPainter({required this.animation, required this.windSpeed})
-      : super(repaint: animation) {
-    final int particleCount = (windSpeed * 10).clamp(10, 80).toInt();
-    particles = List.generate(particleCount, (_) => _WindParticle());
-  }
+      : super(repaint: animation);
 
   @override
   void paint(ui.Canvas canvas, ui.Size size) {
-    final paint = ui.Paint()..color = Colors.white.withOpacity(0.5);
+    final progress = animation.value;
+    const darkTeal = Color(0xFF14B8A6);
 
-    for (var particle in particles) {
-      final progress = (animation.value + particle.offset) % 1.0;
-      final currentX =
-          ui.lerpDouble(-size.width * 0.2, size.width * 1.2, progress)!;
-      final currentY = particle.y * size.height +
-          (sin(progress * 2 * pi) * particle.size * 2);
+    final List<Map<String, double>> airflowCurves = [
+      {'yRatio': 0.22, 'lenRatio': 0.50, 'speed': 1.0, 'phase': 0.0, 'waveAmp': 4.0},
+      {'yRatio': 0.40, 'lenRatio': 0.38, 'speed': 1.4, 'phase': 0.3, 'waveAmp': 3.0},
+      {'yRatio': 0.58, 'lenRatio': 0.55, 'speed': 0.9, 'phase': 0.65, 'waveAmp': 5.0},
+      {'yRatio': 0.75, 'lenRatio': 0.42, 'speed': 1.2, 'phase': 0.18, 'waveAmp': 3.5},
+      {'yRatio': 0.88, 'lenRatio': 0.32, 'speed': 1.5, 'phase': 0.8, 'waveAmp': 2.5},
+    ];
 
-      double opacity = 1.0;
-      if (progress < 0.1) {
-        opacity = progress / 0.1;
-      } else if (progress > 0.9) {
-        opacity = (1.0 - progress) / 0.1;
+    for (var stream in airflowCurves) {
+      final yBase = size.height * stream['yRatio']!;
+      final streamLen = size.width * stream['lenRatio']!;
+      final speedMult = stream['speed']!;
+      final phaseOffset = stream['phase']!;
+      final waveAmp = stream['waveAmp']!;
+
+      final localProgress = (progress * speedMult + phaseOffset) % 1.0;
+      final startX = size.width * 1.4 * localProgress - size.width * 0.4;
+      final endX = startX + streamLen;
+
+      final path = ui.Path();
+      path.moveTo(startX, yBase);
+
+      for (double x = startX; x <= endX; x += 4) {
+        final normX = ((x - startX) / streamLen).clamp(0.0, 1.0);
+        final yWave = yBase + sin((x / size.width * 2.5 * pi) + (progress * 3 * pi)) * waveAmp * sin(normX * pi);
+        path.lineTo(x, yWave);
       }
-      paint.color = Colors.white.withOpacity(opacity * 0.5);
 
-      canvas.drawCircle(ui.Offset(currentX, currentY), particle.size, paint);
+      final alpha = sin(localProgress * pi).clamp(0.0, 1.0);
+      final streamPaint = ui.Paint()
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = ui.StrokeCap.round
+        ..color = darkTeal.withOpacity((0.75 * alpha).clamp(0.0, 1.0));
+
+      canvas.drawPath(path, streamPaint);
+
+      if (endX > 0 && endX < size.width) {
+        final headY = yBase + sin((endX / size.width * 2.5 * pi) + (progress * 3 * pi)) * waveAmp * 0.2;
+        final headPaint = ui.Paint()
+          ..style = ui.PaintingStyle.fill
+          ..color = darkTeal.withOpacity((0.9 * alpha).clamp(0.0, 1.0));
+
+        canvas.drawCircle(ui.Offset(endX, headY), 2.0, headPaint);
+      }
+    }
+
+    final particlePaint = ui.Paint()..style = ui.PaintingStyle.fill;
+    for (int i = 0; i < 8; i++) {
+      final pProgress = (progress + i * 0.12) % 1.0;
+      final px = size.width * (pProgress * 1.3 - 0.15);
+      final py = size.height * (0.15 + (i * 0.11 + sin(pProgress * 2 * pi) * 0.05) % 0.75);
+      final pAlpha = sin(pProgress * pi).clamp(0.0, 1.0) * 0.6;
+
+      particlePaint.color = darkTeal.withOpacity(pAlpha.clamp(0.0, 1.0));
+      canvas.drawCircle(ui.Offset(px, py), 1.5, particlePaint);
     }
   }
 

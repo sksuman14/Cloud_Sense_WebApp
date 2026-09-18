@@ -938,11 +938,11 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
         if (rainfall != null && (rainfall < 0.0 || rainfall > 500.0)) {
           throw Exception('Data Sanity Error (Row $lineNo): Rainfall value ($rainfall mm) is unrealistic! Allowed range: 0 to 500 mm.');
         }
-        if (maxTemp != null && (maxTemp < 5.0 || maxTemp > 50.0)) {
-          throw Exception('Data Sanity Error (Row $lineNo): Max Temperature ($maxTemp °C) is unrealistic! Must be between 5°C and 50°C.');
+        if (maxTemp != null && (maxTemp < -5.0 || maxTemp > 50.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): Max Temperature ($maxTemp °C) is unrealistic! Must be between -5°C and 50°C.');
         }
-        if (minTemp != null && (minTemp < 5.0 || minTemp > 50.0)) {
-          throw Exception('Data Sanity Error (Row $lineNo): Min Temperature ($minTemp °C) is unrealistic! Must be between 5°C and 50°C.');
+        if (minTemp != null && (minTemp < -5.0 || minTemp > 50.0)) {
+          throw Exception('Data Sanity Error (Row $lineNo): Min Temperature ($minTemp °C) is unrealistic! Must be between -5°C and 50°C.');
         }
         if (humidity != null && (humidity < 0.0 || humidity > 100.0)) {
           throw Exception('Data Sanity Error (Row $lineNo): Humidity ($humidity %) is invalid! Must be between 0% and 100%.');
