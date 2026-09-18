@@ -3153,7 +3153,18 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
     final field = isWeather ? _fieldForLayer(_selectedLayer) : '';
     final unit = isWeather ? _unitForLayer(_selectedLayer) : '';
 
-    return _csStateClusters.entries
+    final entries = _csStateClusters.entries.toList();
+    if (!isWeather) {
+      // Sort by count ascending: Red (low density <= 3) drawn first (bottom),
+      // Amber in middle, Green (high density > 15) drawn last (on top).
+      entries.sort((a, b) {
+        final countA = (a.value['count'] as int?) ?? 1;
+        final countB = (b.value['count'] as int?) ?? 1;
+        return countA.compareTo(countB);
+      });
+    }
+
+    return entries
         .map((e) {
           final cd = e.value;
           final devices = cd['devices'] as List<Map<String, dynamic>>;
@@ -3209,62 +3220,86 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
         .toList();
   }
 
-  List<Marker> _buildImdStateMarkers() => _imdStateClusters.entries.map((e) {
-        final cd = e.value;
-        return Marker(
-          point: LatLng(cd['latitude'], cd['longitude']),
-          width: 80,
-          height: 80,
-          child: GestureDetector(
-            onTap: () => _showClusterDialog(context, e.key, cd),
-            child: _ClusterBubble(
-                count: cd['count'],
-                color: _kImdOrange,
-                size: 44,
-                topIcon: Icons.wb_sunny,
-                pulseAnim: _pulseAnim),
-          ),
-        );
-      }).toList();
+  List<Marker> _buildImdStateMarkers() {
+    final entries = _imdStateClusters.entries.toList()
+      ..sort((a, b) {
+        final countA = (a.value['count'] as int?) ?? 1;
+        final countB = (b.value['count'] as int?) ?? 1;
+        return countA.compareTo(countB);
+      });
+    return entries.map((e) {
+      final cd = e.value;
+      return Marker(
+        point: LatLng(cd['latitude'], cd['longitude']),
+        width: 80,
+        height: 80,
+        child: GestureDetector(
+          onTap: () => _showClusterDialog(context, e.key, cd),
+          child: _ClusterBubble(
+              count: cd['count'],
+              color: _kImdOrange,
+              size: 44,
+              topIcon: Icons.wb_sunny,
+              pulseAnim: _pulseAnim),
+        ),
+      );
+    }).toList();
+  }
 
-  List<Marker> _buildCsDistrictMarkers() =>
-      _csDistrictClusters.entries.map((e) {
-        final cd = e.value;
-        final count = (cd['count'] as int?) ?? 1;
-        return Marker(
-          point: LatLng(cd['latitude'], cd['longitude']),
-          width: 68,
-          height: 68,
-          child: GestureDetector(
-            onTap: () => _showDistrictDialog(context, cd),
-            child: _ClusterBubble(
-                count: count,
-                color: _getClusterDensityColor(count),
-                size: 36,
-                topIcon: Icons.sensors,
-                pulseAnim: _pulseAnim),
-          ),
-        );
-      }).toList();
+  List<Marker> _buildCsDistrictMarkers() {
+    final entries = _csDistrictClusters.entries.toList()
+      ..sort((a, b) {
+        final countA = (a.value['count'] as int?) ?? 1;
+        final countB = (b.value['count'] as int?) ?? 1;
+        return countA.compareTo(countB);
+      });
 
-  List<Marker> _buildImdDistrictMarkers() =>
-      _imdDistrictClusters.entries.map((e) {
-        final cd = e.value;
-        return Marker(
-          point: LatLng(cd['latitude'], cd['longitude']),
-          width: 68,
-          height: 68,
-          child: GestureDetector(
-            onTap: () => _showDistrictDialog(context, cd),
-            child: _ClusterBubble(
-                count: cd['count'],
-                color: _kImdOrange,
-                size: 36,
-                topIcon: Icons.wb_sunny,
-                pulseAnim: _pulseAnim),
-          ),
-        );
-      }).toList();
+    return entries.map((e) {
+      final cd = e.value;
+      final count = (cd['count'] as int?) ?? 1;
+      return Marker(
+        point: LatLng(cd['latitude'], cd['longitude']),
+        width: 68,
+        height: 68,
+        child: GestureDetector(
+          onTap: () => _showDistrictDialog(context, cd),
+          child: _ClusterBubble(
+              count: count,
+              color: _getClusterDensityColor(count),
+              size: 36,
+              topIcon: Icons.sensors,
+              pulseAnim: _pulseAnim),
+        ),
+      );
+    }).toList();
+  }
+
+  List<Marker> _buildImdDistrictMarkers() {
+    final entries = _imdDistrictClusters.entries.toList()
+      ..sort((a, b) {
+        final countA = (a.value['count'] as int?) ?? 1;
+        final countB = (b.value['count'] as int?) ?? 1;
+        return countA.compareTo(countB);
+      });
+
+    return entries.map((e) {
+      final cd = e.value;
+      return Marker(
+        point: LatLng(cd['latitude'], cd['longitude']),
+        width: 68,
+        height: 68,
+        child: GestureDetector(
+          onTap: () => _showDistrictDialog(context, cd),
+          child: _ClusterBubble(
+              count: cd['count'],
+              color: _kImdOrange,
+              size: 36,
+              topIcon: Icons.wb_sunny,
+              pulseAnim: _pulseAnim),
+        ),
+      );
+    }).toList();
+  }
 
   // CS individual markers (CloudSense + Aurassure) — always green
   List<Marker> _buildCsIndividualMarkers() =>
