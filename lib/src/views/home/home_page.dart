@@ -3544,7 +3544,7 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 10),
     )..repeat();
   }
 
@@ -3797,7 +3797,7 @@ class _HoverableCompassCardState extends State<_HoverableCompassCard> with Singl
     super.initState();
     _rotationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 10),
     )..repeat();
   }
 
