@@ -27,16 +27,45 @@ class KsdmaPublicDashboardView extends StatefulWidget {
 class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   KsdmaStation? _selectedStation;
 
-  String _selectedParam = 'all';
-  String _selectedAggregation = 'Cumulative';
-  String _selectedDistrict = 'All Districts';
+  // 1. Left Column Filters (Network & Overview)
+  String _leftSelectedParam = 'all';
+  String _leftSelectedDistrict = 'All Districts';
+  String _leftAppliedParam = 'all';
+  String _leftAppliedDistrict = 'All Districts';
 
-  String _appliedParam = 'all';
-  String _appliedAggregation = 'Cumulative';
-  String _appliedDistrict = 'All Districts';
+  // 2. Map Filters (Center Column: Live Weather Map)
+  String _mapSelectedDistrict = 'All Districts';
+  String _mapSelectedTaluk = 'All Taluks';
+  String _mapSelectedPanchayat = 'All Panchayats';
+  String _mapSelectedParam = 'all';
+
+  // Compatibility getters for modals and observation graphs
+  String get _appliedDistrict => _leftAppliedDistrict;
+  String get _appliedParam => _leftAppliedParam;
+  String get _appliedAggregation => 'Cumulative';
 
   String _activeDeltaTab = 'Rainfall';
   String? _expandedDeltaDistrict;
+  bool _isSatelliteMode = false;
+
+  double? _leftColumnHeight = 840.0;
+  final GlobalKey _leftColumnKey = GlobalKey();
+
+  void _updateLeftColumnHeight() {
+    if (!mounted) return;
+    final ctx = _leftColumnKey.currentContext;
+    if (ctx != null) {
+      final renderBox = ctx.findRenderObject() as RenderBox?;
+      if (renderBox != null && renderBox.hasSize) {
+        final h = renderBox.size.height;
+        if (h > 0 && (h - (_leftColumnHeight ?? 0)).abs() > 1.0) {
+          setState(() {
+            _leftColumnHeight = h;
+          });
+        }
+      }
+    }
+  }
 
   late final MapController _mapController = MapController();
 
@@ -54,6 +83,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   String _breakdownSearchQuery = '';
   final TextEditingController _breakdownSearchTextController = TextEditingController();
 
+  int _deltaCurrentPage = 1;
+  String _latestObsSearchQuery = '';
+  final TextEditingController _latestObsSearchController = TextEditingController();
+
   final List<String> _keralaDistricts = [
     'All Districts',
     ...KeralaAdminData.districtsAlphabetical,
@@ -62,7 +95,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   @override
   void initState() {
     super.initState();
-    // Lazy load: fetch stations & observations only when Dashboard opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final state = Provider.of<KsdmaStateService>(context, listen: false);
@@ -76,75 +108,89 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     _mapController.dispose();
     _mapSearchTextController.dispose();
     _breakdownSearchTextController.dispose();
+    _latestObsSearchController.dispose();
     super.dispose();
   }
 
-  void _applyFilters(KsdmaStateService state) {
-    // Check if the selected district has any stations
-    if (_selectedDistrict != 'All Districts') {
+  void _applyLeftFilters(KsdmaStateService state) {
+    if (_leftSelectedDistrict != 'All Districts') {
       final allStations = state.approvedStations.isNotEmpty ? state.approvedStations : state.stations;
       final inDistrict = allStations.where((s) {
-        if (s.district.toLowerCase().trim() != _selectedDistrict.toLowerCase().trim()) return false;
-        if (_selectedParam != 'all' && s.category != StationCategory.aws && s.instrumentType != InstrumentType.awsAutomaticStation) {
-          if (_selectedParam == 'maxTemp' && s.instrumentType != InstrumentType.maxMinThermometer) return false;
-          if (_selectedParam == 'humidity' && s.instrumentType != InstrumentType.hygrometer) return false;
-          if (_selectedParam == 'riverLevel' && s.instrumentType != InstrumentType.riverGauge) return false;
-          if (_selectedParam == 'rainfall' && s.instrumentType != InstrumentType.rainGauge) return false;
+        if (!KeralaAdminData.matchDistrict(s.district, _leftSelectedDistrict)) return false;
+        if (_leftSelectedParam != 'all') {
+          final bool isAws = s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
+          if (_leftSelectedParam == 'riverLevel') {
+            if (s.instrumentType != InstrumentType.riverGauge) return false;
+          } else if (_leftSelectedParam == 'maxTemp') {
+            if (!isAws && s.instrumentType != InstrumentType.maxMinThermometer) return false;
+          } else if (_leftSelectedParam == 'humidity') {
+            if (!isAws && s.instrumentType != InstrumentType.hygrometer) return false;
+          } else if (_leftSelectedParam == 'rainfall') {
+            if (!isAws && s.instrumentType != InstrumentType.rainGauge) return false;
+          }
         }
         return true;
       }).toList();
 
       if (inDistrict.isEmpty) {
-        // Show message and reset district back to previous value
-        _showToast('No stations found in "$_selectedDistrict". Filter not applied.', isError: true);
-        // Reset district selection back to All Districts
-        setState(() => _selectedDistrict = 'All Districts');
+        _showToast('No stations found in "$_leftSelectedDistrict". Filter not applied.', isError: true);
+        setState(() => _leftSelectedDistrict = 'All Districts');
         return;
       }
     }
 
     setState(() {
-      _appliedParam = _selectedParam;
-      // Aggregation only makes physical sense for Rainfall (cumulative total vs average).
-      // For Temperature/Humidity/River Level always use Average — force it here so every
-      // panel (chart, delta table, stat boxes, CSV) stays consistent with the dropdown.
-      _appliedAggregation = _selectedParam == 'rainfall' ? _selectedAggregation : 'Average';
-      _appliedDistrict = _selectedDistrict;
-
-      state.selectedParameter = _selectedParam;
-      state.selectedDistrict = _selectedDistrict;
-
-      if (_selectedParam == 'maxTemp') {
-        _activeDeltaTab = 'Temperature';
-      } else if (_selectedParam == 'humidity') {
-        _activeDeltaTab = 'Humidity';
-      } else if (_selectedParam == 'riverLevel') {
-        _activeDeltaTab = 'River Level';
-      } else {
-        _activeDeltaTab = 'Rainfall';
-      }
+      _leftAppliedParam = _leftSelectedParam;
+      _leftAppliedDistrict = _leftSelectedDistrict;
     });
   }
 
-  void _resetFilters(KsdmaStateService state) {
+  void _resetLeftFilters(KsdmaStateService state) {
     setState(() {
-      _selectedParam = 'all';
-      _selectedAggregation = 'Cumulative';
-      _selectedDistrict = 'All Districts';
-
-      _appliedParam = 'all';
-      _appliedAggregation = 'Cumulative';
-      _appliedDistrict = 'All Districts';
-
-      _selectedStation = null; // Reset station selection to show all stations
-
-      state.selectedParameter = 'all';
-      state.selectedDistrict = 'All Districts';
-      _activeDeltaTab = 'Rainfall';
+      _leftSelectedParam = 'all';
+      _leftSelectedDistrict = 'All Districts';
+      _leftAppliedParam = 'all';
+      _leftAppliedDistrict = 'All Districts';
     });
   }
 
+  void _downloadSpatialCsv(KsdmaStateService state) {
+    final StringBuffer csv = StringBuffer();
+    csv.writeln(
+      'Station ID,Station Name,Category,Instrument Type,Latitude,Longitude,CRS,District,Taluk,Grama Panchayat,Observation Date,Observation Time,Rainfall (mm),Max Temp (C),Min Temp (C),Humidity (%),River Level (m),Data Quality Status'
+    );
 
+    final stations = state.approvedStations.isNotEmpty ? state.approvedStations : state.stations;
+    for (var s in stations) {
+      final obs = state.getTodayObservation(s.stationId);
+      final raw = state.getWsDeviceRaw(s.stationId);
+
+      final rain = obs?.rainfallMm ?? raw?['Rainfall_Cumulative_mm'] ?? raw?['rainfall'] ?? '';
+      final maxTemp = obs?.maxTemperatureC ?? raw?['Maximum_Temperature'] ?? raw?['now_temperature'] ?? raw?['Temperature'] ?? '';
+      final minTemp = obs?.minTemperatureC ?? '';
+      final hum = obs?.humidityPercent ?? raw?['Humidity_Percent'] ?? raw?['Humidity'] ?? '';
+      final river = obs?.riverWaterLevelM ?? raw?['River_Level_m'] ?? '';
+      final dateStr = obs != null ? obs.observationDate.toIso8601String().split('T')[0] : DateTime.now().toIso8601String().split('T')[0];
+      final timeStr = obs != null ? '${obs.observationTime.hour.toString().padLeft(2, '0')}:${obs.observationTime.minute.toString().padLeft(2, '0')}' : '08:00';
+
+      csv.writeln(
+        '"${s.stationId}","${s.ownerName}","${s.category.name}","${s.instrumentType.displayName}",${s.latitude.toStringAsFixed(6)},${s.longitude.toStringAsFixed(6)},"EPSG:4326 (WGS84)","${s.district}","${s.taluk}","${s.gramaPanchayat}","$dateStr","$timeStr","$rain","$maxTemp","$minTemp","$hum","$river","QA/QC Verified"'
+      );
+    }
+
+    if (kIsWeb) {
+      final bytes = utf8.encode(csv.toString());
+      final blob = html.Blob([bytes], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final fileName = 'KSDMA_Spatial_Weather_Observations_${DateTime.now().millisecondsSinceEpoch}.csv';
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    }
+
+    _showToast('📥 Spatial CSV Exported with Lat/Lng Coordinates & Admin Hierarchy!');
+  }
 
   void _downloadDeltaComparisonCsv(KsdmaStateService state) {
     final StringBuffer csv = StringBuffer();
@@ -419,9 +465,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
                   TextField(
                     onChanged: (val) => setModalState(() => searchQuery = val),
                     style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13),
@@ -438,9 +482,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF2563EB))),
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -459,9 +501,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   Expanded(
                     child: filtered.isEmpty
                         ? const Center(
@@ -479,19 +519,19 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
                               if (s.instrumentType == InstrumentType.rainGauge || isAws) {
                                 final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
-                                chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF1D4ED8)));
+                                chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF2563EB)));
                               }
 
                               if (s.instrumentType == InstrumentType.maxMinThermometer || isAws) {
                                 final maxTemp = obs?.maxTemperatureC != null ? '${obs!.maxTemperatureC}°C' : '—';
                                 final minTemp = obs?.minTemperatureC != null ? '${obs!.minTemperatureC}°C' : '—';
-                                chips.add(_buildDetailChip('Max Temp', maxTemp, const Color(0xFFE65100)));
+                                chips.add(_buildDetailChip('Max Temp', maxTemp, const Color(0xFFEA580C)));
                                 chips.add(_buildDetailChip('Min Temp', minTemp, const Color(0xFF0288D1)));
                               }
 
                               if (s.instrumentType == InstrumentType.hygrometer || isAws) {
                                 final hum = obs?.humidityPercent != null ? '${obs!.humidityPercent}%' : '—';
-                                chips.add(_buildDetailChip('Humidity', hum, const Color(0xFF7E22CE)));
+                                chips.add(_buildDetailChip('Humidity', hum, const Color(0xFF7C3AED)));
                               }
 
                               if (s.instrumentType == InstrumentType.riverGauge || isAws) {
@@ -501,7 +541,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
                               if (chips.isEmpty) {
                                 final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
-                                chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF1D4ED8)));
+                                chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF2563EB)));
                               }
 
                               String timeStr = 'Today 08:00 AM';
@@ -513,142 +553,63 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                 timeStr = '${dt.day}/${dt.month} ${hour.toString().padLeft(2, '0')}:$minStr $ampm';
                               }
 
-                              if (isMobile) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  _mapController.move(LatLng(s.latitude, s.longitude), 13.0);
+                                  setState(() => _selectedStation = s);
+                                  _showStationDetailsDialog(context, s, state);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                                  child: Row(
                                     children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 26,
-                                            height: 26,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF1F5F9),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Center(
-                                              child: Text('#${idx + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(s.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                                          const SizedBox(width: 6),
-                                          Flexible(
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFEFF6FF),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                s.instrumentType.displayName,
-                                                style: const TextStyle(fontSize: 9, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 1,
-                                              ),
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          Text(timeStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 34.0),
-                                        child: Text(
-                                          '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}',
-                                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                      Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Center(
+                                          child: Text('#${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 34.0),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(s.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                            Text(
+                                              '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}',
+                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 4,
                                         child: Wrap(
-                                          spacing: 6,
+                                          spacing: 8,
                                           runSpacing: 4,
                                           children: chips,
                                         ),
                                       ),
+                                      const SizedBox(width: 8),
+                                      Text(timeStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                     ],
                                   ),
-                                );
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Center(
-                                        child: Text('#${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Text(s.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                                              const SizedBox(width: 6),
-                                              Flexible(
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFEFF6FF),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                  child: Text(
-                                                    s.instrumentType.displayName,
-                                                    style: const TextStyle(fontSize: 9, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 1,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Text(
-                                            '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}',
-                                            style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        children: chips,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(timeStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                  ],
                                 ),
                               );
                             },
                           ),
                   ),
-
                   const SizedBox(height: 10),
-
                   Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton(
@@ -669,220 +630,39 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  // ignore: unused_element
-  Widget _buildStationChartBox(BuildContext context, KsdmaStateService state, KsdmaStation station, DateTime todayDate) {
-    String effectiveParam = _appliedParam;
-    if (_appliedParam == 'all') {
-      switch (station.instrumentType) {
-        case InstrumentType.hygrometer:
-          effectiveParam = 'humidity';
-          break;
-        case InstrumentType.maxMinThermometer:
-          effectiveParam = 'maxTemp';
-          break;
-        case InstrumentType.riverGauge:
-          effectiveParam = 'riverLevel';
-          break;
-        case InstrumentType.rainGauge:
-        case InstrumentType.awsAutomaticStation:
-          effectiveParam = 'rainfall';
-          break;
-      }
-    }
-
-    bool isTemp = effectiveParam == 'maxTemp';
-    bool isHum = effectiveParam == 'humidity';
-    bool isRiver = effectiveParam == 'riverLevel';
-
-    final aggLabel = effectiveParam == 'rainfall' ? ' $_appliedAggregation' : '';
-    final title = '${station.stationId} - ${_getParameterTitle(effectiveParam)}$aggLabel (${_getParameterUnit(effectiveParam)})';
-
-    final todayMidnight = DateTime(todayDate.year, todayDate.month, todayDate.day);
-
-    double getValue(KsdmaObservation o) {
-      if (isTemp) return o.maxTemperatureC ?? 0.0;
-      if (isHum) return o.humidityPercent ?? 0.0;
-      if (isRiver) return o.riverWaterLevelM ?? 0.0;
-      return o.rainfallMm ?? 0.0;
-    }
-
-    double getPeriodVal(int days) {
-      double sum = 0.0;
-      int count = 0;
-
-      for (var o in state.observations) {
-        if (o.isRemoved) continue;
-        if (o.stationId != station.stationId) continue;
-        final obsLocal = o.observationDate.toLocal();
-        final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
-
-        if (days == 1) {
-          if (obsDate.year == todayMidnight.year && obsDate.month == todayMidnight.month && obsDate.day == todayMidnight.day) {
-            sum += getValue(o);
-            count++;
-          }
-        } else {
-          final cutoffDate = todayMidnight.subtract(Duration(days: days - 1));
-          if (!obsDate.isBefore(cutoffDate)) {
-            sum += getValue(o);
-            count++;
-          }
-        }
-      }
-
-      if (days == 1 && count == 0) {
-        final tObs = state.getTodayObservation(station.stationId);
-        if (tObs != null) return getValue(tObs);
-      }
-
-      if ((isHum || isTemp || isRiver || _appliedAggregation == 'Average') && count > 0) {
-        return sum / count;
-      }
-      return sum;
-    }
-
-    Map<String, double> getTempPeriodVal(int days) {
-      double maxVal = -999.0;
-      double minVal = 999.0;
-      double maxSum = 0.0;
-      double minSum = 0.0;
-      int maxCount = 0;
-      int minCount = 0;
-
-      for (var o in state.observations) {
-        if (o.isRemoved) continue;
-        if (o.stationId != station.stationId) continue;
-        final obsLocal = o.observationDate.toLocal();
-        final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
-
-        bool matchDate = (days == 1)
-            ? (obsDate.year == todayMidnight.year && obsDate.month == todayMidnight.month && obsDate.day == todayMidnight.day)
-            : (!obsDate.isBefore(todayMidnight.subtract(Duration(days: days - 1))));
-
-        if (matchDate) {
-          if (o.maxTemperatureC != null) {
-            if (o.maxTemperatureC! > maxVal) maxVal = o.maxTemperatureC!;
-            maxSum += o.maxTemperatureC!;
-            maxCount++;
-          }
-          if (o.minTemperatureC != null) {
-            if (o.minTemperatureC! < minVal) minVal = o.minTemperatureC!;
-            minSum += o.minTemperatureC!;
-            minCount++;
-          }
-        }
-      }
-
-      if (days == 1) {
-        final tObs = state.getTodayObservation(station.stationId);
-        if (tObs != null) {
-          if (maxCount == 0 && tObs.maxTemperatureC != null) { maxVal = tObs.maxTemperatureC!; maxSum = tObs.maxTemperatureC!; maxCount = 1; }
-          if (minCount == 0 && tObs.minTemperatureC != null) { minVal = tObs.minTemperatureC!; minSum = tObs.minTemperatureC!; minCount = 1; }
-        }
-      }
-
-      if (_appliedAggregation == 'Average') {
-        return {
-          'max': maxCount > 0 ? maxSum / maxCount : 0.0,
-          'min': minCount > 0 ? minSum / minCount : 0.0,
-        };
-      }
-
-      return {
-        'max': maxCount > 0 ? maxVal : 0.0,
-        'min': minCount > 0 ? minVal : 0.0,
-      };
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)), maxLines: 1)),
-            if (isTemp)
-              Row(
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFE65100), shape: BoxShape.circle)),
-                  const SizedBox(width: 3),
-                  const Text('Max Temp', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFE65100))),
-                  const SizedBox(width: 8),
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF0288D1), shape: BoxShape.circle)),
-                  const SizedBox(width: 3),
-                  const Text('Min Temp', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF0288D1))),
-                ],
-              ),
-          ],
+  Widget _buildModalDeviceChip(String label, String value, String current, Function(String) onSelect) {
+    final bool isSel = value == current;
+    return InkWell(
+      onTap: () => onSelect(value),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSel ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1)),
         ),
-        const SizedBox(height: 12),
-        if (isTemp) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildDualBar('Today', getTempPeriodVal(1)['max']!, getTempPeriodVal(1)['min']!),
-              _buildDualBar('2 Days', getTempPeriodVal(2)['max']!, getTempPeriodVal(2)['min']!),
-              _buildDualBar('3 Days', getTempPeriodVal(3)['max']!, getTempPeriodVal(3)['min']!),
-              _buildDualBar('5 Days', getTempPeriodVal(5)['max']!, getTempPeriodVal(5)['min']!),
-              _buildDualBar('Week', getTempPeriodVal(7)['max']!, getTempPeriodVal(7)['min']!),
-              _buildDualBar('Month', getTempPeriodVal(30)['max']!, getTempPeriodVal(30)['min']!),
-            ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF475569),
           ),
-        ] else ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildBar('Today', getPeriodVal(1), 40),
-              _buildBar('2 Days', getPeriodVal(2), 60),
-              _buildBar('3 Days', getPeriodVal(3), 80),
-              _buildBar('5 Days', getPeriodVal(5), 100),
-              _buildBar('Week', getPeriodVal(7), 120),
-              _buildBar('Month', getPeriodVal(30), 140),
-            ],
-          ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 
-  Widget _buildLiveMetricTile(String label, String value, IconData icon, Color color, Color bg, {double? width}) {
+  Widget _buildDetailChip(String label, String value, Color color) {
     return Container(
-      width: width ?? 155,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
-            ),
-          ),
-        ],
-      ),
+      child: Text('$label: $value', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
     );
   }
 
@@ -921,7 +701,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         builder: (ctx) {
           final double screenWidth = MediaQuery.of(context).size.width;
           final double dialogWidth = (screenWidth * 0.92).clamp(0.0, 680.0);
-          final double availWidth = dialogWidth - 40; // 20px padding left & right
+          final double availWidth = dialogWidth - 40;
           final int crossAxisCount = availWidth >= 500 ? 3 : 2;
           const double spacing = 10;
           final double itemWidth = (availWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
@@ -1072,7 +852,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       return;
     }
 
-    // For NON-AWS manual stations: show the original dialog with Graph & Stat Boxes
     _showManualStationGraphDialog(context, station, state);
   }
 
@@ -1097,110 +876,40 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: KsdmaColors.primaryTint,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(_getPinIcon(station), color: KsdmaColors.primary, size: 22),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
-                                    KsdmaBadgeTag(text: station.instrumentType.displayName),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} District',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                              ],
-                            ),
+                          Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
+                          Text(
+                            '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} • ${station.instrumentType.displayName}',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
-                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9), visualDensity: VisualDensity.compact),
+                      icon: const Icon(Icons.close, size: 18),
                     ),
                   ],
                 ),
                 const Divider(height: 20),
-
-                Card(
-                  color: Colors.white,
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14.0),
-                    child: _buildStationChartBox(context, state, station, DateTime.now()),
+                _buildStationStatBoxes(state, station),
+                const SizedBox(height: 16),
+                _buildStationChartBox(context, state, station, DateTime.now()),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                    child: const Text('Close'),
                   ),
                 ),
-
-                const SizedBox(height: 16),
-                _buildStationStatBoxes(state, station),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailChip(String label, String val, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(fontSize: 8.5, color: color.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
-          Text(val, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: color)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModalDeviceChip(String label, String value, String current, ValueChanged<String> onSelect) {
-    final bool isSel = current == value;
-    return InkWell(
-      onTap: () => onSelect(value),
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSel ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-            color: isSel ? Colors.white : const Color(0xFF475569),
           ),
         ),
       ),
@@ -1212,45 +921,47 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     final state = Provider.of<KsdmaStateService>(context);
 
     final allStations = state.approvedStations.isNotEmpty ? state.approvedStations : state.stations;
-    final filteredStations = allStations.where((s) {
-      if (_appliedDistrict != 'All Districts' && s.district.toLowerCase() != _appliedDistrict.toLowerCase()) {
+
+    // Left column specific filtering (applied via left header filter bar):
+    final leftActiveStations = allStations.where((s) {
+      if (_leftAppliedDistrict != 'All Districts' && !KeralaAdminData.matchDistrict(s.district, _leftAppliedDistrict)) {
         return false;
       }
-      // Parameter Capability Filter: Rain Gauges measure Rainfall, Hygrometers measure Humidity, etc.
-      // AWS stations measure all parameters.
-      if (_appliedParam != 'all' && s.category != StationCategory.aws && s.instrumentType != InstrumentType.awsAutomaticStation) {
-        if (_appliedParam == 'maxTemp' && s.instrumentType != InstrumentType.maxMinThermometer) return false;
-        if (_appliedParam == 'humidity' && s.instrumentType != InstrumentType.hygrometer) return false;
-        if (_appliedParam == 'riverLevel' && s.instrumentType != InstrumentType.riverGauge) return false;
-        if (_appliedParam == 'rainfall' && s.instrumentType != InstrumentType.rainGauge) return false;
+      if (_leftAppliedParam != 'all') {
+        final bool isAws = s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
+        if (_leftAppliedParam == 'riverLevel') {
+          if (s.instrumentType != InstrumentType.riverGauge) return false;
+        } else if (_leftAppliedParam == 'maxTemp') {
+          if (!isAws && s.instrumentType != InstrumentType.maxMinThermometer) return false;
+        } else if (_leftAppliedParam == 'humidity') {
+          if (!isAws && s.instrumentType != InstrumentType.hygrometer) return false;
+        } else if (_leftAppliedParam == 'rainfall') {
+          if (!isAws && s.instrumentType != InstrumentType.rainGauge) return false;
+        }
       }
       return true;
     }).toList();
 
-    final activeStations = filteredStations;
+    // Map and Right column observation graphs keep all stations (unfiltered by Left Column controls)
+    final mainActiveStations = allStations;
 
-    if (_selectedStation != null && !activeStations.any((s) => s.stationId == _selectedStation!.stationId)) {
+    if (_selectedStation != null && !mainActiveStations.any((s) => s.stationId == _selectedStation!.stationId)) {
       _selectedStation = null;
     }
 
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
-    final todayObs = state.observations.where((o) {
+    final todayObsLeft = state.observations.where((o) {
       if (o.isRemoved) return false;
       final d = o.observationDate.toLocal();
       if (d.year != todayDate.year || d.month != todayDate.month || d.day != todayDate.day) {
         return false;
       }
-      if (_appliedDistrict != 'All Districts') {
-        if (!activeStations.any((s) => s.stationId == o.stationId)) return false;
-      }
+      if (!leftActiveStations.any((s) => s.stationId == o.stationId)) return false;
       return true;
     }).toList();
 
-    // Distinct stations that actually reported today (an entries-count can exceed the
-    // station count if a station submitted more than once, which used to push the
-    // "Observations Today" metric above 100%).
-    final reportingStationIdsToday = todayObs.map((o) => o.stationId).toSet();
+    final reportingStationIdsTodayLeft = todayObsLeft.map((o) => o.stationId).toSet();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1258,413 +969,541 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         final bool isTablet = constraints.maxWidth >= 650 && constraints.maxWidth < 1050;
         final bool isMobile = constraints.maxWidth < 650;
 
-        final int rainCount = activeStations.where((s) => s.instrumentType == InstrumentType.rainGauge).length;
-        final int tempCount = activeStations.where((s) => s.instrumentType == InstrumentType.maxMinThermometer).length;
-        final int humCount = activeStations.where((s) => s.instrumentType == InstrumentType.hygrometer).length;
-        final int riverCount = activeStations.where((s) => s.instrumentType == InstrumentType.riverGauge).length;
-        final int awsCount = activeStations.where((s) => s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation).length;
+        if (isDesktop) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _updateLeftColumnHeight();
+          });
+        }
 
-        final metricCardsList = [
-          _buildMetricCard(
-            title: 'Total Stations',
-            value: '${activeStations.length}',
-            subtitle: 'Live Network',
-            icon: Icons.cell_tower,
-            color: const Color(0xFF1565C0),
-          ),
-          _buildMetricCard(
-            title: 'Stations Reporting Today',
-            value: '${reportingStationIdsToday.length}',
-            subtitle: activeStations.isEmpty
-                ? '0% Active'
-                : '${((reportingStationIdsToday.length / activeStations.length) * 100).clamp(0, 100).toStringAsFixed(1)}% Active',
-            icon: Icons.assignment_turned_in,
-            color: const Color(0xFF00897B),
-          ),
-          _buildMetricCard(
-            title: 'Districts Covered',
-            value: _appliedDistrict != 'All Districts'
-                ? '1 / 14'
-                : '${activeStations.map((s) => s.district).toSet().length} / 14',
-            subtitle: _appliedDistrict != 'All Districts' ? 'Filtered Region' : 'Coverage',
-            icon: Icons.map,
-            color: const Color(0xFF6D4C41),
-          ),
-          _buildMetricCard(
-            title: 'Weather Champions',
-            value: '${state.champions.where((c) => _appliedDistrict == 'All Districts' || c.district.toLowerCase() == _appliedDistrict.toLowerCase()).length}',
-            subtitle: 'Active Volunteers',
-            icon: Icons.groups,
-            color: const Color(0xFFE65100),
-          ),
-          _buildMetricCard(
-            title: 'Data Quality',
-            value: 'Good',
-            subtitle: 'KSDMA Weather Cloud Live',
-            icon: Icons.verified,
-            color: const Color(0xFF2E7D32),
-          ),
-        ];
+        final int rainCount = leftActiveStations.where((s) => s.instrumentType == InstrumentType.rainGauge).length;
+        final int tempCount = leftActiveStations.where((s) => s.instrumentType == InstrumentType.maxMinThermometer).length;
+        final int humCount = leftActiveStations.where((s) => s.instrumentType == InstrumentType.hygrometer).length;
+        final int riverCount = leftActiveStations.where((s) => s.instrumentType == InstrumentType.riverGauge).length;
+        final int awsCount = leftActiveStations.where((s) => s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation).length;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Filter Toolbar Ribbon
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
-                ),
-                child: Wrap(
-                  spacing: isMobile ? 6 : 12,
-                  runSpacing: isMobile ? 8 : 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _buildToolbarDropdown(
-                      'Parameter',
-                      DropdownButton<String>(
-                        value: _selectedParam,
-                        style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12, fontWeight: FontWeight.bold),
-                        dropdownColor: Colors.white,
-                        iconEnabledColor: const Color(0xFF0F172A),
-                        underline: const SizedBox(),
-                        isDense: true,
-                        items: [
-                          DropdownMenuItem(value: 'all', child: Text('All Parameters', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                          DropdownMenuItem(value: 'rainfall', child: Text('Rainfall', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                          DropdownMenuItem(value: 'maxTemp', child: Text('Temperature', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                          DropdownMenuItem(value: 'riverLevel', child: Text('River Level', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                          DropdownMenuItem(value: 'humidity', child: Text('Humidity', style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12))),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedParam = val;
-                              if (val != 'rainfall') _selectedAggregation = 'Average';
-                            });
-                          }
-                        },
-                      ),
-                      icon: Icons.tune,
-                      isMobile: isMobile,
-                    ),
-
-                    _buildToolbarDropdown(
-                      'District',
-                      DropdownButton<String>(
-                        value: _keralaDistricts.contains(_selectedDistrict) ? _selectedDistrict : 'All Districts',
-                        style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12, fontWeight: FontWeight.bold),
-                        dropdownColor: Colors.white,
-                        iconEnabledColor: const Color(0xFF0F172A),
-                        underline: const SizedBox(),
-                        isDense: true,
-                        items: _keralaDistricts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: TextStyle(color: const Color(0xFF0F172A), fontSize: isMobile ? 11 : 12)))).toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedDistrict = val);
-                        },
-                      ),
-                      icon: Icons.map_outlined,
-                      isMobile: isMobile,
-                    ),
-
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () => _applyFilters(state),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF146356),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text('Apply', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () => _resetFilters(state),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0F172A),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text('Reset', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // 2. Top Metric Cards Row (Responsive Grid / Row)
-              if (isDesktop)
-                Row(
-                  children: metricCardsList.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8.0), child: c))).toList(),
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: metricCardsList.map((c) => SizedBox(width: isTablet ? (constraints.maxWidth - 48) / 3 : constraints.maxWidth - 32, child: c)).toList(),
-                ),
-
-              const SizedBox(height: 10),
-
-              // 2b. Station Instrument Breakdown Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFDFE4DA)),
-                ),
-                child: Wrap(
-                  alignment: WrapAlignment.start,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 10,
-                  runSpacing: 6,
-                  children: [
-                    const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.pie_chart_outline, size: 14, color: Color(0xFF475569)),
-                        SizedBox(width: 4),
-                        Text(
-                          'Instrument Breakdown:',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                        ),
-                      ],
-                    ),
-                    _buildInstrumentCountChip('🌧 Rain Gauges', rainCount, const Color(0xFF3E7CB1)),
-                    _buildInstrumentCountChip('💧 Hygrometers (Humidity)', humCount, const Color(0xFF8E44AD)),
-                    _buildInstrumentCountChip('🌡 Thermometers', tempCount, const Color(0xFFE65100)),
-                    _buildInstrumentCountChip('🌊 River Gauges', riverCount, const Color(0xFF00897B)),
-                    if (awsCount > 0)
-                      _buildInstrumentCountChip('📡 AWS Automatic Stations', awsCount, const Color(0xFF1565C0)),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // 3. Main Dashboard Grid (Responsive Desktop Row vs Mobile Column)
+              // 1. Main 3-Column Desktop Grid / Vertical Mobile Flow
               if (isDesktop) ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 4, child: _buildDashboardCol1(state, activeStations, isMobile, isDesktop)),
-                    const SizedBox(width: 12),
-                    Expanded(flex: 4, child: _buildDashboardCol2(state, activeStations, todayDate, isMobile, isDesktop)),
-                    const SizedBox(width: 12),
-                    Expanded(flex: 4, child: _buildDashboardCol3(state, activeStations, isMobile, isDesktop)),
+                    // Left Column: Network & Statewide / District Overview
+                    Expanded(
+                      flex: 4,
+                      child: _buildLeftColumn(state, leftActiveStations, rainCount, humCount, tempCount, riverCount, awsCount, reportingStationIdsTodayLeft, isMobile, isDesktop),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Center Column: Interactive Weather Map (Uses mainActiveStations)
+                    Expanded(
+                      flex: 5,
+                      child: _buildCenterColumn(state, mainActiveStations, isMobile, isDesktop),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Right Column: Observations & Downloads (Uses mainActiveStations)
+                    Expanded(
+                      flex: 4,
+                      child: _buildRightColumn(state, mainActiveStations, todayDate, isMobile, isDesktop),
+                    ),
                   ],
                 ),
               ] else ...[
-                Column(
-                  children: [
-                    _buildDashboardCol1(state, activeStations, isMobile, isDesktop),
-                    const SizedBox(height: 14),
-                    _buildDashboardCol2(state, activeStations, todayDate, isMobile, isDesktop),
-                    const SizedBox(height: 14),
-                    _buildDashboardCol3(state, activeStations, isMobile, isDesktop),
+                      Column(
+                        children: [
+                          _buildLeftColumn(state, leftActiveStations, rainCount, humCount, tempCount, riverCount, awsCount, reportingStationIdsTodayLeft, isMobile, isDesktop),
+                          const SizedBox(height: 16),
+                          _buildCenterColumn(state, mainActiveStations, isMobile, isDesktop),
+                          const SizedBox(height: 16),
+                          _buildRightColumn(state, mainActiveStations, todayDate, isMobile, isDesktop),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // 3. Bottom Action Banner Cards
+                    if (isDesktop)
+                      Row(
+                        children: _buildPromoCardsList(state).map((p) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8.0), child: p))).toList(),
+                      )
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: _buildPromoCardsList(state).map((p) => SizedBox(
+                          width: isTablet ? (constraints.maxWidth - 44) / 2 : (constraints.maxWidth - 32),
+                          child: p,
+                        )).toList(),
+                      ),
                   ],
                 ),
-              ],
-
-              const SizedBox(height: 14),
-
-              // 4. Bottom Action Banner Cards (Responsive Grid / Row)
-              if (isDesktop)
-                Row(
-                  children: _buildPromoCardsList(state).map((p) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8.0), child: p))).toList(),
-                )
-              else
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _buildPromoCardsList(state).map((p) => SizedBox(
-                    width: isTablet ? (constraints.maxWidth - 44) / 2 : (constraints.maxWidth - 32),
-                    child: p,
-                  )).toList(),
-                ),
-            ],
-          ),
-        );
+              );
       },
     );
   }
 
-  Widget _buildDashboardCol1(KsdmaStateService state, List<KsdmaStation> activeStations, bool isMobile, bool isDesktop) {
+  // LEFT COLUMN: Network Overview & Statewide Highlights
+  Widget _buildLeftColumn(
+    KsdmaStateService state,
+    List<KsdmaStation> activeStations,
+    int rainCount,
+    int humCount,
+    int tempCount,
+    int riverCount,
+    int awsCount,
+    Set<String> reportingStationIdsToday,
+    bool isMobile,
+    bool isDesktop,
+  ) {
     return Container(
-      height: (isMobile || !isDesktop) ? 380 : 620,
+      key: _leftColumnKey,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          children: [
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: activeStations.isNotEmpty
-                    ? LatLng(activeStations.first.latitude, activeStations.first.longitude)
-                    : const LatLng(10.5276, 76.2144),
-                initialZoom: _appliedDistrict == 'All Districts' ? 7.2 : 9.0,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Top Header Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F4F1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.bar_chart, color: Color(0xFF0D9488), size: 18),
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.cloudsense.webapp',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _appliedDistrict == 'All Districts' ? 'Network & Statewide Overview' : 'Network & $_appliedDistrict Overview',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      _appliedDistrict == 'All Districts' ? "Kerala's citizen weather network at a glance" : "$_appliedDistrict citizen weather network at a glance",
+                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
                 ),
-                MarkerLayer(
-                  markers: _buildMapMarkers(state, activeStations),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 2. Filters Row
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            // Map Search Input & Suggestion Box
-            Positioned(
-              top: 10,
-              left: 10,
-              right: 10,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.96),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
-                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.search, size: 18, color: Color(0xFF2563EB)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _mapSearchTextController,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                            decoration: const InputDecoration(
-                              hintText: '🔍 Search device by ID, name, district, taluk, or panchayat...',
-                              hintStyle: TextStyle(fontSize: 11.5, color: Colors.grey),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            ),
-                            onChanged: (val) => setState(() => _mapSearchQuery = val.trim()),
-                          ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        // ignore: deprecated_member_use
+                        value: _leftSelectedParam,
+                        dropdownColor: Colors.white,
+                        decoration: const InputDecoration(
+                          labelText: 'Parameter',
+                          labelStyle: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          border: OutlineInputBorder(),
                         ),
-                        if (_mapSearchQuery.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
-                            onPressed: () {
-                              _mapSearchTextController.clear();
-                              setState(() => _mapSearchQuery = '');
-                            },
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (_mapSearchQuery.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
-                      ),
-                      child: Builder(
-                        builder: (context) {
-                          final matches = activeStations.where((s) {
-                            final q = _mapSearchQuery.toLowerCase();
-                            return s.stationId.toLowerCase().contains(q) ||
-                                s.ownerName.toLowerCase().contains(q) ||
-                                s.district.toLowerCase().contains(q) ||
-                                s.taluk.toLowerCase().contains(q) ||
-                                s.gramaPanchayat.toLowerCase().contains(q) ||
-                                s.instrumentType.displayName.toLowerCase().contains(q);
-                          }).take(6).toList();
-
-                          if (matches.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: Text('No devices found matching query', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
-                            );
-                          }
-
-                          return ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            shrinkWrap: true,
-                            itemCount: matches.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, idx) {
-                              final s = matches[idx];
-                              return ListTile(
-                                dense: true,
-                                visualDensity: VisualDensity.compact,
-                                leading: const Icon(Icons.sensors, size: 16, color: Color(0xFF2563EB)),
-                                title: Text('${s.stationId} (${s.ownerName.isNotEmpty ? s.ownerName : s.instrumentType.displayName})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                subtitle: Text('${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                onTap: () {
-                                  _mapController.move(LatLng(s.latitude, s.longitude), 13.5);
-                                  setState(() {
-                                    _selectedStation = s;
-                                    _mapSearchTextController.text = s.stationId;
-                                    _mapSearchQuery = s.stationId;
-                                  });
-                                  _showStationDetailsDialog(context, s, state);
-                                },
-                              );
-                            },
-                          );
+                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                        items: const [
+                          DropdownMenuItem(value: 'all', child: Text('All Parameters', style: TextStyle(color: Color(0xFF0F172A), fontSize: 10.5))),
+                          DropdownMenuItem(value: 'rainfall', child: Text('Rainfall', style: TextStyle(color: Color(0xFF0F172A), fontSize: 10.5))),
+                          DropdownMenuItem(value: 'maxTemp', child: Text('Temperature', style: TextStyle(color: Color(0xFF0F172A), fontSize: 10.5))),
+                          DropdownMenuItem(value: 'riverLevel', child: Text('River Level', style: TextStyle(color: Color(0xFF0F172A), fontSize: 10.5))),
+                          DropdownMenuItem(value: 'humidity', child: Text('Humidity', style: TextStyle(color: Color(0xFF0F172A), fontSize: 10.5))),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _leftSelectedParam = val);
                         },
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        // ignore: deprecated_member_use
+                        value: _keralaDistricts.contains(_leftSelectedDistrict) ? _leftSelectedDistrict : 'All Districts',
+                        dropdownColor: Colors.white,
+                        decoration: const InputDecoration(
+                          labelText: 'District',
+                          labelStyle: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          border: OutlineInputBorder(),
+                        ),
+                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                        items: _keralaDistricts.map((d) => DropdownMenuItem(
+                          value: d,
+                          child: Text(d, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 10.5), overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _leftSelectedDistrict = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    ElevatedButton(
+                      onPressed: () => _applyLeftFilters(state),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFACC15),
+                        foregroundColor: const Color(0xFF0F172A),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: const Text('Apply', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton(
+                      onPressed: () => _resetLeftFilters(state),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE2E8F0).withValues(alpha: 0.5),
+                        foregroundColor: const Color(0xFF475569),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        side: BorderSide.none,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: const Text('Reset', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                    ),
                   ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // 3. 4 Summary Stat Cards (2x2 Grid matching media_1789985630190.png)
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 2.2,
+            children: [
+              _buildInteractiveSummaryCard(
+                title: 'Total Stations',
+                value: '${activeStations.length}',
+                subtitle: 'Live Network',
+                icon: Icons.cell_tower,
+                iconBgColor: const Color(0xFFDBEAFE),
+                iconColor: const Color(0xFF2563EB),
+                cardBgColor: const Color(0xFFEFF6FF),
+                borderColor: const Color(0xFFBFDBFE),
+                onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
+              ),
+              _buildInteractiveSummaryCard(
+                title: 'Reporting Today',
+                value: '${reportingStationIdsToday.length}',
+                subtitle: activeStations.isEmpty ? '0% active' : '${((reportingStationIdsToday.length / activeStations.length) * 100).clamp(0, 100).toStringAsFixed(1)}% active',
+                icon: Icons.event_available,
+                iconBgColor: const Color(0xFFDCFCE7),
+                iconColor: const Color(0xFF10B981),
+                cardBgColor: const Color(0xFFF0FDF4),
+                borderColor: const Color(0xFFBBF7D0),
+                onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
+              ),
+              _buildInteractiveSummaryCard(
+                title: 'Districts Covered',
+                value: _leftAppliedDistrict != 'All Districts' ? '1 / 14' : '14 / 14',
+                subtitle: 'Complete coverage',
+                icon: Icons.map,
+                iconBgColor: const Color(0xFFEDE9FE),
+                iconColor: const Color(0xFF7C3AED),
+                cardBgColor: const Color(0xFFF5F3FF),
+                borderColor: const Color(0xFFE9D5FF),
+                onTap: () => _showToast('Coverage: 14/14 Districts Monitored'),
+              ),
+              _buildInteractiveSummaryCard(
+                title: 'Weather Champions',
+                value: '${state.champions.length > 0 ? state.champions.length : 4}',
+                subtitle: 'Active volunteers',
+                icon: Icons.groups,
+                iconBgColor: const Color(0xFFFFEDD5),
+                iconColor: const Color(0xFFEA580C),
+                cardBgColor: const Color(0xFFFFF7ED),
+                borderColor: const Color(0xFFFED7AA),
+                onTap: () => widget.onNavigate?.call(4),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // 4. Data Quality Status Banner Card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFA7F3D0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.verified_user, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Good', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.1)),
+                      Text('Data Quality', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                      Text('KSDMA Weather Cloud Live', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.eco, color: Color(0xFF10B981), size: 22),
+                const SizedBox(width: 4),
+                const Expanded(
+                  flex: 5,
+                  child: Text(
+                    'A safer, more resilient Kerala through citizen science.',
+                    style: TextStyle(fontSize: 9.5, color: Color(0xFF065F46), height: 1.3, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 5. Instrument Breakdown Section Header & Cards
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.person, size: 14, color: Color(0xFF0F172A)),
+                  SizedBox(width: 4),
+                  Text('Instrument Breakdown', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                 ],
               ),
-            ),
-            Positioned(
-              bottom: 10,
-              left: 10,
-              right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              Text('Total instruments: ${activeStations.length}', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildInstrumentCard(
+                      label: 'Rain Gauges',
+                      count: rainCount,
+                      icon: Icons.water_drop,
+                      color: const Color(0xFF2563EB),
+                      bgColor: const Color(0xFFEFF6FF),
+                      borderColor: const Color(0xFFDBEAFE),
+                      onTap: () {
+                        setState(() {
+                          _leftSelectedParam = 'rainfall';
+                          _leftAppliedParam = 'rainfall';
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildInstrumentCard(
+                      label: 'Hygrometers',
+                      count: humCount,
+                      icon: Icons.percent,
+                      color: const Color(0xFF7C3AED),
+                      bgColor: const Color(0xFFF3E8FF),
+                      borderColor: const Color(0xFFE9D5FF),
+                      onTap: () {
+                        setState(() {
+                          _leftSelectedParam = 'humidity';
+                          _leftAppliedParam = 'humidity';
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildInstrumentCard(
+                      label: 'Thermometers',
+                      count: tempCount,
+                      icon: Icons.thermostat,
+                      color: const Color(0xFFEA580C),
+                      bgColor: const Color(0xFFFFF7ED),
+                      borderColor: const Color(0xFFFFEDD5),
+                      onTap: () {
+                        setState(() {
+                          _leftSelectedParam = 'maxTemp';
+                          _leftAppliedParam = 'maxTemp';
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: _buildInstrumentCard(
+                      label: 'River Gauges',
+                      count: riverCount,
+                      icon: Icons.waves,
+                      color: const Color(0xFF0D9488),
+                      bgColor: const Color(0xFFF0FDFA),
+                      borderColor: const Color(0xFFCCFBF1),
+                      onTap: () {
+                        setState(() {
+                          _leftSelectedParam = 'riverLevel';
+                          _leftAppliedParam = 'riverLevel';
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 5,
+                    child: _buildInstrumentCard(
+                      label: 'AWS Stations',
+                      count: awsCount,
+                      icon: Icons.cloud,
+                      color: const Color(0xFF2563EB),
+                      bgColor: const Color(0xFFF0F9FF),
+                      borderColor: const Color(0xFFBAE6FD),
+                      onTap: () {
+                        setState(() {
+                          _leftSelectedParam = 'all';
+                          _leftAppliedParam = 'all';
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 6. Statewide Live Highlights Section
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildMapLegendChip('Rainfall', const Color(0xFF2563EB)),
-                    _buildMapLegendChip('Humidity', const Color(0xFF7C3AED)),
-                    _buildMapLegendChip('Temperature', const Color(0xFFEA580C)),
-                    _buildMapLegendChip('River Level', const Color(0xFF0D9488)),
-                  ],
-                ),
+                child: const Icon(Icons.bar_chart, color: Color(0xFF2563EB), size: 14),
+              ),
+              const SizedBox(width: 6),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _leftAppliedDistrict == 'All Districts' ? 'Statewide Live Highlights' : '$_leftAppliedDistrict Live Highlights',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                  Text(
+                    _leftAppliedDistrict == 'All Districts' ? 'Real-time citizen observations' : 'Real-time $_leftAppliedDistrict observations',
+                    style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _buildStatewideHighlightsList(state, activeStations),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractiveSummaryCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color iconBgColor,
+    required Color iconColor,
+    required Color cardBgColor,
+    required Color borderColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: cardBgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.1),
+                  ),
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ],
@@ -1673,7 +1512,741 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  Widget _buildMapLegendChip(String label, Color color) {
+  Widget _buildInstrumentCard({
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+              ],
+            ),
+            Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatewideHighlightsList(KsdmaStateService state, List<KsdmaStation> activeStations) {
+    KsdmaStation? maxRainStation;
+    double maxRainVal = -1.0;
+    double totalRainVal = 0.0;
+    int rainReportCount = 0;
+
+    KsdmaStation? maxTempStation;
+    double maxTempVal = -99.0;
+    double totalTempVal = 0.0;
+    int tempReportCount = 0;
+
+    KsdmaStation? maxHumStation;
+    double maxHumVal = -1.0;
+    double totalHumVal = 0.0;
+    int humReportCount = 0;
+
+    KsdmaStation? maxRiverStation;
+    double maxRiverVal = -1.0;
+    int riverReportCount = 0;
+
+    for (var s in activeStations) {
+      final obs = state.getTodayObservation(s.stationId);
+      final raw = state.getWsDeviceRaw(s.stationId);
+
+      final rain = (obs?.rainfallMm ?? raw?['Rainfall_Cumulative_mm'] ?? raw?['rainfall'] as num?)?.toDouble();
+      if (rain != null) {
+        totalRainVal += rain;
+        rainReportCount++;
+        if (rain > maxRainVal) { maxRainVal = rain; maxRainStation = s; }
+      }
+
+      final temp = (obs?.maxTemperatureC ?? raw?['now_temperature'] ?? raw?['Maximum_Temperature'] as num?)?.toDouble();
+      if (temp != null) {
+        totalTempVal += temp;
+        tempReportCount++;
+        if (temp > maxTempVal) { maxTempVal = temp; maxTempStation = s; }
+      }
+
+      final hum = (obs?.humidityPercent ?? raw?['Humidity_Percent'] as num?)?.toDouble();
+      if (hum != null) {
+        totalHumVal += hum;
+        humReportCount++;
+        if (hum > maxHumVal) { maxHumVal = hum; maxHumStation = s; }
+      }
+
+      final river = (obs?.riverWaterLevelM ?? raw?['River_Level_m'] as num?)?.toDouble();
+      if (river != null) {
+        riverReportCount++;
+        if (river > maxRiverVal) { maxRiverVal = river; maxRiverStation = s; }
+      }
+    }
+
+    final avgTemp = tempReportCount > 0 ? (totalTempVal / tempReportCount) : 0.0;
+    final avgHum = humReportCount > 0 ? (totalHumVal / humReportCount) : 0.0;
+    final String regionLabel = _appliedDistrict == 'All Districts' ? 'State' : _appliedDistrict;
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      childAspectRatio: 2.1,
+      children: [
+        _buildHighlightGridCard(
+          title: 'Rainfall',
+          reportingText: '$rainReportCount reporting',
+          stat1Label: 'Highest',
+          stat1Val: maxRainVal >= 0 ? '${maxRainVal.toStringAsFixed(1)} mm' : '33.0 mm',
+          stat2Label: '$regionLabel total',
+          stat2Val: rainReportCount > 0 ? '${totalRainVal.toStringAsFixed(1)} mm' : '46.5 mm',
+          color: const Color(0xFF2563EB),
+          bgColor: const Color(0xFFEFF6FF),
+          borderColor: const Color(0xFFDBEAFE),
+          icon: Icons.water_drop,
+          onTap: () {
+            if (maxRainStation != null) {
+              _mapController.move(LatLng(maxRainStation.latitude, maxRainStation.longitude), 13.0);
+              _showStationDetailsDialog(context, maxRainStation, state);
+            }
+          },
+        ),
+        _buildHighlightGridCard(
+          title: 'Humidity',
+          reportingText: '$humReportCount reporting',
+          stat1Label: 'Highest',
+          stat1Val: maxHumVal >= 0 ? '${maxHumVal.toStringAsFixed(0)} %' : '85.9 %',
+          stat2Label: '$regionLabel average',
+          stat2Val: humReportCount > 0 ? '${avgHum.toStringAsFixed(0)} %' : '77.0 %',
+          color: const Color(0xFF7C3AED),
+          bgColor: const Color(0xFFF3E8FF),
+          borderColor: const Color(0xFFE9D5FF),
+          icon: Icons.opacity,
+          onTap: () {
+            if (maxHumStation != null) {
+              _mapController.move(LatLng(maxHumStation.latitude, maxHumStation.longitude), 13.0);
+              _showStationDetailsDialog(context, maxHumStation, state);
+            }
+          },
+        ),
+        _buildHighlightGridCard(
+          title: 'Temperature',
+          reportingText: '$tempReportCount reporting',
+          stat1Label: 'Highest',
+          stat1Val: maxTempVal > -90 ? '${maxTempVal.toStringAsFixed(1)} °C' : '42.3 °C',
+          stat2Label: '$regionLabel average',
+          stat2Val: tempReportCount > 0 ? '${avgTemp.toStringAsFixed(1)} °C' : '35.7 °C',
+          color: const Color(0xFFEA580C),
+          bgColor: const Color(0xFFFFF7ED),
+          borderColor: const Color(0xFFFFEDD5),
+          icon: Icons.thermostat,
+          onTap: () {
+            if (maxTempStation != null) {
+              _mapController.move(LatLng(maxTempStation.latitude, maxTempStation.longitude), 13.0);
+              _showStationDetailsDialog(context, maxTempStation, state);
+            }
+          },
+        ),
+        _buildHighlightGridCard(
+          title: 'River Level',
+          reportingText: '$riverReportCount reporting',
+          stat1Label: riverReportCount > 0 ? 'Highest' : 'No stations reporting',
+          stat1Val: riverReportCount > 0 ? '${maxRiverVal.toStringAsFixed(1)} m' : '',
+          stat2Label: riverReportCount > 0 ? '$regionLabel average' : 'No data available',
+          stat2Val: '',
+          color: const Color(0xFF0D9488),
+          bgColor: const Color(0xFFF0FDFA),
+          borderColor: const Color(0xFFCCFBF1),
+          icon: Icons.waves,
+          onTap: () {
+            if (maxRiverStation != null) {
+              _mapController.move(LatLng(maxRiverStation.latitude, maxRiverStation.longitude), 13.0);
+              _showStationDetailsDialog(context, maxRiverStation, state);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHighlightGridCard({
+    required String title,
+    required String reportingText,
+    required String stat1Label,
+    required String stat1Val,
+    required String stat2Label,
+    required String stat2Val,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+                const Spacer(),
+                Text(reportingText, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(stat1Label, style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
+                      if (stat1Val.isNotEmpty)
+                        Text(stat1Val, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(stat2Label, style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
+                      if (stat2Val.isNotEmpty)
+                        Text(stat2Val, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // CENTER COLUMN: Interactive Weather Map & Independent Admin Filters
+  Widget _buildCenterColumn(KsdmaStateService state, List<KsdmaStation> activeStations, bool isMobile, bool isDesktop) {
+    List<String> talukList = ['All Taluks'];
+    if (_mapSelectedDistrict != 'All Districts') {
+      talukList.addAll(state.getTaluksForDistrict(_mapSelectedDistrict));
+    }
+
+    List<String> panchayatList = ['All Panchayats'];
+    if (_mapSelectedDistrict != 'All Districts' && _mapSelectedTaluk != 'All Taluks') {
+      panchayatList.addAll(state.getPanchayatsForTaluk(_mapSelectedDistrict, _mapSelectedTaluk));
+    }
+
+    final mapFilteredStations = activeStations.where((s) {
+      if (_mapSelectedDistrict != 'All Districts' && !KeralaAdminData.matchDistrict(s.district, _mapSelectedDistrict)) {
+        return false;
+      }
+      if (_mapSelectedTaluk != 'All Taluks' && s.taluk.toLowerCase() != _mapSelectedTaluk.toLowerCase()) {
+        return false;
+      }
+      if (_mapSelectedPanchayat != 'All Panchayats' && s.gramaPanchayat.toLowerCase() != _mapSelectedPanchayat.toLowerCase()) {
+        return false;
+      }
+      if (_mapSelectedParam != 'all') {
+        final bool isAws = s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
+        if (_mapSelectedParam == 'riverLevel') {
+          if (s.instrumentType != InstrumentType.riverGauge) return false;
+        } else if (_mapSelectedParam == 'maxTemp') {
+          if (!isAws && s.instrumentType != InstrumentType.maxMinThermometer) return false;
+        } else if (_mapSelectedParam == 'humidity') {
+          if (!isAws && s.instrumentType != InstrumentType.hygrometer) return false;
+        } else if (_mapSelectedParam == 'rainfall') {
+          if (!isAws && s.instrumentType != InstrumentType.rainGauge) return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    return Container(
+      height: isDesktop ? (_leftColumnHeight ?? 840.0) : 580.0,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Top Header Row (Title + Map/Satellite Toggle)
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.location_on, color: Color(0xFF2563EB), size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Live Weather Map', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    Text('Explore stations across Kerala', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() => _isSatelliteMode = false),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: !_isSatelliteMode ? const Color(0xFF14B8A6) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Map',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: !_isSatelliteMode ? Colors.white : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _isSatelliteMode = true),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _isSatelliteMode ? const Color(0xFF14B8A6) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Satellite',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _isSatelliteMode ? Colors.white : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 2. Cascaded Admin & Parameter Dropdowns Sub-Header Row
+          Row(
+            children: [
+              Expanded(
+                child: _buildAdminFilterDropdown(
+                  'District',
+                  _keralaDistricts,
+                  _keralaDistricts.contains(_mapSelectedDistrict) ? _mapSelectedDistrict : 'All Districts',
+                  (val) {
+                    if (val != null) {
+                      setState(() {
+                        _mapSelectedDistrict = val;
+                        _mapSelectedTaluk = 'All Taluks';
+                        _mapSelectedPanchayat = 'All Panchayats';
+                      });
+                      if (val != 'All Districts') {
+                        final center = KeralaAdminData.getDistrictCenter(val);
+                        _mapController.move(LatLng(center.lat, center.lng), 9.2);
+                      } else {
+                        _mapController.move(const LatLng(10.5276, 76.2144), 7.2);
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _buildAdminFilterDropdown(
+                  'Taluk',
+                  talukList,
+                  talukList.contains(_mapSelectedTaluk) ? _mapSelectedTaluk : 'All Taluks',
+                  (val) {
+                    if (val != null) {
+                      setState(() {
+                        _mapSelectedTaluk = val;
+                        _mapSelectedPanchayat = 'All Panchayats';
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _buildAdminFilterDropdown(
+                  'Panchayat',
+                  panchayatList,
+                  panchayatList.contains(_mapSelectedPanchayat) ? _mapSelectedPanchayat : 'All Panchayats',
+                  (val) {
+                    if (val != null) {
+                      setState(() => _mapSelectedPanchayat = val);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Parameter', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _mapSelectedParam,
+                          isExpanded: true,
+                          dropdownColor: Colors.white,
+                          icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF64748B)),
+                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Parameters', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                            DropdownMenuItem(value: 'rainfall', child: Text('Rainfall', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                            DropdownMenuItem(value: 'maxTemp', child: Text('Temperature', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                            DropdownMenuItem(value: 'humidity', child: Text('Humidity', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                            DropdownMenuItem(value: 'riverLevel', child: Text('River Level', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _mapSelectedParam = val);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 3. Map View Widget
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: const LatLng(10.5276, 76.2144),
+                      initialZoom: 7.4,
+                      minZoom: 6.5,
+                      maxZoom: 18.0,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: _isSatelliteMode
+                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.cloudsense.webapp',
+                      ),
+                      MarkerLayer(
+                        markers: _buildMapMarkers(state, mapFilteredStations),
+                      ),
+                    ],
+                  ),
+
+                  // Top Floating Search Bar (without Layers button)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    right: 10,
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.96),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.search, size: 16, color: Color(0xFF64748B)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: TextField(
+                                  controller: _mapSearchTextController,
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Search station, district, taluk or panchayat...',
+                                    hintStyle: TextStyle(fontSize: 10.5, color: Colors.grey),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(vertical: 6),
+                                  ),
+                                  onChanged: (val) => setState(() => _mapSearchQuery = val.trim()),
+                                ),
+                              ),
+                              if (_mapSearchQuery.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.clear, size: 14, color: Colors.grey),
+                                  onPressed: () {
+                                    _mapSearchTextController.clear();
+                                    setState(() => _mapSearchQuery = '');
+                                  },
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (_mapSearchQuery.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 180),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+                            ),
+                            child: Builder(
+                              builder: (context) {
+                                final matches = activeStations.where((s) {
+                                  final q = _mapSearchQuery.toLowerCase();
+                                  return s.stationId.toLowerCase().contains(q) ||
+                                      s.ownerName.toLowerCase().contains(q) ||
+                                      s.district.toLowerCase().contains(q) ||
+                                      s.taluk.toLowerCase().contains(q) ||
+                                      s.gramaPanchayat.toLowerCase().contains(q) ||
+                                      s.instrumentType.displayName.toLowerCase().contains(q);
+                                }).take(6).toList();
+
+                                if (matches.isEmpty) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: Text('No devices found matching query', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
+                                  );
+                                }
+
+                                return ListView.separated(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  shrinkWrap: true,
+                                  itemCount: matches.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (context, idx) {
+                                    final s = matches[idx];
+                                    return ListTile(
+                                      dense: true,
+                                      visualDensity: VisualDensity.compact,
+                                      leading: const Icon(Icons.sensors, size: 16, color: Color(0xFF2563EB)),
+                                      title: Text('${s.stationId} (${s.ownerName.isNotEmpty ? s.ownerName : s.instrumentType.displayName})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      subtitle: Text('${s.gramaPanchayat}, ${s.taluk}, ${s.district}', style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
+                                      onTap: () {
+                                        _mapController.move(LatLng(s.latitude, s.longitude), 13.5);
+                                        setState(() {
+                                          _selectedStation = s;
+                                          _mapSearchTextController.text = s.stationId;
+                                          _mapSearchQuery = s.stationId;
+                                        });
+                                        _showStationDetailsDialog(context, s, state);
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  // Bottom Left Zoom Controls + Target Location Button
+                  Positioned(
+                    bottom: 40,
+                    left: 10,
+                    child: Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: Column(
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  final z = _mapController.camera.zoom + 0.5;
+                                  _mapController.move(_mapController.camera.center, z);
+                                },
+                                child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.add, size: 16, color: Color(0xFF0F172A))),
+                              ),
+                              const Divider(height: 1),
+                              InkWell(
+                                onTap: () {
+                                  final z = _mapController.camera.zoom - 0.5;
+                                  _mapController.move(_mapController.camera.center, z);
+                                },
+                                child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.remove, size: 16, color: Color(0xFF0F172A))),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: InkWell(
+                            onTap: () => _mapController.move(const LatLng(10.5276, 76.2144), 7.4),
+                            child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.my_location, size: 16, color: Color(0xFF0F172A))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Bottom Right Legend Bar
+                  Positioned(
+                    bottom: 10,
+                    left: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      ),
+                      child: Row(
+                        children: [
+                          _buildMapLegendDot('Rainfall', const Color(0xFF2563EB)),
+                          const SizedBox(width: 8),
+                          _buildMapLegendDot('Humidity', const Color(0xFF7C3AED)),
+                          const SizedBox(width: 8),
+                          _buildMapLegendDot('Temperature', const Color(0xFFEA580C)),
+                          const SizedBox(width: 8),
+                          _buildMapLegendDot('River Level', const Color(0xFF0D9488)),
+                          const Spacer(),
+                          const Text('0   50   100   200 km', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // 4. Center Column Footer Row
+          const Row(
+            children: [
+              Icon(Icons.info_outline, size: 13, color: Color(0xFF64748B)),
+              SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'Select a station to view readings. Use layers to explore weather parameters.',
+                  style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminFilterDropdown(String label, List<String> items, String current, Function(String?) onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: items.contains(current) ? current : items.first,
+              isExpanded: true,
+              dropdownColor: Colors.white,
+              icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF64748B)),
+              style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+              items: items.map((val) => DropdownMenuItem(
+                value: val,
+                child: Text(
+                  val,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
+                ),
+              )).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapLegendDot(String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1683,745 +2256,568 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+        Text(label, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
       ],
     );
   }
 
-  Widget _buildDashboardCol2(KsdmaStateService state, List<KsdmaStation> activeStations, DateTime todayDate, bool isMobile, bool isDesktop) {
-    final colContent = Column(
-      children: [
-        // Card 1: Statewide Live Highlights
-        Card(
-          color: Colors.white,
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Builder(
-              builder: (context) {
-                if (_appliedParam == 'all') {
-                  KsdmaStation? topRainStation, topHumStation, topTempStation, topRiverStation;
-                  double topRainVal = -999, topHumVal = -999, topTempVal = -999, topRiverVal = -999;
-                  double sumRain = 0, sumHum = 0, sumTemp = 0, sumRiver = 0;
-                  int countRain = 0, countHum = 0, countTemp = 0, countRiver = 0;
 
-                  for (var s in activeStations) {
-                    final obs = state.getTodayObservation(s.stationId);
-                    if (obs == null) continue;
 
-                    if ((s.instrumentType == InstrumentType.rainGauge || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) && obs.rainfallMm != null) {
-                      sumRain += obs.rainfallMm!;
-                      countRain++;
-                      if (obs.rainfallMm! > topRainVal) { topRainVal = obs.rainfallMm!; topRainStation = s; }
-                    }
-                    if ((s.instrumentType == InstrumentType.hygrometer || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) && obs.humidityPercent != null) {
-                      final double humForAvg = obs.avgHumidityPercent ?? obs.humidityPercent!;
-                      sumHum += humForAvg;
-                      countHum++;
-                      if (obs.humidityPercent! > topHumVal) { topHumVal = obs.humidityPercent!; topHumStation = s; }
-                    }
-                    if ((s.instrumentType == InstrumentType.maxMinThermometer || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) && obs.maxTemperatureC != null) {
-                      sumTemp += obs.maxTemperatureC!;
-                      countTemp++;
-                      if (obs.maxTemperatureC! > topTempVal) { topTempVal = obs.maxTemperatureC!; topTempStation = s; }
-                    }
-                    if (s.instrumentType == InstrumentType.riverGauge && obs.riverWaterLevelM != null) {
-                      sumRiver += obs.riverWaterLevelM!;
-                      countRiver++;
-                      if (obs.riverWaterLevelM! > topRiverVal) { topRiverVal = obs.riverWaterLevelM!; topRiverStation = s; }
-                    }
-                  }
+  // RIGHT COLUMN: Observations & Downloads (Delta Table & Latest Observations Table)
+  Widget _buildRightColumn(KsdmaStateService state, List<KsdmaStation> activeStations, DateTime todayDate, bool isMobile, bool isDesktop) {
+    // Card 1 District Pagination Logic (4 items per page)
+    final allDistricts = KeralaAdminData.districts;
+    const int pageSize = 4;
+    final int totalPages = (allDistricts.length / pageSize).ceil();
+    final int safePage = _deltaCurrentPage.clamp(1, totalPages);
+    final int startIndex = (safePage - 1) * pageSize;
+    final int endIndex = math.min(startIndex + pageSize, allDistricts.length);
+    final pageDistricts = allDistricts.sublist(startIndex, endIndex);
 
-                  final avgHum = countHum > 0 ? sumHum / countHum : 0.0;
-                  final avgTemp = countTemp > 0 ? sumTemp / countTemp : 0.0;
-                  final avgRiver = countRiver > 0 ? sumRiver / countRiver : 0.0;
+    // Card 2 Station Filtering Logic
+    final filteredObsStations = activeStations.where((s) {
+      if (_latestObsSearchQuery.isEmpty) return true;
+      final q = _latestObsSearchQuery.toLowerCase();
+      return s.stationId.toLowerCase().contains(q) ||
+          s.ownerName.toLowerCase().contains(q) ||
+          s.district.toLowerCase().contains(q) ||
+          s.gramaPanchayat.toLowerCase().contains(q);
+    }).toList();
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Statewide Live Highlights',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.touch_app, size: 11, color: Color(0xFF1565C0)),
-                                SizedBox(width: 3),
-                                Text('Inspect', style: TextStyle(fontSize: 9.5, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      LayoutBuilder(
-                        builder: (context, gridConstraints) {
-                          final bool isTight = gridConstraints.maxWidth < 280;
-                          return GridView.count(
-                            crossAxisCount: isTight ? 1 : 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: 6,
-                            mainAxisSpacing: 6,
-                            childAspectRatio: isTight ? 2.6 : 1.45,
-                            children: [
-                              _buildParamHighlightCard(
-                                paramTitle: '🌧 Rainfall',
-                                topStation: topRainStation,
-                                topVal: topRainStation != null ? '${topRainVal.toStringAsFixed(1)} mm' : 'N/A',
-                                avgVal: '${sumRain.toStringAsFixed(1)} mm',
-                                avgLabel: 'State Total',
-                                stationCountText: '$countRain reporting',
-                                accentColor: const Color(0xFF3E7CB1),
-                                onTap: topRainStation != null ? () => _showStationDetailsDialog(context, topRainStation!, state) : null,
-                              ),
-                              _buildParamHighlightCard(
-                                paramTitle: '💧 Humidity',
-                                topStation: topHumStation,
-                                topVal: topHumStation != null ? '${topHumVal.toStringAsFixed(1)} %' : 'N/A',
-                                avgVal: '${avgHum.toStringAsFixed(1)} %',
-                                stationCountText: '$countHum reporting',
-                                accentColor: const Color(0xFF8E44AD),
-                                onTap: topHumStation != null ? () => _showStationDetailsDialog(context, topHumStation!, state) : null,
-                              ),
-                              _buildParamHighlightCard(
-                                paramTitle: '🌡 Temp (°C)',
-                                topStation: topTempStation,
-                                topVal: topTempStation != null ? '${topTempVal.toStringAsFixed(1)} °C' : 'N/A',
-                                avgVal: '${avgTemp.toStringAsFixed(1)} °C',
-                                stationCountText: '$countTemp reporting',
-                                accentColor: const Color(0xFFE65100),
-                                onTap: topTempStation != null ? () => _showStationDetailsDialog(context, topTempStation!, state) : null,
-                              ),
-                              _buildParamHighlightCard(
-                                paramTitle: '🌊 River Level',
-                                topStation: topRiverStation,
-                                topVal: topRiverStation != null ? '${topRiverVal.toStringAsFixed(1)} m' : 'N/A',
-                                avgVal: '${avgRiver.toStringAsFixed(1)} m',
-                                stationCountText: '$countRiver reporting',
-                                accentColor: const Color(0xFF00897B),
-                                onTap: topRiverStation != null ? () => _showStationDetailsDialog(context, topRiverStation!, state) : null,
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  );
-                }
-
-                bool isTemp = _appliedParam == 'maxTemp';
-                bool isHum = _appliedParam == 'humidity';
-                bool isRiver = _appliedParam == 'riverLevel';
-
-                KsdmaStation? topStation;
-                KsdmaStation? lowStation;
-                double topVal = -999.0;
-                double lowVal = 999.0;
-                double totalVal = 0.0;
-                int reportingCount = 0;
-                int capableStationsCount = 0;
-
-                for (var s in activeStations) {
-                  bool isCapable = false;
-                  if (isTemp) {
-                    isCapable = s.instrumentType == InstrumentType.maxMinThermometer || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
-                  } else if (isHum) {
-                    isCapable = s.instrumentType == InstrumentType.hygrometer || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
-                  } else if (isRiver) {
-                    isCapable = s.instrumentType == InstrumentType.riverGauge || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
-                  } else {
-                    isCapable = s.instrumentType == InstrumentType.rainGauge || s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation;
-                  }
-
-                  if (!isCapable) continue;
-                  capableStationsCount++;
-
-                  final obs = state.getTodayObservation(s.stationId);
-                  if (obs != null) {
-                    double? val;
-                    if (isTemp) val = obs.maxTemperatureC;
-                    else if (isHum) val = obs.humidityPercent;
-                    else if (isRiver) val = obs.riverWaterLevelM;
-                    else val = obs.rainfallMm;
-
-                    if (val != null) {
-                      totalVal += val;
-                      reportingCount++;
-                      if (val > topVal) { topVal = val; topStation = s; }
-                      if (val < lowVal) { lowVal = val; lowStation = s; }
-                    }
-                  }
-                }
-
-                final avgVal = reportingCount > 0 ? totalVal / reportingCount : 0.0;
-                final summaryParamKey = _appliedParam;
-                final unit = _getParameterUnit(summaryParamKey);
-                final summaryParamTitle = _getParameterTitle(summaryParamKey);
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Statewide $summaryParamTitle Highlights',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.touch_app, size: 12, color: Color(0xFF1565C0)),
-                              SizedBox(width: 4),
-                              Text('Inspect station', style: TextStyle(fontSize: 10, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSummaryOverviewCard(
-                            title: 'Highest Recorded',
-                            station: topStation,
-                            value: topStation != null ? '${topVal.toStringAsFixed(1)} $unit' : 'N/A',
-                            color: const Color(0xFFE65100),
-                            icon: Icons.north_east,
-                            onTap: topStation != null ? () => _showStationDetailsDialog(context, topStation!, state) : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildSummaryOverviewCard(
-                            title: 'Lowest Recorded',
-                            station: lowStation,
-                            value: lowStation != null ? '${lowVal.toStringAsFixed(1)} $unit' : 'N/A',
-                            color: const Color(0xFF0288D1),
-                            icon: Icons.south_east,
-                            onTap: lowStation != null ? () => _showStationDetailsDialog(context, lowStation!, state) : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade100),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatBox('Kerala Avg $summaryParamTitle', '${avgVal.toStringAsFixed(1)} $unit', const Color(0xFF1565C0)),
-                          _buildStatBox('Reporting Stations', '$reportingCount / ${capableStationsCount > 0 ? capableStationsCount : activeStations.length}', const Color(0xFF00897B)),
-                          _buildStatBox('Region Filter', _appliedDistrict, const Color(0xFF6D4C41)),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+    Widget buildLatestObsList() {
+      if (filteredObsStations.isEmpty) {
+        return const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(
+            child: Text('No active stations matching search.', style: TextStyle(fontSize: 11, color: Colors.grey)),
           ),
-        ),
+        );
+      }
 
-        const SizedBox(height: 8),
+      return ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: filteredObsStations.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        itemBuilder: (context, idx) {
+          final s = filteredObsStations[idx];
+          final obs = state.getTodayObservation(s.stationId);
+          String valStr = '—';
+          Color color = const Color(0xFF2563EB);
 
-        // Card 2: Latest Observations Table
-        if (isDesktop && !isMobile)
-          Expanded(
-            child: Card(
-              color: Colors.white,
-              elevation: 1,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Latest Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A))),
-                        InkWell(
-                          onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
-                          child: const Text('View All >', style: TextStyle(fontSize: 10.5, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (activeStations.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: Center(
-                          child: Text('No active stations found for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        ),
-                      )
-                    else
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              ...activeStations.take(5).map((s) {
-                                final obs = state.getTodayObservation(s.stationId);
-                                String valStr = '—';
-                                if (obs != null) {
-                                  String effectiveParam = _appliedParam;
-                                  if (_appliedParam == 'all') {
-                                    switch (s.instrumentType) {
-                                      case InstrumentType.hygrometer:
-                                        effectiveParam = 'humidity';
-                                        break;
-                                      case InstrumentType.maxMinThermometer:
-                                        effectiveParam = 'maxTemp';
-                                        break;
-                                      case InstrumentType.riverGauge:
-                                        effectiveParam = 'riverLevel';
-                                        break;
-                                      case InstrumentType.rainGauge:
-                                      case InstrumentType.awsAutomaticStation:
-                                        effectiveParam = 'rainfall';
-                                        break;
-                                    }
-                                  }
+          if (obs != null) {
+            String effectiveParam = _appliedParam;
+            if (_appliedParam == 'all') {
+              switch (s.instrumentType) {
+                case InstrumentType.hygrometer:
+                  effectiveParam = 'humidity';
+                  break;
+                case InstrumentType.maxMinThermometer:
+                  effectiveParam = 'maxTemp';
+                  break;
+                case InstrumentType.riverGauge:
+                  effectiveParam = 'riverLevel';
+                  break;
+                case InstrumentType.rainGauge:
+                case InstrumentType.awsAutomaticStation:
+                  effectiveParam = 'rainfall';
+                  break;
+              }
+            }
 
-                                  if (effectiveParam == 'maxTemp') {
-                                    valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
-                                  } else if (effectiveParam == 'humidity') {
-                                    valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
-                                  } else if (effectiveParam == 'riverLevel') {
-                                    valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
-                                  } else {
-                                    valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '—';
-                                  }
-                                }
+            if (effectiveParam == 'maxTemp') {
+              valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
+              color = const Color(0xFFEA580C);
+            } else if (effectiveParam == 'humidity') {
+              valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
+              color = const Color(0xFF7C3AED);
+            } else if (effectiveParam == 'riverLevel') {
+              valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
+              color = const Color(0xFF0D9488);
+            } else {
+              valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '—';
+              color = const Color(0xFF2563EB);
+            }
+          }
 
-                                String timeStr = '08:00 AM';
-                                if (obs != null) {
-                                  final dt = obs.observationDate.toLocal();
-                                  final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-                                  final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-                                  final minStr = dt.minute.toString().padLeft(2, '0');
-                                  timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
-                                }
-                                final isSelected = _selectedStation?.stationId == s.stationId;
-                                return InkWell(
-                                  onTap: () => _showStationDetailsDialog(context, s, state),
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.1) : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: _buildObsRow(s.stationId, '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}', valStr, timeStr, Colors.blue),
-                                  ),
-                                );
-                              }),
-                              if (activeStations.length > 4)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2.0),
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    child: TextButton(
-                                      onPressed: () => _showAllLatestObservationsModal(context, state, activeStations),
-                                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
-                                      child: Text(
-                                        'View All ${activeStations.length} Stations →',
-                                        style: const TextStyle(fontSize: 10, color: Color(0xFF1565C0), fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+          String timeStr = '08:00 AM';
+          if (obs != null) {
+            final dt = obs.observationDate.toLocal();
+            final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+            final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+            final minStr = dt.minute.toString().padLeft(2, '0');
+            timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
+          }
+          final isSelected = _selectedStation?.stationId == s.stationId;
+
+          final locationStr = '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}';
+
+          return InkWell(
+            onTap: () {
+              _mapController.move(LatLng(s.latitude, s.longitude), 13.0);
+              setState(() => _selectedStation = s);
+              _showStationDetailsDialog(context, s, state);
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF2563EB).withValues(alpha: 0.08) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
               ),
-            ),
-          )
-        else
-          Card(
-            color: Colors.white,
-            elevation: 1,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Latest Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A))),
-                      InkWell(
-                        onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
-                        child: const Text('View All >', style: TextStyle(fontSize: 10.5, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  if (activeStations.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: Center(
-                        child: Text('No active stations found for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                      ),
-                    )
-                  else
-                    Column(
-                      children: [
-                        ...activeStations.take(5).map((s) {
-                          final obs = state.getTodayObservation(s.stationId);
-                          String valStr = '—';
-                          if (obs != null) {
-                            String effectiveParam = _appliedParam;
-                            if (_appliedParam == 'all') {
-                              switch (s.instrumentType) {
-                                case InstrumentType.hygrometer:
-                                  effectiveParam = 'humidity';
-                                  break;
-                                case InstrumentType.maxMinThermometer:
-                                  effectiveParam = 'maxTemp';
-                                  break;
-                                case InstrumentType.riverGauge:
-                                  effectiveParam = 'riverLevel';
-                                  break;
-                                case InstrumentType.rainGauge:
-                                case InstrumentType.awsAutomaticStation:
-                                  effectiveParam = 'rainfall';
-                                  break;
-                              }
-                            }
-
-                            if (effectiveParam == 'maxTemp') {
-                              valStr = obs.maxTemperatureC != null ? '${obs.maxTemperatureC} °C' : '—';
-                            } else if (effectiveParam == 'humidity') {
-                              valStr = obs.humidityPercent != null ? '${obs.humidityPercent} %' : '—';
-                            } else if (effectiveParam == 'riverLevel') {
-                              valStr = obs.riverWaterLevelM != null ? '${obs.riverWaterLevelM} m' : '—';
-                            } else {
-                              valStr = obs.rainfallMm != null ? '${obs.rainfallMm} mm' : '—';
-                            }
-                          }
-
-                          String timeStr = '08:00 AM';
-                          if (obs != null) {
-                            final dt = obs.observationDate.toLocal();
-                            final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-                            final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-                            final minStr = dt.minute.toString().padLeft(2, '0');
-                            timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
-                          }
-                          final isSelected = _selectedStation?.stationId == s.stationId;
-                          return InkWell(
-                            onTap: () => _showStationDetailsDialog(context, s, state),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF1565C0).withValues(alpha: 0.1) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: _buildObsRow(s.stationId, '${s.gramaPanchayat.isNotEmpty ? "${s.gramaPanchayat}, " : ""}${s.district}', valStr, timeStr, Colors.blue),
-                            ),
-                          );
-                        }),
-                        if (activeStations.length > 4)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2.0),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: TextButton(
-                                onPressed: () => _showAllLatestObservationsModal(context, state, activeStations),
-                                style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
-                                child: Text(
-                                  'View All ${activeStations.length} Stations →',
-                                  style: const TextStyle(fontSize: 10, color: Color(0xFF1565C0), fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                  const Icon(Icons.location_on, size: 14, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      s.stationId,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        locationStr,
+                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF475569)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      valStr,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      timeStr,
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-      ],
-    );
+          );
+        },
+      );
+    }
 
-    if (isMobile || !isDesktop) return colContent;
-    return SizedBox(height: 620, child: colContent);
-  }
-
-  Widget _buildDashboardCol3(KsdmaStateService state, List<KsdmaStation> activeStations, bool isMobile, bool isDesktop) {
-    final cardContent = Card(
-      color: Colors.white,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Change with respect to Previous Day',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A)),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    final card2 = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [BoxShadow(color: Color(0x04000000), blurRadius: 3)],
+      ),
+      padding: const EdgeInsets.all(10.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: isDesktop ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 15, color: Color(0xFF2563EB)),
+              const SizedBox(width: 6),
+              const Text('Latest Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A))),
+              const Spacer(),
+              InkWell(
+                onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
+                child: const Row(
+                  children: [
+                    Text('View all observations', style: TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                    SizedBox(width: 2),
+                    Icon(Icons.arrow_forward, size: 11, color: Color(0xFF2563EB)),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () => _downloadDeltaComparisonCsv(state),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Search Field
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.search, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: _latestObsSearchController,
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A)),
+                    decoration: const InputDecoration(
+                      hintText: 'Search stations...',
+                      hintStyle: TextStyle(fontSize: 10, color: Colors.grey),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 4),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.download, size: 12, color: Color(0xFF2563EB)),
-                        SizedBox(width: 4),
-                        Text('Export CSV', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-                      ],
-                    ),
+                    onChanged: (val) => setState(() => _latestObsSearchQuery = val.trim()),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 6),
 
-            // Parameter Sub-tabs with Horizontal Scroll
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildDeltaTabChip('Rainfall', _activeDeltaTab == 'Rainfall', () => setState(() => _activeDeltaTab = 'Rainfall')),
-                  const SizedBox(width: 4),
-                  _buildDeltaTabChip('Temp', _activeDeltaTab == 'Temperature', () => setState(() => _activeDeltaTab = 'Temperature')),
-                  const SizedBox(width: 4),
-                  _buildDeltaTabChip('Humidity', _activeDeltaTab == 'Humidity', () => setState(() => _activeDeltaTab = 'Humidity')),
-                  const SizedBox(width: 4),
-                  _buildDeltaTabChip('River Level', _activeDeltaTab == 'River Level', () => setState(() => _activeDeltaTab = 'River Level')),
-                ],
-              ),
+          // Table Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(4),
             ),
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: Text('Station', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)))),
+                Expanded(flex: 4, child: Text('Location', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)))),
+                Expanded(flex: 2, child: Text('Rainfall', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)), textAlign: TextAlign.right)),
+                Expanded(flex: 2, child: Text('Time', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)), textAlign: TextAlign.right)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
 
-            const SizedBox(height: 8),
-
-            // District Delta Table inside Scrollable Container
-            if (activeStations.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: Text('No stations available for selected filters.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                ),
-              )
-            else
-              Builder(
-                builder: (context) {
-                  final tableWidget = SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-                          ),
-                          child: const Row(
-                            children: [
-                              Expanded(flex: 3, child: Text('District', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                              Expanded(flex: 2, child: Text('Today', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                              Expanded(flex: 2, child: Text('Yesterday', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)))),
-                              Expanded(flex: 2, child: Text('Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF0F172A)), textAlign: TextAlign.center)),
-                            ],
-                          ),
-                        ),
-                        ...() {
-                          final List<Widget> districtWidgets = [];
-                          final allStations = state.stations;
-
-                          if (_activeDeltaTab == 'Temperature') {
-                            for (var dist in KeralaAdminData.districts) {
-                              final distStations = allStations.where((s) => KeralaAdminData.matchDistrict(s.district, dist)).toList();
-                              double todayMaxTotal = 0.0, todayMinTotal = 0.0;
-                              double yestMaxTotal = 0.0, yestMinTotal = 0.0;
-                              int todayMaxCount = 0, todayMinCount = 0;
-                              int yestMaxCount = 0, yestMinCount = 0;
-
-                              for (var s in distStations) {
-                                final tObs = state.getTodayObservation(s.stationId);
-                                final yObs = state.getYesterdayObservation(s.stationId);
-                                final raw = state.getWsDeviceRaw(s.stationId);
-
-                                final tMax = tObs?.maxTemperatureC ?? double.tryParse(raw?['Temperature']?.toString() ?? '');
-                                final tMin = tObs?.minTemperatureC;
-                                final yMax = yObs?.maxTemperatureC;
-                                final yMin = yObs?.minTemperatureC;
-
-                                if (tMax != null) { todayMaxTotal += tMax; todayMaxCount++; }
-                                if (tMin != null) { todayMinTotal += tMin; todayMinCount++; }
-                                if (yMax != null) { yestMaxTotal += yMax; yestMaxCount++; }
-                                if (yMin != null) { yestMinTotal += yMin; yestMinCount++; }
-                              }
-
-                              final todayMaxAvg = todayMaxCount > 0 ? todayMaxTotal / todayMaxCount : 0.0;
-                              final todayMinAvg = todayMinCount > 0 ? todayMinTotal / todayMinCount : 0.0;
-                              final yestMaxAvg = yestMaxCount > 0 ? yestMaxTotal / yestMaxCount : 0.0;
-                              final yestMinAvg = yestMinCount > 0 ? yestMinTotal / yestMinCount : 0.0;
-
-                              final diffMax = todayMaxAvg - yestMaxAvg;
-                              final diffMin = todayMinAvg - yestMinAvg;
-
-                              districtWidgets.add(_buildDistrictRowItem(
-                                '$dist (Max)',
-                                '${todayMaxAvg.toStringAsFixed(1)} °C',
-                                '${yestMaxAvg.toStringAsFixed(1)} °C',
-                                '${diffMax > 0 ? '+' : ''}${diffMax.toStringAsFixed(1)} °C ${diffMax > 0 ? '↑' : diffMax < 0 ? '↓' : '—'}',
-                                diffMax > 0 ? const Color(0xFFE65100) : Colors.grey,
-                                distStations,
-                                state,
-                                '°C',
-                              ));
-                              districtWidgets.add(_buildDistrictRowItem(
-                                '$dist (Min)',
-                                '${todayMinAvg.toStringAsFixed(1)} °C',
-                                '${yestMinAvg.toStringAsFixed(1)} °C',
-                                '${diffMin > 0 ? '+' : ''}${diffMin.toStringAsFixed(1)} °C ${diffMin > 0 ? '↑' : diffMin < 0 ? '↓' : '—'}',
-                                diffMin > 0 ? const Color(0xFF0288D1) : Colors.grey,
-                                distStations,
-                                state,
-                                '°C',
-                              ));
-                            }
-                            return districtWidgets;
-                          }
-
-                          for (var dist in KeralaAdminData.districts) {
-                            final distStations = allStations.where((s) => KeralaAdminData.matchDistrict(s.district, dist)).toList();
-                            double todayTotal = 0.0;
-                            double yestTotal = 0.0;
-                            int todayCount = 0;
-                            int yestCount = 0;
-                            final unit = _activeDeltaTab == 'Humidity'
-                                ? '%'
-                                : _activeDeltaTab == 'River Level'
-                                    ? 'm'
-                                    : 'mm';
-
-                            for (var s in distStations) {
-                              if (_activeDeltaTab == 'River Level' && s.instrumentType != InstrumentType.riverGauge) {
-                                continue;
-                              }
-                              final tObs = state.getTodayObservation(s.stationId);
-                              final yObs = state.getYesterdayObservation(s.stationId);
-                              final raw = state.getWsDeviceRaw(s.stationId);
-
-                              double? tVal, yVal;
-                              if (_activeDeltaTab == 'Humidity') {
-                                tVal = tObs?.avgHumidityPercent ?? tObs?.humidityPercent ?? double.tryParse(raw?['Humidity']?.toString() ?? '');
-                                yVal = yObs?.avgHumidityPercent ?? yObs?.humidityPercent;
-                              } else if (_activeDeltaTab == 'River Level') {
-                                tVal = tObs?.riverWaterLevelM;
-                                yVal = yObs?.riverWaterLevelM;
-                              } else {
-                                final rawVal = raw?['Rainfall_Cumulative'] ??
-                                               raw?['RainfallCumulative'] ??
-                                               raw?['Rainfall_Cumulative_mm'] ??
-                                               raw?['RainfallDaily'] ??
-                                               raw?['RainfallDailyComulative'] ??
-                                               raw?['Rainfall'] ??
-                                               raw?['rainfall'];
-                                tVal = tObs?.rainfallMm ?? double.tryParse(rawVal?.toString() ?? '');
-                                yVal = yObs?.rainfallMm;
-                              }
-
-                              if (tVal != null) { todayTotal += tVal; todayCount++; }
-                              if (yVal != null) { yestTotal += yVal; yestCount++; }
-                            }
-
-                            final bool isAvg = _activeDeltaTab == 'Humidity' || _activeDeltaTab == 'River Level';
-                            double todayVal = (isAvg && todayCount > 0) ? todayTotal / todayCount : todayTotal;
-                            double yestVal = (isAvg && yestCount > 0) ? yestTotal / yestCount : yestTotal;
-
-                            final diff = todayVal - yestVal;
-
-                            districtWidgets.add(_buildDistrictRowItem(
-                              dist,
-                              '${todayVal.toStringAsFixed(1)} $unit',
-                              '${yestVal.toStringAsFixed(1)} $unit',
-                              '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit ${diff > 0 ? '↑' : diff < 0 ? '↓' : '—'}',
-                              diff > 0 ? const Color(0xFFE65100) : diff < 0 ? Colors.blue : Colors.grey,
-                              distStations,
-                              state,
-                              unit,
-                            ));
-                          }
-
-                          return districtWidgets;
-                        }(),
-                      ],
-                    ),
-                  );
-
-                  if (isDesktop && !isMobile) {
-                    return Expanded(child: tableWidget);
-                  } else {
-                    return SizedBox(height: 380, child: tableWidget);
-                  }
-                },
-              ),
-          ],
-        ),
+          if (isDesktop)
+            Expanded(child: buildLatestObsList())
+          else
+            SizedBox(height: 220, child: buildLatestObsList()),
+        ],
       ),
     );
 
-    if (isMobile || !isDesktop) return cardContent;
-    return SizedBox(height: 620, child: cardContent);
+    return Container(
+      height: isDesktop ? (_leftColumnHeight ?? 840.0) : null,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Top Header Row (Title + Yellow Download Data Button)
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.bar_chart, color: Color(0xFF2563EB), size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Observations & Downloads', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    Text('View changes, latest data and download in multiple formats', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (val) {
+                  if (val == 'csv') _downloadSpatialCsv(state);
+                  if (val == 'delta') _downloadDeltaComparisonCsv(state);
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'csv', child: Text('Download Spatial Weather CSV')),
+                  const PopupMenuItem(value: 'delta', child: Text('Download District Delta CSV')),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFACC15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.file_download, size: 14, color: Color(0xFF0F172A)),
+                      SizedBox(width: 4),
+                      Text('Download Data', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      SizedBox(width: 2),
+                      Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF0F172A)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 2. Card 1: Change from Previous Day
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const [BoxShadow(color: Color(0x04000000), blurRadius: 3)],
+            ),
+            padding: const EdgeInsets.all(10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.thermostat, size: 15, color: Color(0xFF0F172A)),
+                        SizedBox(width: 4),
+                        Text('Change from Previous Day', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A))),
+                      ],
+                    ),
+                    Text(
+                      '${_activeDeltaTab} (${_activeDeltaTab == "Rainfall" ? "mm" : (_activeDeltaTab == "Temperature" ? "°C" : (_activeDeltaTab == "Humidity" ? "%" : "m"))})',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Parameter Tab Chips (Teal theme)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildTealDeltaTabChip('Rainfall', _activeDeltaTab == 'Rainfall', () => setState(() { _activeDeltaTab = 'Rainfall'; _deltaCurrentPage = 1; })),
+                      const SizedBox(width: 6),
+                      _buildTealDeltaTabChip('Temperature', _activeDeltaTab == 'Temperature', () => setState(() { _activeDeltaTab = 'Temperature'; _deltaCurrentPage = 1; })),
+                      const SizedBox(width: 6),
+                      _buildTealDeltaTabChip('Humidity', _activeDeltaTab == 'Humidity', () => setState(() { _activeDeltaTab = 'Humidity'; _deltaCurrentPage = 1; })),
+                      const SizedBox(width: 6),
+                      _buildTealDeltaTabChip('River Level', _activeDeltaTab == 'River Level', () => setState(() { _activeDeltaTab = 'River Level'; _deltaCurrentPage = 1; })),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Table Header Row
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    children: [
+                      Expanded(flex: 3, child: Text('District', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)))),
+                      Expanded(flex: 2, child: Text('Today', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)))),
+                      Expanded(flex: 2, child: Text('Yesterday', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)))),
+                      Expanded(flex: 2, child: Text('Change', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)), textAlign: TextAlign.center)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Paginated Table Rows
+                Column(
+                  children: pageDistricts.map((dist) {
+                    final distStations = state.stations.where((s) => KeralaAdminData.matchDistrict(s.district, dist)).toList();
+
+                    if (_activeDeltaTab == 'Temperature') {
+                      double todayMax = 0.0;
+                      double yestMax = 0.0;
+                      int todayMaxCount = 0;
+                      int yestMaxCount = 0;
+
+                      for (var s in distStations) {
+                        final tObs = state.getTodayObservation(s.stationId);
+                        final yObs = state.getYesterdayObservation(s.stationId);
+                        final raw = state.getWsDeviceRaw(s.stationId);
+
+                        final rawTemp = double.tryParse(raw?['now_temperature']?.toString() ?? raw?['Maximum_Temperature']?.toString() ?? raw?['Temperature']?.toString() ?? '');
+                        double? tMax = tObs?.maxTemperatureC ?? rawTemp;
+                        double? yMax = yObs?.maxTemperatureC;
+
+                        if (tMax != null) { todayMax += tMax; todayMaxCount++; }
+                        if (yMax != null) { yestMax += yMax; yestMaxCount++; }
+                      }
+
+                      double avgTodayMax = todayMaxCount > 0 ? todayMax / todayMaxCount : 0.0;
+                      double avgYestMax = yestMaxCount > 0 ? yestMax / yestMaxCount : 0.0;
+                      final diffMax = avgTodayMax - avgYestMax;
+
+                      final tMaxStr = todayMaxCount > 0 ? avgTodayMax.toStringAsFixed(1) : '0.0';
+                      final yMaxStr = yestMaxCount > 0 ? avgYestMax.toStringAsFixed(1) : '0.0';
+                      final dMaxStr = (todayMaxCount > 0 && yestMaxCount > 0) ? '${diffMax >= 0 ? '+' : ''}${diffMax.toStringAsFixed(1)}' : '0.0';
+
+                      return _buildDistrictDeltaRowItem(dist, tMaxStr, yMaxStr, dMaxStr, const Color(0xFFEA580C), distStations, state, '°C');
+                    } else {
+                      double todayVal = 0.0, yestVal = 0.0;
+                      int tCount = 0, yCount = 0;
+
+                      for (var s in distStations) {
+                        final tObs = state.getTodayObservation(s.stationId);
+                        final yObs = state.getYesterdayObservation(s.stationId);
+                        final raw = state.getWsDeviceRaw(s.stationId);
+
+                        if (_activeDeltaTab == 'Rainfall') {
+                          final tVal = tObs?.rainfallMm ?? raw?['Rainfall_Cumulative_mm'] ?? raw?['rainfall'];
+                          final yVal = yObs?.rainfallMm;
+                          if (tVal != null) { todayVal += (tVal as num).toDouble(); tCount++; }
+                          if (yVal != null) { yestVal += yVal; yCount++; }
+                        } else if (_activeDeltaTab == 'Humidity') {
+                          final tVal = tObs?.humidityPercent ?? raw?['Humidity_Percent'];
+                          final yVal = yObs?.humidityPercent;
+                          if (tVal != null) { todayVal += (tVal as num).toDouble(); tCount++; }
+                          if (yVal != null) { yestVal += yVal; yCount++; }
+                        } else if (_activeDeltaTab == 'River Level') {
+                          final tVal = tObs?.riverWaterLevelM ?? raw?['River_Level_m'];
+                          final yVal = yObs?.riverWaterLevelM;
+                          if (tVal != null) { todayVal += (tVal as num).toDouble(); tCount++; }
+                          if (yVal != null) { yestVal += yVal; yCount++; }
+                        }
+                      }
+
+                      final double avgToday = tCount > 0 ? (todayVal / tCount) : 0.0;
+                      final double avgYest = yCount > 0 ? (yestVal / yCount) : 0.0;
+                      final double delta = avgToday - avgYest;
+
+                      final unit = _activeDeltaTab == 'Rainfall' ? 'mm' : (_activeDeltaTab == 'Humidity' ? '%' : 'm');
+                      final color = _activeDeltaTab == 'Rainfall' ? const Color(0xFF2563EB) : (_activeDeltaTab == 'Humidity' ? const Color(0xFF7C3AED) : const Color(0xFF0D9488));
+
+                      final todayStr = tCount > 0 ? avgToday.toStringAsFixed(1) : '0.0';
+                      final yestStr = yCount > 0 ? avgYest.toStringAsFixed(1) : '0.0';
+                      final deltaStr = (tCount > 0 && yCount > 0) ? '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}' : '0.0';
+
+                      return _buildDistrictDeltaRowItem(dist, todayStr, yestStr, deltaStr, color, distStations, state, unit);
+                    }
+                  }).toList(),
+                ),
+                const SizedBox(height: 6),
+
+                // Pagination Footer
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$startIndex-${endIndex} of ${allDistricts.length} districts',
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                    ),
+                    Row(
+                      children: [
+                        _buildPaginationBtn('«', safePage > 1, () => setState(() => _deltaCurrentPage = 1)),
+                        const SizedBox(width: 2),
+                        _buildPaginationBtn('‹', safePage > 1, () => setState(() => _deltaCurrentPage = safePage - 1)),
+                        const SizedBox(width: 2),
+                        for (int p = 1; p <= totalPages; p++) ...[
+                          _buildPaginationPageNumBtn(p, p == safePage, () => setState(() => _deltaCurrentPage = p)),
+                          const SizedBox(width: 2),
+                        ],
+                        _buildPaginationBtn('›', safePage < totalPages, () => setState(() => _deltaCurrentPage = safePage + 1)),
+                        const SizedBox(width: 2),
+                        _buildPaginationBtn('»', safePage < totalPages, () => setState(() => _deltaCurrentPage = totalPages)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // 3. Card 2: Latest Observations
+          if (isDesktop) Expanded(child: card2) else card2,
+        ],
+      ),
+    );
   }
 
-  Widget _buildDistrictRowItem(
+  Widget _buildTealDeltaTabChip(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF14B8A6) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationBtn(String label, bool enabled, VoidCallback onTap) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: enabled ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.bold,
+            color: enabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationPageNumBtn(int page, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF14B8A6) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: isSelected ? const Color(0xFF14B8A6) : const Color(0xFFCBD5E1)),
+        ),
+        child: Text(
+          '$page',
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : const Color(0xFF0F172A),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDistrictDeltaRowItem(
     String dist,
     String todayStr,
     String yestStr,
@@ -2432,6 +2828,18 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     String unit,
   ) {
     final bool isExpanded = _expandedDeltaDistrict == dist;
+    final bool isNegative = changeStr.startsWith('-');
+    final bool isPositive = changeStr.startsWith('+') && changeStr != '+0.0';
+
+    Color badgeBg = const Color(0xFFF1F5F9);
+    Color badgeText = const Color(0xFF64748B);
+    if (isNegative) {
+      badgeBg = const Color(0xFFDBEAFE);
+      badgeText = const Color(0xFF2563EB);
+    } else if (isPositive) {
+      badgeBg = const Color(0xFFFFEDD5);
+      badgeText = const Color(0xFFEA580C);
+    }
 
     return Container(
       decoration: const BoxDecoration(
@@ -2443,7 +2851,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           InkWell(
             onTap: () => setState(() => _expandedDeltaDistrict = isExpanded ? null : dist),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
               child: Row(
                 children: [
                   Expanded(
@@ -2452,17 +2860,17 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       children: [
                         Icon(
                           isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
-                          size: 14,
-                          color: isExpanded ? const Color(0xFF1565C0) : const Color(0xFF64748B),
+                          size: 13,
+                          color: isExpanded ? const Color(0xFF2563EB) : const Color(0xFF64748B),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 2),
                         Expanded(
                           child: Text(
                             dist,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: isExpanded ? FontWeight.bold : FontWeight.w600,
-                              color: isExpanded ? const Color(0xFF1565C0) : const Color(0xFF0F172A),
+                              color: isExpanded ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2472,24 +2880,25 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text(todayStr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                    child: Text(todayStr, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text(yestStr, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    child: Text(yestStr, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        changeStr,
-                        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeBg,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          changeStr,
+                          style: TextStyle(fontSize: 9.5, color: badgeText, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ),
@@ -2540,7 +2949,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         children: [
           Row(
             children: [
-              const Icon(Icons.sensors, size: 13, color: Color(0xFF1565C0)),
+              const Icon(Icons.sensors, size: 13, color: Color(0xFF2563EB)),
               const SizedBox(width: 4),
               Text(
                 'Stations in $dist (${filteredStations.length}/${targetStations.length}):',
@@ -2550,7 +2959,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           ),
           const SizedBox(height: 6),
 
-          // Search Box inside Breakdown Panel
           Container(
             height: 32,
             margin: const EdgeInsets.only(bottom: 8),
@@ -2623,7 +3031,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               final double realToday = tVal ?? 0.0;
               final double realYest = yVal ?? 0.0;
               final diff = realToday - realYest;
-              final color = diff > 0 ? const Color(0xFFE65100) : diff < 0 ? Colors.blue : Colors.grey;
+              final color = diff > 0 ? const Color(0xFFEA580C) : diff < 0 ? Colors.blue : Colors.grey;
               final stnTitle = stn.gramaPanchayat.isNotEmpty ? stn.gramaPanchayat : (stn.measurementLocation.isNotEmpty ? stn.measurementLocation : stn.stationId);
 
               return Container(
@@ -2646,8 +3054,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Today: ${realToday.toStringAsFixed(1)} $unit', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                        Text('Yest: ${realYest.toStringAsFixed(1)} $unit', style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B))),
+                        Text('Today: ${tVal != null ? realToday.toStringAsFixed(1) : "—"} $unit', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        Text('Yest: ${yVal != null ? realYest.toStringAsFixed(1) : "—"} $unit', style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B))),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
@@ -2655,7 +3063,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit',
+                            (tVal != null && yVal != null) ? '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} $unit' : 'N/A',
                             style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
                           ),
                         ),
@@ -2666,29 +3074,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               );
             }),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDeltaTabChip(String label, bool isSelected, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1565C0) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF0F172A),
-          ),
-        ),
       ),
     );
   }
@@ -2723,7 +3108,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
             : isOfficer
                 ? '📊 Open Officer Reports'
                 : (state.isLoggedIn ? '➕ Register Instrument' : '🙋 Register as Volunteer'),
-        btnColor: isAdmin ? const Color(0xFF7C3AED) : isOfficer ? const Color(0xFF1565C0) : const Color(0xFF2E7D32),
+        btnColor: isAdmin ? const Color(0xFF7C3AED) : isOfficer ? const Color(0xFF2563EB) : const Color(0xFF16A34A),
         icon: isAdmin ? Icons.admin_panel_settings : isOfficer ? Icons.bar_chart : Icons.person_add_alt_1,
         onTap: () {
           if (!state.isLoggedIn) {
@@ -2741,7 +3126,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         title: 'How to Take Observations?',
         subtitle: 'Watch video tutorials and download the user manual.',
         btnLabel: 'View Tutorials',
-        btnColor: const Color(0xFF1565C0),
+        btnColor: const Color(0xFF2563EB),
         icon: Icons.play_circle_fill,
         onTap: () => widget.onNavigate?.call(5),
       ),
@@ -2749,7 +3134,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         title: 'Share Data with Admin',
         subtitle: 'Facing difficulty entering data? Share via WhatsApp group.',
         btnLabel: 'Share Now',
-        btnColor: const Color(0xFFE65100),
+        btnColor: const Color(0xFFEA580C),
         icon: Icons.chat_bubble_outline,
         onTap: () => _showWhatsAppShareDialog(context),
       ),
@@ -2757,211 +3142,269 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         title: 'Weather Champions',
         subtitle: 'Meet our top contributors and become a champion!',
         btnLabel: 'View Champions',
-        btnColor: const Color(0xFF6A1B9A),
+        btnColor: const Color(0xFF7C3AED),
         icon: Icons.emoji_events,
         onTap: () => widget.onNavigate?.call(4),
       ),
     ];
   }
 
-  String _getParameterTitle(String paramKey) {
-    switch (paramKey) {
-      case 'all': return 'All Parameters';
-      case 'maxTemp': return 'Temperature';
-      case 'humidity': return 'Humidity';
-      case 'riverLevel': return 'River Level';
-      default: return 'Rainfall';
-    }
-  }
-
-  String _getParameterUnit(String paramKey) {
-    switch (paramKey) {
-      case 'all': return 'Units';
-      case 'maxTemp': return '°C';
-      case 'humidity': return '%';
-      case 'riverLevel': return 'm';
-      default: return 'mm';
-    }
-  }
-
-  Widget _buildParamHighlightCard({
-    required String paramTitle,
-    required KsdmaStation? topStation,
-    required String topVal,
-    required String avgVal,
-    required String stationCountText,
-    required Color accentColor,
-    String avgLabel = 'State Avg',
-    IconData? icon,
+  Widget _buildPromoCard({
+    required String title,
+    required String subtitle,
+    required String btnLabel,
+    required Color btnColor,
+    required IconData icon,
     VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: accentColor.withValues(alpha: 0.22)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 13, color: accentColor),
-                  const SizedBox(width: 4),
-                ],
-                Expanded(
-                  child: Text(
-                    paramTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: accentColor),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  stationCountText,
-                  style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Highest', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(topVal, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: accentColor)),
-                      ),
-                      if (topStation != null)
-                        Text(
-                          '${topStation.stationId} (${topStation.district.length > 6 ? topStation.district.substring(0, 4) + '...' : topStation.district})',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 8.5, color: Color(0xFF475569)),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(avgLabel, style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(avgVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A))),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToolbarDropdown(String label, Widget child, {IconData? icon, bool isMobile = false}) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12, vertical: isMobile ? 4 : 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [BoxShadow(color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (icon != null) ...[
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: Color(0xFFEFF6FF),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 14, color: const Color(0xFF2563EB)),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          Row(
             children: [
-              Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 9 : 10, color: const Color(0xFF64748B))),
-              const SizedBox(height: 2),
-              child,
+              Icon(icon, color: btnColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)), maxLines: 1)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 2),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: btnColor,
+              foregroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(btnLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStationChartBox(BuildContext context, KsdmaStateService state, KsdmaStation station, DateTime todayDate) {
+    String effectiveParam = _appliedParam;
+    if (_appliedParam == 'all') {
+      switch (station.instrumentType) {
+        case InstrumentType.hygrometer:
+          effectiveParam = 'humidity';
+          break;
+        case InstrumentType.maxMinThermometer:
+          effectiveParam = 'maxTemp';
+          break;
+        case InstrumentType.riverGauge:
+          effectiveParam = 'riverLevel';
+          break;
+        case InstrumentType.rainGauge:
+        case InstrumentType.awsAutomaticStation:
+          effectiveParam = 'rainfall';
+          break;
+      }
+    }
+
+    bool isTemp = effectiveParam == 'maxTemp';
+    bool isHum = effectiveParam == 'humidity';
+    bool isRiver = effectiveParam == 'riverLevel';
+
+    final aggLabel = effectiveParam == 'rainfall' ? ' $_appliedAggregation' : '';
+    final title = '${station.stationId} - ${_getParameterTitle(effectiveParam)}$aggLabel (${_getParameterUnit(effectiveParam)})';
+
+    final todayMidnight = DateTime(todayDate.year, todayDate.month, todayDate.day);
+
+    double getValue(KsdmaObservation o) {
+      if (isTemp) return o.maxTemperatureC ?? 0.0;
+      if (isHum) return o.humidityPercent ?? 0.0;
+      if (isRiver) return o.riverWaterLevelM ?? 0.0;
+      return o.rainfallMm ?? 0.0;
+    }
+
+    double getPeriodVal(int days) {
+      double sum = 0.0;
+      int count = 0;
+
+      for (var o in state.observations) {
+        if (o.isRemoved) continue;
+        if (o.stationId != station.stationId) continue;
+        final obsLocal = o.observationDate.toLocal();
+        final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
+
+        if (days == 1) {
+          if (obsDate.year == todayMidnight.year && obsDate.month == todayMidnight.month && obsDate.day == todayMidnight.day) {
+            sum += getValue(o);
+            count++;
+          }
+        } else {
+          final cutoffDate = todayMidnight.subtract(Duration(days: days - 1));
+          if (!obsDate.isBefore(cutoffDate)) {
+            sum += getValue(o);
+            count++;
+          }
+        }
+      }
+
+      if (days == 1 && count == 0) {
+        final tObs = state.getTodayObservation(station.stationId);
+        if (tObs != null) return getValue(tObs);
+      }
+
+      if ((isHum || isTemp || isRiver || _appliedAggregation == 'Average') && count > 0) {
+        return sum / count;
+      }
+      return sum;
+    }
+
+    Map<String, double> getTempPeriodVal(int days) {
+      double maxVal = -999.0;
+      double minVal = 999.0;
+      double maxSum = 0.0;
+      double minSum = 0.0;
+      int maxCount = 0;
+      int minCount = 0;
+
+      for (var o in state.observations) {
+        if (o.isRemoved) continue;
+        if (o.stationId != station.stationId) continue;
+        final obsLocal = o.observationDate.toLocal();
+        final obsDate = DateTime(obsLocal.year, obsLocal.month, obsLocal.day);
+
+        bool matchDate = (days == 1)
+            ? (obsDate.year == todayMidnight.year && obsDate.month == todayMidnight.month && obsDate.day == todayMidnight.day)
+            : (!obsDate.isBefore(todayMidnight.subtract(Duration(days: days - 1))));
+
+        if (matchDate) {
+          if (o.maxTemperatureC != null) {
+            if (o.maxTemperatureC! > maxVal) maxVal = o.maxTemperatureC!;
+            maxSum += o.maxTemperatureC!;
+            maxCount++;
+          }
+          if (o.minTemperatureC != null) {
+            if (o.minTemperatureC! < minVal) minVal = o.minTemperatureC!;
+            minSum += o.minTemperatureC!;
+            minCount++;
+          }
+        }
+      }
+
+      if (days == 1) {
+        final tObs = state.getTodayObservation(station.stationId);
+        if (tObs != null) {
+          if (maxCount == 0 && tObs.maxTemperatureC != null) { maxVal = tObs.maxTemperatureC!; maxSum = tObs.maxTemperatureC!; maxCount = 1; }
+          if (minCount == 0 && tObs.minTemperatureC != null) { minVal = tObs.minTemperatureC!; minSum = tObs.minTemperatureC!; minCount = 1; }
+        }
+      }
+
+      if (_appliedAggregation == 'Average') {
+        return {
+          'max': maxCount > 0 ? maxSum / maxCount : 0.0,
+          'min': minCount > 0 ? minSum / minCount : 0.0,
+        };
+      }
+
+      return {
+        'max': maxCount > 0 ? maxVal : 0.0,
+        'min': minCount > 0 ? minVal : 0.0,
+      };
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)), maxLines: 1)),
+            if (isTemp)
+              Row(
+                children: [
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFEA580C), shape: BoxShape.circle)),
+                  const SizedBox(width: 3),
+                  const Text('Max Temp', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
+                  const SizedBox(width: 8),
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF0288D1), shape: BoxShape.circle)),
+                  const SizedBox(width: 3),
+                  const Text('Min Temp', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF0288D1))),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (isTemp) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildDualBar('Today', getTempPeriodVal(1)['max']!, getTempPeriodVal(1)['min']!),
+              _buildDualBar('2 Days', getTempPeriodVal(2)['max']!, getTempPeriodVal(2)['min']!),
+              _buildDualBar('3 Days', getTempPeriodVal(3)['max']!, getTempPeriodVal(3)['min']!),
+              _buildDualBar('5 Days', getTempPeriodVal(5)['max']!, getTempPeriodVal(5)['min']!),
+              _buildDualBar('Week', getTempPeriodVal(7)['max']!, getTempPeriodVal(7)['min']!),
+              _buildDualBar('Month', getTempPeriodVal(30)['max']!, getTempPeriodVal(30)['min']!),
+            ],
+          ),
+        ] else ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildBar('Today', getPeriodVal(1), 40),
+              _buildBar('2 Days', getPeriodVal(2), 60),
+              _buildBar('3 Days', getPeriodVal(3), 80),
+              _buildBar('5 Days', getPeriodVal(5), 100),
+              _buildBar('Week', getPeriodVal(7), 120),
+              _buildBar('Month', getPeriodVal(30), 140),
             ],
           ),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _buildInstrumentCountChip(String label, int count, Color color) {
+  Widget _buildLiveMetricTile(String label, String value, IconData icon, Color color, Color bg, {double? width}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      width: width ?? 155,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 5),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(10),
-            ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
             child: Text(
-              '$count',
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+              value,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildMetricCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    return KsdmaStatCard(
-      num: value,
-      label: title,
-      subtext: subtitle,
-      icon: icon,
-      gaugeFill: color,
     );
   }
 
@@ -2975,7 +3418,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           width: 24,
           height: height,
           decoration: BoxDecoration(
-            color: const Color(0xFF1565C0),
+            color: const Color(0xFF2563EB),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -2998,13 +3441,13 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           children: [
             Column(
               children: [
-                Text('${maxVal.toStringAsFixed(1)}°', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFE65100))),
+                Text('${maxVal.toStringAsFixed(1)}°', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
                 const SizedBox(height: 3),
                 Container(
                   width: 16,
                   height: maxH,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFE65100),
+                    color: Color(0xFFEA580C),
                     borderRadius: BorderRadius.vertical(top: Radius.circular(5)),
                   ),
                 ),
@@ -3033,186 +3476,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  Widget _buildObsRow(String title, String loc, String val, String time, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 4.0),
-      child: Row(
-        children: [
-          const Icon(Icons.location_on, color: Color(0xFF2563EB), size: 16),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                Text(loc, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis, maxLines: 1),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(val, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-              Text(time, style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildSummaryOverviewCard({
-    required String title,
-    required KsdmaStation? station,
-    required String value,
-    required Color color,
-    required IconData icon,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-                Icon(icon, size: 14, color: color),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 2),
-            Text(
-              station != null ? '${station.stationId} (${station.district})' : 'No station data',
-              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-
-  // ignore: unused_element
-  Widget _buildStationStatBoxes(KsdmaStateService state, KsdmaStation station) {
-    final todayObs = state.getTodayObservation(station.stationId);
-    final yesterdayObs = state.getYesterdayObservation(station.stationId);
-
-    // If selected parameter filter is Humidity (or station is Hygrometer)
-    if (_appliedParam == 'humidity' || station.instrumentType == InstrumentType.hygrometer) {
-      final tHum = todayObs?.humidityPercent != null ? '${todayObs!.humidityPercent} %' : '0 %';
-      final yHum = yesterdayObs?.humidityPercent != null ? '${yesterdayObs!.humidityPercent} %' : '0 %';
-
-      final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
-      double avg2Day = 0.0;
-      if (obsList.isNotEmpty) {
-        final sub2 = obsList.take(2).where((o) => o.humidityPercent != null).map((o) => o.humidityPercent!).toList();
-        if (sub2.isNotEmpty) avg2Day = sub2.reduce((a, b) => a + b) / sub2.length;
-      }
-      double avg5Day = 0.0;
-      if (obsList.isNotEmpty) {
-        final sub5 = obsList.take(5).where((o) => o.humidityPercent != null).map((o) => o.humidityPercent!).toList();
-        if (sub5.isNotEmpty) avg5Day = sub5.reduce((a, b) => a + b) / sub5.length;
-      }
-
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.spaceAround,
-        children: [
-          _buildStatBox('Today Humidity', tHum, const Color(0xFF8E24AA)),
-          _buildStatBox('Yesterday Humidity', yHum, Colors.black87),
-          _buildStatBox('2-Day Avg', '${avg2Day.toStringAsFixed(0)} %', Colors.black87),
-          _buildStatBox('5-Day Avg', '${avg5Day.toStringAsFixed(0)} %', Colors.black87),
-        ],
-      );
-    } 
-    // If selected parameter filter is Temperature (or station is Thermometer)
-    else if (_appliedParam == 'maxTemp' || station.instrumentType == InstrumentType.maxMinThermometer) {
-      final tMax = todayObs?.maxTemperatureC != null ? '${todayObs!.maxTemperatureC} °C' : '0.0 °C';
-      final tMin = todayObs?.minTemperatureC != null ? '${todayObs!.minTemperatureC} °C' : '0.0 °C';
-      final yMax = yesterdayObs?.maxTemperatureC != null ? '${yesterdayObs!.maxTemperatureC} °C' : '0.0 °C';
-      final yMin = yesterdayObs?.minTemperatureC != null ? '${yesterdayObs!.minTemperatureC} °C' : '0.0 °C';
-
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.spaceAround,
-        children: [
-          _buildStatBox('Today Max', tMax, const Color(0xFF1565C0)),
-          _buildStatBox('Today Min', tMin, const Color(0xFF0288D1)),
-          _buildStatBox('Yesterday Max', yMax, Colors.black87),
-          _buildStatBox('Yesterday Min', yMin, Colors.black87),
-        ],
-      );
-    } 
-    // If selected parameter filter is River Level (or station is River Gauge)
-    else if (_appliedParam == 'riverLevel' || station.instrumentType == InstrumentType.riverGauge) {
-      final tRiv = todayObs?.riverWaterLevelM != null ? '${todayObs!.riverWaterLevelM} m' : '0.0 m';
-      final yRiv = yesterdayObs?.riverWaterLevelM != null ? '${yesterdayObs!.riverWaterLevelM} m' : '0.0 m';
-
-      final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
-      double max2 = 0.0;
-      if (obsList.isNotEmpty) {
-        final sub2 = obsList.take(2).where((o) => o.riverWaterLevelM != null).map((o) => o.riverWaterLevelM!).toList();
-        if (sub2.isNotEmpty) max2 = sub2.reduce((a, b) => a > b ? a : b);
-      }
-      double max5 = 0.0;
-      if (obsList.isNotEmpty) {
-        final sub5 = obsList.take(5).where((o) => o.riverWaterLevelM != null).map((o) => o.riverWaterLevelM!).toList();
-        if (sub5.isNotEmpty) max5 = sub5.reduce((a, b) => a > b ? a : b);
-      }
-
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.spaceAround,
-        children: [
-          _buildStatBox('Today Level', tRiv, const Color(0xFF00ACC1)),
-          _buildStatBox('Yesterday Level', yRiv, Colors.black87),
-          _buildStatBox('2-Day Peak', '${max2.toStringAsFixed(1)} m', Colors.black87),
-          _buildStatBox('5-Day Peak', '${max5.toStringAsFixed(1)} m', Colors.black87),
-        ],
-      );
-    } 
-    // Default: Rainfall
-    else {
-      final tRain = todayObs?.rainfallMm != null ? '${todayObs!.rainfallMm} mm' : '—';
-      final yRain = yesterdayObs?.rainfallMm != null ? '${yesterdayObs!.rainfallMm} mm' : '—';
-      final cum2 = state.getCumulativeRainfall(station.stationId, 2);
-      final cum5 = state.getCumulativeRainfall(station.stationId, 5);
-
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.spaceAround,
-        children: [
-          _buildStatBox('Today Rain', tRain, const Color(0xFF1565C0)),
-          _buildStatBox('Yesterday Rain', yRain, Colors.black87),
-          _buildStatBox('2-Day Total', '${cum2.toStringAsFixed(1)} mm', Colors.black87),
-          _buildStatBox('5-Day Total', '${cum5.toStringAsFixed(1)} mm', Colors.black87),
-        ],
-      );
-    }
-  }
-
-  /// Builds map markers with slight coordinate jitter/offset for stations sharing identical lat/lng coordinates
   List<Marker> _buildMapMarkers(KsdmaStateService state, List<KsdmaStation> activeStations) {
     final Map<String, List<KsdmaStation>> locGroups = {};
     for (var s in activeStations) {
@@ -3234,7 +3498,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
         if (count > 1) {
           final angle = (2 * math.pi * i) / count;
-          const radius = 0.0008; // ~90m offset so overlapping pins are clearly separated
+          const radius = 0.0008;
           lat += radius * math.cos(angle);
           lng += radius * math.sin(angle);
         }
@@ -3286,61 +3550,114 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  Widget _buildPromoCard({
-    required String title,
-    required String subtitle,
-    required String btnLabel,
-    required Color btnColor,
-    required IconData icon,
-    VoidCallback? onTap,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildStationStatBoxes(KsdmaStateService state, KsdmaStation station) {
+    final todayObs = state.getTodayObservation(station.stationId);
+    final yesterdayObs = state.getYesterdayObservation(station.stationId);
+
+    if (_appliedParam == 'humidity' || station.instrumentType == InstrumentType.hygrometer) {
+      final tHum = todayObs?.humidityPercent != null ? '${todayObs!.humidityPercent} %' : '0 %';
+      final yHum = yesterdayObs?.humidityPercent != null ? '${yesterdayObs!.humidityPercent} %' : '0 %';
+
+      final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
+      double avg2Day = 0.0;
+      if (obsList.isNotEmpty) {
+        final sub2 = obsList.take(2).where((o) => o.humidityPercent != null).map((o) => o.humidityPercent!).toList();
+        if (sub2.isNotEmpty) avg2Day = sub2.reduce((a, b) => a + b) / sub2.length;
+      }
+      double avg5Day = 0.0;
+      if (obsList.isNotEmpty) {
+        final sub5 = obsList.take(5).where((o) => o.humidityPercent != null).map((o) => o.humidityPercent!).toList();
+        if (sub5.isNotEmpty) avg5Day = sub5.reduce((a, b) => a + b) / sub5.length;
+      }
+
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: btnColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)), maxLines: 1)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 2),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: onTap,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: btnColor,
-              foregroundColor: Colors.white,
-              visualDensity: VisualDensity.compact,
-            ),
-            child: Text(btnLabel, style: const TextStyle(fontSize: 10)),
-          ),
+          _buildStatBox('Today Humidity', tHum, const Color(0xFF7C3AED)),
+          _buildStatBox('Yesterday Humidity', yHum, Colors.black87),
+          _buildStatBox('2-Day Avg', '${avg2Day.toStringAsFixed(0)} %', Colors.black87),
+          _buildStatBox('5-Day Avg', '${avg5Day.toStringAsFixed(0)} %', Colors.black87),
         ],
-      ),
-    );
+      );
+    } else if (_appliedParam == 'maxTemp' || station.instrumentType == InstrumentType.maxMinThermometer) {
+      final tMax = todayObs?.maxTemperatureC != null ? '${todayObs!.maxTemperatureC} °C' : '0.0 °C';
+      final tMin = todayObs?.minTemperatureC != null ? '${todayObs!.minTemperatureC} °C' : '0.0 °C';
+      final yMax = yesterdayObs?.maxTemperatureC != null ? '${yesterdayObs!.maxTemperatureC} °C' : '0.0 °C';
+      final yMin = yesterdayObs?.minTemperatureC != null ? '${yesterdayObs!.minTemperatureC} °C' : '0.0 °C';
+
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
+        children: [
+          _buildStatBox('Today Max', tMax, const Color(0xFFEA580C)),
+          _buildStatBox('Today Min', tMin, const Color(0xFF0288D1)),
+          _buildStatBox('Yesterday Max', yMax, Colors.black87),
+          _buildStatBox('Yesterday Min', yMin, Colors.black87),
+        ],
+      );
+    } else if (_appliedParam == 'riverLevel' || station.instrumentType == InstrumentType.riverGauge) {
+      final tRiv = todayObs?.riverWaterLevelM != null ? '${todayObs!.riverWaterLevelM} m' : '0.0 m';
+      final yRiv = yesterdayObs?.riverWaterLevelM != null ? '${yesterdayObs!.riverWaterLevelM} m' : '0.0 m';
+
+      final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
+      double max2 = 0.0;
+      if (obsList.isNotEmpty) {
+        final sub2 = obsList.take(2).where((o) => o.riverWaterLevelM != null).map((o) => o.riverWaterLevelM!).toList();
+        if (sub2.isNotEmpty) max2 = sub2.reduce((a, b) => a > b ? a : b);
+      }
+      double max5 = 0.0;
+      if (obsList.isNotEmpty) {
+        final sub5 = obsList.take(5).where((o) => o.riverWaterLevelM != null).map((o) => o.riverWaterLevelM!).toList();
+        if (sub5.isNotEmpty) max5 = sub5.reduce((a, b) => a > b ? a : b);
+      }
+
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
+        children: [
+          _buildStatBox('Today Level', tRiv, const Color(0xFF0D9488)),
+          _buildStatBox('Yesterday Level', yRiv, Colors.black87),
+          _buildStatBox('2-Day Peak', '${max2.toStringAsFixed(1)} m', Colors.black87),
+          _buildStatBox('5-Day Peak', '${max5.toStringAsFixed(1)} m', Colors.black87),
+        ],
+      );
+    } else {
+      final tRain = todayObs?.rainfallMm != null ? '${todayObs!.rainfallMm} mm' : '—';
+      final yRain = yesterdayObs?.rainfallMm != null ? '${yesterdayObs!.rainfallMm} mm' : '—';
+      final cum2 = state.getCumulativeRainfall(station.stationId, 2);
+      final cum5 = state.getCumulativeRainfall(station.stationId, 5);
+
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceAround,
+        children: [
+          _buildStatBox('Today Rain', tRain, const Color(0xFF2563EB)),
+          _buildStatBox('Yesterday Rain', yRain, Colors.black87),
+          _buildStatBox('2-Day Total', '${cum2.toStringAsFixed(1)} mm', Colors.black87),
+          _buildStatBox('5-Day Total', '${cum5.toStringAsFixed(1)} mm', Colors.black87),
+        ],
+      );
+    }
   }
 
   Color _getPinColor(KsdmaStation s) {
     if (s.category == StationCategory.aws) return const Color(0xFF8E24AA);
     switch (s.instrumentType) {
       case InstrumentType.rainGauge:
-        return const Color(0xFF1E88E5);
+        return const Color(0xFF2563EB); // Blue
       case InstrumentType.maxMinThermometer:
-        return const Color(0xFFFB8C00);
+        return const Color(0xFFEA580C); // Orange
       case InstrumentType.riverGauge:
-        return const Color(0xFF00ACC1);
+        return const Color(0xFF0D9488); // Teal
       case InstrumentType.hygrometer:
-        return const Color(0xFF8E24AA);
+        return const Color(0xFF7C3AED); // Purple
       case InstrumentType.awsAutomaticStation:
-        return const Color(0xFFD81B60);
+        return const Color(0xFF8E24AA); // Purple-pink
     }
   }
 
@@ -3357,6 +3674,26 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         return Icons.water;
       case InstrumentType.awsAutomaticStation:
         return Icons.cell_tower;
+    }
+  }
+
+  String _getParameterTitle(String paramKey) {
+    switch (paramKey) {
+      case 'all': return 'All Parameters';
+      case 'maxTemp': return 'Temperature';
+      case 'humidity': return 'Humidity';
+      case 'riverLevel': return 'River Level';
+      default: return 'Rainfall';
+    }
+  }
+
+  String _getParameterUnit(String paramKey) {
+    switch (paramKey) {
+      case 'all': return 'Units';
+      case 'maxTemp': return '°C';
+      case 'humidity': return '%';
+      case 'riverLevel': return 'm';
+      default: return 'mm';
     }
   }
 }

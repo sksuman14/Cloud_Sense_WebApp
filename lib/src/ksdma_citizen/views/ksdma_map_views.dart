@@ -559,6 +559,8 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                   options: MapOptions(
                     initialCenter: center,
                     initialZoom: zoom,
+                    minZoom: 4.5,
+                    maxZoom: 18.0,
                   ),
                   children: [
                     TileLayer(
@@ -1037,7 +1039,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
             underline: const SizedBox(),
             isDense: true,
             style: const TextStyle(color: Color(0xFF0F172A), fontSize: 11.5, fontWeight: FontWeight.bold),
-            items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+            items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 11.5)))).toList(),
             onChanged: (val) {
               if (val != null) onChanged(val);
             },

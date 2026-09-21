@@ -1019,9 +1019,14 @@ class _AdminPageState extends State<AdminPage> {
 
             // Extract parameter names that are not 'GOOD'
             final flaggedParams = flaggedFields.entries
-                .where((e) =>
-                    e.value.toString().toUpperCase() != 'GOOD' &&
-                    !e.key.toLowerCase().contains('spatial'))
+                .where((e) {
+                  final val = e.value;
+                  final flag = val is Map
+                      ? (val['flag']?.toString() ?? '')
+                      : val.toString();
+                  return flag.toUpperCase() != 'GOOD' &&
+                      !e.key.toLowerCase().contains('spatial');
+                })
                 .map((e) => _getDisplayName(e.key))
                 .join(', ');
 

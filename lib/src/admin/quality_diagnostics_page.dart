@@ -453,6 +453,7 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
               _buildLegendItem('Good', Colors.greenAccent),
               _buildLegendItem('Suspect', Colors.orangeAccent),
               _buildLegendItem('Erroneous', Colors.redAccent),
+              _buildLegendItem('Corrected', Colors.blueAccent),
               _buildLegendItem(
                   'Inconsistent', const Color.fromARGB(255, 209, 233, 114)),
               _buildLegendItem(
@@ -475,34 +476,47 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
             time = DateTime.now();
           }
 
-          final rawVal = r.rawSnapshot[param];
-          final value = double.tryParse(rawVal?.toString() ?? '');
-
-          dynamic fieldData = r.flaggedFields[param];
-          if (fieldData == null) {
+          dynamic rawVal = r.rawSnapshot[param];
+          if (rawVal == null) {
             final lowerParam = param.toLowerCase();
-            for (var key in r.flaggedFields.keys) {
-              if (key.toLowerCase() == lowerParam) {
-                fieldData = r.flaggedFields[key];
+            for (var entry in r.rawSnapshot.entries) {
+              if (entry.key.toLowerCase() == lowerParam) {
+                rawVal = entry.value;
                 break;
               }
             }
           }
+          final value = double.tryParse(rawVal?.toString() ?? '');
+
+          final fieldData = _findFieldData(r.flaggedFields, param);
 
           String pointStatus = 'GOOD';
           String? reason;
+          String? originalValue;
+          String? correctedValue;
 
           if (fieldData is Map) {
             pointStatus = fieldData['flag']?.toString().toUpperCase() ?? 'GOOD';
             reason = fieldData['reason']?.toString();
+            originalValue = fieldData['original_value']?.toString();
+            correctedValue = fieldData['corrected_value']?.toString();
           } else if (fieldData != null) {
             pointStatus = fieldData.toString().toUpperCase();
           }
 
           final pointColor = _getFlagColor(pointStatus);
 
-          return _ChartData(time, value ?? 0, pointColor, pointStatus, reason,
-              r.flaggedFields, fieldData);
+          return _ChartData(
+            time,
+            value ?? 0,
+            pointColor,
+            pointStatus,
+            reason,
+            r.flaggedFields,
+            fieldData,
+            originalValue: originalValue,
+            correctedValue: correctedValue,
+          );
         })
         .toList()
         .reversed
@@ -584,6 +598,16 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
                                   color: d.color,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900)),
+                          if (d.originalValue != null &&
+                              d.originalValue!.isNotEmpty &&
+                              d.originalValue != d.y.toStringAsFixed(2)) ...[
+                            const SizedBox(height: 2),
+                            Text('Original: ${d.originalValue}',
+                                style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600)),
+                          ],
                           if (d.reason != null && d.reason!.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text('Reason: ${d.reason}',
@@ -754,9 +778,80 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
     if (flag == 'GOOD') return Colors.greenAccent;
     if (flag == 'SUSPECT') return Colors.orangeAccent;
     if (flag == 'ERRONEOUS') return Colors.redAccent;
+    if (flag == 'CORRECTED') return Colors.blueAccent;
     if (flag == 'INCONSISTENT') return const Color.fromARGB(255, 209, 233, 114);
     if (flag == 'MISSING') return const Color.fromARGB(255, 111, 223, 238);
     return Colors.grey;
+  }
+
+  dynamic _findFieldData(Map<String, dynamic> flaggedFields, String param) {
+    if (flaggedFields.isEmpty) return null;
+
+    // 1. Direct key match
+    if (flaggedFields.containsKey(param)) {
+      return flaggedFields[param];
+    }
+
+    final lowerParam = param.toLowerCase();
+
+    // 2. Case-insensitive key match
+    for (var entry in flaggedFields.entries) {
+      if (entry.key.toLowerCase() == lowerParam) {
+        return entry.value;
+      }
+    }
+
+    // 3. Display name match (e.g. 'atmpressure' and 'Pressure' both map to 'Pressure')
+    final paramDisplayName = _getDisplayName(param).toLowerCase();
+    for (var entry in flaggedFields.entries) {
+      if (_getDisplayName(entry.key).toLowerCase() == paramDisplayName) {
+        return entry.value;
+      }
+    }
+
+    // 4. Semantic / synonym keyword matching
+    for (var entry in flaggedFields.entries) {
+      final k = entry.key.toLowerCase();
+      // Atmospheric pressure / Pressure
+      if ((lowerParam.contains('press') || lowerParam.contains('baro')) &&
+          (k.contains('press') || k.contains('baro'))) {
+        return entry.value;
+      }
+      // Temperature (excluding cumulative)
+      if (lowerParam.contains('temp') &&
+          k.contains('temp') &&
+          !lowerParam.contains('cum') &&
+          !k.contains('cum')) {
+        return entry.value;
+      }
+      // Humidity (excluding cumulative)
+      if (lowerParam.contains('humid') &&
+          k.contains('humid') &&
+          !lowerParam.contains('cum') &&
+          !k.contains('cum')) {
+        return entry.value;
+      }
+      // Wind speed
+      if (lowerParam.contains('wind') &&
+          lowerParam.contains('speed') &&
+          k.contains('wind') &&
+          k.contains('speed')) {
+        return entry.value;
+      }
+      // Wind direction
+      if (lowerParam.contains('wind') &&
+          lowerParam.contains('dir') &&
+          k.contains('wind') &&
+          k.contains('dir')) {
+        return entry.value;
+      }
+      // Rainfall
+      if (lowerParam.contains('rain') && k.contains('rain')) {
+        return entry.value;
+      }
+    }
+
+    return null;
   }
 
   Color _getParamColor(String title) {
@@ -786,6 +881,9 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       "MaximumTemperature": "Maximum Temperature",
       "HumidityHourlyComulative": "Humidity Hourly Comulative",
       "AtmPressure": "Pressure",
+      "atmpressure": "Pressure",
+      "Pressure": "Pressure",
+      "pressure": "Pressure",
       "AverageTemperature": "Average Temperature",
       "MaximumHumidity": "Maximum Humidity",
       "MinimumTemperature": "Minimum Temperature",
@@ -793,6 +891,9 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       "LightIntensity": "Light Intensity",
       "RainfallMinutly": "Rainfall Minutly",
       "CurrentTemperature": "Temperature",
+      "currenttemperature": "Temperature",
+      "Temperature": "Temperature",
+      "temperature": "Temperature",
       "WindDirection": "Wind Direction",
       "WindSpeed": "Wind Speed",
       "RainfallWeekly": "Rainfall Weekly",
@@ -801,7 +902,13 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       "BatteryVoltage": "Battery Voltage",
       "MinimumHumidity": "Minimum Humidity",
       "CurrentHumidity": "Humidity",
+      "currenthumidity": "Humidity",
+      "Humidity": "Humidity",
+      "humidity": "Humidity",
       "RainfallHourly": "Rainfall",
+      "rainfallhourly": "Rainfall",
+      "Rainfall": "Rainfall",
+      "rainfall": "Rainfall",
       "LuxHourlyComulative": "Lux Hourly Comulative",
       "TemperatureHourlyComulative": "Temperature Hourly Comulative",
       "SunshineHours": "Sunshine Hours",
@@ -818,7 +925,6 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
       "MaximumWindGustDirection": "Max Gust Direction",
       "SquallWindSpeed": "Squall Wind Speed",
       "RainfallCumulative": "Rainfall Cumulative",
-      "Rainfall": "Rainfall",
       "Tilt": "Tilt",
       "PanelVoltage": "Panel Voltage",
       "pm25": "PM2.5",
@@ -841,8 +947,17 @@ class _QualityDiagnosticsPageState extends State<QualityDiagnosticsPage> {
 }
 
 class _ChartData {
-  _ChartData(this.x, this.y, this.color, this.flag, this.reason,
-      this.flaggedParams, this.fieldData);
+  _ChartData(
+    this.x,
+    this.y,
+    this.color,
+    this.flag,
+    this.reason,
+    this.flaggedParams,
+    this.fieldData, {
+    this.originalValue,
+    this.correctedValue,
+  });
   final DateTime x;
   final double y;
   final Color color;
@@ -850,6 +965,8 @@ class _ChartData {
   final String? reason;
   final Map<String, dynamic> flaggedParams;
   final dynamic fieldData;
+  final String? originalValue;
+  final String? correctedValue;
 }
 
 class DeviceQualityHistoryRecord {

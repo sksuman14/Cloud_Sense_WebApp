@@ -4246,6 +4246,8 @@ class _QualityCheckDialogState extends State<_QualityCheckDialog> {
             final flag = r.overallFlag.toUpperCase();
             if (flag == 'GOOD')
               value = 3;
+            else if (flag == 'CORRECTED')
+              value = 2.5;
             else if (flag == 'SUSPECT')
               value = 2;
             else if (flag == 'ERRONEOUS')
@@ -4259,11 +4261,15 @@ class _QualityCheckDialogState extends State<_QualityCheckDialog> {
             value = double.tryParse(rawVal?.toString() ?? '');
 
             // Check individual field status
-            final fieldStatus =
-                r.flaggedFields[_selectedGraphParam]?.toString().toUpperCase();
-            if (fieldStatus != null) {
-              pointStatus = fieldStatus;
-              pointColor = _getFlagColor(fieldStatus);
+            final fieldData = _findFieldData(
+                r.flaggedFields, _selectedGraphParam ?? '');
+            if (fieldData is Map) {
+              pointStatus =
+                  fieldData['flag']?.toString().toUpperCase() ?? 'GOOD';
+              pointColor = _getFlagColor(pointStatus);
+            } else if (fieldData != null) {
+              pointStatus = fieldData.toString().toUpperCase();
+              pointColor = _getFlagColor(pointStatus);
             } else {
               pointStatus = 'GOOD';
               pointColor = Colors.greenAccent;
@@ -4526,6 +4532,7 @@ class _QualityCheckDialogState extends State<_QualityCheckDialog> {
               _buildLegendItem('Good', Colors.greenAccent),
               _buildLegendItem('Suspect', Colors.orangeAccent),
               _buildLegendItem('Erroneous', Colors.redAccent),
+              _buildLegendItem('Corrected', Colors.blueAccent),
               _buildLegendItem(
                   'Inconsistent', const Color.fromARGB(255, 209, 233, 114)),
               _buildLegendItem(
@@ -4558,9 +4565,63 @@ class _QualityCheckDialogState extends State<_QualityCheckDialog> {
     if (flag == 'GOOD') return Colors.greenAccent;
     if (flag == 'SUSPECT') return Colors.orangeAccent;
     if (flag == 'ERRONEOUS') return Colors.redAccent;
+    if (flag == 'CORRECTED') return Colors.blueAccent;
     if (flag == 'INCONSISTENT') return const Color.fromARGB(255, 209, 233, 114);
     if (flag == 'MISSING') return const Color.fromARGB(255, 111, 223, 238);
     return Colors.grey;
+  }
+
+  dynamic _findFieldData(Map<String, dynamic> flaggedFields, String param) {
+    if (flaggedFields.isEmpty) return null;
+    if (flaggedFields.containsKey(param)) return flaggedFields[param];
+
+    final lowerParam = param.toLowerCase();
+    for (var entry in flaggedFields.entries) {
+      if (entry.key.toLowerCase() == lowerParam) return entry.value;
+    }
+
+    final paramDisplayName = _getDisplayName(param).toLowerCase();
+    for (var entry in flaggedFields.entries) {
+      if (_getDisplayName(entry.key).toLowerCase() == paramDisplayName) {
+        return entry.value;
+      }
+    }
+
+    for (var entry in flaggedFields.entries) {
+      final k = entry.key.toLowerCase();
+      if ((lowerParam.contains('press') || lowerParam.contains('baro')) &&
+          (k.contains('press') || k.contains('baro'))) {
+        return entry.value;
+      }
+      if (lowerParam.contains('temp') &&
+          k.contains('temp') &&
+          !lowerParam.contains('cum') &&
+          !k.contains('cum')) {
+        return entry.value;
+      }
+      if (lowerParam.contains('humid') &&
+          k.contains('humid') &&
+          !lowerParam.contains('cum') &&
+          !k.contains('cum')) {
+        return entry.value;
+      }
+      if (lowerParam.contains('wind') &&
+          lowerParam.contains('speed') &&
+          k.contains('wind') &&
+          k.contains('speed')) {
+        return entry.value;
+      }
+      if (lowerParam.contains('wind') &&
+          lowerParam.contains('dir') &&
+          k.contains('wind') &&
+          k.contains('dir')) {
+        return entry.value;
+      }
+      if (lowerParam.contains('rain') && k.contains('rain')) {
+        return entry.value;
+      }
+    }
+    return null;
   }
 }
 

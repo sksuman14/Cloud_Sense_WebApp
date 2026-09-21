@@ -97,6 +97,8 @@ class _KsdmaGpMapViewState extends State<KsdmaGpMapView> {
                               ? LatLng(state.stations.first.latitude, state.stations.first.longitude)
                               : const LatLng(10.5276, 76.2144)),
                       initialZoom: 9.8,
+                      minZoom: 4.5,
+                      maxZoom: 18.0,
                     ),
                     children: [
                       TileLayer(
@@ -170,8 +172,12 @@ class _KsdmaGpMapViewState extends State<KsdmaGpMapView> {
         DropdownButton<String>(
           value: options.contains(value) ? value : options.first,
           underline: const SizedBox(),
+          dropdownColor: Colors.white,
           style: const TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
-          items: options.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          items: options.map((e) => DropdownMenuItem(
+            value: e,
+            child: Text(e, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 12)),
+          )).toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);
           },
