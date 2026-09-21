@@ -264,8 +264,9 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         }).toList();
 
       } else if (_selectedPeriod == '7days') {
+        final cleanDevId7Days = widget.stationId.replaceFirst(RegExp(r'^WS_'), '');
         final String history7DaysUrl =
-            'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=$devId';
+            'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=$cleanDevId7Days';
         final response = await http.get(Uri.parse(history7DaysUrl)).timeout(const Duration(seconds: 20));
         if (response.statusCode == 200) {
           final dynamic body = jsonDecode(response.body);

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 
 class DeviceParameter {
@@ -942,7 +942,7 @@ class DeviceConfig {
       apiTemplate:
           'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate={startdate}&enddate={enddate}&annam_id=WS_{deviceId}&key=${ApiKeys.annamApiKey}&mode=view',
       historyApiTemplate:
-          'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=WS_{deviceId}',
+          'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId={deviceId}',
       monthHistoryApiTemplate:
           'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year={year}&DeviceId=WS_{deviceId}&Month={monthAbbr}',
 
