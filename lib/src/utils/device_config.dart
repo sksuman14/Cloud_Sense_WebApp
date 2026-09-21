@@ -896,11 +896,15 @@ class DeviceConfig {
       prefix: 'PJ',
       apiTemplate:
           'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/punjabdata?startdate={startdate}&enddate={enddate}&annam_id=WS_Punjab_{deviceId}&key=${ApiKeys.annamApiKey}&mode=view',
+      historyApiTemplate:
+          'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Punjab&DeviceId={deviceId}',
+      monthHistoryApiTemplate:
+          'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Punjab&Year={year}&DeviceId={deviceId}&Month={monthAbbr}',
       hasWind: true,
       hasRainfall: true,
       parameters: [
         DeviceParameter(
-            key: 'now_temperature', displayName: 'Temperature', unit: 'Â°C'),
+            key: 'now_temperature', displayName: 'Temperature', unit: '°C'),
         DeviceParameter(
             key: 'now_relative_humidity', displayName: 'Humidity', unit: '%'),
         DeviceParameter(key: 'rainfall', displayName: 'Rainfall', unit: 'mm'),
@@ -944,7 +948,7 @@ class DeviceConfig {
       historyApiTemplate:
           'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId={deviceId}',
       monthHistoryApiTemplate:
-          'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year={year}&DeviceId=WS_{deviceId}&Month={monthAbbr}',
+          'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year={year}&DeviceId={deviceId}&Month={monthAbbr}',
 
       hasWind: true,
       hasRainfall: true,
@@ -1290,7 +1294,7 @@ class DeviceConfig {
   };
 
   static DeviceTypeConfig? getConfig(String deviceName) {
-    if (deviceName == null || deviceName.isEmpty) return null;
+    if (deviceName.isEmpty) return null;
     final name = deviceName.toUpperCase();
     if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ') || name.startsWith('ANNAM-PB')) {
       return _configs['PJ'];
@@ -1346,7 +1350,7 @@ class DeviceConfig {
   }
 
   static String getPrefix(String deviceName) {
-    if (deviceName == null || deviceName.isEmpty) return '';
+    if (deviceName.isEmpty) return '';
     final name = deviceName.toUpperCase();
     if (name.startsWith('ANNAM/PUNJAB/') || name.startsWith('WS_PUNJAB_') || name.startsWith('PJ') || name.startsWith('ANNAM-PB')) {
       return 'PJ';

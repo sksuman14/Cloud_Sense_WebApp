@@ -278,8 +278,9 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       } else if (_selectedPeriod == '1month') {
         final yearStr = DateFormat('yyyy').format(_selectedMonthDate);
         final monthAbbr = DateFormat('MMM').format(_selectedMonthDate).toLowerCase(); // e.g. 'aug'
+        final cleanDevIdMonth = widget.stationId.replaceFirst(RegExp(r'^WS_'), '');
         final String monthUrl =
-            'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year=$yearStr&DeviceId=$devId&Month=$monthAbbr';
+            'https://efrph1u0ng.execute-api.us-east-1.amazonaws.com/default/30_Days_data_fetch_Api?Topic=WS_Kerala&Year=$yearStr&DeviceId=$cleanDevIdMonth&Month=$monthAbbr';
 
         final response = await http.get(Uri.parse(monthUrl)).timeout(const Duration(seconds: 20));
         if (response.statusCode == 200) {
