@@ -162,7 +162,12 @@ flutter:
     - assets/images/site7.jpg
     - assets/images/site8.jpg
     - assets/images/site9.jpg
+    - assets/images/
     - assets/images/buffalo_1.png
+    - assets/images/imd_logo.png
+    - assets/images/nabl_logo.png
+    - assets/images/imd_card.png
+    - assets/images/nabl_card.png
     - assets/pdfs/PROBE_DATASHEET.pdf
     - assets/pdfs/Data_logger_datasheet.pdf
     - assets/pdfs/SOIL_SPECTRA_DATASHEET.pdf

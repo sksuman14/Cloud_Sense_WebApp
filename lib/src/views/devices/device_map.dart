@@ -407,28 +407,29 @@ class _ClusterBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveIcon = topIcon ?? Icons.cell_tower;
+
     Widget core = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2.5),
-        boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 3)),
+        border: Border.all(color: const Color(0xFF34D399), width: 2.2),
+        boxShadow: [
+          BoxShadow(color: color.withOpacity(0.5), blurRadius: 8, spreadRadius: 2),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (topIcon != null)
-            Icon(topIcon, color: Colors.white, size: size * 0.28),
+          Icon(effectiveIcon, color: Colors.white, size: size * 0.28),
           Text(
             '$count',
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
-              fontSize: size * (topIcon != null ? 0.28 : 0.38),
+              fontSize: size * 0.30,
               height: 1.1,
               shadows: const [Shadow(color: Colors.black45, blurRadius: 3)],
             ),
@@ -443,21 +444,37 @@ class _ClusterBubble extends StatelessWidget {
       child: AnimatedBuilder(
         animation: pulseAnim!,
         builder: (context, child) {
-          final p = pulseAnim!.value;
+          final p1 = pulseAnim!.value;
+          final p2 = (pulseAnim!.value + 0.5) % 1.0;
           return Stack(
             alignment: Alignment.center,
             children: [
-              // Outer pulse ring — subtle white/color fade
+              // Outer radar pulse ring 2 (secondary phase)
               Opacity(
-                opacity: (1 - p).clamp(0.0, 0.55),
+                opacity: (1 - p2).clamp(0.0, 0.40),
                 child: Container(
-                  width: size + p * size * 0.65,
-                  height: size + p * size * 0.65,
+                  width: size + p2 * size * 0.85,
+                  height: size + p2 * size * 0.85,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: color.withOpacity(0.8),
-                      width: (2.5 * (1 - p)).clamp(0.3, 2.5),
+                      color: const Color(0xFF69F0AE).withOpacity(0.6),
+                      width: (2.0 * (1 - p2)).clamp(0.5, 2.0),
+                    ),
+                  ),
+                ),
+              ),
+              // Outer radar pulse ring 1 (primary phase)
+              Opacity(
+                opacity: (1 - p1).clamp(0.0, 0.65),
+                child: Container(
+                  width: size + p1 * size * 0.70,
+                  height: size + p1 * size * 0.70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF34D399).withOpacity(0.8),
+                      width: (2.5 * (1 - p1)).clamp(0.5, 2.5),
                     ),
                   ),
                 ),
@@ -647,13 +664,13 @@ class _MapLegend extends StatelessWidget {
                               color: Colors.white54,
                               fontSize: 9,
                               fontWeight: FontWeight.w500)),
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle)),
+                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
                       const SizedBox(width: 2),
                       const Text('Low ', style: TextStyle(color: Colors.white70, fontSize: 9)),
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.amberAccent, shape: BoxShape.circle)),
+                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF047857), shape: BoxShape.circle)),
                       const SizedBox(width: 2),
                       const Text('Med ', style: TextStyle(color: Colors.white70, fontSize: 9)),
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF00E676), shape: BoxShape.circle)),
+                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF064E3B), shape: BoxShape.circle)),
                       const SizedBox(width: 2),
                       const Text('High', style: TextStyle(color: Colors.white70, fontSize: 9)),
                     ],
@@ -3132,14 +3149,14 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
     mapController.move(centerCoordinates, zoomLevel);
   }
 
-  // ── Density Color Mapping (Low 🔴, Med 🟡, High 🟢) ──────────────────────
+  // ── Density Color Mapping (Low 🟢 Light, Med 🟢 Med, High 🟢 Dark) ──────────
   Color _getClusterDensityColor(int count) {
     if (count <= 3) {
-      return const Color(0xFFEF5350); // 🔴 Low Density (Red)
+      return const Color(0xFF10B981); // 🟢 Low Density (Light Emerald Green)
     } else if (count <= 15) {
-      return const Color(0xFFFFB300); // 🟡 Medium Density (Amber)
+      return const Color(0xFF047857); // 🟢 Medium Density (Forest Green)
     } else {
-      return const Color(0xFF00E676); // 🟢 High Density (Vibrant Green)
+      return const Color(0xFF064E3B); // 🟢 High Density (Deep Dark Green)
     }
   }
 
@@ -4255,8 +4272,6 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
 
   Widget _buildSidebarLayerChip(WeatherLayer layer, bool isDark) {
     final isSelected = _selectedLayer == layer;
-    final activeBlue = const Color(0xFF1976D2);
-    final isCluster = layer == WeatherLayer.clusters;
     final activeColor = isDark ? const Color(0xFF40C4FF) : const Color(0xFF1565C0);
 
     return MouseRegion(
@@ -5005,6 +5020,41 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
                               isCompact: true,
                             ),
                     ),
+
+                    // 4. INSTRUCTION BANNER (BOTTOM CENTER)
+                    Positioned(
+                      bottom: 12,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.65),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white24, width: 1),
+                                boxShadow: const [
+                                  BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2)),
+                                ],
+                              ),
+                              child: const Text(
+                                'Click a cluster to explore · Click a marker for details',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 if (_currentSection == MapSection.annamWeather &&
                     _selectedLayer != WeatherLayer.clusters)
                   Positioned(
@@ -5540,8 +5590,8 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
                     _preInteractionZoom = zoomLevel;
                     _isMapInteracted = true;
                   }
-                  zoomLevel = position.zoom ?? zoomLevel;
-                  centerCoordinates = position.center ?? centerCoordinates;
+                  zoomLevel = position.zoom;
+                  centerCoordinates = position.center;
                 });
               }
             },
@@ -5714,129 +5764,210 @@ class _AnimatedStatTile extends StatefulWidget {
   State<_AnimatedStatTile> createState() => _AnimatedStatTileState();
 }
 
-class _AnimatedStatTileState extends State<_AnimatedStatTile> {
+class _AnimatedStatTileState extends State<_AnimatedStatTile>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+
+    _pulseAnim = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final valStr = widget.value.trim();
     final match = RegExp(r'^([0-9.]+)(.*)$').firstMatch(valStr);
-    final targetNum = match != null ? double.tryParse(match.group(1) ?? '') : null;
+    final targetNum =
+        match != null ? double.tryParse(match.group(1) ?? '') : null;
     final suffix = match?.group(2) ?? '';
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedScale(
-        scale: _isHovered ? 1.03 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.isCompact ? 10 : 16,
-            vertical: widget.isCompact ? 10 : 16,
-          ),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color.withOpacity(widget.isDark ? 0.22 : 0.16)
-                : widget.color.withOpacity(widget.isDark ? 0.10 : 0.07),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: widget.color.withOpacity(
-                  _isHovered ? 0.75 : (widget.isDark ? 0.35 : 0.25)),
-              width: _isHovered ? 1.8 : 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(_isHovered ? 0.35 : 0.14),
-                blurRadius: _isHovered ? 18 : 8,
-                spreadRadius: _isHovered ? 1.5 : 0.5,
+      child: AnimatedBuilder(
+        animation: _pulseAnim,
+        builder: (context, child) {
+          final breath = _pulseAnim.value;
+          final currentScale = _isHovered ? 1.05 : (1.0 + breath * 0.012);
+
+          return Transform.scale(
+            scale: currentScale,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.isCompact ? 12 : 16,
+                vertical: widget.isCompact ? 12 : 16,
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              AnimatedScale(
-                scale: _isHovered ? 1.15 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: EdgeInsets.all(widget.isCompact ? 6 : 8),
-                  decoration: BoxDecoration(
-                    color: widget.color.withOpacity(_isHovered ? 0.28 : 0.18),
-                    shape: BoxShape.circle,
-                    boxShadow: _isHovered
-                        ? [
-                            BoxShadow(
-                              color: widget.color.withOpacity(0.4),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: Icon(widget.icon,
-                      color: widget.color, size: widget.isCompact ? 14 : 18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    widget.color.withValues(
+                        alpha: widget.isDark
+                            ? (0.24 + breath * 0.06)
+                            : (0.16 + breath * 0.04)),
+                    widget.color.withValues(
+                        alpha: widget.isDark ? 0.10 : 0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: widget.color.withValues(
+                    alpha: _isHovered
+                        ? 0.85
+                        : (widget.isDark ? (0.42 + breath * 0.15) : 0.32),
+                  ),
+                  width: _isHovered ? 2.0 : 1.4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withValues(
+                        alpha: _isHovered ? 0.45 : (0.15 + breath * 0.10)),
+                    blurRadius: _isHovered ? 20 : (10 + breath * 4),
+                    spreadRadius: _isHovered ? 2.0 : (0.5 + breath * 0.5),
+                  ),
+                ],
               ),
-              SizedBox(width: widget.isCompact ? 6 : 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (targetNum != null)
-                      TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0, end: targetNum),
-                        duration: const Duration(milliseconds: 1400),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, animVal, _) {
-                          final displayStr =
-                              (targetNum % 1 == 0 && !valStr.contains('.'))
-                                  ? animVal.toInt().toString()
-                                  : animVal.toStringAsFixed(1);
-                          return Text(
-                            '$displayStr$suffix',
-                            style: TextStyle(
-                              fontSize: widget.isCompact ? 15 : 20,
-                              fontWeight: FontWeight.w900,
-                              color: widget.isDark
-                                  ? Colors.white
-                                  : Colors.black87,
-                              letterSpacing: -0.5,
-                            ),
-                          );
-                        },
-                      )
-                    else
-                      Text(
-                        valStr,
-                        style: TextStyle(
-                          fontSize: widget.isCompact ? 15 : 20,
-                          fontWeight: FontWeight.w900,
-                          color: widget.isDark ? Colors.white : Colors.black87,
-                          letterSpacing: -0.5,
+              child: Row(
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Breathing glow ring behind icon
+                      Container(
+                        width: widget.isCompact ? 38 : 46,
+                        height: widget.isCompact ? 38 : 46,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: widget.color
+                              .withValues(alpha: 0.15 + breath * 0.12),
                         ),
                       ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.label.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: widget.isCompact ? 8.5 : 10,
-                        fontWeight: FontWeight.w700,
-                        color: widget.isDark ? Colors.white70 : Colors.black87,
-                        letterSpacing: 0.8,
+                      AnimatedScale(
+                        scale: _isHovered ? 1.15 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Container(
+                          padding: EdgeInsets.all(widget.isCompact ? 8 : 10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                widget.color.withValues(alpha: 0.9),
+                                widget.color,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: widget.color.withValues(alpha: 0.45),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            widget.icon,
+                            color: Colors.white,
+                            size: widget.isCompact ? 18 : 22,
+                          ),
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                  SizedBox(width: widget.isCompact ? 10 : 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (targetNum != null)
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 0, end: targetNum),
+                            duration: const Duration(milliseconds: 1400),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, animVal, _) {
+                              final displayStr =
+                                  (targetNum % 1 == 0 && !valStr.contains('.'))
+                                      ? animVal.toInt().toString()
+                                      : animVal.toStringAsFixed(1);
+                              return Text(
+                                '$displayStr$suffix',
+                                style: TextStyle(
+                                  fontSize: widget.isCompact ? 17 : 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  letterSpacing: -0.5,
+                                  shadows: [
+                                    Shadow(
+                                      color:
+                                          widget.color.withValues(alpha: 0.35),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          )
+                        else
+                          Text(
+                            valStr,
+                            style: TextStyle(
+                              fontSize: widget.isCompact ? 17 : 22,
+                              fontWeight: FontWeight.w900,
+                              color:
+                                  widget.isDark ? Colors.white : Colors.black87,
+                              letterSpacing: -0.5,
+                              shadows: [
+                                Shadow(
+                                  color: widget.color.withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 3),
+                        Text(
+                          widget.label.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: widget.isCompact ? 9 : 10.5,
+                            fontWeight: FontWeight.w800,
+                            color:
+                                widget.isDark ? Colors.white70 : Colors.black87,
+                            letterSpacing: 1.0,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

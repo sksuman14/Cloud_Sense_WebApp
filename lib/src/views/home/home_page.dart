@@ -37,6 +37,7 @@ import 'widgets/wind_dial.dart';
 import 'widgets/station_image_card.dart';
 import 'widgets/stats_banner.dart';
 import 'widgets/sensor_card.dart';
+import 'widgets/certified_validated_section.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -2162,6 +2163,9 @@ class _HomePageState extends State<HomePage> {
                           child: TechShowcaseSection(isDarkMode: isDarkMode),
                         ),
                         const SizedBox(height: 48),
+                        // ── Certified & Validated Section ──
+                        CertifiedValidatedSection(isDarkMode: isDarkMode),
+                        const SizedBox(height: 48),
                         // ── Our Products Carousel ──
                         KeyedSubtree(
                           key: _productSectionKey,
@@ -2996,7 +3000,7 @@ class TechShowcaseSection extends StatelessWidget {
         title: "Autonomous Hardware",
         tag: "SOLAR POWERED",
         accentColor: const Color(0xFF00E676),
-        desc: "Built to survive harsh monsoons. Equipped with integrated solar charging, IP65 waterproof housing, and 30-day battery backup for zero downtime.",
+        desc: "Built to survive harsh monsoons. Equipped with integrated solar charging, IP65 waterproof housing, and 60-day battery backup for zero downtime.",
         isDarkMode: isDarkMode,
       ),
       _TechCard(
@@ -3004,7 +3008,7 @@ class TechShowcaseSection extends StatelessWidget {
         title: "4G & GPS Sync",
         tag: "REAL-TIME SYNC",
         accentColor: const Color(0xFFFFB74D),
-        desc: "Instant remote connectivity. Telemetry nodes automatically sync raw and corrected weather values to our interactive maps every minute.",
+        desc: "Instant remote connectivity. Telemetry nodes automatically sync real-time weather data to our interactive platform every minute.",
         isDarkMode: isDarkMode,
       ),
     ];
