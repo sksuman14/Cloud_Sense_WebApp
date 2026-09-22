@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../services/ksdma_state_service.dart';
@@ -29,6 +30,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   String _selectedTaluk = 'All Taluks';
   String _selectedPanchayat = 'All Panchayats';
   String _selectedParam = 'All Parameters';
+  KsdmaStation? _selectedStation;
   bool _isSatellite = false;
   String _searchQuery = '';
   final TextEditingController _searchTextController = TextEditingController();
@@ -507,28 +509,37 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
           lng += offsetRadius * sin(angle);
         }
 
+        final isSelected = _selectedStation?.stationId == s.stationId;
         final pinBg = _getPinColor(s);
-        final pinIcon = _getPinIcon(s);
 
         markersList.add(
           Marker(
             point: LatLng(lat, lng),
-            width: 36,
-            height: 36,
+            width: isSelected ? 22 : 16,
+            height: isSelected ? 22 : 16,
             child: GestureDetector(
-              onTap: () => _showStationDetailsDialog(context, s, state),
+              onTap: () {
+                setState(() => _selectedStation = s);
+                _showStationDetailsDialog(context, s, state);
+              },
               child: Tooltip(
-                message: '${s.stationId} (${s.district})\nTap to view full telemetry',
+                message: '${s.stationId} (${s.district})',
                 child: Container(
                   decoration: BoxDecoration(
                     color: pinBg,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                    border: Border.all(
+                      color: isSelected ? Colors.yellowAccent : Colors.white,
+                      width: isSelected ? 3 : 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: pinBg.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
                     ],
                   ),
-                  child: Icon(pinIcon, color: Colors.white, size: 18),
                 ),
               ),
             ),
@@ -569,7 +580,37 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                           : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.cloudsense.webapp',
                     ),
-                    MarkerLayer(markers: markersList),
+                    MarkerClusterLayerWidget(
+                      options: MarkerClusterLayerOptions(
+                        maxClusterRadius: 45,
+                        size: const Size(36, 36),
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.all(50),
+                        markers: markersList,
+                        builder: (context, markers) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFF16A34A),
+                              border: Border.all(color: Colors.white, width: 2.5),
+                              boxShadow: const [
+                                BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 3)),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${markers.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
 
@@ -739,6 +780,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                         _buildLegendPill('Humidity', const Color(0xFF7C3AED)),
                         _buildLegendPill('Temperature', const Color(0xFFEA580C)),
                         _buildLegendPill('River Level', const Color(0xFF0D9488)),
+                        _buildLegendPill('AWS', const Color(0xFFC026D3)),
                       ],
                     ),
                   ),
@@ -1121,7 +1163,7 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
   }
 
   Color _getPinColor(KsdmaStation s) {
-    if (s.category == StationCategory.aws) return const Color(0xFF8E24AA);
+    if (s.category == StationCategory.aws) return const Color(0xFFC026D3);
     switch (s.instrumentType) {
       case InstrumentType.rainGauge:
         return const Color(0xFF2563EB);
@@ -1132,25 +1174,11 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
       case InstrumentType.hygrometer:
         return const Color(0xFF7C3AED);
       case InstrumentType.awsAutomaticStation:
-        return const Color(0xFF8E24AA);
+        return const Color(0xFFC026D3);
     }
   }
 
-  IconData _getPinIcon(KsdmaStation s) {
-    if (s.category == StationCategory.aws) return Icons.cell_tower;
-    switch (s.instrumentType) {
-      case InstrumentType.rainGauge:
-        return Icons.water_drop;
-      case InstrumentType.maxMinThermometer:
-        return Icons.thermostat;
-      case InstrumentType.riverGauge:
-        return Icons.waves;
-      case InstrumentType.hygrometer:
-        return Icons.opacity;
-      case InstrumentType.awsAutomaticStation:
-        return Icons.cell_tower;
-    }
-  }
+
 
   Widget _buildMapAnalyticalRow(List<KsdmaStation> stations, KsdmaStateService state, bool isMobile) {
     // 1. Max Rain Today

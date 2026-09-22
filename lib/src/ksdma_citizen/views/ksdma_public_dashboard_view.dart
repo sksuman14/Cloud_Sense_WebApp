@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/ksdma_state_service.dart';
@@ -742,7 +743,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                       spacing: 8,
                                       runSpacing: 4,
                                       children: [
-                                        Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A))),
+                                        Text(
+                                          station.ownerName.isNotEmpty ? '${station.stationId} (${station.ownerName})' : station.stationId,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A)),
+                                        ),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                           decoration: BoxDecoration(
@@ -881,7 +885,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
+                          Text(
+                            station.ownerName.isNotEmpty ? '${station.stationId} (${station.ownerName})' : station.stationId,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                          ),
                           Text(
                             '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} • ${station.instrumentType.displayName}',
                             style: const TextStyle(fontSize: 11, color: Colors.grey),
@@ -1997,57 +2004,120 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.cloudsense.webapp',
                       ),
-                      MarkerLayer(
-                        markers: _buildMapMarkers(state, mapFilteredStations),
+                      MarkerClusterLayerWidget(
+                        options: MarkerClusterLayerOptions(
+                          maxClusterRadius: 45,
+                          size: const Size(36, 36),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.all(50),
+                          markers: _buildMapMarkers(state, mapFilteredStations),
+                          builder: (context, markers) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF16A34A),
+                                border: Border.all(color: Colors.white, width: 2.5),
+                                boxShadow: const [
+                                  BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 3)),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${markers.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
 
-                  // Top Floating Search Bar (without Layers button)
+                  // Top Floating Search Bar & Layers Button
                   Positioned(
                     top: 10,
                     left: 10,
                     right: 10,
                     child: Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.96),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.search, size: 16, color: Color(0xFF64748B)),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: TextField(
-                                  controller: _mapSearchTextController,
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Search station, district, taluk or panchayat...',
-                                    hintStyle: TextStyle(fontSize: 10.5, color: Colors.grey),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(vertical: 6),
-                                  ),
-                                  onChanged: (val) => setState(() => _mapSearchQuery = val.trim()),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.96),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.search, size: 16, color: Color(0xFF64748B)),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _mapSearchTextController,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                        decoration: const InputDecoration(
+                                          hintText: 'Search station, district, taluk or panchayat...',
+                                          hintStyle: TextStyle(fontSize: 10.5, color: Colors.grey),
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 6),
+                                        ),
+                                        onChanged: (val) => setState(() => _mapSearchQuery = val.trim()),
+                                      ),
+                                    ),
+                                    if (_mapSearchQuery.isNotEmpty)
+                                      IconButton(
+                                        icon: const Icon(Icons.clear, size: 14, color: Colors.grey),
+                                        onPressed: () {
+                                          _mapSearchTextController.clear();
+                                          setState(() => _mapSearchQuery = '');
+                                        },
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                      ),
+                                  ],
                                 ),
                               ),
-                              if (_mapSearchQuery.isNotEmpty)
-                                IconButton(
-                                  icon: const Icon(Icons.clear, size: 14, color: Colors.grey),
-                                  onPressed: () {
-                                    _mapSearchTextController.clear();
-                                    setState(() => _mapSearchQuery = '');
-                                  },
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => setState(() => _isSatelliteMode = !_isSatelliteMode),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.96),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
                                 ),
-                            ],
-                          ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.layers, size: 16, color: _isSatelliteMode ? const Color(0xFF2563EB) : const Color(0xFF0F172A)),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Layers',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isSatelliteMode ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         if (_mapSearchQuery.isNotEmpty) ...[
                           const SizedBox(height: 4),
@@ -2158,13 +2228,15 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                     ),
                   ),
 
+
+
                   // Bottom Right Legend Bar
                   Positioned(
                     bottom: 10,
                     left: 10,
                     right: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.94),
                         borderRadius: BorderRadius.circular(6),
@@ -2173,14 +2245,28 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       child: Row(
                         children: [
                           _buildMapLegendDot('Rainfall', const Color(0xFF2563EB)),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           _buildMapLegendDot('Humidity', const Color(0xFF7C3AED)),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           _buildMapLegendDot('Temperature', const Color(0xFFEA580C)),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           _buildMapLegendDot('River Level', const Color(0xFF0D9488)),
+                          const SizedBox(width: 6),
+                          _buildMapLegendDot('AWS', const Color(0xFFC026D3)),
                           const Spacer(),
-                          const Text('0   50   100   200 km', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 2,
+                                color: const Color(0xFF0D9488),
+                              ),
+                              const SizedBox(height: 1),
+                              const Text('0   50   100   200 km', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -3503,32 +3589,36 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           lng += radius * math.sin(angle);
         }
 
+        final color = _getPinColor(s);
         markers.add(
           Marker(
             point: LatLng(lat, lng),
-            width: 38,
-            height: 38,
+            width: isSelected ? 22 : 16,
+            height: isSelected ? 22 : 16,
             child: GestureDetector(
-              onTap: () => _showStationDetailsDialog(context, s, state),
+              onTap: () {
+                setState(() => _selectedStation = s);
+                _mapController.move(LatLng(s.latitude, s.longitude), math.max(_mapController.camera.zoom, 9.5));
+                _showStationDetailsDialog(context, s, state);
+              },
               child: Tooltip(
                 message: '${s.stationId} (${s.district})',
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _getPinColor(s),
+                    color: color,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected ? Colors.yellow : Colors.white,
+                      color: isSelected ? Colors.yellowAccent : Colors.white,
                       width: isSelected ? 3 : 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
+                        color: color.withValues(alpha: 0.4),
                         blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        spreadRadius: 1,
                       ),
                     ],
                   ),
-                  child: Icon(_getPinIcon(s), color: Colors.white, size: 18),
                 ),
               ),
             ),
@@ -3646,18 +3736,20 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   }
 
   Color _getPinColor(KsdmaStation s) {
-    if (s.category == StationCategory.aws) return const Color(0xFF8E24AA);
+    if (s.category == StationCategory.aws || s.instrumentType == InstrumentType.awsAutomaticStation) {
+      return const Color(0xFFC026D3); // Magenta / Pink for AWS
+    }
     switch (s.instrumentType) {
       case InstrumentType.rainGauge:
-        return const Color(0xFF2563EB); // Blue
+        return const Color(0xFF2563EB); // Blue - Rainfall
       case InstrumentType.maxMinThermometer:
-        return const Color(0xFFEA580C); // Orange
+        return const Color(0xFFEA580C); // Orange - Temperature
       case InstrumentType.riverGauge:
-        return const Color(0xFF0D9488); // Teal
+        return const Color(0xFF0D9488); // Teal - River Level
       case InstrumentType.hygrometer:
-        return const Color(0xFF7C3AED); // Purple
+        return const Color(0xFF7C3AED); // Purple - Humidity
       case InstrumentType.awsAutomaticStation:
-        return const Color(0xFF8E24AA); // Purple-pink
+        return const Color(0xFFC026D3); // Magenta - AWS
     }
   }
 

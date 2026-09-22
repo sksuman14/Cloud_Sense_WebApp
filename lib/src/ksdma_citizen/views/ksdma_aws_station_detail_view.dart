@@ -641,7 +641,9 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${station.stationId} • AWS WEATHER OBSERVATORY',
+              station.ownerName.isNotEmpty
+                  ? '${station.stationId} (${station.ownerName}) • AWS OBSERVATORY'
+                  : '${station.stationId} • AWS OBSERVATORY',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
             ),
             Text(
