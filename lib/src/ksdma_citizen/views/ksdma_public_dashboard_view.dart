@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/ksdma_state_service.dart';
@@ -520,29 +521,29 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
                               if (s.instrumentType == InstrumentType.rainGauge || isAws) {
                                 final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
-                                chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF2563EB)));
+                                chips.add(_buildDetailChip('Rainfall [CUMULATIVE 24H]', rain, const Color(0xFF2563EB)));
                               }
 
                               if (s.instrumentType == InstrumentType.maxMinThermometer || isAws) {
                                 final maxTemp = obs?.maxTemperatureC != null ? '${obs!.maxTemperatureC}°C' : '—';
                                 final minTemp = obs?.minTemperatureC != null ? '${obs!.minTemperatureC}°C' : '—';
-                                chips.add(_buildDetailChip('Max Temp', maxTemp, const Color(0xFFEA580C)));
-                                chips.add(_buildDetailChip('Min Temp', minTemp, const Color(0xFF0288D1)));
+                                chips.add(_buildDetailChip('Max Temp [MAXIMUM]', maxTemp, const Color(0xFFEA580C)));
+                                chips.add(_buildDetailChip('Min Temp [MINIMUM]', minTemp, const Color(0xFF0288D1)));
                               }
 
                               if (s.instrumentType == InstrumentType.hygrometer || isAws) {
                                 final hum = obs?.humidityPercent != null ? '${obs!.humidityPercent}%' : '—';
-                                chips.add(_buildDetailChip('Humidity', hum, const Color(0xFF7C3AED)));
+                                chips.add(_buildDetailChip('Humidity [AVERAGE]', hum, const Color(0xFF7C3AED)));
                               }
 
                               if (s.instrumentType == InstrumentType.riverGauge || isAws) {
                                 final river = obs?.riverWaterLevelM != null ? '${obs!.riverWaterLevelM} m' : '—';
-                                chips.add(_buildDetailChip('River Level', river, const Color(0xFF0D9488)));
+                                chips.add(_buildDetailChip('River Level [LATEST]', river, const Color(0xFF0D9488)));
                               }
 
                               if (chips.isEmpty) {
                                 final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
-                                chips.add(_buildDetailChip('Rainfall', rain, const Color(0xFF2563EB)));
+                                chips.add(_buildDetailChip('Rainfall [CUMULATIVE 24H]', rain, const Color(0xFF2563EB)));
                               }
 
                               String timeStr = 'Today 08:00 AM';
@@ -860,65 +861,117 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
   }
 
   void _showManualStationGraphDialog(BuildContext context, KsdmaStation station, KsdmaStateService state) {
+    DateTimeRange? manualCustomRange;
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.92,
-          constraints: BoxConstraints(
-            maxWidth: 780,
-            maxHeight: MediaQuery.of(context).size.height * 0.88,
-          ),
-          padding: const EdgeInsets.all(16),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Dialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.92,
+              constraints: BoxConstraints(
+                maxWidth: 820,
+                maxHeight: MediaQuery.of(context).size.height * 0.88,
+              ),
+              padding: const EdgeInsets.all(16),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            station.ownerName.isNotEmpty ? '${station.stationId} (${station.ownerName})' : station.stationId,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                station.ownerName.isNotEmpty ? '${station.stationId} (${station.ownerName})' : station.stationId,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                              ),
+                              Text(
+                                '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} • ${station.instrumentType.displayName}',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '${station.gramaPanchayat.isNotEmpty ? "${station.gramaPanchayat}, " : ""}${station.district} • ${station.instrumentType.displayName}',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close, size: 18),
+                    const Divider(height: 20),
+                    _buildStationStatBoxes(state, station),
+                    const SizedBox(height: 16),
+                    _buildStationChartBox(
+                      context,
+                      state,
+                      station,
+                      DateTime.now(),
+                      customRange: manualCustomRange,
+                      onPickCustomRange: () async {
+                        final now = DateTime.now();
+                        final picked = await showDialog<DateTimeRange>(
+                          context: context,
+                          builder: (c) => Dialog(
+                            backgroundColor: Colors.white,
+                            surfaceTintColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: Container(
+                              width: 440,
+                              height: 520,
+                              padding: const EdgeInsets.all(12),
+                              child: Theme(
+                                data: ThemeData.light().copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: Color(0xFF2563EB),
+                                    onPrimary: Colors.white,
+                                    surface: Colors.white,
+                                    onSurface: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                child: DateRangePickerDialog(
+                                  initialDateRange: manualCustomRange ??
+                                      DateTimeRange(
+                                        start: now.subtract(const Duration(days: 3)),
+                                        end: now,
+                                      ),
+                                  firstDate: DateTime(2020, 1, 1),
+                                  lastDate: now,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            manualCustomRange = picked;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                        child: const Text('Close'),
+                      ),
                     ),
                   ],
                 ),
-                const Divider(height: 20),
-                _buildStationStatBoxes(state, station),
-                const SizedBox(height: 16),
-                _buildStationChartBox(context, state, station, DateTime.now()),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
-                    child: const Text('Close'),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -3278,7 +3331,14 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     );
   }
 
-  Widget _buildStationChartBox(BuildContext context, KsdmaStateService state, KsdmaStation station, DateTime todayDate) {
+  Widget _buildStationChartBox(
+    BuildContext context,
+    KsdmaStateService state,
+    KsdmaStation station,
+    DateTime todayDate, {
+    DateTimeRange? customRange,
+    VoidCallback? onPickCustomRange,
+  }) {
     String effectiveParam = _appliedParam;
     if (_appliedParam == 'all') {
       switch (station.instrumentType) {
@@ -3349,6 +3409,28 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       return sum;
     }
 
+    double getCustomPeriodVal(DateTimeRange range) {
+      double sum = 0.0;
+      int count = 0;
+      final startYmd = DateTime(range.start.year, range.start.month, range.start.day);
+      final endYmd = DateTime(range.end.year, range.end.month, range.end.day, 23, 59, 59);
+
+      for (var o in state.observations) {
+        if (o.isRemoved) continue;
+        if (o.stationId != station.stationId) continue;
+        final obsLocal = o.observationDate.toLocal();
+        if (!obsLocal.isBefore(startYmd) && !obsLocal.isAfter(endYmd)) {
+          sum += getValue(o);
+          count++;
+        }
+      }
+
+      if ((isHum || isTemp || isRiver || _appliedAggregation == 'Average') && count > 0) {
+        return sum / count;
+      }
+      return sum;
+    }
+
     Map<String, double> getTempPeriodVal(int days) {
       double maxVal = -999.0;
       double minVal = 999.0;
@@ -3402,6 +3484,51 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       };
     }
 
+    Map<String, double> getCustomTempPeriodVal(DateTimeRange range) {
+      double maxVal = -999.0;
+      double minVal = 999.0;
+      double maxSum = 0.0;
+      double minSum = 0.0;
+      int maxCount = 0;
+      int minCount = 0;
+      final startYmd = DateTime(range.start.year, range.start.month, range.start.day);
+      final endYmd = DateTime(range.end.year, range.end.month, range.end.day, 23, 59, 59);
+
+      for (var o in state.observations) {
+        if (o.isRemoved) continue;
+        if (o.stationId != station.stationId) continue;
+        final obsLocal = o.observationDate.toLocal();
+        if (!obsLocal.isBefore(startYmd) && !obsLocal.isAfter(endYmd)) {
+          if (o.maxTemperatureC != null) {
+            if (o.maxTemperatureC! > maxVal) maxVal = o.maxTemperatureC!;
+            maxSum += o.maxTemperatureC!;
+            maxCount++;
+          }
+          if (o.minTemperatureC != null) {
+            if (o.minTemperatureC! < minVal) minVal = o.minTemperatureC!;
+            minSum += o.minTemperatureC!;
+            minCount++;
+          }
+        }
+      }
+
+      if (_appliedAggregation == 'Average') {
+        return {
+          'max': maxCount > 0 ? maxSum / maxCount : 0.0,
+          'min': minCount > 0 ? minSum / minCount : 0.0,
+        };
+      }
+
+      return {
+        'max': maxCount > 0 ? (maxVal == -999.0 ? 0.0 : maxVal) : 0.0,
+        'min': minCount > 0 ? (minVal == 999.0 ? 0.0 : minVal) : 0.0,
+      };
+    }
+
+    final String customLabel = customRange != null
+        ? '${DateFormat('d/M').format(customRange.start)}-${DateFormat('d/M').format(customRange.end)}'
+        : 'Custom';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3409,6 +3536,24 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)), maxLines: 1)),
+            if (onPickCustomRange != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: OutlinedButton.icon(
+                  onPressed: onPickCustomRange,
+                  icon: const Icon(Icons.date_range, size: 12),
+                  label: Text(
+                    customRange != null ? customLabel : 'Custom Range',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2563EB),
+                    side: const BorderSide(color: Color(0xFF2563EB)),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
             if (isTemp)
               Row(
                 children: [
@@ -3435,6 +3580,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               _buildDualBar('5 Days', getTempPeriodVal(5)['max']!, getTempPeriodVal(5)['min']!),
               _buildDualBar('Week', getTempPeriodVal(7)['max']!, getTempPeriodVal(7)['min']!),
               _buildDualBar('Month', getTempPeriodVal(30)['max']!, getTempPeriodVal(30)['min']!),
+              if (customRange != null)
+                _buildDualBar(customLabel, getCustomTempPeriodVal(customRange)['max']!, getCustomTempPeriodVal(customRange)['min']!),
             ],
           ),
         ] else ...[
@@ -3448,6 +3595,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               _buildBar('5 Days', getPeriodVal(5), 100),
               _buildBar('Week', getPeriodVal(7), 120),
               _buildBar('Month', getPeriodVal(30), 140),
+              if (customRange != null)
+                _buildBar(customLabel, getCustomPeriodVal(customRange), 160),
             ],
           ),
         ],

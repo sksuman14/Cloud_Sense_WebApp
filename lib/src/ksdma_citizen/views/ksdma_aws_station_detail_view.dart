@@ -60,9 +60,59 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     return 'WS_$rawId';
   }
 
-  String _selectedPeriod = '1day'; // '1day', '7days', '1month'
+  String _selectedPeriod = '1day'; // '1day', '2days', '3days', '5days', '7days', '1month', 'custom'
   DateTime _selectedSingleDate = DateTime.now();
   DateTime _selectedMonthDate = DateTime.now();
+  DateTimeRange? _selectedCustomRange;
+
+  Future<void> _selectCustomDateRange() async {
+    final now = DateTime.now();
+    final firstDate = DateTime(2020, 1, 1);
+    final initialRange = _selectedCustomRange ??
+        DateTimeRange(
+          start: now.subtract(const Duration(days: 3)),
+          end: now,
+        );
+
+    final picked = await showDialog<DateTimeRange>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 440,
+            height: 520,
+            padding: const EdgeInsets.all(12),
+            child: Theme(
+              data: ThemeData.light().copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFF2563EB),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Color(0xFF0F172A),
+                ),
+              ),
+              child: DateRangePickerDialog(
+                initialDateRange: initialRange,
+                firstDate: firstDate,
+                lastDate: now,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedCustomRange = picked;
+        _selectedPeriod = 'custom';
+      });
+      _fetchAwsStationHistory();
+    }
+  }
 
   Future<void> _selectSingleDate() async {
     final now = DateTime.now();
@@ -256,23 +306,71 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
           }
         }
 
-        // Strict single-date filter: guarantee NO points from yesterday or other dates can ever appear
+        // Strict single-date filter
         final targetYmd = DateFormat('yyyy-MM-dd').format(_selectedSingleDate);
         records = records.where((r) {
           final ts = r['TimeStamp']?.toString().trim() ?? '';
           return ts.startsWith(targetYmd);
         }).toList();
 
-      } else if (_selectedPeriod == '7days') {
-        final cleanDevId7Days = widget.stationId.replaceFirst(RegExp(r'^WS_'), '');
-        final String history7DaysUrl =
-            'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=$cleanDevId7Days';
-        final response = await http.get(Uri.parse(history7DaysUrl)).timeout(const Duration(seconds: 20));
-        if (response.statusCode == 200) {
-          final dynamic body = jsonDecode(response.body);
-          records = _extractRecords(body);
-          if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
-            extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+      } else if (_selectedPeriod == '2days' || _selectedPeriod == '3days' || _selectedPeriod == '5days' || _selectedPeriod == '7days' || _selectedPeriod == 'custom') {
+        DateTime rangeStart;
+        DateTime rangeEnd = DateTime.now();
+
+        if (_selectedPeriod == '2days') {
+          rangeStart = DateTime.now().subtract(const Duration(days: 1));
+        } else if (_selectedPeriod == '3days') {
+          rangeStart = DateTime.now().subtract(const Duration(days: 2));
+        } else if (_selectedPeriod == '5days') {
+          rangeStart = DateTime.now().subtract(const Duration(days: 4));
+        } else if (_selectedPeriod == '7days') {
+          rangeStart = DateTime.now().subtract(const Duration(days: 6));
+        } else {
+          rangeStart = _selectedCustomRange?.start ?? DateTime.now().subtract(const Duration(days: 3));
+          rangeEnd = _selectedCustomRange?.end ?? DateTime.now();
+        }
+
+        final startStr = DateFormat('dd-MM-yyyy').format(rangeStart);
+        final endStr = DateFormat('dd-MM-yyyy').format(rangeEnd);
+        final String rangeUrl =
+            'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$startStr&enddate=$endStr&annam_id=$devId&key=$encodedKey&mode=view';
+
+        try {
+          final response = await http.get(Uri.parse(rangeUrl)).timeout(const Duration(seconds: 20));
+          if (response.statusCode == 200) {
+            final dynamic body = jsonDecode(response.body);
+            records = _extractRecords(body);
+            if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
+              extractedCalc = Map<String, dynamic>.from((body['Calculated'] as List).first);
+            }
+          }
+        } catch (e) {
+          debugPrint('Error fetching range keraladata API: $e');
+        }
+
+        // Fallback to 7_Days_Data_Fetch_Api if empty
+        if (records.isEmpty) {
+          try {
+            final cleanDevId = widget.stationId.replaceFirst(RegExp(r'^WS_'), '');
+            final String history7DaysUrl =
+                'https://0309fuahf8.execute-api.us-east-1.amazonaws.com/default/7_Days_Data_Fetch_Api?Topic=WS_Kerala&DeviceId=$cleanDevId';
+            final response = await http.get(Uri.parse(history7DaysUrl)).timeout(const Duration(seconds: 20));
+            if (response.statusCode == 200) {
+              final dynamic body = jsonDecode(response.body);
+              final allRecs = _extractRecords(body);
+              final startYmd = DateFormat('yyyy-MM-dd').format(rangeStart);
+              final endYmd = DateFormat('yyyy-MM-dd').format(rangeEnd);
+              records = allRecs.where((r) {
+                final ts = r['TimeStamp']?.toString().trim() ?? '';
+                if (ts.length >= 10) {
+                  final datePart = ts.substring(0, 10);
+                  return datePart.compareTo(startYmd) >= 0 && datePart.compareTo(endYmd) <= 0;
+                }
+                return true;
+              }).toList();
+            }
+          } catch (e) {
+            debugPrint('Error fetching 7_Days fallback for range: $e');
           }
         }
       } else if (_selectedPeriod == '1month') {
@@ -299,6 +397,12 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         return tA.compareTo(tB);
       });
 
+      // For multi-day periods (3days, 5days, 7days, 1month, custom), aggregate sub-interval records into half-hour (30-min) buckets (sum rainfall, average other params).
+      // For 1day and 2days, show ALL raw telemetry points.
+      if (_selectedPeriod != '1day' && _selectedPeriod != '2days') {
+        records = _aggregateByHalfHourInterval(records);
+      }
+
       setState(() {
         _historyData = records;
         _calculatedData = extractedCalc;
@@ -311,6 +415,130 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         _isLoading = false;
       });
     }
+  }
+
+  List<Map<String, dynamic>> _aggregateByHalfHourInterval(List<Map<String, dynamic>> rawRecords) {
+    if (rawRecords.isEmpty) return rawRecords;
+
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+
+    for (var r in rawRecords) {
+      final tsStr = r['TimeStamp']?.toString().trim() ?? '';
+      if (tsStr.isEmpty) continue;
+
+      final dt = _parseTimeStamp(tsStr);
+      final int minute = dt.minute >= 30 ? 30 : 0;
+      final bucketDt = DateTime(dt.year, dt.month, dt.day, dt.hour, minute);
+      final bucketKey = DateFormat('yyyy-MM-dd HH:mm:00').format(bucketDt);
+
+      grouped.putIfAbsent(bucketKey, () => []).add(r);
+    }
+
+    final List<Map<String, dynamic>> aggregated = [];
+
+    grouped.forEach((bucketKey, items) {
+      if (items.length == 1) {
+        aggregated.add(items.first);
+        return;
+      }
+
+      double sumRainfall = 0.0;
+      double sumTemp = 0.0;
+      int tempCount = 0;
+      double sumHum = 0.0;
+      int humCount = 0;
+      double sumPress = 0.0;
+      int pressCount = 0;
+      double sumWindSpd = 0.0;
+      int windSpdCount = 0;
+      double maxWindGust = 0.0;
+      dynamic lastWindDir;
+      dynamic lastBatt;
+      dynamic lastPanel;
+      dynamic lastSignal;
+
+      for (var item in items) {
+        // Rainfall is SUMMED across points in the 30-minute interval
+        final rf = double.tryParse(item['rainfall']?.toString() ?? item['Rainfall']?.toString() ?? item['Total_Rainfall']?.toString() ?? '');
+        if (rf != null && rf > 0) {
+          sumRainfall += rf;
+        }
+
+        // Temperature is AVERAGED
+        final temp = double.tryParse(item['now_temperature']?.toString() ?? item['Temperature']?.toString() ?? '');
+        if (temp != null) {
+          sumTemp += temp;
+          tempCount++;
+        }
+
+        // Humidity is AVERAGED
+        final hum = double.tryParse(item['now_relative_humidity']?.toString() ?? item['Humidity']?.toString() ?? '');
+        if (hum != null) {
+          sumHum += hum;
+          humCount++;
+        }
+
+        // Atmospheric Pressure is AVERAGED
+        final press = double.tryParse(item['now_pressure']?.toString() ?? item['AtmPressure']?.toString() ?? '');
+        if (press != null) {
+          sumPress += press;
+          pressCount++;
+        }
+
+        // Wind Speed is AVERAGED
+        final windSpd = double.tryParse(item['now_wind_speed']?.toString() ?? item['WindSpeed']?.toString() ?? '');
+        if (windSpd != null) {
+          sumWindSpd += windSpd;
+          windSpdCount++;
+        }
+
+        // Max Wind Gust
+        final gust = double.tryParse(item['max_wind_gust']?.toString() ?? item['WindGust']?.toString() ?? '');
+        if (gust != null && gust > maxWindGust) {
+          maxWindGust = gust;
+        }
+
+        if (item['now_wind_direction'] != null || item['WindDirection'] != null) {
+          lastWindDir = item['now_wind_direction'] ?? item['WindDirection'];
+        }
+        if (item['Battery_Voltage'] != null) lastBatt = item['Battery_Voltage'];
+        if (item['Panel_Voltage'] != null) lastPanel = item['Panel_Voltage'];
+        if (item['Signal_Strength'] != null) lastSignal = item['Signal_Strength'];
+      }
+
+      final Map<String, dynamic> aggItem = Map<String, dynamic>.from(items.last);
+      aggItem['TimeStamp'] = bucketKey;
+      aggItem['rainfall'] = sumRainfall;
+      aggItem['Rainfall'] = sumRainfall;
+      if (tempCount > 0) {
+        aggItem['now_temperature'] = double.parse((sumTemp / tempCount).toStringAsFixed(1));
+        aggItem['Temperature'] = double.parse((sumTemp / tempCount).toStringAsFixed(1));
+      }
+      if (humCount > 0) {
+        aggItem['now_relative_humidity'] = double.parse((sumHum / humCount).toStringAsFixed(1));
+        aggItem['Humidity'] = double.parse((sumHum / humCount).toStringAsFixed(1));
+      }
+      if (pressCount > 0) {
+        aggItem['now_pressure'] = double.parse((sumPress / pressCount).toStringAsFixed(1));
+        aggItem['AtmPressure'] = double.parse((sumPress / pressCount).toStringAsFixed(1));
+      }
+      if (windSpdCount > 0) {
+        aggItem['now_wind_speed'] = double.parse((sumWindSpd / windSpdCount).toStringAsFixed(1));
+        aggItem['WindSpeed'] = double.parse((sumWindSpd / windSpdCount).toStringAsFixed(1));
+      }
+      if (maxWindGust > 0) {
+        aggItem['max_wind_gust'] = maxWindGust;
+        aggItem['WindGust'] = maxWindGust;
+      }
+      if (lastWindDir != null) aggItem['now_wind_direction'] = lastWindDir;
+      if (lastBatt != null) aggItem['Battery_Voltage'] = lastBatt;
+      if (lastPanel != null) aggItem['Panel_Voltage'] = lastPanel;
+      if (lastSignal != null) aggItem['Signal_Strength'] = lastSignal;
+
+      aggregated.add(aggItem);
+    });
+
+    return aggregated;
   }
 
   List<Map<String, dynamic>> _extractRecords(dynamic body) {
@@ -365,12 +593,9 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     return 'Strong Wind Gust Warning';
   }
 
-  String _getPressureAdvisory(double? press) {
-    if (press == null) return 'Data N/A';
-    if (press < 1000.0) return 'Low Pressure System';
-    if (press <= 1020.0) return 'Normal Pressure';
-    return 'High Pressure Ridge';
-  }
+
+
+
 
   Future<void> _exportCsv() async {
     final krDateFmt = DateFormat('dd-MM-yyyy');
@@ -380,12 +605,24 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     if (_selectedPeriod == '1day') {
       startDate = _selectedSingleDate;
       endDate = _selectedSingleDate;
+    } else if (_selectedPeriod == '2days') {
+      startDate = DateTime.now().subtract(const Duration(days: 1));
+      endDate = DateTime.now();
+    } else if (_selectedPeriod == '3days') {
+      startDate = DateTime.now().subtract(const Duration(days: 2));
+      endDate = DateTime.now();
+    } else if (_selectedPeriod == '5days') {
+      startDate = DateTime.now().subtract(const Duration(days: 4));
+      endDate = DateTime.now();
     } else if (_selectedPeriod == '7days') {
-      startDate = DateTime.now().subtract(const Duration(days: 7));
+      startDate = DateTime.now().subtract(const Duration(days: 6));
       endDate = DateTime.now();
     } else if (_selectedPeriod == '1month') {
       startDate = DateTime(_selectedMonthDate.year, _selectedMonthDate.month, 1);
       endDate = DateTime(_selectedMonthDate.year, _selectedMonthDate.month + 1, 0);
+    } else if (_selectedPeriod == 'custom' && _selectedCustomRange != null) {
+      startDate = _selectedCustomRange!.start;
+      endDate = _selectedCustomRange!.end;
     }
 
     final krStartDate = krDateFmt.format(startDate);
@@ -500,6 +737,14 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     } else if (periodKey == '1month') {
       final monthStr = DateFormat('MMM yyyy').format(_selectedMonthDate);
       displayLabel = isSelected ? '1 Month ($monthStr)' : '1 Month';
+    } else if (periodKey == 'custom') {
+      if (_selectedCustomRange != null) {
+        final start = DateFormat('MMM d').format(_selectedCustomRange!.start);
+        final end = DateFormat('MMM d').format(_selectedCustomRange!.end);
+        displayLabel = '$start - $end';
+      } else {
+        displayLabel = 'Custom Range';
+      }
     }
 
     return ElevatedButton.icon(
@@ -508,6 +753,8 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
           _selectSingleDate();
         } else if (periodKey == '1month') {
           _selectMonthAndYear();
+        } else if (periodKey == 'custom') {
+          _selectCustomDateRange();
         } else if (_selectedPeriod != periodKey) {
           setState(() {
             _selectedPeriod = periodKey;
@@ -522,7 +769,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
         foregroundColor: isSelected ? Colors.white : const Color(0xFF475569),
         elevation: isSelected ? 2 : 0,
         side: BorderSide(color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -606,11 +853,6 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
       }
     }
 
-    final num? rainVal = hasData
-        ? ((rainCumVal > 0 && (rawRain == null || rawRain == 0)) ? rainCumVal : rawRain)
-        : null;
-
-    final num? pressVal = (telemetryReading != null) ? (telemetryReading['now_pressure'] ?? telemetryReading['AtmPressure']) : null;
     final num? windSpdVal = (telemetryReading != null) ? (telemetryReading['now_wind_speed'] ?? telemetryReading['WindSpeed']) : null;
     final dynamic windDirVal = (telemetryReading != null) ? (telemetryReading['now_wind_direction'] ?? telemetryReading['WindDirection']) : null;
     final num? gustVal = (telemetryReading != null) ? (telemetryReading['max_wind_gust'] ?? telemetryReading['WindGust']) : null;
@@ -709,10 +951,14 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Top Action Bar & Period API Selectors
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 10,
                         children: [
-                              Row(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.sensors, color: hasData ? const Color(0xFF16A34A) : const Color(0xFFDC2626), size: 20),
                               const SizedBox(width: 6),
@@ -728,22 +974,27 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                               ),
                             ],
                           ),
-                          Row(
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              _buildPeriodButton('1day', '1 Day', Icons.today),
-                              const SizedBox(width: 8),
-                              _buildPeriodButton('7days', '7 Days', Icons.date_range),
-                              const SizedBox(width: 8),
-                              _buildPeriodButton('1month', '1 Month', Icons.calendar_month),
-                              const SizedBox(width: 12),
+                              _buildPeriodButton('1day', 'Daily', Icons.today),
+                              _buildPeriodButton('2days', 'Last 2 Days', Icons.date_range),
+                              _buildPeriodButton('3days', 'Last 3 Days', Icons.date_range),
+                              _buildPeriodButton('5days', 'Last 5 Days', Icons.date_range),
+                              _buildPeriodButton('7days', 'Last 7 Days', Icons.date_range),
+                              _buildPeriodButton('1month', 'Monthly', Icons.calendar_month),
+                              _buildPeriodButton('custom', 'Custom Range', Icons.edit_calendar),
+                              const SizedBox(width: 6),
                               ElevatedButton.icon(
                                 onPressed: _exportCsv,
-                                icon: const Icon(Icons.download, size: 16),
-                                label: const Text('Export CSV', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                icon: const Icon(Icons.download, size: 14),
+                                label: const Text('Export CSV', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF2563EB),
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 ),
                               ),
                             ],
@@ -763,47 +1014,109 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                                       ? (constraints.maxWidth - 15) / 2
                                       : constraints.maxWidth;
 
+                          final String periodLabel = _selectedPeriod == '1day'
+                              ? 'Daily'
+                              : _selectedPeriod == '2days'
+                                  ? 'Last 2 Days'
+                                  : _selectedPeriod == '3days'
+                                      ? 'Last 3 Days'
+                                      : _selectedPeriod == '5days'
+                                          ? 'Last 5 Days'
+                                          : _selectedPeriod == '7days'
+                                              ? 'Last 7 Days'
+                                              : _selectedPeriod == '1month'
+                                                  ? 'Monthly'
+                                                  : 'Custom Range';
+
+                          final String displayTotalRain = _calculatedData?['Total_Rainfall']?.toString() ?? rainCumVal.toStringAsFixed(1);
+
+                          String displayMaxTemp = _calculatedData?['Maximum_Temperature']?.toString() ?? 'N/A';
+                          String displayMinTemp = _calculatedData?['Minimum_Temperature']?.toString() ?? 'N/A';
+                          String displayAvgTemp = _calculatedData?['Average_Temperature']?.toString() ?? 'N/A';
+
+                          String displayMaxHum = _calculatedData?['Maximum_Humidity']?.toString() ?? 'N/A';
+                          String displayMinHum = _calculatedData?['Minimum_Humidity']?.toString() ?? 'N/A';
+                          String displayAvgHum = _calculatedData?['Average_Humidity']?.toString() ?? 'N/A';
+
+                          if (_calculatedData == null && hasData) {
+                            double? maxT, minT, sumT;
+                            double? maxH, minH, sumH;
+                            int countT = 0, countH = 0;
+                            for (var item in _historyData) {
+                              final t = double.tryParse(item['now_temperature']?.toString() ?? item['Temperature']?.toString() ?? '');
+                              if (t != null) {
+                                maxT = (maxT == null || t > maxT) ? t : maxT;
+                                minT = (minT == null || t < minT) ? t : minT;
+                                sumT = (sumT ?? 0) + t;
+                                countT++;
+                              }
+                              final h = double.tryParse(item['now_relative_humidity']?.toString() ?? item['Humidity']?.toString() ?? '');
+                              if (h != null) {
+                                maxH = (maxH == null || h > maxH) ? h : maxH;
+                                minH = (minH == null || h < minH) ? h : minH;
+                                sumH = (sumH ?? 0) + h;
+                                countH++;
+                              }
+                            }
+                            if (countT > 0) {
+                              displayMaxTemp = maxT!.toStringAsFixed(2);
+                              displayMinTemp = minT!.toStringAsFixed(2);
+                              displayAvgTemp = (sumT! / countT).toStringAsFixed(2);
+                            }
+                            if (countH > 0) {
+                              displayMaxHum = maxH!.toStringAsFixed(2);
+                              displayMinHum = minH!.toStringAsFixed(2);
+                              displayAvgHum = (sumH! / countH).toStringAsFixed(2);
+                            }
+                          }
+
+                          final String displayLatestTemp = tempVal != null ? '${tempVal is double ? tempVal.toStringAsFixed(2) : tempVal} °C' : 'N/A';
+                          final String displayLatestHum = humVal != null ? '${humVal is double ? humVal.toStringAsFixed(2) : humVal} %' : 'N/A';
+
                           return Wrap(
                             spacing: 15,
                             runSpacing: 15,
                             children: [
-                              // Card 1: Rainfall Insights (Current Rain + Cumulative Rain in Subtitle)
+                              // Card 1: Rainfall Insights
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Rainfall Bulletin',
-                                mainVal: hasData && rainVal != null ? '${rainVal.toStringAsFixed(1)} mm' : '—',
-                                subTitle: hasData ? 'Cumulative Rainfall: ${rainCumVal.toStringAsFixed(1)} mm' : 'No rainfall recorded for date',
-                                badgeText: hasData ? _getRainfallClassification(rainCumVal) : 'No Data',
-                                badgeColor: hasData ? _getRainfallColor(rainCumVal) : const Color(0xFF64748B),
+                                mainVal: '$displayTotalRain mm',
+                                subTitle: hasData ? 'Total Rain ($periodLabel): $displayTotalRain mm' : 'No rainfall recorded for date',
+                                badgeText: hasData ? _getRainfallClassification(double.tryParse(displayTotalRain) ?? rainCumVal) : 'No Data',
+                                badgeColor: hasData ? _getRainfallColor(double.tryParse(displayTotalRain) ?? rainCumVal) : const Color(0xFF64748B),
                                 icon: Icons.water_drop,
                                 iconColor: const Color(0xFF2563EB),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)]),
+                                valueTypeTag: 'TOTAL RAINFALL ($periodLabel)',
                               ),
 
                               // Card 2: Temperature & Comfort
                               _buildInsightHeroCard(
                                 width: cardWidth,
                                 title: 'Temperature & Comfort',
-                                mainVal: hasData && tempVal != null ? '${tempVal.toStringAsFixed(1)} °C' : 'N/A',
-                                subTitle: hasData ? 'Humidity: ${humVal != null ? humVal.toStringAsFixed(1) : "N/A"}%' : 'No telemetry data recorded',
-                                badgeText: hasData ? _getHeatIndexAdvisory(tempVal?.toDouble(), humVal?.toDouble()) : 'No Data for Date',
+                                mainVal: displayLatestTemp,
+                                subTitle: hasData ? 'Max: $displayMaxTemp°C | Min: $displayMinTemp°C | Avg: $displayAvgTemp°C' : 'No Data for Date',
+                                badgeText: hasData ? _getHeatIndexAdvisory(tempVal?.toDouble() ?? double.tryParse(displayMaxTemp), humVal?.toDouble()) : 'No Data for Date',
                                 badgeColor: hasData ? const Color(0xFFEA580C) : const Color(0xFF94A3B8),
                                 icon: Icons.thermostat,
                                 iconColor: const Color(0xFFEA580C),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFFFF7ED), Color(0xFFFFEDD5)]),
+                                valueTypeTag: 'LATEST & MAX/MIN/AVG TEMP',
                               ),
 
-                              // Card 3: Atmospheric Pressure
+                              // Card 3: Atmospheric Humidity
                               _buildInsightHeroCard(
                                 width: cardWidth,
-                                title: 'Atmospheric Pressure',
-                                mainVal: hasData && pressVal != null ? '${pressVal.toStringAsFixed(1)} hPa' : 'N/A',
-                                subTitle: hasData ? 'Barometric Trend: ${pressVal != null ? (pressVal >= 1013.2 ? "High/Normal" : "Depression") : "N/A"}' : 'No barometric records',
-                                badgeText: hasData ? _getPressureAdvisory(pressVal?.toDouble()) : 'No Data',
-                                badgeColor: hasData ? const Color(0xFF0D9488) : const Color(0xFF94A3B8),
-                                icon: Icons.speed,
-                                iconColor: const Color(0xFF0D9488),
-                                bgGradient: const LinearGradient(colors: [Color(0xFFF0FDFA), Color(0xFFCCFBF1)]),
+                                title: 'Relative Humidity',
+                                mainVal: displayLatestHum,
+                                subTitle: hasData ? 'Max: $displayMaxHum% | Min: $displayMinHum% | Avg: $displayAvgHum%' : 'No Data for Date',
+                                badgeText: hasData ? (humVal?.toDouble() ?? double.tryParse(displayAvgHum) ?? 0) > 75 ? 'Humid & Moist Air' : 'Optimal Humidity' : 'No Data',
+                                badgeColor: hasData ? const Color(0xFF7C3AED) : const Color(0xFF94A3B8),
+                                icon: Icons.opacity,
+                                iconColor: const Color(0xFF7C3AED),
+                                bgGradient: const LinearGradient(colors: [Color(0xFFF3E8FF), Color(0xFFE9D5FF)]),
+                                valueTypeTag: 'LATEST & MAX/MIN/AVG HUMIDITY',
                               ),
 
                               // Card 4: Wind Profile & Gust
@@ -817,6 +1130,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                                 icon: Icons.air,
                                 iconColor: const Color(0xFF0288D1),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFF0F9FF), Color(0xFFE0F2FE)]),
+                                valueTypeTag: 'LATEST & MAX GUST',
                               ),
 
                               // Card 5: Hardware Telemetry
@@ -830,6 +1144,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
                                 icon: Icons.battery_charging_full,
                                 iconColor: hasData ? const Color(0xFF16A34A) : const Color(0xFF64748B),
                                 bgGradient: const LinearGradient(colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)]),
+                                valueTypeTag: 'HARDWARE TELEMETRY',
                               ),
                             ],
                           );
@@ -942,6 +1257,7 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
     required IconData icon,
     required Color iconColor,
     required Gradient bgGradient,
+    String? valueTypeTag,
   }) {
     return Container(
       width: width,
@@ -964,6 +1280,21 @@ class _KsdmaAwsStationDetailViewState extends State<KsdmaAwsStationDetailView> {
               Icon(icon, size: 22, color: iconColor),
             ],
           ),
+          if (valueTypeTag != null) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: iconColor.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                valueTypeTag,
+                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: iconColor, letterSpacing: 0.4),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(mainVal, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: iconColor)),
           const SizedBox(height: 2),
