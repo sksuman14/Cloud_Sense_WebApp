@@ -2141,35 +2141,6 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () => setState(() => _isSatelliteMode = !_isSatelliteMode),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.96),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFCBD5E1)),
-                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.layers, size: 16, color: _isSatelliteMode ? const Color(0xFF2563EB) : const Color(0xFF0F172A)),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Layers',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: _isSatelliteMode ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                         if (_mapSearchQuery.isNotEmpty) ...[

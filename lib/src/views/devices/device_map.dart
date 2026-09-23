@@ -115,15 +115,15 @@ const List<Map<String, dynamic>> _hardcodedCampusSensors = [
     'topic': 'WS/Campus/CP023'
   },
 
-  {
-    'deviceId': 'WT001',
-    'latitude': 30.9673,
-    'longitude': 76.4705,
-    'category': 'IIT Ropar Sensor',
-    'place': 'Rupnagar',
-    'state': 'Punjab',
-    'topic': 'Weather/sensor/WT001'
-  },
+  // {
+  //   'deviceId': 'WT001',
+  //   'latitude': 30.9673,
+  //   'longitude': 76.4705,
+  //   'category': 'IIT Ropar Sensor',
+  //   'place': 'Rupnagar',
+  //   'state': 'Punjab',
+  //   'topic': 'Weather/sensor/WT001'
+  // },
 
   {
     'deviceId': 'CP027',
