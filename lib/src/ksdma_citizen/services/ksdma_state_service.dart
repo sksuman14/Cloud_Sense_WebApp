@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ksdma_models.dart';
@@ -10,6 +11,72 @@ class KsdmaStateService extends ChangeNotifier {
   // Active User Profile
   late KsdmaUser currentUser;
   bool isLoggedIn = false;
+
+  // === Auto-Refresh Settings & State ===
+  int autoRefreshIntervalMinutes = 10;
+  bool isAutoRefreshEnabled = true;
+  DateTime? lastRefreshedAt;
+  Timer? _autoRefreshTimer;
+
+  String get lastRefreshedAtFormatted {
+    final dt = lastRefreshedAt ?? DateTime.now();
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$min IST';
+  }
+
+  void initAutoRefreshTimer() {
+    _autoRefreshTimer?.cancel();
+    if (!isAutoRefreshEnabled || autoRefreshIntervalMinutes <= 0) return;
+
+    _autoRefreshTimer = Timer.periodic(Duration(minutes: autoRefreshIntervalMinutes), (_) {
+      triggerSilentAutoRefresh();
+    });
+  }
+
+  Future<void> triggerSilentAutoRefresh() async {
+    lastRefreshedAt = DateTime.now();
+    await fetchStationsIfNeeded(forceRefresh: true);
+    await fetchObservationsIfNeeded(forceRefresh: true);
+    lastRefreshedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  Future<void> updateAutoRefreshSettings(int intervalMinutes) async {
+    autoRefreshIntervalMinutes = intervalMinutes;
+    isAutoRefreshEnabled = intervalMinutes > 0;
+    initAutoRefreshTimer();
+    await _saveAutoRefreshPrefs();
+    notifyListeners();
+  }
+
+  Future<void> _saveAutoRefreshPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('ksdma_auto_refresh_minutes', autoRefreshIntervalMinutes);
+      await prefs.setBool('ksdma_auto_refresh_enabled', isAutoRefreshEnabled);
+    } catch (_) {}
+  }
+
+  Future<void> _restoreAutoRefreshPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey('ksdma_auto_refresh_minutes')) {
+        final val = prefs.getInt('ksdma_auto_refresh_minutes') ?? 10;
+        if (val == 10 || val == 30 || val == 60) {
+          autoRefreshIntervalMinutes = val;
+        } else {
+          autoRefreshIntervalMinutes = 10;
+        }
+        isAutoRefreshEnabled = prefs.getBool('ksdma_auto_refresh_enabled') ?? true;
+      } else {
+        autoRefreshIntervalMinutes = 10;
+        isAutoRefreshEnabled = true;
+      }
+      initAutoRefreshTimer();
+      notifyListeners();
+    } catch (_) {}
+  }
 
   // Datasets
   final List<KsdmaStation> _stations = [];
@@ -292,6 +359,8 @@ class KsdmaStateService extends ChangeNotifier {
       badgeTier: 'BRONZE',
     );
     isLoggedIn = false;
+    lastRefreshedAt = DateTime.now();
+    _restoreAutoRefreshPrefs();
     // Fetch stations, observations & champions on startup
     fetchStationsIfNeeded();
     fetchObservationsIfNeeded();
@@ -1203,5 +1272,11 @@ class KsdmaStateService extends ChangeNotifier {
       }
     }
     return sum;
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 }

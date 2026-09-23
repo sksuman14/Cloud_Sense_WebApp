@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../views/home/home_theme.dart';
 import '../services/ksdma_state_service.dart';
 import '../models/ksdma_models.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
@@ -138,17 +137,12 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-    try {
-      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-      isDark = themeProvider.isDarkMode;
-    } catch (_) {}
-
-    final dialogBg = isDark ? const Color(0xFF1E202C) : Colors.white;
-    final titleColor = isDark ? Colors.white : const Color(0xFF1F2937);
-    final subtitleColor = isDark ? Colors.grey.shade400 : const Color(0xFF6B7280);
-    final activeTabColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
-    final unselectedTabColor = isDark ? Colors.grey.shade300 : const Color(0xFF4B5563);
+    const bool isDark = false;
+    const dialogBg = Colors.white;
+    const titleColor = Color(0xFF1F2937);
+    const subtitleColor = Color(0xFF6B7280);
+    const activeTabColor = Color(0xFF2563EB);
+    const unselectedTabColor = Color(0xFF4B5563);
 
     return Dialog(
       backgroundColor: dialogBg,
@@ -199,14 +193,14 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close, color: isDark ? Colors.grey.shade300 : Colors.grey.shade600),
+                  icon: Icon(Icons.close, color: Colors.grey.shade600),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
-            Divider(color: isDark ? Colors.white12 : Colors.grey.shade200, height: 1),
+            Divider(color: Colors.grey.shade200, height: 1),
             const SizedBox(height: 12),
 
             // Auth Role Tabs
@@ -334,7 +328,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<UserCategory>(
-              value: _signupCategory,
+              initialValue: _signupCategory,
               dropdownColor: isDark ? const Color(0xFF282B3A) : Colors.white,
               decoration: _buildInputDecoration(
                 label: 'Role Category *',
