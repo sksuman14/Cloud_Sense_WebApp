@@ -109,9 +109,127 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> with WidgetsB
   }
 
   Widget _buildTopHeaderBar(BuildContext context, KsdmaStateService state, bool isMobile, bool isAdmin, bool isOfficer) {
+    // ── Mobile: 2-row header ────────────────────────────────────────────────
+    if (isMobile) {
+      return SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.only(top: 18, bottom: 6, left: 10, right: 4),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            boxShadow: [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Row 1: ☰  Logo+Title  |  Sign In
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.menu, color: Color(0xFF0F172A), size: 20),
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                  const SizedBox(width: 4),
+                  // Logo icon
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: const Icon(Icons.cloud_sync, color: Color(0xFF2563EB), size: 15),
+                  ),
+                  const SizedBox(width: 6),
+                  // Title — Expanded so it doesn't overflow
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() {
+                        _activeMenuIndex = 0;
+                        _targetObservationStationId = null;
+                      }),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Kerala Citizen Weather Platform',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'KSDMA Weather Cloud • Network',
+                            style: TextStyle(fontSize: 8.5, color: Colors.grey[600]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Sign In button
+                  if (!state.isLoggedIn)
+                    ElevatedButton.icon(
+                      onPressed: () => KsdmaAuthModal.show(
+                        context, state,
+                        onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx),
+                      ),
+                      icon: const Icon(Icons.login, size: 12),
+                      label: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
+                      ),
+                    )
+                  else
+                    PopupMenuButton<String>(
+                      color: Colors.white,
+                      surfaceTintColor: Colors.white,
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                      onSelected: (val) { if (val == 'logout') _handleSignOut(state); },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem(enabled: false, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(state.currentUser.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A))),
+                          Text(isAdmin ? 'HQ Admin' : isOfficer ? 'District Officer' : 'Volunteer', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ])),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 16, color: Colors.red), SizedBox(width: 8), Text('Sign Out', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))])),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFBFDBFE))),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.account_circle, color: Color(0xFF2563EB), size: 16),
+                          const SizedBox(width: 4),
+                          Text(state.currentUser.fullName.split(' ').first, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                          const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB), size: 14),
+                        ]),
+                      ),
+                    ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+              const SizedBox(height: 5),
+              // Row 2: Auto-Refresh badge (full width)
+              _buildAutoRefreshBadgeMobile(state),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ── Desktop: single-row header ─────────────────────────────────────────
     return Container(
-      height: 60,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
+      height: 62,
+      padding: const EdgeInsets.only(left: 20, right: 0),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
@@ -167,74 +285,60 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> with WidgetsB
               ],
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 28),
 
           // Desktop Nav Pills
           if (!isMobile) ...[
-            _buildNavPill('Dashboard', isSelected: _activeMenuIndex == 0, onTap: () {
-              setState(() {
-                _activeMenuIndex = 0;
-                _targetObservationStationId = null;
-              });
-            }),
-            const SizedBox(width: 4),
-            _buildNavPill('My Observations', isSelected: _activeMenuIndex == 1, onTap: () {
-              if (state.isLoggedIn) {
-                setState(() {
-                  _activeMenuIndex = 1;
-                  _targetObservationStationId = null;
-                });
-              } else {
-                KsdmaAuthModal.show(context, state, onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx));
-              }
-            }),
-            const SizedBox(width: 4),
-
-            // Map Views Dropdown Button with 3 Options
-            _buildMapViewsDropdown(isSelected: [2, 10, 11, 12].contains(_activeMenuIndex)),
-            const SizedBox(width: 4),
-
-            _buildNavPill('Tutorials', isSelected: _activeMenuIndex == 5, onTap: () {
-              setState(() {
-                _activeMenuIndex = 5;
-                _targetObservationStationId = null;
-              });
-            }),
-            const SizedBox(width: 4),
-            _buildNavPill('Register Instrument', isSelected: _activeMenuIndex == 6, onTap: () {
-              if (state.isLoggedIn) {
-                setState(() {
-                  _activeMenuIndex = 6;
-                  _targetObservationStationId = null;
-                });
-              } else {
-                KsdmaAuthModal.show(context, state, onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx));
-              }
-            }),
-
-            if (isOfficer && !isAdmin) ...[
-              const SizedBox(width: 4),
-              _buildNavPill('Officer Reports', isSelected: _activeMenuIndex == 3, onTap: () {
-                setState(() {
-                  _activeMenuIndex = 3;
-                  _targetObservationStationId = null;
-                });
-              }),
-            ],
-            if (isAdmin) ...[
-              const SizedBox(width: 4),
-              _buildNavPill('Admin HQ', isSelected: _activeMenuIndex == 7, onTap: () {
-                setState(() {
-                  _activeMenuIndex = 7;
-                  _targetObservationStationId = null;
-                });
-              }),
-            ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildNavPill('Dashboard', isSelected: _activeMenuIndex == 0, onTap: () {
+                    setState(() { _activeMenuIndex = 0; _targetObservationStationId = null; });
+                  }),
+                  const SizedBox(width: 8),
+                  _buildNavPill('My Observations', isSelected: _activeMenuIndex == 1, onTap: () {
+                    if (state.isLoggedIn) {
+                      setState(() { _activeMenuIndex = 1; _targetObservationStationId = null; });
+                    } else {
+                      KsdmaAuthModal.show(context, state, onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx));
+                    }
+                  }),
+                  const SizedBox(width: 8),
+                  _buildMapViewsDropdown(isSelected: [2, 10, 11, 12].contains(_activeMenuIndex)),
+                  const SizedBox(width: 8),
+                  _buildNavPill('Tutorials', isSelected: _activeMenuIndex == 5, onTap: () {
+                    setState(() { _activeMenuIndex = 5; _targetObservationStationId = null; });
+                  }),
+                  const SizedBox(width: 8),
+                  _buildNavPill('Register Instrument', isSelected: _activeMenuIndex == 6, onTap: () {
+                    if (state.isLoggedIn) {
+                      setState(() { _activeMenuIndex = 6; _targetObservationStationId = null; });
+                    } else {
+                      KsdmaAuthModal.show(context, state, onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx));
+                    }
+                  }),
+                  if (isOfficer && !isAdmin) ...[
+                    const SizedBox(width: 8),
+                    _buildNavPill('Officer Reports', isSelected: _activeMenuIndex == 3, onTap: () {
+                      setState(() { _activeMenuIndex = 3; _targetObservationStationId = null; });
+                    }),
+                  ],
+                  if (isAdmin) ...[
+                    const SizedBox(width: 8),
+                    _buildNavPill('Admin HQ', isSelected: _activeMenuIndex == 7, onTap: () {
+                      setState(() { _activeMenuIndex = 7; _targetObservationStationId = null; });
+                    }),
+                  ],
+                ],
+              ),
+            ),
           ],
 
           const Spacer(),
 
-          // Interactive Live Sync & Auto Refresh Badge
+          // Desktop Auto-Refresh Badge
           PopupMenuButton<int>(
             tooltip: 'Auto-Refresh Settings & Status',
             color: Colors.white,
@@ -242,135 +346,47 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> with WidgetsB
             elevation: 8,
             shadowColor: Colors.black26,
             onSelected: (val) {
-              if (val == -1) {
-                state.triggerSilentAutoRefresh();
-              } else {
-                state.updateAutoRefreshSettings(val);
-              }
+              if (val == -1) { state.triggerSilentAutoRefresh(); } else { state.updateAutoRefreshSettings(val); }
             },
             offset: const Offset(0, 38),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
             itemBuilder: (context) => [
-              const PopupMenuItem<int>(
-                enabled: false,
-                child: Text(
-                  '⏱️ Auto-Refresh Interval',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 10,
-                child: Row(
-                  children: [
-                    Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 10 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent),
-                    const SizedBox(width: 8),
-                    const Text('Every 10 Minutes (Default)', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 30,
-                child: Row(
-                  children: [
-                    Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 30 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent),
-                    const SizedBox(width: 8),
-                    const Text('Every 30 Minutes', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 60,
-                child: Row(
-                  children: [
-                    Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 60 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent),
-                    const SizedBox(width: 8),
-                    const Text('Every 60 Minutes (1 Hour)', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 0,
-                child: Row(
-                  children: [
-                    Icon(Icons.check, size: 16, color: !state.isAutoRefreshEnabled ? const Color(0xFFDC2626) : Colors.transparent),
-                    const SizedBox(width: 8),
-                    const Text('Pause Auto-Refresh', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
+              const PopupMenuItem<int>(enabled: false, child: Text('⏱️ Auto-Refresh Interval', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)))),
+              PopupMenuItem<int>(value: 10, child: Row(children: [Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 10 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent), const SizedBox(width: 8), const Text('Every 10 Minutes (Default)', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+              PopupMenuItem<int>(value: 30, child: Row(children: [Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 30 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent), const SizedBox(width: 8), const Text('Every 30 Minutes', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+              PopupMenuItem<int>(value: 60, child: Row(children: [Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 60 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent), const SizedBox(width: 8), const Text('Every 60 Minutes (1 Hour)', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+              PopupMenuItem<int>(value: 0, child: Row(children: [Icon(Icons.check, size: 16, color: !state.isAutoRefreshEnabled ? const Color(0xFFDC2626) : Colors.transparent), const SizedBox(width: 8), const Text('Pause Auto-Refresh', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
               const PopupMenuDivider(),
-              const PopupMenuItem<int>(
-                value: -1,
-                child: Row(
-                  children: [
-                    Icon(Icons.refresh, size: 16, color: Color(0xFF2563EB)),
-                    SizedBox(width: 8),
-                    Text('Refresh Now 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-                  ],
-                ),
-              ),
+              const PopupMenuItem<int>(value: -1, child: Row(children: [Icon(Icons.refresh, size: 16, color: Color(0xFF2563EB)), SizedBox(width: 8), Text('Refresh Now 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)))])),
             ],
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: state.isAutoRefreshEnabled ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(10),
+                color: state.isAutoRefreshEnabled ? const Color(0xFFDCFCE7) : const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: state.isAutoRefreshEnabled ? const Color(0xFF86EFAC) : const Color(0xFFFECACA)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: state.isAutoRefreshEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 7),
+                  Container(width: 7, height: 7, decoration: BoxDecoration(color: state.isAutoRefreshEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626), shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
                   Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Last Updated: ',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
-                          ),
-                          Text(
-                            state.lastRefreshedAtFormatted,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: state.isAutoRefreshEnabled ? const Color(0xFF15803D) : const Color(0xFFDC2626),
-                            ),
-                          ),
-                        ],
-                      ),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text('Last Updated: ', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                        Text(state.lastRefreshedAtFormatted, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: state.isAutoRefreshEnabled ? const Color(0xFF15803D) : const Color(0xFFDC2626))),
+                      ]),
                       Text(
-                        state.isAutoRefreshEnabled
-                            ? 'Update Interval: ${state.autoRefreshIntervalMinutes} Min'
-                            : 'Update Interval: Paused',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w500,
-                          color: state.isAutoRefreshEnabled ? const Color(0xFF166534) : const Color(0xFF991B1B),
-                        ),
+                        state.isAutoRefreshEnabled ? 'Update Interval: ${state.autoRefreshIntervalMinutes} Min' : 'Update Interval: Paused',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: state.isAutoRefreshEnabled ? const Color(0xFF166534) : const Color(0xFF991B1B)),
                       ),
                     ],
                   ),
                   const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_drop_down,
-                    size: 16,
-                    color: state.isAutoRefreshEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                  ),
+                  Icon(Icons.arrow_drop_down, size: 15, color: state.isAutoRefreshEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
                 ],
               ),
             ),
@@ -380,13 +396,9 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> with WidgetsB
           // Sign In / Profile Dropdown
           if (!state.isLoggedIn)
             ElevatedButton.icon(
-              onPressed: () => KsdmaAuthModal.show(
-                context,
-                state,
-                onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx),
-              ),
+              onPressed: () => KsdmaAuthModal.show(context, state, onLoginSuccess: (idx) => setState(() => _activeMenuIndex = idx)),
               icon: const Icon(Icons.login, size: 14),
-              label: Text(isMobile ? 'Sign In' : 'Sign In / Register', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+              label: const Text('Sign In / Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
@@ -401,60 +413,79 @@ class _KsdmaPortalMainPageState extends State<KsdmaPortalMainPage> with WidgetsB
               surfaceTintColor: Colors.white,
               elevation: 8,
               shadowColor: Colors.black26,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              onSelected: (val) {
-                if (val == 'logout') {
-                  _handleSignOut(state);
-                }
-              },
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+              onSelected: (val) { if (val == 'logout') _handleSignOut(state); },
               itemBuilder: (ctx) => [
-                PopupMenuItem(
-                  enabled: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(state.currentUser.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A))),
-                      Text(isAdmin ? 'HQ Admin' : isOfficer ? 'District Officer' : 'Volunteer', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
-                  ),
-                ),
+                PopupMenuItem(enabled: false, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(state.currentUser.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A))),
+                  Text(isAdmin ? 'HQ Admin' : isOfficer ? 'District Officer' : 'Volunteer', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                ])),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Sign Out', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
+                const PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 16, color: Colors.red), SizedBox(width: 8), Text('Sign Out', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))])),
               ],
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_circle, color: Color(0xFF2563EB), size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      state.currentUser.fullName.split(' ').first,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB), size: 16),
-                  ],
-                ),
+                decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFBFDBFE))),
+                child: Row(children: [
+                  const Icon(Icons.account_circle, color: Color(0xFF2563EB), size: 18),
+                  const SizedBox(width: 6),
+                  Text(state.currentUser.fullName.split(' ').first, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB), size: 16),
+                ]),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Mobile-only auto-refresh badge (centered, compact)
+  Widget _buildAutoRefreshBadgeMobile(KsdmaStateService state) {
+    return Center(
+      child: PopupMenuButton<int>(
+        tooltip: 'Auto-Refresh Settings & Status',
+        color: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 8,
+        shadowColor: Colors.black26,
+        onSelected: (val) {
+          if (val == -1) { state.triggerSilentAutoRefresh(); } else { state.updateAutoRefreshSettings(val); }
+        },
+        offset: const Offset(0, 32),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+        itemBuilder: (context) => [
+          const PopupMenuItem<int>(enabled: false, child: Text('⏱️ Auto-Refresh Interval', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)))),
+          PopupMenuItem<int>(value: 10, child: Row(children: [Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 10 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent), const SizedBox(width: 8), const Text('Every 10 Minutes (Default)', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+          PopupMenuItem<int>(value: 30, child: Row(children: [Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 30 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent), const SizedBox(width: 8), const Text('Every 30 Minutes', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+          PopupMenuItem<int>(value: 60, child: Row(children: [Icon(Icons.check, size: 16, color: state.autoRefreshIntervalMinutes == 60 && state.isAutoRefreshEnabled ? const Color(0xFF2563EB) : Colors.transparent), const SizedBox(width: 8), const Text('Every 60 Minutes (1 Hour)', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+          PopupMenuItem<int>(value: 0, child: Row(children: [Icon(Icons.check, size: 16, color: !state.isAutoRefreshEnabled ? const Color(0xFFDC2626) : Colors.transparent), const SizedBox(width: 8), const Text('Pause Auto-Refresh', style: TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w500))])),
+          const PopupMenuDivider(),
+          const PopupMenuItem<int>(value: -1, child: Row(children: [Icon(Icons.refresh, size: 16, color: Color(0xFF2563EB)), SizedBox(width: 8), Text('Refresh Now 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)))])),
+        ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: state.isAutoRefreshEnabled ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: state.isAutoRefreshEnabled ? const Color(0xFF86EFAC) : const Color(0xFFFECACA)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: state.isAutoRefreshEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626), shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+              Text('Last Updated: ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+              Text(state.lastRefreshedAtFormatted, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: state.isAutoRefreshEnabled ? const Color(0xFF15803D) : const Color(0xFFDC2626))),
+              Text(
+                state.isAutoRefreshEnabled ? ' • Interval: ${state.autoRefreshIntervalMinutes} Min' : ' • Paused',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: state.isAutoRefreshEnabled ? const Color(0xFF166534) : const Color(0xFF991B1B)),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.arrow_drop_down, size: 13, color: state.isAutoRefreshEnabled ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1224,31 +1224,39 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    ElevatedButton(
-                      onPressed: () => _applyLeftFilters(state),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFACC15),
-                        foregroundColor: const Color(0xFF0F172A),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _applyLeftFilters(state),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFACC15),
+                          foregroundColor: const Color(0xFF0F172A),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          visualDensity: VisualDensity.compact,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        child: const Text('Apply', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                       ),
-                      child: const Text('Apply', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                     ),
-                    const SizedBox(width: 4),
-                    OutlinedButton(
-                      onPressed: () => _resetLeftFilters(state),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE2E8F0).withValues(alpha: 0.5),
-                        foregroundColor: const Color(0xFF475569),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _resetLeftFilters(state),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE2E8F0).withValues(alpha: 0.5),
+                          foregroundColor: const Color(0xFF475569),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        child: const Text('Reset', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
                       ),
-                      child: const Text('Reset', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -1594,13 +1602,23 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(icon, size: 14, color: color),
-                const SizedBox(width: 4),
-                Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
-              ],
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 2),
             Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
           ],
         ),
@@ -1779,9 +1797,23 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
               children: [
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 4),
-                Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-                const Spacer(),
-                Text(reportingText, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    reportingText,
+                    style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -1853,7 +1885,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     }).toList();
 
     return Container(
-      height: isDesktop ? (_leftColumnHeight ?? 840.0) : 580.0,
+      height: isDesktop ? (_leftColumnHeight ?? 840.0) : 740.0,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1939,100 +1971,128 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           ),
           const SizedBox(height: 10),
 
-          // 2. Cascaded Admin & Parameter Dropdowns Sub-Header Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildAdminFilterDropdown(
-                  'District',
-                  _keralaDistricts,
-                  _keralaDistricts.contains(_mapSelectedDistrict) ? _mapSelectedDistrict : 'All Districts',
-                  (val) {
-                    if (val != null) {
-                      setState(() {
-                        _mapSelectedDistrict = val;
-                        _mapSelectedTaluk = 'All Taluks';
-                        _mapSelectedPanchayat = 'All Panchayats';
-                      });
-                      if (val != 'All Districts') {
-                        final center = KeralaAdminData.getDistrictCenter(val);
-                        _mapController.move(LatLng(center.lat, center.lng), 9.2);
-                      } else {
-                        _mapController.move(const LatLng(10.5276, 76.2144), 7.2);
+          // 2. Cascaded Admin & Parameter Dropdowns Sub-Header
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final bool isCompact = constraints.maxWidth < 540;
+
+              Widget buildDistrictDropdown() => _buildAdminFilterDropdown(
+                    'District',
+                    _keralaDistricts,
+                    _keralaDistricts.contains(_mapSelectedDistrict) ? _mapSelectedDistrict : 'All Districts',
+                    (val) {
+                      if (val != null) {
+                        setState(() {
+                          _mapSelectedDistrict = val;
+                          _mapSelectedTaluk = 'All Taluks';
+                          _mapSelectedPanchayat = 'All Panchayats';
+                        });
+                        if (val != 'All Districts') {
+                          final center = KeralaAdminData.getDistrictCenter(val);
+                          _mapController.move(LatLng(center.lat, center.lng), 9.2);
+                        } else {
+                          _mapController.move(const LatLng(10.45, 76.25), isDesktop ? 7.8 : 7.2);
+                        }
                       }
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildAdminFilterDropdown(
-                  'Taluk',
-                  talukList,
-                  talukList.contains(_mapSelectedTaluk) ? _mapSelectedTaluk : 'All Taluks',
-                  (val) {
-                    if (val != null) {
-                      setState(() {
-                        _mapSelectedTaluk = val;
-                        _mapSelectedPanchayat = 'All Panchayats';
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildAdminFilterDropdown(
-                  'Panchayat',
-                  panchayatList,
-                  panchayatList.contains(_mapSelectedPanchayat) ? _mapSelectedPanchayat : 'All Panchayats',
-                  (val) {
-                    if (val != null) {
-                      setState(() => _mapSelectedPanchayat = val);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Parameter', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 2),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFCBD5E1)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _mapSelectedParam,
-                          isExpanded: true,
-                          dropdownColor: Colors.white,
-                          icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF64748B)),
-                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
-                          items: const [
-                            DropdownMenuItem(value: 'all', child: Text('All Parameters', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
-                            DropdownMenuItem(value: 'rainfall', child: Text('Rainfall', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
-                            DropdownMenuItem(value: 'maxTemp', child: Text('Temperature', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
-                            DropdownMenuItem(value: 'humidity', child: Text('Humidity', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
-                            DropdownMenuItem(value: 'riverLevel', child: Text('River Level', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _mapSelectedParam = val);
-                            }
-                          },
+                    },
+                  );
+
+              Widget buildTalukDropdown() => _buildAdminFilterDropdown(
+                    'Taluk',
+                    talukList,
+                    talukList.contains(_mapSelectedTaluk) ? _mapSelectedTaluk : 'All Taluks',
+                    (val) {
+                      if (val != null) {
+                        setState(() {
+                          _mapSelectedTaluk = val;
+                          _mapSelectedPanchayat = 'All Panchayats';
+                        });
+                      }
+                    },
+                  );
+
+              Widget buildPanchayatDropdown() => _buildAdminFilterDropdown(
+                    'Panchayat',
+                    panchayatList,
+                    panchayatList.contains(_mapSelectedPanchayat) ? _mapSelectedPanchayat : 'All Panchayats',
+                    (val) {
+                      if (val != null) {
+                        setState(() => _mapSelectedPanchayat = val);
+                      }
+                    },
+                  );
+
+              Widget buildParamDropdown() => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Parameter', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _mapSelectedParam,
+                            isExpanded: true,
+                            dropdownColor: Colors.white,
+                            icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF64748B)),
+                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                            items: const [
+                              DropdownMenuItem(value: 'all', child: Text('All Parameters', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'rainfall', child: Text('Rainfall', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'maxTemp', child: Text('Temperature', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'humidity', child: Text('Humidity', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'riverLevel', child: Text('River Level', style: TextStyle(fontSize: 10.5, color: Color(0xFF0F172A), fontWeight: FontWeight.w500))),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _mapSelectedParam = val);
+                              }
+                            },
+                          ),
                         ),
                       ),
+                    ],
+                  );
+
+              if (isCompact) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: buildDistrictDropdown()),
+                        const SizedBox(width: 6),
+                        Expanded(child: buildTalukDropdown()),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(child: buildPanchayatDropdown()),
+                        const SizedBox(width: 6),
+                        Expanded(child: buildParamDropdown()),
+                      ],
                     ),
                   ],
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: buildDistrictDropdown()),
+                  const SizedBox(width: 6),
+                  Expanded(child: buildTalukDropdown()),
+                  const SizedBox(width: 6),
+                  Expanded(child: buildPanchayatDropdown()),
+                  const SizedBox(width: 6),
+                  Expanded(child: buildParamDropdown()),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
 
@@ -2045,9 +2105,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                   FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
-                      initialCenter: const LatLng(10.5276, 76.2144),
-                      initialZoom: 7.4,
-                      minZoom: 6.5,
+                      initialCenter: const LatLng(10.45, 76.25),
+                      initialZoom: isDesktop ? 7.8 : 7.2,
+                      minZoom: 6.0,
                       maxZoom: 18.0,
                     ),
                     children: [
@@ -2244,7 +2304,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
                           ),
                           child: InkWell(
-                            onTap: () => _mapController.move(const LatLng(10.5276, 76.2144), 7.4),
+                            onTap: () => _mapController.move(isDesktop ? const LatLng(10.5276, 76.2144) : const LatLng(10.45, 76.3), isDesktop ? 7.4 : 6.6),
                             child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.my_location, size: 16, color: Color(0xFF0F172A))),
                           ),
                         ),
@@ -2267,30 +2327,17 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           _buildMapLegendDot('Rainfall', const Color(0xFF2563EB)),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 10),
                           _buildMapLegendDot('Humidity', const Color(0xFF7C3AED)),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 10),
                           _buildMapLegendDot('Temperature', const Color(0xFFEA580C)),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 10),
                           _buildMapLegendDot('River Level', const Color(0xFF0D9488)),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 10),
                           _buildMapLegendDot('AWS', const Color(0xFFC026D3)),
-                          const Spacer(),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 2,
-                                color: const Color(0xFF0D9488),
-                              ),
-                              const SizedBox(height: 1),
-                              const Text('0   50   100   200 km', style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -2449,12 +2496,32 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
             }
           }
 
-          String timeStr = '08:00 AM';
-          if (obs != null) {
-            final dt = obs.observationDate.toLocal();
-            final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-            final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-            final minStr = dt.minute.toString().padLeft(2, '0');
+          // Get actual observation data time (not refresh time)
+          final wsRaw = state.getWsDeviceRaw(s.stationId);
+          final bool isAws = s.category == StationCategory.aws ||
+              s.instrumentType == InstrumentType.awsAutomaticStation ||
+              s.stationId.startsWith('WS_');
+
+          String timeStr = '—';
+          if (isAws && wsRaw != null && wsRaw['TimeStamp'] != null) {
+            // AWS: use device raw timestamp
+            final tsStr = wsRaw['TimeStamp'].toString();
+            // Try to parse "YYYY-MM-DD HH:mm:ss" or ISO format
+            final ts = DateTime.tryParse(tsStr);
+            if (ts != null) {
+              final local = ts.toLocal();
+              final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+              final ampm = local.hour >= 12 ? 'PM' : 'AM';
+              final minStr = local.minute.toString().padLeft(2, '0');
+              timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
+            } else {
+              timeStr = tsStr.length > 8 ? tsStr.substring(11, 16) : tsStr;
+            }
+          } else if (obs != null) {
+            // Manual station: use observationTime (actual recorded time)
+            final hour = obs.observationTime.hour % 12 == 0 ? 12 : obs.observationTime.hour % 12;
+            final ampm = obs.observationTime.hour >= 12 ? 'PM' : 'AM';
+            final minStr = obs.observationTime.minute.toString().padLeft(2, '0');
             timeStr = '${hour.toString().padLeft(2, '0')}:$minStr $ampm';
           }
           final isSelected = _selectedStation?.stationId == s.stationId;

@@ -773,15 +773,22 @@ class _KsdmaMultiMapViewState extends State<KsdmaMultiMapView> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildLegendPill('Rainfall', const Color(0xFF2563EB)),
-                        _buildLegendPill('Humidity', const Color(0xFF7C3AED)),
-                        _buildLegendPill('Temperature', const Color(0xFFEA580C)),
-                        _buildLegendPill('River Level', const Color(0xFF0D9488)),
-                        _buildLegendPill('AWS', const Color(0xFFC026D3)),
-                      ],
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildLegendPill('Rainfall', const Color(0xFF2563EB)),
+                          const SizedBox(width: 8),
+                          _buildLegendPill('Humidity', const Color(0xFF7C3AED)),
+                          const SizedBox(width: 8),
+                          _buildLegendPill('Temperature', const Color(0xFFEA580C)),
+                          const SizedBox(width: 8),
+                          _buildLegendPill('River Level', const Color(0xFF0D9488)),
+                          const SizedBox(width: 8),
+                          _buildLegendPill('AWS', const Color(0xFFC026D3)),
+                        ],
+                      ),
                     ),
                   ),
                 ),

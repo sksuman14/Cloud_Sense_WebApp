@@ -690,6 +690,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Cloud Sense Vis',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _NoScrollbarBehavior(),
       theme: themeProvider.isDarkMode
           ? ThemeData.dark().copyWith(
               textTheme: ThemeData.dark().textTheme.apply(
@@ -720,6 +721,13 @@ class MyApp extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+              ),
+              scrollbarTheme: ScrollbarThemeData(
+                thumbVisibility: WidgetStateProperty.all(false),
+                trackVisibility: WidgetStateProperty.all(false),
+                thickness: WidgetStateProperty.all(6),
+                radius: const Radius.circular(4),
+                thumbColor: WidgetStateProperty.all(const Color(0xFFCBD5E1)),
               ),
             ),
       initialRoute: initialRoute,
@@ -1089,5 +1097,16 @@ class LastRouteObserver extends RouteObserver<PageRoute<dynamic>> {
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
     if (previousRoute != null) _saveLastRoute(previousRoute);
+  }
+}
+
+/// Suppresses the browser/OS scrollbar track so it doesn't consume header space.
+class _NoScrollbarBehavior extends ScrollBehavior {
+  const _NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    // Return child directly — no scrollbar overlay
+    return child;
   }
 }
