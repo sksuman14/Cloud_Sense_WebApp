@@ -40,28 +40,84 @@ class KsdmaApiService {
     if (jwtToken != null && jwtToken!.isNotEmpty) 'Authorization': 'Bearer $jwtToken',
   };
 
-  // 0. POST /api/send-otp - Request Password Reset OTP via AWS API
-  Future<Map<String, dynamic>> requestPasswordReset(String identifier) async {
+  // 0. POST /api/send-otp - Request Password Reset OR Signup Verification OTP
+  Future<Map<String, dynamic>> sendOtp({
+    required String identifier,
+    String? email,
+    bool isSignup = false,
+  }) async {
     try {
+      final isEmail = identifier.contains('@');
+      final effectiveEmail = email ?? (isEmail ? identifier : '');
+      final effectiveMobile = !isEmail ? identifier : '';
+
       final response = await http.post(
         Uri.parse('$apiBaseUrl/send-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'identifier': identifier.trim(),
-          'email': identifier.contains('@') ? identifier.trim() : '',
-          'mobile_number': !identifier.contains('@') ? identifier.trim() : '',
+          'email': effectiveEmail.trim(),
+          'mobile_number': effectiveMobile.trim(),
+          'is_signup': isSignup,
         }),
       );
       final body = jsonDecode(response.body);
       if (response.statusCode == 200 && body['success'] == true) {
-        return {'success': true, 'message': body['message'] ?? 'OTP sent successfully.'};
+        return {
+          'success': true,
+          'message': body['message'] ?? 'OTP sent to your registered email address.',
+        };
       }
-      return {'success': false, 'message': body['message'] ?? 'Failed to send OTP.'};
+      return {
+        'success': false,
+        'already_exists': response.statusCode == 409 || body['already_exists'] == true,
+        'not_found': response.statusCode == 404 || body['not_found'] == true,
+        'message': body['message'] ?? 'Failed to send OTP.',
+      };
     } catch (e) {
-      print('Error requesting reset OTP: $e');
+      print('Error sending OTP: $e');
       return {'success': false, 'message': 'Network error. Please try again.'};
     }
   }
+
+  // 0.9. POST /api/verify-login-otp - Verify Email OTP & Login Volunteer
+  Future<Map<String, dynamic>> verifyLoginOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/verify-login-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'otp': otp.trim(),
+        }),
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true && body['user'] != null) {
+        if (body['token'] != null) {
+          jwtToken = body['token'].toString();
+        }
+        return {
+          'success': true,
+          'user': _mapRowToUser(body['user']),
+          'token': jwtToken,
+        };
+      }
+      return {
+        'success': false,
+        'message': body['message'] ?? 'Invalid or expired OTP code.',
+      };
+    } catch (e) {
+      print('❌ Error verifying login OTP: $e');
+      return {'success': false, 'message': 'Network error. Please try again.'};
+    }
+  }
+
+  // Backward compatibility alias for requestPasswordReset
+  Future<Map<String, dynamic>> requestPasswordReset(String identifier) =>
+      sendOtp(identifier: identifier, isSignup: false);
 
   // 0.8 POST /api/reset-password - Verify OTP and Reset Password
   Future<Map<String, dynamic>> resetPassword({
@@ -98,6 +154,7 @@ class KsdmaApiService {
     required String password,
     UserRole role = UserRole.volunteer,
     required UserCategory category,
+    String? otp,
   }) async {
     try {
       final cleanNum = mobileNumber.replaceAll(RegExp(r'\D'), '');
@@ -113,6 +170,7 @@ class KsdmaApiService {
           'password': password,
           'user_role': role.name.toUpperCase(),
           'role_category': category.name,
+          if (otp != null && otp.isNotEmpty) 'otp': otp.trim(),
         }),
       );
       final Map<String, dynamic> body = jsonDecode(response.body);
@@ -130,6 +188,7 @@ class KsdmaApiService {
       }
       return {
         'success': false,
+        'already_exists': response.statusCode == 409 || body['already_exists'] == true,
         'message': body['message'] ?? 'Registration failed. Please try again.',
       };
     } catch (e) {

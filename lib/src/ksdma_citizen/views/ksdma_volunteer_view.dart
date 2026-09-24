@@ -452,6 +452,7 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                           final q = _searchQuery.toLowerCase();
                           return s.stationId.toLowerCase().contains(q) ||
                               s.ownerName.toLowerCase().contains(q) ||
+                              s.measurementLocation.toLowerCase().contains(q) ||
                               s.instrumentType.displayName.toLowerCase().contains(q) ||
                               s.district.toLowerCase().contains(q) ||
                               s.taluk.toLowerCase().contains(q) ||
@@ -560,8 +561,10 @@ class _KsdmaVolunteerViewState extends State<KsdmaVolunteerView> {
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
-                                  s.stationId,
-                                  style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
+                                  (s.measurementLocation.isNotEmpty && s.measurementLocation != 'Site' && s.measurementLocation != 'Main Site')
+                                      ? '${s.stationId} — ${s.measurementLocation}'
+                                      : s.stationId,
+                                  style: TextStyle(fontSize: isMobile ? 15 : 17, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

@@ -442,7 +442,15 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(station.ownerName.isNotEmpty ? station.ownerName : station.stationId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A))),
-                                  Text(station.stationId, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(station.stationId, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                                      if (station.measurementLocation.isNotEmpty && station.measurementLocation != 'Site' && station.measurementLocation != 'Main Site') ...[
+                                        Text(' • ${station.measurementLocation}', style: const TextStyle(fontSize: 10, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
                             ],
@@ -611,13 +619,20 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFD97706))),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
-              items: volunteerStations.map((stn) => DropdownMenuItem(
-                value: stn.stationId,
-                child: Text(
-                  '${stn.stationId} — ${stn.instrumentType.displayName} (${stn.district}${stn.gramaPanchayat.isNotEmpty ? ", " + stn.gramaPanchayat : ""})',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              )).toList(),
+              isExpanded: true,
+              items: volunteerStations.map((stn) {
+                final userPart = stn.ownerName.isNotEmpty ? stn.ownerName : 'Volunteer';
+                final locName = (stn.measurementLocation.isNotEmpty && stn.measurementLocation != 'Site' && stn.measurementLocation != 'Main Site')
+                    ? ' — ${stn.measurementLocation}'
+                    : '';
+                return DropdownMenuItem(
+                  value: stn.stationId,
+                  child: Text(
+                    '$userPart | ${stn.stationId}$locName • ${stn.instrumentType.displayName} (${stn.district})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedUploadStationId = val);
               },
@@ -1222,6 +1237,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF146356))),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
+              isExpanded: true,
               items: activeObs.isEmpty
                   ? [const DropdownMenuItem(value: null, child: Text('No active observations for selected date'))]
                   : activeObs.map((o) {
@@ -1230,9 +1246,19 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                       else if (o.maxTemperatureC != null) valText = '${o.maxTemperatureC}°C (Temp)';
                       else if (o.humidityPercent != null) valText = '${o.humidityPercent}% (Humid)';
                       else if (o.riverWaterLevelM != null) valText = '${o.riverWaterLevelM}m (River)';
+                      final stn = state.getStation(o.stationId);
+                      final userPart = (stn?.ownerName.isNotEmpty == true) ? stn!.ownerName : (o.submittedByUserId.isNotEmpty ? o.submittedByUserId : '');
+                      final locPart = (stn != null && stn.measurementLocation.isNotEmpty && stn.measurementLocation != 'Site' && stn.measurementLocation != 'Main Site')
+                          ? ' — ${stn.measurementLocation}'
+                          : '';
+                      final prefix = userPart.isNotEmpty ? '$userPart | ' : '';
                       return DropdownMenuItem(
                         value: o.observationId,
-                        child: Text('${o.stationId} • $valText', style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A))),
+                        child: Text(
+                          '$prefix${o.stationId}$locPart • $valText',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
               onChanged: (val) => setState(() => _selectedObsId = val),

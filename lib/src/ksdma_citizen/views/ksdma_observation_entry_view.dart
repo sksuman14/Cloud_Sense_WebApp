@@ -275,7 +275,7 @@ class _KsdmaObservationEntryViewState extends State<KsdmaObservationEntryView> {
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          'Station ID: ${station.stationId} • Location: ${station.district}, ${station.gramaPanchayat}',
+                          'Station: ${station.measurementLocation.isNotEmpty && station.measurementLocation != "Site" && station.measurementLocation != "Main Site" ? "${station.stationId} — ${station.measurementLocation}" : station.stationId} • Location: ${station.district}, ${station.gramaPanchayat}',
                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],

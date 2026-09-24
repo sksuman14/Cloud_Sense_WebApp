@@ -39,6 +39,8 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   final _adminPassController = TextEditingController();
 
   bool _isSignUpMode = false;
+  bool _signupOtpSent = false;
+  bool _isSendingOtp = false;
 
   // Volunteer registration controllers
   final _signupNameCtrl = TextEditingController();
@@ -352,43 +354,133 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
               },
             ),
             const SizedBox(height: 12),
+            if (_signupOtpSent) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _signupOtpCtrl,
+                keyboardType: TextInputType.number,
+                style: textStyle,
+                decoration: _buildInputDecoration(
+                  label: '6-Digit Verification OTP *',
+                  hintText: 'Enter 6-digit verification code',
+                  icon: Icons.mark_email_read_outlined,
+                  isDark: isDark,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               height: 42,
               child: ElevatedButton(
-                onPressed: () async {
-                  if (_signupNameCtrl.text.trim().isEmpty) { _showError('Full Name is mandatory!'); return; }
-                  if (_signupPhoneCtrl.text.trim().isEmpty) { _showError('Mobile Number is mandatory!'); return; }
-                  if (_signupEmailCtrl.text.trim().isEmpty) { _showError('Email Address is mandatory!'); return; }
-                  if (_signupPasswordCtrl.text.trim().isEmpty) { _showError('Password is mandatory!'); return; }
+                onPressed: _isSendingOtp
+                    ? null
+                    : () async {
+                        if (_signupNameCtrl.text.trim().isEmpty) { _showError('Full Name is mandatory!'); return; }
+                        if (_signupPhoneCtrl.text.trim().isEmpty) { _showError('Mobile Number is mandatory!'); return; }
+                        if (_signupEmailCtrl.text.trim().isEmpty) { _showError('Email Address is mandatory!'); return; }
+                        if (_signupPasswordCtrl.text.trim().isEmpty) { _showError('Password is mandatory!'); return; }
 
-                  final result = await widget.stateService.registerAndLoginUser(
-                    fullName: _signupNameCtrl.text.trim(),
-                    mobileNumber: _signupPhoneCtrl.text.trim(),
-                    email: _signupEmailCtrl.text.trim(),
-                    password: _signupPasswordCtrl.text.trim(),
-                    role: UserRole.volunteer,
-                    category: _signupCategory,
-                  );
+                        // Step 1: Send Verification OTP first
+                        if (!_signupOtpSent) {
+                          setState(() => _isSendingOtp = true);
+                          final otpRes = await widget.stateService.apiService.sendOtp(
+                            identifier: _signupPhoneCtrl.text.trim(),
+                            email: _signupEmailCtrl.text.trim(),
+                            isSignup: true,
+                          );
+                          setState(() => _isSendingOtp = false);
 
-                  if (context.mounted) {
-                    if (result['success'] == true) {
-                      Navigator.of(context).pop();
-                      widget.onLoginSuccess?.call(0);
-                      _showSuccess('Account created & logged in successfully!');
-                    } else {
-                      _showError(result['message'] ?? 'Registration failed. Please try again.');
-                    }
-                  }
-                },
+                          if (!context.mounted) return;
+
+                          if (otpRes['already_exists'] == true) {
+                            _showError(otpRes['message'] ?? 'An account with this mobile number or email already exists.');
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                backgroundColor: isDark ? const Color(0xFF1E202E) : Colors.white,
+                                title: const Row(children: [
+                                  Icon(Icons.person_pin, color: Color(0xFF2563EB)),
+                                  SizedBox(width: 8),
+                                  Text('Account Already Exists', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                ]),
+                                content: const Text('An account with this mobile number or email is already registered.\n\nWould you like to sign in or reset your password?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      setState(() {
+                                        _isSignUpMode = false;
+                                        _volunteerPhoneController.text = _signupPhoneCtrl.text.trim();
+                                      });
+                                    },
+                                    child: const Text('Sign In Instead'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      _showForgotPasswordDialog(context, isDark);
+                                    },
+                                    child: const Text('Forgot Password?'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (otpRes['success'] == true) {
+                            setState(() {
+                              _signupOtpSent = true;
+                            });
+                            _showSuccess(otpRes['message'] ?? 'Verification OTP sent to your email. Please check your inbox and spam folder.');
+                          } else {
+                            _showError(otpRes['message'] ?? 'Failed to send verification OTP.');
+                          }
+                          return;
+                        }
+
+                        // Step 2: Verify OTP and Complete Registration
+                        if (_signupOtpCtrl.text.trim().isEmpty) {
+                          _showError('Please enter the 6-digit verification OTP!');
+                          return;
+                        }
+
+                        setState(() => _isSendingOtp = true);
+                        final result = await widget.stateService.registerAndLoginUser(
+                          fullName: _signupNameCtrl.text.trim(),
+                          mobileNumber: _signupPhoneCtrl.text.trim(),
+                          email: _signupEmailCtrl.text.trim(),
+                          password: _signupPasswordCtrl.text.trim(),
+                          role: UserRole.volunteer,
+                          category: _signupCategory,
+                          otp: _signupOtpCtrl.text.trim(),
+                        );
+                        setState(() => _isSendingOtp = false);
+
+                        if (context.mounted) {
+                          if (result['success'] == true) {
+                            Navigator.of(context).pop();
+                            widget.onLoginSuccess?.call(0);
+                            _showSuccess('Account created & logged in successfully!');
+                          } else if (result['already_exists'] == true) {
+                            _showError(result['message'] ?? 'An account with this mobile number or email already exists.');
+                          } else {
+                            _showError(result['message'] ?? 'Registration failed. Please check OTP.');
+                          }
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: btnBgColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text(
-                  'Create Account & Sign In',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                child: Text(
+                  _isSendingOtp
+                      ? 'Processing...'
+                      : (_signupOtpSent ? 'Verify OTP & Complete Registration' : 'Send Verification OTP'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
             ),
@@ -401,7 +493,11 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
   }
 
   void _showForgotPasswordDialog(BuildContext context, bool isDark) {
-    final identifierCtrl = TextEditingController(text: _volunteerPhoneController.text);
+    final identifierCtrl = TextEditingController(
+      text: _volunteerPhoneController.text.trim().isNotEmpty
+          ? _volunteerPhoneController.text.trim()
+          : _signupPhoneCtrl.text.trim(),
+    );
     final otpCtrl = TextEditingController();
     final newPassCtrl = TextEditingController();
     bool isOtpSent = false;
@@ -465,7 +561,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                         style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
                         decoration: _buildInputDecoration(
                           label: '6-Digit Reset OTP *',
-                          hintText: 'Check Email Inbox / Spam',
+                          hintText: 'Enter 6-digit OTP code',
                           icon: Icons.mark_email_read_outlined,
                           isDark: isDark,
                         ),
@@ -499,21 +595,22 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
                             setDialogState(() => statusMsg = 'Please enter your Registered Email Address!');
                             return;
                           }
-                          if (!identifierCtrl.text.trim().contains('@')) {
-                            setDialogState(() => statusMsg = 'Please enter a valid Email Address!');
-                            return;
-                          }
                           if (!isOtpSent) {
                             setDialogState(() {
                               isLoading = true;
-                              statusMsg = 'Sending Reset OTP to Email...';
+                              statusMsg = 'Sending Reset OTP...';
                             });
-                            final res = await widget.stateService.apiService.requestPasswordReset(identifierCtrl.text.trim());
+                            final res = await widget.stateService.apiService.sendOtp(
+                              identifier: identifierCtrl.text.trim(),
+                              isSignup: false,
+                            );
                             setDialogState(() {
                               isLoading = false;
                               if (res['success'] == true) {
                                 isOtpSent = true;
-                                statusMsg = '✅ Reset OTP sent! Please check your Email Inbox.';
+                                statusMsg = '✅ ${res['message'] ?? 'Reset OTP sent to your registered email.'}';
+                              } else if (res['not_found'] == true) {
+                                statusMsg = res['message'] ?? 'No account found. Please register first.';
                               } else {
                                 statusMsg = res['message'] ?? 'Failed to send OTP.';
                               }

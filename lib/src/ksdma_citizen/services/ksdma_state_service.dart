@@ -623,6 +623,7 @@ class KsdmaStateService extends ChangeNotifier {
     required String password,
     UserRole role = UserRole.volunteer,
     required UserCategory category,
+    String? otp,
   }) async {
     final result = await apiService.registerUser(
       fullName: fullName,
@@ -631,6 +632,7 @@ class KsdmaStateService extends ChangeNotifier {
       password: password,
       role: role,
       category: category,
+      otp: otp,
     );
 
     if (result['success'] == true && result['user'] != null) {
@@ -656,7 +658,11 @@ class KsdmaStateService extends ChangeNotifier {
       _loadLiveData();
       return {'success': true, 'user': user};
     }
-    return {'success': false, 'message': result['message'] ?? 'Registration failed.'};
+    return {
+      'success': false,
+      'already_exists': result['already_exists'] == true,
+      'message': result['message'] ?? 'Registration failed.'
+    };
   }
 
   // Password Login with JWT Token Storage
@@ -693,6 +699,38 @@ class KsdmaStateService extends ChangeNotifier {
   Future<bool> loginUserWithPhone(String mobileNumber, {String password = ''}) async {
     final result = await loginUserWithCredentials(identifier: mobileNumber, password: password);
     return result['success'] == true;
+  }
+
+  /// Login Volunteer via Email OTP verification
+  Future<Map<String, dynamic>> loginWithEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final result = await apiService.verifyLoginOtp(
+      email: email,
+      otp: otp,
+    );
+    if (result['success'] == true && result['user'] != null) {
+      final user = result['user'] as KsdmaUser;
+      currentUser = user;
+      isLoggedIn = true;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('ksdma_user_name', user.fullName);
+        await prefs.setString('ksdma_user_category', user.category.name);
+        await prefs.setString('ksdma_user_role', user.role.name);
+        await prefs.setString('ksdma_user_id', user.userId);
+        await prefs.setString('ksdma_user_email', user.email);
+        await prefs.setString('ksdma_user_phone', user.mobileNumber);
+        if (result['token'] != null) {
+          await prefs.setString('ksdma_jwt_token', result['token'].toString());
+        }
+      } catch (_) {}
+      notifyListeners();
+      _loadLiveData();
+      return {'success': true, 'user': user};
+    }
+    return {'success': false, 'message': result['message'] ?? 'Login failed. Invalid or expired OTP.'};
   }
 
   /// Officer / Admin login — strictly verifies DB credentials & password
