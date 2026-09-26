@@ -1,10 +1,9 @@
-import 'dart:io' show File, Directory, Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/utils/file_download_helper.dart';
 
 class DownloadManager {
   static final Map<String, Map<String, String>> sensorFiles = {
@@ -66,20 +65,17 @@ class DownloadManager {
     try {
       final byteData = await rootBundle.load(filePath);
       final bytes = byteData.buffer.asUint8List();
+      final fileName = '${sensorKey}_$fileType.pdf';
 
-      Directory? dir;
-      if (Platform.isAndroid) {
-        dir = Directory("/storage/emulated/0/Download");
-      } else {
-        dir = await getApplicationDocumentsDirectory();
-      }
-
-      final file = File('${dir.path}/${sensorKey}_$fileType.pdf');
-      await file.writeAsBytes(bytes);
-
-      _toast(context, "Saved to ${file.path}");
+      await FileDownloadHelper.saveAndShareBytes(
+        context: context,
+        fileName: fileName,
+        bytes: bytes,
+        mimeType: 'application/pdf',
+        shareSubject: 'Datasheet - $sensorKey',
+      );
     } catch (e) {
-      _toast(context, "Error: $e");
+      _toast(context, "Error: $e", isError: true);
     }
   }
 

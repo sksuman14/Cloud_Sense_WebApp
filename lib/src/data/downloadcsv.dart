@@ -9,6 +9,7 @@ import 'package:universal_html/html.dart' as html;
 import 'package:cloud_sense_webapp/src/utils/device_config.dart';
 import 'package:cloud_sense_webapp/src/utils/api_keys.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/utils/file_download_helper.dart';
 
 /// ---------------------------------------------------------------
 ///  CALL THIS FROM ANYWHERE
@@ -986,31 +987,23 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
 
   Future<void> _generateCsvFile(String name) async {
     final csv = const ListToCsvConverter().convert(_csvRows);
-
-    if (kIsWeb) {
-      final blob = html.Blob([csv], 'text/csv');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      html.AnchorElement(href: url)
-        ..setAttribute('download', name)
-        ..click();
-      html.Url.revokeObjectUrl(url);
-    } else {
-      await _saveCsvFile(csv, name);
-    }
+    await FileDownloadHelper.saveAndShareFile(
+      context: context,
+      fileName: name,
+      fileContent: csv,
+      mimeType: 'text/csv',
+      shareSubject: 'Sensor Data - ${widget.deviceName}',
+    );
   }
 
   Future<void> _saveCsvFile(String csv, String name) async {
-    try {
-      final dir = Directory('/storage/emulated/0/Download');
-      if (!await dir.exists()) {
-        _showSnack('Downloads folder not accessible');
-        return;
-      }
-      final file = File('${dir.path}/$name');
-      await file.writeAsString(csv);
-    } catch (e) {
-      _showSnack('Save error: $e');
-    }
+    await FileDownloadHelper.saveAndShareFile(
+      context: context,
+      fileName: name,
+      fileContent: csv,
+      mimeType: 'text/csv',
+      shareSubject: 'Sensor Data - ${widget.deviceName}',
+    );
   }
 
   void _showSnack(String msg, {bool isError = true}) {

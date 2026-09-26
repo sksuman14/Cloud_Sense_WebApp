@@ -15,9 +15,8 @@ Future<void> handleBackgroundMessage(RemoteMessage message) async {
 // Function to display local notifications
 void showNotification(RemoteMessage message) async {
   RemoteNotification? notification = message.notification;
-  AndroidNotification? android = message.notification?.android;
 
-  if (notification != null && android != null) {
+  if (notification != null) {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'high_importance_channel', // Same ID as defined in `main.dart`
@@ -28,8 +27,16 @@ void showNotification(RemoteMessage message) async {
       playSound: true,
     );
 
+    const DarwinNotificationDetails darwinPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
+      iOS: darwinPlatformChannelSpecifics,
     );
 
     await flutterLocalNotificationsPlugin.show(
@@ -49,7 +56,7 @@ class PushNotifications {
   Future<void> initNotifications() async {
     // Request user permission for push notifications (iOS/Android)
     await _firebaseMessaging.requestPermission(
-      alert: false,
+      alert: true,
       badge: true,
       sound: true,
     );
@@ -80,8 +87,18 @@ class PushNotifications {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
     const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
 
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }

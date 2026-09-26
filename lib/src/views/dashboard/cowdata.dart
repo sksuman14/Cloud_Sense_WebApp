@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/utils/file_download_helper.dart';
 
 class CowData extends StatefulWidget {
   final DateTime startDateTime;
@@ -258,21 +259,13 @@ class _CowDataState extends State<CowData> {
 
       String fileName = _generateFileName(); // Generate unique filename
 
-      if (kIsWeb) {
-        // Web-specific logic
-        final blob = html.Blob([csvData], 'text/csv');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
-          ..setAttribute('download', fileName)
-          ..click();
-        html.Url.revokeObjectUrl(url);
-
-        // Show Toast and clean up
-        _showToast("Downloading $fileName", isError: false, title: 'Download');
-      } else {
-        // Non-web platforms
-        await saveCSVFile(csvData, fileName);
-      }
+      await FileDownloadHelper.saveAndShareFile(
+        context: context,
+        fileName: fileName,
+        fileContent: csvData,
+        mimeType: 'text/csv',
+        shareSubject: 'Cow Activities Data',
+      );
     } catch (e) {
       _showToast("Error generating CSV: $e");
     }
@@ -284,23 +277,13 @@ class _CowDataState extends State<CowData> {
   }
 
   Future<void> saveCSVFile(String csvData, String fileName) async {
-    try {
-      // Get the Downloads directory.
-      final downloadsDirectory = Directory('/storage/emulated/0/Download');
-      if (downloadsDirectory.existsSync()) {
-        final filePath = '${downloadsDirectory.path}/$fileName';
-        final file = File(filePath);
-
-        // Write the CSV data to the file.
-        await file.writeAsString(csvData);
-
-        _showToast("File downloaded to $filePath", isError: false, title: 'Download');
-      } else {
-        _showToast("Unable to find Downloads directory");
-      }
-    } catch (e) {
-      _showToast("Error saving file: $e");
-    }
+    await FileDownloadHelper.saveAndShareFile(
+      context: context,
+      fileName: fileName,
+      fileContent: csvData,
+      mimeType: 'text/csv',
+      shareSubject: 'Cow Activities Data',
+    );
   }
 
 // Method to show the date and time picker for the start and end dates

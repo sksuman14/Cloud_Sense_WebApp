@@ -21,6 +21,7 @@ import 'package:cloud_sense_webapp/src/utils/device_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/utils/file_download_helper.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -1213,32 +1214,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     String csvData = const ListToCsvConverter().convert(csvRows);
     String fileName = _generateFileName();
-
-    if (kIsWeb) {
-      final blob = html.Blob([csvData], 'text/csv');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute("download", fileName)
-        ..click();
-      html.Url.revokeObjectUrl(url);
-
-      DeleteDeviceUtils.showToastNotification(
-        context: context,
-        title: 'Downloading',
-        message: 'Downloading $fileName',
-      );
-    } else {
-      try {
-        await saveCSVFile(csvData, fileName);
-      } catch (e) {
-        DeleteDeviceUtils.showToastNotification(
-          context: context,
-          title: 'Error',
-          message: 'Error downloading: $e',
-          isError: true,
-        );
-      }
-    }
+    await FileDownloadHelper.saveAndShareFile(
+      context: context,
+      fileName: fileName,
+      fileContent: csvData,
+      mimeType: 'text/csv',
+      shareSubject: 'Sensor Data Export',
+    );
   }
 
   String _generateFileName() {
@@ -1247,36 +1229,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   }
 
   Future<void> saveCSVFile(String csvData, String fileName) async {
-    try {
-      // Get the Downloads directory.
-      final downloadsDirectory = Directory('/storage/emulated/0/Download');
-      if (downloadsDirectory.existsSync()) {
-        final filePath = '${downloadsDirectory.path}/$fileName';
-        final file = File(filePath);
-
-        await file.writeAsString(csvData);
-
-        DeleteDeviceUtils.showToastNotification(
-          context: context,
-          title: 'Downloaded',
-          message: 'File downloaded to $filePath',
-        );
-      } else {
-        DeleteDeviceUtils.showToastNotification(
-          context: context,
-          title: 'Notice',
-          message: 'Unable to find Downloads directory',
-          isError: true,
-        );
-      }
-    } catch (e) {
-      DeleteDeviceUtils.showToastNotification(
-        context: context,
-        title: 'Error',
-        message: 'Error saving file: $e',
-        isError: true,
-      );
-    }
+    await FileDownloadHelper.saveAndShareFile(
+      context: context,
+      fileName: fileName,
+      fileContent: csvData,
+      mimeType: 'text/csv',
+      shareSubject: 'Sensor Data Export',
+    );
   }
 
   Future<void> _fetchRainForecastingData() async {

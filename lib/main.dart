@@ -17,6 +17,7 @@ import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/views/home/privacy_policy_page.dart';
 import 'package:cloud_sense_webapp/src/views/home/terms_of_service_page.dart';
 import 'package:cloud_sense_webapp/src/views/products/product_page.dart';
+import 'package:cloud_sense_webapp/config/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -55,9 +56,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 // Function to show local notifications
 Future<void> showNotification(RemoteMessage message) async {
   RemoteNotification? notification = message.notification;
-  AndroidNotification? android = message.notification?.android;
 
-  if (notification != null && android != null) {
+  if (notification != null) {
     String? title = notification.title ?? "Notification";
     String? body = notification.body;
     String? payload =
@@ -79,8 +79,16 @@ Future<void> showNotification(RemoteMessage message) async {
       playSound: true,
     );
 
+    const DarwinNotificationDetails darwinPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
+      iOS: darwinPlatformChannelSpecifics,
     );
 
     await flutterLocalNotificationsPlugin.show(
@@ -374,6 +382,11 @@ Future<void> setupNotifications() async {
 
   const InitializationSettings initSettings = InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    ),
   );
 
   await flutterLocalNotificationsPlugin.initialize(initSettings,
@@ -622,27 +635,18 @@ void main() async {
 
   await setupNotifications();
 
-  if (kIsWeb) {
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: "AIzaSyC8VgXQxru1bzlbLTUvOc4o490gxDc_MDQ",
-        authDomain: "cloudsense-cba8a.firebaseapp.com",
-        projectId: "cloudsense-cba8a",
-        storageBucket: "cloudsense-cba8a.firebasestorage.app",
-        messagingSenderId: "209940213885",
-        appId: "1:209940213885:web:1b68309df786c4c30fc114",
-        measurementId: "G-HMXS0HV32J",
-      ),
-    );
-  } else {
-    await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  if (!kIsWeb) {
     await PushNotifications().initNotifications();
   }
 
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: false,
-    badge: false,
-    sound: false,
+    alert: true,
+    badge: true,
+    sound: true,
   );
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

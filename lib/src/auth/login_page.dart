@@ -1,6 +1,7 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
@@ -832,48 +833,50 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
                                       fontSize: 16)),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: Divider(
-                                  color: isDark
-                                      ? Colors.white12
-                                      : Colors.black12)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('OR',
-                                style: TextStyle(color: subtle, fontSize: 14)),
-                          ),
-                          Expanded(
-                              child: Divider(
-                                  color: isDark
-                                      ? Colors.white12
-                                      : Colors.black12)),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon: Image.asset(
-                            'assets/images/google.png',
-                            height: 24,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.login, color: Colors.black87),
-                          ),
-                          label: const Text('Sign in with Google',
-                              style: TextStyle(
-                                  color: Colors.black87, fontSize: 16)),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            shape: const StadiumBorder(),
-                            side: const BorderSide(color: Colors.black87),
+                      if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) ...[
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                                child: Divider(
+                                    color: isDark
+                                        ? Colors.white12
+                                        : Colors.black12)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('OR',
+                                  style: TextStyle(color: subtle, fontSize: 14)),
+                            ),
+                            Expanded(
+                                child: Divider(
+                                    color: isDark
+                                        ? Colors.white12
+                                        : Colors.black12)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            icon: Image.asset(
+                              'assets/images/google.png',
+                              height: 24,
+                              errorBuilder: (_, __, ___) =>
+                                  const Icon(Icons.login, color: Colors.black87),
+                            ),
+                            label: const Text('Sign in with Google',
+                                style: TextStyle(
+                                    color: Colors.black87, fontSize: 16)),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: const StadiumBorder(),
+                              side: const BorderSide(color: Colors.black87),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
