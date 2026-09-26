@@ -330,7 +330,7 @@ class _KsdmaAuthModalState extends State<KsdmaAuthModal> with SingleTickerProvid
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<UserCategory>(
-              initialValue: _signupCategory,
+              value: _signupCategory,
               dropdownColor: isDark ? const Color(0xFF282B3A) : Colors.white,
               decoration: _buildInputDecoration(
                 label: 'Role Category *',

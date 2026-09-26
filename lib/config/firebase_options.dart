@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '209940213885',
     projectId: 'cloudsense-cba8a',
     storageBucket: 'cloudsense-cba8a.firebasestorage.app',
-    iosBundleId: 'com.awadh.CloudSense',
+    iosBundleId: 'com.annamai.cloudsensevis',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '209940213885',
     projectId: 'cloudsense-cba8a',
     storageBucket: 'cloudsense-cba8a.firebasestorage.app',
-    iosBundleId: 'com.awadh.CloudSense',
+    iosBundleId: 'com.annamai.cloudsensevis',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
