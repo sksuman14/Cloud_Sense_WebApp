@@ -37,6 +37,7 @@ jobs:
       - name: Create API Keys File
         run: |
           mkdir -p lib/src/utils
+
           cat > lib/src/utils/api_keys.dart <<'EOF'
           class ApiKeys {
             static const String keralaApiKey = '${{ secrets.KERALA_API_KEY }}';
@@ -55,8 +56,11 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
 
-          echo -n "$IOS_DISTRIBUTION_CERTIFICATE" | base64 --decode -o "$CERTIFICATE_PATH"
-          echo -n "$IOS_PROVISIONING_PROFILE" | base64 --decode -o "$PP_PATH"
+          echo -n "$IOS_DISTRIBUTION_CERTIFICATE" | \
+            base64 --decode -o "$CERTIFICATE_PATH"
+
+          echo -n "$IOS_PROVISIONING_PROFILE" | \
+            base64 --decode -o "$PP_PATH"
 
           echo "Creating temporary keychain..."
 
@@ -95,17 +99,42 @@ jobs:
             -p codesigning \
             "$KEYCHAIN_PATH"
 
+          echo "Decoding provisioning profile..."
+
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+
+          security cms \
+            -D \
+            -i "$PP_PATH" \
+            > "$PROFILE_PLIST"
+
+          echo "Reading provisioning profile..."
+
+          UUID=$(/usr/libexec/PlistBuddy \
+            -c "Print :UUID" \
+            "$PROFILE_PLIST")
+
+          echo "Provisioning Profile UUID: $UUID"
+
+          echo "Provisioning Profile Name:"
+          /usr/libexec/PlistBuddy \
+            -c "Print :Name" \
+            "$PROFILE_PLIST"
+
+          echo "Provisioning Profile App ID:"
+          /usr/libexec/PlistBuddy \
+            -c "Print :Entitlements:application-identifier" \
+            "$PROFILE_PLIST"
+
           echo "Installing provisioning profile..."
 
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-
-          UUID=$(security cms -D -i "$PP_PATH" | \
-            /usr/libexec/PlistBuddy -c "Print :UUID")
+          mkdir -p \
+            "$HOME/Library/MobileDevice/Provisioning Profiles"
 
           cp "$PP_PATH" \
             "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
 
-          echo "Provisioning Profile UUID: $UUID"
+          echo "Provisioning profile installed successfully."
 
       - name: Create ExportOptions.plist
         run: |
