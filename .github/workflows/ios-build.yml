@@ -112,17 +112,17 @@ jobs:
             -c "Print :UUID" \
             "$PROFILE_PLIST")
 
-          echo "Provisioning Profile UUID: $UUID"
-
-          echo "Provisioning Profile Name:"
-          /usr/libexec/PlistBuddy \
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy \
             -c "Print :Name" \
-            "$PROFILE_PLIST"
+            "$PROFILE_PLIST")
 
-          echo "Provisioning Profile App ID:"
-          /usr/libexec/PlistBuddy \
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy \
             -c "Print :Entitlements:application-identifier" \
-            "$PROFILE_PLIST"
+            "$PROFILE_PLIST")
+
+          echo "Provisioning Profile UUID: $UUID"
+          echo "Provisioning Profile Name: $PROFILE_NAME"
+          echo "Provisioning Profile App ID: $APP_IDENTIFIER"
 
           mkdir -p \
             "$HOME/Library/MobileDevice/Provisioning Profiles"
@@ -132,55 +132,11 @@ jobs:
 
           echo "Provisioning profile installed successfully."
 
-      - name: Configure Manual Code Signing
+      - name: Prepare Flutter iOS Project
         run: |
-          PROJECT_FILE="ios/Runner.xcodeproj/project.pbxproj"
-
-          echo "Configuring manual code signing..."
-
-          python3 - "$PROJECT_FILE" <<'PY'
-          import sys
-          from pathlib import Path
-
-          project_file = Path(sys.argv[1])
-          content = project_file.read_text()
-
-          # Force manual signing.
-          content = content.replace(
-              "CODE_SIGN_STYLE = Automatic;",
-              "CODE_SIGN_STYLE = Manual;"
-          )
-
-          # Set Apple Developer Team.
-          content = content.replace(
-              "DEVELOPMENT_TEAM = 3833542F6K;",
-              "DEVELOPMENT_TEAM = 3833542F6K;"
-          )
-
-          # Add/update distribution signing identity.
-          if "CODE_SIGN_IDENTITY = \"Apple Distribution\";" not in content:
-              content = content.replace(
-                  "CODE_SIGN_STYLE = Manual;",
-                  "CODE_SIGN_STYLE = Manual;\n"
-                  "\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";"
-              )
-
-          # Add provisioning profile if not already present.
-          if "PROVISIONING_PROFILE_SPECIFIER = CloudSenseVis_AppStore;" not in content:
-              content = content.replace(
-                  "CODE_SIGN_STYLE = Manual;",
-                  "CODE_SIGN_STYLE = Manual;\n"
-                  "\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = CloudSenseVis_AppStore;"
-              )
-
-          project_file.write_text(content)
-          PY
-
-          echo "Checking Runner signing settings..."
-
-          grep -n \
-            -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER" \
-            "$PROJECT_FILE" || true
+          flutter build ios \
+            --release \
+            --config-only
 
       - name: Create ExportOptions.plist
         run: |
@@ -207,11 +163,50 @@ jobs:
           </plist>
           EOF
 
-      - name: Build Signed IPA
+      - name: Verify Xcode Manual Signing Settings
         run: |
-          flutter build ipa \
-            --release \
-            --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -showBuildSettings \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM=3833542F6K \
+            PROVISIONING_PROFILE_SPECIFIER=CloudSenseVis_AppStore \
+            | grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
+
+      - name: Archive Signed iOS App
+        run: |
+          mkdir -p build/ios/archive
+
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$PWD/build/ios/archive/CloudSenseVis.xcarchive" \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM=3833542F6K \
+            PROVISIONING_PROFILE_SPECIFIER=CloudSenseVis_AppStore \
+            CODE_SIGNING_ALLOWED=YES
+
+      - name: Export Signed IPA
+        run: |
+          mkdir -p build/ios/ipa
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$PWD/build/ios/archive/CloudSenseVis.xcarchive" \
+            -exportPath "$PWD/build/ios/ipa" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Verify IPA
+        run: |
+          echo "Generated IPA files:"
+          ls -lh build/ios/ipa/
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
