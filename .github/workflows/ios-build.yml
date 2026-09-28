@@ -1,0 +1,52 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter Installation
+        run: flutter --version
+
+      - name: Verify Xcode Installation
+        run: xcodebuild -version
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods Dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Build iOS App
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          mkdir -p build/ios/iphoneos/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -r CloudSense-iOS-Release.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloudSense-iOS-Release
+          path: build/ios/iphoneos/CloudSense-iOS-Release.ipa
+          retention-days: 14
