@@ -70,7 +70,8 @@ jobs:
             -k "$KEYCHAIN_PATH"
 
           security set-key-partition-list \
-            -S apple-tool:,apple: \
+            -S apple-tool:,apple:,codesign: \
+            -s \
             -k "$KEYCHAIN_PASSWORD" \
             "$KEYCHAIN_PATH"
 
