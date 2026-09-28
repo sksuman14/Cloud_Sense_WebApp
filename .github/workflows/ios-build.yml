@@ -108,8 +108,6 @@ jobs:
             -i "$PP_PATH" \
             > "$PROFILE_PLIST"
 
-          echo "Reading provisioning profile..."
-
           UUID=$(/usr/libexec/PlistBuddy \
             -c "Print :UUID" \
             "$PROFILE_PLIST")
@@ -126,8 +124,6 @@ jobs:
             -c "Print :Entitlements:application-identifier" \
             "$PROFILE_PLIST"
 
-          echo "Installing provisioning profile..."
-
           mkdir -p \
             "$HOME/Library/MobileDevice/Provisioning Profiles"
 
@@ -135,6 +131,56 @@ jobs:
             "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
 
           echo "Provisioning profile installed successfully."
+
+      - name: Configure Manual Code Signing
+        run: |
+          PROJECT_FILE="ios/Runner.xcodeproj/project.pbxproj"
+
+          echo "Configuring manual code signing..."
+
+          python3 - "$PROJECT_FILE" <<'PY'
+          import sys
+          from pathlib import Path
+
+          project_file = Path(sys.argv[1])
+          content = project_file.read_text()
+
+          # Force manual signing.
+          content = content.replace(
+              "CODE_SIGN_STYLE = Automatic;",
+              "CODE_SIGN_STYLE = Manual;"
+          )
+
+          # Set Apple Developer Team.
+          content = content.replace(
+              "DEVELOPMENT_TEAM = 3833542F6K;",
+              "DEVELOPMENT_TEAM = 3833542F6K;"
+          )
+
+          # Add/update distribution signing identity.
+          if "CODE_SIGN_IDENTITY = \"Apple Distribution\";" not in content:
+              content = content.replace(
+                  "CODE_SIGN_STYLE = Manual;",
+                  "CODE_SIGN_STYLE = Manual;\n"
+                  "\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";"
+              )
+
+          # Add provisioning profile if not already present.
+          if "PROVISIONING_PROFILE_SPECIFIER = CloudSenseVis_AppStore;" not in content:
+              content = content.replace(
+                  "CODE_SIGN_STYLE = Manual;",
+                  "CODE_SIGN_STYLE = Manual;\n"
+                  "\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = CloudSenseVis_AppStore;"
+              )
+
+          project_file.write_text(content)
+          PY
+
+          echo "Checking Runner signing settings..."
+
+          grep -n \
+            -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER" \
+            "$PROJECT_FILE" || true
 
       - name: Create ExportOptions.plist
         run: |
