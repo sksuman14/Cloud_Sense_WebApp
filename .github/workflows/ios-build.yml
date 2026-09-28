@@ -138,6 +138,48 @@ jobs:
             --release \
             --config-only
 
+      - name: Configure Runner Manual Signing
+        run: |
+          cd ios
+
+          ruby <<'RUBY'
+          require 'xcodeproj'
+
+          project_path = 'Runner.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+
+          runner_target = project.targets.find { |target| target.name == 'Runner' }
+
+          if runner_target.nil?
+            abort 'ERROR: Runner target was not found.'
+          end
+
+          runner_target.build_configurations.each do |config|
+            config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+            config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
+            config.build_settings['DEVELOPMENT_TEAM'] = '3833542F6K'
+            config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'CloudSenseVis_AppStore'
+          end
+
+          project.save
+
+          puts 'Runner target configured for manual signing.'
+          RUBY
+
+          cd ..
+
+      - name: Verify Runner Signing Settings
+        run: |
+          echo "Runner signing settings:"
+
+          xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -target Runner \
+            -configuration Release \
+            -showBuildSettings \
+            | grep -E \
+              "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
+
       - name: Create ExportOptions.plist
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<'EOF'
@@ -163,19 +205,6 @@ jobs:
           </plist>
           EOF
 
-      - name: Verify Xcode Manual Signing Settings
-        run: |
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -showBuildSettings \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM=3833542F6K \
-            PROVISIONING_PROFILE_SPECIFIER=CloudSenseVis_AppStore \
-            | grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
-
       - name: Archive Signed iOS App
         run: |
           mkdir -p build/ios/archive
@@ -186,12 +215,7 @@ jobs:
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$PWD/build/ios/archive/CloudSenseVis.xcarchive" \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM=3833542F6K \
-            PROVISIONING_PROFILE_SPECIFIER=CloudSenseVis_AppStore \
-            CODE_SIGNING_ALLOWED=YES
+            archive
 
       - name: Export Signed IPA
         run: |
