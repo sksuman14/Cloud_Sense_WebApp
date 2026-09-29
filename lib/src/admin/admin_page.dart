@@ -75,6 +75,9 @@ class _AdminPageState extends State<AdminPage> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _devicesSectionKey = GlobalKey();
   final GlobalKey _usersSectionKey = GlobalKey();
+  final GlobalKey _alertsSectionKey = GlobalKey();
+  final GlobalKey _qualitySectionKey = GlobalKey();
+  final GlobalKey _healthSectionKey = GlobalKey();
   int devicesToShow = 12;
   int usersToShow = 12;
   String? selectedCategory;
@@ -93,6 +96,8 @@ class _AdminPageState extends State<AdminPage> {
   List<Map<String, dynamic>> _criticalDevices = [];
   bool _isQualityLoading = false;
   bool _isHealthLoading = false;
+  bool _showAllQualityAlerts = false;
+  bool _showAllHealthAlerts = false;
 
   bool get _hideSensitiveSections {
     if (_currentUserEmail == null) return false;
@@ -626,6 +631,7 @@ class _AdminPageState extends State<AdminPage> {
       }
 
       Widget qualitySection = Column(
+        key: _qualitySectionKey,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -633,39 +639,102 @@ class _AdminPageState extends State<AdminPage> {
             children: [
               _buildQualityListHeader("Quality Alerts", Colors.redAccent,
                   strong, allQualityAlerts.length),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                width: constraints.maxWidth < 450
-                    ? (alertSearchQuery.isEmpty ? 50 : 140)
-                    : 220,
-                height: 32,
-                child: TextField(
-                  onChanged: (val) {
-                    setState(() {
-                      alertSearchQuery = val;
-                    });
-                  },
-                  style: TextStyle(color: strong, fontSize: 12),
-                  decoration: InputDecoration(
-                    hintText: constraints.maxWidth < 450
-                        ? ""
-                        : "Search ID or parameter...",
-                    hintStyle: TextStyle(color: subtle, fontSize: 12),
-                    prefixIcon: Icon(Icons.search, size: 16, color: subtle),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    enabledBorder: OutlineInputBorder(
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (allQualityAlerts.isNotEmpty) ...[
+                    InkWell(
+                      onTap: () {
+                        if (_showAllQualityAlerts) {
+                          _collapseQualityAlerts();
+                        } else {
+                          setState(() {
+                            _showAllQualityAlerts = true;
+                          });
+                        }
+                      },
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: strong.withOpacity(0.1)),
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _showAllQualityAlerts
+                              ? Colors.redAccent.withOpacity(0.18)
+                              : (isDark
+                                  ? Colors.white.withOpacity(0.06)
+                                  : Colors.black.withOpacity(0.04)),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _showAllQualityAlerts
+                                ? Colors.redAccent
+                                : strong.withOpacity(0.15),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showAllQualityAlerts
+                                  ? Icons.unfold_less_rounded
+                                  : Icons.unfold_more_rounded,
+                              size: 14,
+                              color: _showAllQualityAlerts
+                                  ? Colors.redAccent
+                                  : strong,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _showAllQualityAlerts ? "Show Less" : "Show All",
+                              style: TextStyle(
+                                color: _showAllQualityAlerts
+                                    ? Colors.redAccent
+                                    : strong,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide:
-                          BorderSide(color: Colors.redAccent.withOpacity(0.5)),
+                    const SizedBox(width: 8),
+                  ],
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    width: constraints.maxWidth < 450
+                        ? (alertSearchQuery.isEmpty ? 50 : 130)
+                        : (constraints.maxWidth < 600 ? 140 : 180),
+                    height: 32,
+                    child: TextField(
+                      onChanged: (val) {
+                        setState(() {
+                          alertSearchQuery = val;
+                        });
+                      },
+                      style: TextStyle(color: strong, fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: constraints.maxWidth < 450
+                            ? ""
+                            : "Search ID or parameter...",
+                        hintStyle: TextStyle(color: subtle, fontSize: 12),
+                        prefixIcon: Icon(Icons.search, size: 16, color: subtle),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 0),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              BorderSide(color: strong.withOpacity(0.1)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                              color: Colors.redAccent.withOpacity(0.5)),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -676,13 +745,57 @@ class _AdminPageState extends State<AdminPage> {
               child: Text("No matching alerts found.",
                   style: TextStyle(color: subtle, fontSize: 12)),
             )
-          else
-            _buildHorizontalQualityList(
-                allQualityAlerts, strong, subtle, cardColor, isDark),
+          else ...[
+            if (_showAllQualityAlerts)
+              _buildExpandedQualityList(
+                  allQualityAlerts, strong, subtle, cardColor, isDark)
+            else
+              _buildHorizontalQualityList(
+                  allQualityAlerts, strong, subtle, cardColor, isDark),
+            if (_showAllQualityAlerts)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: _collapseQualityAlerts,
+                    icon: const Icon(Icons.expand_less_rounded, size: 16),
+                    label: const Text("Show Less"),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              )
+            else if (allQualityAlerts.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _showAllQualityAlerts = true),
+                    icon: const Icon(Icons.expand_more_rounded, size: 16),
+                    label: Text(
+                        "Show All (${allQualityAlerts.length} alerts)"),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       );
 
       Widget healthSection = Column(
+        key: _healthSectionKey,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -690,37 +803,102 @@ class _AdminPageState extends State<AdminPage> {
             children: [
               _buildQualityListHeader("Health Alerts", Colors.orange, strong,
                   allHealthAlerts.length),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                width: constraints.maxWidth < 450
-                    ? (healthAlertSearchQuery.isEmpty ? 50 : 140)
-                    : 200,
-                height: 32,
-                child: TextField(
-                  onChanged: (val) {
-                    setState(() {
-                      healthAlertSearchQuery = val;
-                    });
-                  },
-                  style: TextStyle(color: strong, fontSize: 12),
-                  decoration: InputDecoration(
-                    hintText: constraints.maxWidth < 450 ? "" : "Search ID...",
-                    hintStyle: TextStyle(color: subtle, fontSize: 12),
-                    prefixIcon: Icon(Icons.search, size: 16, color: subtle),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    enabledBorder: OutlineInputBorder(
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (allHealthAlerts.isNotEmpty) ...[
+                    InkWell(
+                      onTap: () {
+                        if (_showAllHealthAlerts) {
+                          _collapseHealthAlerts();
+                        } else {
+                          setState(() {
+                            _showAllHealthAlerts = true;
+                          });
+                        }
+                      },
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: strong.withOpacity(0.1)),
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _showAllHealthAlerts
+                              ? Colors.orange.withOpacity(0.18)
+                              : (isDark
+                                  ? Colors.white.withOpacity(0.06)
+                                  : Colors.black.withOpacity(0.04)),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _showAllHealthAlerts
+                                ? Colors.orange
+                                : strong.withOpacity(0.15),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showAllHealthAlerts
+                                  ? Icons.unfold_less_rounded
+                                  : Icons.unfold_more_rounded,
+                              size: 14,
+                              color: _showAllHealthAlerts
+                                  ? Colors.orange
+                                  : strong,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _showAllHealthAlerts ? "Show Less" : "Show All",
+                              style: TextStyle(
+                                color: _showAllHealthAlerts
+                                    ? Colors.orange
+                                    : strong,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide:
-                          BorderSide(color: Colors.orange.withOpacity(0.5)),
+                    const SizedBox(width: 8),
+                  ],
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    width: constraints.maxWidth < 450
+                        ? (healthAlertSearchQuery.isEmpty ? 50 : 130)
+                        : (constraints.maxWidth < 600 ? 140 : 180),
+                    height: 32,
+                    child: TextField(
+                      onChanged: (val) {
+                        setState(() {
+                          healthAlertSearchQuery = val;
+                        });
+                      },
+                      style: TextStyle(color: strong, fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText:
+                            constraints.maxWidth < 450 ? "" : "Search ID...",
+                        hintStyle: TextStyle(color: subtle, fontSize: 12),
+                        prefixIcon:
+                            Icon(Icons.search, size: 16, color: subtle),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 0),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              BorderSide(color: strong.withOpacity(0.1)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                              color: Colors.orange.withOpacity(0.5)),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -731,13 +909,57 @@ class _AdminPageState extends State<AdminPage> {
               child: Text("No matching alerts found.",
                   style: TextStyle(color: subtle, fontSize: 12)),
             )
-          else
-            _buildHorizontalHealthList(
-                allHealthAlerts, strong, subtle, cardColor, isDark),
+          else ...[
+            if (_showAllHealthAlerts)
+              _buildExpandedHealthList(
+                  allHealthAlerts, strong, subtle, cardColor, isDark)
+            else
+              _buildHorizontalHealthList(
+                  allHealthAlerts, strong, subtle, cardColor, isDark),
+            if (_showAllHealthAlerts)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: _collapseHealthAlerts,
+                    icon: const Icon(Icons.expand_less_rounded, size: 16),
+                    label: const Text("Show Less"),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              )
+            else if (allHealthAlerts.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _showAllHealthAlerts = true),
+                    icon: const Icon(Icons.expand_more_rounded, size: 16),
+                    label:
+                        Text("Show All (${allHealthAlerts.length} alerts)"),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       );
 
       return _SectionCard(
+        key: _alertsSectionKey,
         title: "Device Alerts (Current)",
         cardColor: cardColor,
         strong: strong,
@@ -777,10 +999,134 @@ class _AdminPageState extends State<AdminPage> {
     });
   }
 
+  Widget _buildHealthCard(Map<String, dynamic> device, Color strong,
+      Color subtle, Color cardColor, bool isDark,
+      {double? width}) {
+    final deviceId =
+        (device['deviceId'] ?? device['DeviceId'])?.toString() ?? 'Unknown';
+    final rawTopic = (device['deviceId_topic'] ??
+                device['deviceid#topic'] ??
+                device['Topic'])
+            ?.toString() ??
+        '';
+    final status =
+        (device['health_status']?.toString() ?? 'OFFLINE').toUpperCase();
+    final color = status == 'OFFLINE' ? Colors.grey : Colors.redAccent;
+
+    String cleanTopic = '';
+    if (rawTopic.isNotEmpty && rawTopic != 'Unknown') {
+      cleanTopic =
+          rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
+    }
+
+    final sensorName =
+        DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
+    if (cleanTopic.isEmpty) {
+      cleanTopic =
+          DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
+    }
+    final displayName = _toAnnamDisplayName(sensorName);
+
+    return InkWell(
+      onTap: () {
+        final targetTopic = cleanTopic.isNotEmpty
+            ? (rawTopic.contains('#') ? rawTopic : "$deviceId#$cleanTopic")
+            : rawTopic;
+        showDeviceHealthDetailDialog(context, targetTopic, isDark);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: width ?? 210,
+        height: 108,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.black.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Tooltip(
+                    message: cleanTopic.isNotEmpty
+                        ? "$displayName ($cleanTopic)"
+                        : displayName,
+                    child: Text(
+                      displayName,
+                      style: TextStyle(
+                          color: strong,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                        color: color, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            if (cleanTopic.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Tooltip(
+                message: cleanTopic,
+                child: Text(
+                  "($cleanTopic)",
+                  style: TextStyle(
+                    color: isDark
+                        ? const Color(0xFF38BDF8)
+                        : const Color(0xFF0284C7),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.history, size: 10, color: subtle),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    _getRelativeTime(device),
+                    style: TextStyle(color: subtle, fontSize: 9),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHorizontalHealthList(List<Map<String, dynamic>> devices,
       Color strong, Color subtle, Color cardColor, bool isDark) {
     return SizedBox(
-      height: 120,
+      height: 122,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
           dragDevices: {
@@ -793,131 +1139,49 @@ class _AdminPageState extends State<AdminPage> {
           scrollDirection: Axis.horizontal,
           itemCount: devices.length,
           itemBuilder: (context, index) {
-            final device = devices[index];
-            final deviceId =
-                (device['deviceId'] ?? device['DeviceId'])?.toString() ??
-                    'Unknown';
-            final rawTopic = (device['deviceId_topic'] ??
-                        device['deviceid#topic'] ??
-                        device['Topic'])
-                    ?.toString() ??
-                '';
-            final status = (device['health_status']?.toString() ?? 'OFFLINE')
-                .toUpperCase();
-            final color = status == 'OFFLINE' ? Colors.grey : Colors.redAccent;
-
-            String cleanTopic = '';
-            if (rawTopic.isNotEmpty && rawTopic != 'Unknown') {
-              cleanTopic = rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
-            }
-
-            final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
-            if (cleanTopic.isEmpty) {
-              cleanTopic = DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
-            }
-            final displayName = _toAnnamDisplayName(sensorName);
-
             return Padding(
               padding: const EdgeInsets.only(right: 12.0),
-              child: InkWell(
-                onTap: () {
-                  final targetTopic = cleanTopic.isNotEmpty
-                      ? (rawTopic.contains('#') ? rawTopic : "$deviceId#$cleanTopic")
-                      : rawTopic;
-                  showDeviceHealthDetailDialog(context, targetTopic, isDark);
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 210,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.black.withOpacity(0.03),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Tooltip(
-                              message: cleanTopic.isNotEmpty
-                                  ? "$displayName ($cleanTopic)"
-                                  : displayName,
-                              child: Text(
-                                displayName,
-                                style: TextStyle(
-                                    color: strong,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              status,
-                              style: TextStyle(
-                                  color: color,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (cleanTopic.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Tooltip(
-                          message: cleanTopic,
-                          child: Text(
-                            "($cleanTopic)",
-                            style: TextStyle(
-                              color: isDark
-                                  ? const Color(0xFF38BDF8)
-                                  : const Color(0xFF0284C7),
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'monospace',
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.history, size: 10, color: subtle),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              _getRelativeTime(device),
-                              style: TextStyle(color: subtle, fontSize: 9),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              child: _buildHealthCard(
+                devices[index],
+                strong,
+                subtle,
+                cardColor,
+                isDark,
+                width: 210,
               ),
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildExpandedHealthList(List<Map<String, dynamic>> devices,
+      Color strong, Color subtle, Color cardColor, bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double maxW = constraints.maxWidth;
+        final double cardWidth = maxW < 450
+            ? maxW
+            : (maxW > 550
+                ? 210.0
+                : ((maxW - 12) / 2).clamp(180.0, 240.0));
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: devices.map((device) {
+            return _buildHealthCard(
+              device,
+              strong,
+              subtle,
+              cardColor,
+              isDark,
+              width: cardWidth,
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -981,6 +1245,176 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
+  Widget _buildQualityCard(Map<String, dynamic> device, Color strong,
+      Color subtle, Color cardColor, bool isDark,
+      {double? width}) {
+    final deviceId =
+        (device['deviceId'] ?? device['DeviceId'])?.toString() ?? 'Unknown';
+    final rawTopic = (device['topic'] ?? device['Topic'])?.toString() ?? '';
+    final timestamp =
+        (device['timestamp'] ?? device['TimeStamp_IST'])?.toString() ?? '';
+    final status =
+        (device['latest_flag']?.toString() ?? 'SUSPECT').toUpperCase();
+    final color = status == 'ERRONEOUS'
+        ? Colors.redAccent
+        : status == 'CORRECTED'
+            ? Colors.blueAccent
+            : Colors.orangeAccent;
+
+    final flaggedFields =
+        Map<String, dynamic>.from(device['flagged_fields'] ?? {});
+
+    // Extract parameter names that are not 'GOOD'
+    final flaggedParams = flaggedFields.entries
+        .where((e) {
+          final val = e.value;
+          final flag =
+              val is Map ? (val['flag']?.toString() ?? '') : val.toString();
+          return flag.toUpperCase() != 'GOOD' &&
+              !e.key.toLowerCase().contains('spatial');
+        })
+        .map((e) => _getDisplayName(e.key))
+        .join(', ');
+
+    String cleanTopic = '';
+    if (rawTopic.isNotEmpty && rawTopic != 'Unknown') {
+      cleanTopic =
+          rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
+    }
+
+    final sensorName =
+        DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
+    if (cleanTopic.isEmpty) {
+      cleanTopic =
+          DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
+    }
+    final displayName = _toAnnamDisplayName(sensorName);
+
+    return InkWell(
+      onTap: () {
+        NavigationUtils.navigateTo(
+          context,
+          '/admin/health/quality-diagnostics',
+          arguments: {
+            'deviceId': deviceId,
+            'deviceIdTopic': cleanTopic.isNotEmpty
+                ? "$deviceId#$cleanTopic"
+                : "$deviceId#$rawTopic",
+            'displayName': cleanTopic.isNotEmpty
+                ? "$displayName ($cleanTopic)"
+                : displayName,
+            'isDark': isDark,
+            'fromAdminPage': true,
+          },
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: width ?? 210,
+        height: 108,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Tooltip(
+                    message: cleanTopic.isNotEmpty
+                        ? "$displayName ($cleanTopic)"
+                        : displayName,
+                    child: Text(
+                      displayName,
+                      style: TextStyle(
+                          color: strong,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                        color: color, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            if (cleanTopic.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Tooltip(
+                message: cleanTopic,
+                child: Text(
+                  "($cleanTopic)",
+                  style: TextStyle(
+                    color: isDark
+                        ? const Color(0xFF38BDF8)
+                        : const Color(0xFF0284C7),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+            if (flaggedParams.isNotEmpty)
+              Tooltip(
+                message: "Issues: $flaggedParams",
+                child: Text(
+                  "Issues: $flaggedParams",
+                  style: TextStyle(
+                      color: color, fontSize: 10, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              )
+            else
+              const SizedBox.shrink(),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 10, color: subtle),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    timestamp,
+                    style: TextStyle(color: subtle, fontSize: 9),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHorizontalQualityList(List<Map<String, dynamic>> devices,
       Color strong, Color subtle, Color cardColor, bool isDark) {
     return SizedBox(
@@ -997,182 +1431,49 @@ class _AdminPageState extends State<AdminPage> {
           scrollDirection: Axis.horizontal,
           itemCount: devices.length,
           itemBuilder: (context, index) {
-            final device = devices[index];
-            final deviceId =
-                (device['deviceId'] ?? device['DeviceId'])?.toString() ??
-                    'Unknown';
-            final rawTopic =
-                (device['topic'] ?? device['Topic'])?.toString() ?? '';
-            final timestamp =
-                (device['timestamp'] ?? device['TimeStamp_IST'])?.toString() ??
-                    '';
-            final status =
-                (device['latest_flag']?.toString() ?? 'SUSPECT').toUpperCase();
-            final color = status == 'ERRONEOUS'
-                ? Colors.redAccent
-                : status == 'CORRECTED'
-                    ? Colors.blueAccent
-                    : Colors.orangeAccent;
-
-            final flaggedFields =
-                Map<String, dynamic>.from(device['flagged_fields'] ?? {});
-
-            // Extract parameter names that are not 'GOOD'
-            final flaggedParams = flaggedFields.entries
-                .where((e) {
-                  final val = e.value;
-                  final flag = val is Map
-                      ? (val['flag']?.toString() ?? '')
-                      : val.toString();
-                  return flag.toUpperCase() != 'GOOD' &&
-                      !e.key.toLowerCase().contains('spatial');
-                })
-                .map((e) => _getDisplayName(e.key))
-                .join(', ');
-
-            String cleanTopic = '';
-            if (rawTopic.isNotEmpty && rawTopic != 'Unknown') {
-              cleanTopic = rawTopic.contains('#') ? rawTopic.split('#').last : rawTopic;
-            }
-
-            final sensorName = DevicePrefixUtils.resolveSensorName(deviceId, cleanTopic);
-            if (cleanTopic.isEmpty) {
-              cleanTopic = DevicePrefixUtils.buildTopicFromSensorName(sensorName).split('#').last;
-            }
-            final displayName = _toAnnamDisplayName(sensorName);
-
             return Padding(
               padding: const EdgeInsets.only(right: 12.0),
-              child: InkWell(
-                onTap: () {
-                  NavigationUtils.navigateTo(
-                    context,
-                    '/admin/health/quality-diagnostics',
-                    arguments: {
-                      'deviceId': deviceId,
-                      'deviceIdTopic': cleanTopic.isNotEmpty
-                          ? "$deviceId#$cleanTopic"
-                          : "$deviceId#$rawTopic",
-                      'displayName': cleanTopic.isNotEmpty
-                          ? "$displayName ($cleanTopic)"
-                          : displayName,
-                      'isDark': isDark,
-                      'fromAdminPage': true,
-                    },
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 210,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration( 
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withOpacity(0.3)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Tooltip(
-                              message: cleanTopic.isNotEmpty
-                                  ? "$displayName ($cleanTopic)"
-                                  : displayName,
-                              child: Text(
-                                displayName,
-                                style: TextStyle(
-                                    color: strong,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              status,
-                              style: TextStyle(
-                                  color: color,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (cleanTopic.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Tooltip(
-                          message: cleanTopic,
-                          child: Text(
-                            "($cleanTopic)",
-                            style: TextStyle(
-                              color: isDark
-                                  ? const Color(0xFF38BDF8)
-                                  : const Color(0xFF0284C7),
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'monospace',
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-
-                      if (flaggedParams.isNotEmpty)
-                        Tooltip(
-                          message: "Issues: $flaggedParams",
-                          child: Text(
-                            "Issues: $flaggedParams",
-                            style: TextStyle(
-                                color: color,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-                      Row(
-                        children: [
-                          Icon(Icons.access_time, size: 10, color: subtle),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              timestamp,
-                              style: TextStyle(color: subtle, fontSize: 9),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              child: _buildQualityCard(
+                devices[index],
+                strong,
+                subtle,
+                cardColor,
+                isDark,
+                width: 210,
               ),
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildExpandedQualityList(List<Map<String, dynamic>> devices,
+      Color strong, Color subtle, Color cardColor, bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double maxW = constraints.maxWidth;
+        final double cardWidth = maxW < 450
+            ? maxW
+            : (maxW > 550
+                ? 210.0
+                : ((maxW - 12) / 2).clamp(180.0, 240.0));
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: devices.map((device) {
+            return _buildQualityCard(
+              device,
+              strong,
+              subtle,
+              cardColor,
+              isDark,
+              width: cardWidth,
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -1369,15 +1670,40 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  void _scrollToSection(GlobalKey key) {
+  void _scrollToSection(GlobalKey key, {double alignment = 0.0}) {
     final context = key.currentContext;
     if (context != null) {
       Scrollable.ensureVisible(
         context,
-        duration: const Duration(milliseconds: 500),
+        alignment: alignment,
+        duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  void _collapseQualityAlerts() {
+    setState(() {
+      _showAllQualityAlerts = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final targetKey = _qualitySectionKey.currentContext != null
+          ? _qualitySectionKey
+          : _alertsSectionKey;
+      _scrollToSection(targetKey, alignment: 0.05);
+    });
+  }
+
+  void _collapseHealthAlerts() {
+    setState(() {
+      _showAllHealthAlerts = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final targetKey = _healthSectionKey.currentContext != null
+          ? _healthSectionKey
+          : _alertsSectionKey;
+      _scrollToSection(targetKey, alignment: 0.05);
+    });
   }
 
   static const Map<String, String> parameterDisplayNames = {
