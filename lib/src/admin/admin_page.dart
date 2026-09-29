@@ -615,6 +615,12 @@ class _AdminPageState extends State<AdminPage> {
           _correctedDevices.isNotEmpty;
       final bool hasHealthAlerts =
           _offlineDevices.isNotEmpty || _criticalDevices.isNotEmpty;
+      final bool isTwoColumn =
+          isLargeScreen && hasQualityAlerts && hasHealthAlerts;
+      final double subCardWidth = isTwoColumn
+          ? (constraints.maxWidth - 20) / 2
+          : constraints.maxWidth;
+      final bool showHeaderShowAll = subCardWidth >= 550;
 
       Widget buildSubCard(Widget content, Color color) {
         return Container(
@@ -635,76 +641,72 @@ class _AdminPageState extends State<AdminPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildQualityListHeader("Quality Alerts", Colors.redAccent,
                   strong, allQualityAlerts.length),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (allQualityAlerts.isNotEmpty) ...[
-                    InkWell(
-                      onTap: () {
-                        if (_showAllQualityAlerts) {
-                          _collapseQualityAlerts();
-                        } else {
-                          setState(() {
-                            _showAllQualityAlerts = true;
-                          });
-                        }
-                      },
+              const SizedBox(width: 8),
+              const Spacer(),
+              if (allQualityAlerts.isNotEmpty && showHeaderShowAll) ...[
+                InkWell(
+                  onTap: () {
+                    if (_showAllQualityAlerts) {
+                      _collapseQualityAlerts();
+                    } else {
+                      setState(() {
+                        _showAllQualityAlerts = true;
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _showAllQualityAlerts
+                          ? Colors.redAccent.withOpacity(0.18)
+                          : (isDark
+                              ? Colors.white.withOpacity(0.06)
+                              : Colors.black.withOpacity(0.04)),
                       borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 32,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: _showAllQualityAlerts
-                              ? Colors.redAccent.withOpacity(0.18)
-                              : (isDark
-                                  ? Colors.white.withOpacity(0.06)
-                                  : Colors.black.withOpacity(0.04)),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _showAllQualityAlerts
-                                ? Colors.redAccent
-                                : strong.withOpacity(0.15),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _showAllQualityAlerts
-                                  ? Icons.unfold_less_rounded
-                                  : Icons.unfold_more_rounded,
-                              size: 14,
-                              color: _showAllQualityAlerts
-                                  ? Colors.redAccent
-                                  : strong,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _showAllQualityAlerts ? "Show Less" : "Show All",
-                              style: TextStyle(
-                                color: _showAllQualityAlerts
-                                    ? Colors.redAccent
-                                    : strong,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                      border: Border.all(
+                        color: _showAllQualityAlerts
+                            ? Colors.redAccent
+                            : strong.withOpacity(0.15),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    width: constraints.maxWidth < 450
-                        ? (alertSearchQuery.isEmpty ? 50 : 130)
-                        : (constraints.maxWidth < 600 ? 140 : 180),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showAllQualityAlerts
+                              ? Icons.unfold_less_rounded
+                              : Icons.unfold_more_rounded,
+                          size: 14,
+                          color: _showAllQualityAlerts
+                              ? Colors.redAccent
+                              : strong,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _showAllQualityAlerts ? "Show Less" : "Show All",
+                          style: TextStyle(
+                            color: _showAllQualityAlerts
+                                ? Colors.redAccent
+                                : strong,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: SizedBox(
                     height: 32,
                     child: TextField(
                       onChanged: (val) {
@@ -714,11 +716,12 @@ class _AdminPageState extends State<AdminPage> {
                       },
                       style: TextStyle(color: strong, fontSize: 12),
                       decoration: InputDecoration(
-                        hintText: constraints.maxWidth < 450
-                            ? ""
+                        hintText: subCardWidth < 430
+                            ? "Search..."
                             : "Search ID or parameter...",
                         hintStyle: TextStyle(color: subtle, fontSize: 12),
-                        prefixIcon: Icon(Icons.search, size: 16, color: subtle),
+                        prefixIcon:
+                            Icon(Icons.search, size: 16, color: subtle),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 0),
                         enabledBorder: OutlineInputBorder(
@@ -734,7 +737,7 @@ class _AdminPageState extends State<AdminPage> {
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -799,76 +802,72 @@ class _AdminPageState extends State<AdminPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildQualityListHeader("Health Alerts", Colors.orange, strong,
                   allHealthAlerts.length),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (allHealthAlerts.isNotEmpty) ...[
-                    InkWell(
-                      onTap: () {
-                        if (_showAllHealthAlerts) {
-                          _collapseHealthAlerts();
-                        } else {
-                          setState(() {
-                            _showAllHealthAlerts = true;
-                          });
-                        }
-                      },
+              const SizedBox(width: 8),
+              const Spacer(),
+              if (allHealthAlerts.isNotEmpty && showHeaderShowAll) ...[
+                InkWell(
+                  onTap: () {
+                    if (_showAllHealthAlerts) {
+                      _collapseHealthAlerts();
+                    } else {
+                      setState(() {
+                        _showAllHealthAlerts = true;
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _showAllHealthAlerts
+                          ? Colors.orange.withOpacity(0.18)
+                          : (isDark
+                              ? Colors.white.withOpacity(0.06)
+                              : Colors.black.withOpacity(0.04)),
                       borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 32,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: _showAllHealthAlerts
-                              ? Colors.orange.withOpacity(0.18)
-                              : (isDark
-                                  ? Colors.white.withOpacity(0.06)
-                                  : Colors.black.withOpacity(0.04)),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _showAllHealthAlerts
-                                ? Colors.orange
-                                : strong.withOpacity(0.15),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _showAllHealthAlerts
-                                  ? Icons.unfold_less_rounded
-                                  : Icons.unfold_more_rounded,
-                              size: 14,
-                              color: _showAllHealthAlerts
-                                  ? Colors.orange
-                                  : strong,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _showAllHealthAlerts ? "Show Less" : "Show All",
-                              style: TextStyle(
-                                color: _showAllHealthAlerts
-                                    ? Colors.orange
-                                    : strong,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                      border: Border.all(
+                        color: _showAllHealthAlerts
+                            ? Colors.orange
+                            : strong.withOpacity(0.15),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    width: constraints.maxWidth < 450
-                        ? (healthAlertSearchQuery.isEmpty ? 50 : 130)
-                        : (constraints.maxWidth < 600 ? 140 : 180),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showAllHealthAlerts
+                              ? Icons.unfold_less_rounded
+                              : Icons.unfold_more_rounded,
+                          size: 14,
+                          color: _showAllHealthAlerts
+                              ? Colors.orange
+                              : strong,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _showAllHealthAlerts ? "Show Less" : "Show All",
+                          style: TextStyle(
+                            color: _showAllHealthAlerts
+                                ? Colors.orange
+                                : strong,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: SizedBox(
                     height: 32,
                     child: TextField(
                       onChanged: (val) {
@@ -878,8 +877,9 @@ class _AdminPageState extends State<AdminPage> {
                       },
                       style: TextStyle(color: strong, fontSize: 12),
                       decoration: InputDecoration(
-                        hintText:
-                            constraints.maxWidth < 450 ? "" : "Search ID...",
+                        hintText: subCardWidth < 430
+                            ? "Search..."
+                            : "Search ID...",
                         hintStyle: TextStyle(color: subtle, fontSize: 12),
                         prefixIcon:
                             Icon(Icons.search, size: 16, color: subtle),
@@ -898,7 +898,7 @@ class _AdminPageState extends State<AdminPage> {
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
