@@ -134,7 +134,7 @@ Future<void> subscribeToGpsSnsTopic(String fcmToken) async {
       Uri.parse(apiGatewayUrl),
       headers: {'Content-Type': 'application/json'},
       body: requestBody,
-    );
+    ).timeout(const Duration(seconds: 5));
 
     print(
         "Subscribe GPS API response: ${response.statusCode} - ${response.body}");
@@ -167,7 +167,7 @@ Future<void> unsubscribeFromGpsSnsTopic(String fcmToken) async {
       Uri.parse(apiGatewayUrl),
       headers: {'Content-Type': 'application/json'},
       body: requestBody,
-    );
+    ).timeout(const Duration(seconds: 5));
 
     print(
         "Unsubscribe GPS API response: ${response.statusCode} - ${response.body}");
@@ -196,7 +196,13 @@ Future<void> manageNotificationSubscription() async {
   }
 
   try {
-    String? token = await messaging.getToken();
+    String? token = await messaging.getToken().timeout(
+      const Duration(seconds: 4),
+      onTimeout: () {
+        print("⚠️ FCM getToken timed out in manageNotificationSubscription");
+        return null;
+      },
+    );
     if (token == null) {
       print("Failed to retrieve FCM token.");
       return;
@@ -265,7 +271,7 @@ Future<bool> userHasAmmoniaSensor(String email) async {
     var response = await http.get(
       Uri.parse(apiUrl),
       headers: {'Content-Type': 'application/json'},
-    );
+    ).timeout(const Duration(seconds: 5));
     print("Checking NH sensor for user: $email");
 
     if (response.statusCode == 200) {
@@ -324,7 +330,7 @@ Future<void> subscribeToSnsTopic(String fcmToken) async {
       Uri.parse(apiGatewayUrl),
       headers: {'Content-Type': 'application/json'},
       body: requestBody,
-    );
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       print("Device subscribed to ammonia SNS topic successfully.");
@@ -352,7 +358,7 @@ Future<void> unsubscribeFromSnsTopic(String fcmToken) async {
       Uri.parse(apiGatewayUrl),
       headers: {'Content-Type': 'application/json'},
       body: requestBody,
-    );
+    ).timeout(const Duration(seconds: 5));
     print("Unsubscribe ammonia API Response: ${response.body}");
 
     if (response.statusCode == 200) {
@@ -572,7 +578,9 @@ Future<String> determineInitialRoute() async {
     // ← ADD: verify user is still logged in before trusting lastRoute
     bool isAuthenticated = false;
     try {
-      var userAttributes = await Amplify.Auth.fetchUserAttributes();
+      var userAttributes = await Amplify.Auth.fetchUserAttributes().timeout(
+        const Duration(seconds: 2),
+      );
       String? email;
       String? name;
       for (var attr in userAttributes) {
@@ -628,29 +636,73 @@ Future<String> determineInitialRoute() async {
   }
 }
 
+Future<void> _initBackgroundServices() async {
+  try {
+    await setupNotifications();
+  } catch (e) {
+    print("Error setting up local notifications: $e");
+  }
+
+  if (!kIsWeb) {
+    try {
+      await PushNotifications().initNotifications();
+    } catch (e) {
+      print("Error in initNotifications: $e");
+    }
+
+    try {
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    } catch (e) {
+      print("Error in setForegroundNotificationPresentationOptions: $e");
+    }
+
+    try {
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      print("Error setting background handler: $e");
+    }
+
+    try {
+      await manageNotificationSubscription();
+    } catch (e) {
+      print("Error managing notification subscriptions: $e");
+    }
+
+    try {
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        print("FCM token refreshed: $newToken");
+        await manageNotificationSubscription();
+      });
+    } catch (e) {
+      print("Error listening to token refresh: $e");
+    }
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   setPathUrlStrategy();
 
-  await setupNotifications();
+  // ── Boost image cache: prevents repeated decode after navigation ──────────
+  PaintingBinding.instance.imageCache.maximumSize = 1000;            // images
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;  // 200 MB
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  if (!kIsWeb) {
-    await PushNotifications().initNotifications();
+  // 1. Fast initialization of Firebase core
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(const Duration(seconds: 3));
+  } catch (e) {
+    print('Firebase initialization error: $e');
   }
 
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
+  // 2. Local configuration of Amplify
   try {
     await Amplify.addPlugin(AmplifyAuthCognito());
     await Amplify.configure(amplifyconfig);
@@ -658,19 +710,18 @@ void main() async {
     print('Could not configure Amplify: $e');
   }
 
-  await manageNotificationSubscription();
+  // 3. Fast route determination with timeout fallback
+  String initialRoute = '/home';
+  try {
+    initialRoute = await determineInitialRoute().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => '/home',
+    );
+  } catch (e) {
+    print('Route determination error, defaulting to /home: $e');
+  }
 
-  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    print("FCM token refreshed: $newToken");
-    await manageNotificationSubscription();
-  });
-
-  String initialRoute = await determineInitialRoute();
-
-  // ── Boost image cache: prevents repeated decode after navigation ──────────
-  PaintingBinding.instance.imageCache.maximumSize = 1000;            // images
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;  // 200 MB
-
+  // 4. Render the App IMMEDIATELY! This dismisses iOS Splash Screen
   runApp(
     MultiProvider(
       providers: [
@@ -680,6 +731,9 @@ void main() async {
       child: MyApp(initialRoute: initialRoute),
     ),
   );
+
+  // 5. Run push notifications & subscription tasks silently in background
+  _initBackgroundServices();
 }
 
 class MyApp extends StatelessWidget {
