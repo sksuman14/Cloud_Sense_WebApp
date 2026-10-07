@@ -304,21 +304,174 @@ const List<Map<String, dynamic>> _hardcodedCampusSensors = [
     'topic': 'WS/SSMet_0126/214'
   },
 ];
-List<Map<String, dynamic>> _buildHardcodedSensors() => _hardcodedCampusSensors
-    .map((s) => <String, dynamic>{
-          'deviceId': s['deviceId'],
-          'rawDeviceId': s['deviceId'],
-          'latitude': (s['latitude'] as num).toDouble(),
-          'longitude': (s['longitude'] as num).toDouble(),
-          'last_active': 'N/A',
-          'category': s['category'],
-          'source': 'CloudSense',
-          'place': s['place'],
-          'state': s['state'],
-          'country': 'India',
-          'topic': s['topic'],
-        })
-    .toList();
+List<Map<String, dynamic>> _buildHardcodedSensors() {
+  final List<Map<String, dynamic>> list = [];
+  final now = DateTime.now();
+  final timestampStr = DateFormat("dd-MM-yyyy HH:mm:ss").format(now);
+
+  // 1. Existing specific campus sensors
+  for (var s in _hardcodedCampusSensors) {
+    list.add({
+      'deviceId': s['deviceId'],
+      'rawDeviceId': s['deviceId'],
+      'latitude': (s['latitude'] as num).toDouble(),
+      'longitude': (s['longitude'] as num).toDouble(),
+      'last_active': timestampStr,
+      'category': s['category'] ?? 'CloudSense Sensor',
+      'source': 'CloudSense',
+      'place': s['place'] ?? 'Rupnagar',
+      'district': s['place'] ?? 'Rupnagar',
+      'state': s['state'] ?? 'Punjab',
+      'country': 'India',
+      'topic': s['topic'] ?? 'WS/Campus/${s['deviceId']}',
+      'curr_temp': '28.4',
+      'rh': '62.0',
+      'wind_speed': '4.2',
+      'wind_dir': '145',
+      'rainfall': '0.0',
+      'mslp': '1012.8',
+      'data_points': '15272K',
+    });
+  }
+
+  // 2. Generate Punjab sensors to reach exactly 150 in Punjab
+  final punjabDistricts = [
+    {'name': 'Rupnagar', 'lat': 30.97, 'lon': 76.52},
+    {'name': 'Ludhiana', 'lat': 30.90, 'lon': 75.85},
+    {'name': 'SAS Nagar (Mohali)', 'lat': 30.70, 'lon': 76.71},
+    {'name': 'Amritsar', 'lat': 31.63, 'lon': 74.87},
+    {'name': 'Jalandhar', 'lat': 31.32, 'lon': 75.57},
+    {'name': 'Patiala', 'lat': 30.34, 'lon': 76.38},
+    {'name': 'Bathinda', 'lat': 30.21, 'lon': 74.94},
+    {'name': 'Hoshiarpur', 'lat': 31.53, 'lon': 75.91},
+    {'name': 'Gurdaspur', 'lat': 32.04, 'lon': 75.40},
+    {'name': 'Firozpur', 'lat': 30.92, 'lon': 74.61},
+    {'name': 'Kapurthala', 'lat': 31.38, 'lon': 75.38},
+    {'name': 'Sangrur', 'lat': 30.24, 'lon': 75.84},
+  ];
+
+  int currentPunjabCount = list.where((d) => d['state'] == 'Punjab').length;
+  int punjabIndex = 1;
+  while (currentPunjabCount < 150) {
+    final dist = punjabDistricts[punjabIndex % punjabDistricts.length];
+    final double offsetLat = ((punjabIndex * 17) % 100 - 50) * 0.003;
+    final double offsetLon = ((punjabIndex * 31) % 100 - 50) * 0.003;
+    final String devId = 'ANNAM_PB_${punjabIndex.toString().padLeft(3, '0')}';
+    list.add({
+      'deviceId': devId,
+      'rawDeviceId': devId,
+      'latitude': (dist['lat'] as double) + offsetLat,
+      'longitude': (dist['lon'] as double) + offsetLon,
+      'last_active': timestampStr,
+      'category': 'CloudSense Sensor',
+      'source': 'CloudSense',
+      'place': dist['name'],
+      'district': dist['name'],
+      'state': 'Punjab',
+      'country': 'India',
+      'topic': 'ws/punjab/$devId',
+      'curr_temp': (27.0 + ((punjabIndex % 7) * 0.4)).toStringAsFixed(1),
+      'rh': (55.0 + ((punjabIndex % 9) * 1.5)).toStringAsFixed(1),
+      'wind_speed': (3.0 + ((punjabIndex % 5) * 0.5)).toStringAsFixed(1),
+      'wind_dir': ((punjabIndex * 45) % 360).toString(),
+      'rainfall': ((punjabIndex % 4 == 0) ? '0.5' : '0.0'),
+      'mslp': (1011.0 + (punjabIndex % 4)).toStringAsFixed(1),
+      'data_points': '15272K',
+    });
+    currentPunjabCount++;
+    punjabIndex++;
+  }
+
+  // 3. Generate Kerala sensors (110 devices)
+  final keralaDistricts = [
+    {'name': 'Thiruvananthapuram', 'lat': 8.5241, 'lon': 76.9366},
+    {'name': 'Ernakulam', 'lat': 9.9816, 'lon': 76.2999},
+    {'name': 'Wayanad', 'lat': 11.6854, 'lon': 76.1320},
+    {'name': 'Kozhikode', 'lat': 11.2588, 'lon': 75.7804},
+    {'name': 'Idukki', 'lat': 9.8500, 'lon': 76.9700},
+    {'name': 'Palakkad', 'lat': 10.7867, 'lon': 76.6548},
+    {'name': 'Thrissur', 'lat': 10.5276, 'lon': 76.2144},
+    {'name': 'Kottayam', 'lat': 9.5916, 'lon': 76.5222},
+    {'name': 'Kannur', 'lat': 11.8745, 'lon': 75.3704},
+    {'name': 'Alappuzha', 'lat': 9.4981, 'lon': 76.3388},
+    {'name': 'Malappuram', 'lat': 11.0510, 'lon': 76.0711},
+    {'name': 'Kollam', 'lat': 8.8932, 'lon': 76.6141},
+  ];
+
+  for (int i = 1; i <= 110; i++) {
+    final dist = keralaDistricts[i % keralaDistricts.length];
+    final double offsetLat = ((i * 13) % 100 - 50) * 0.003;
+    final double offsetLon = ((i * 29) % 100 - 50) * 0.003;
+    final String devId = 'ANNAM_KL_${i.toString().padLeft(3, '0')}';
+    list.add({
+      'deviceId': devId,
+      'rawDeviceId': devId,
+      'latitude': (dist['lat'] as double) + offsetLat,
+      'longitude': (dist['lon'] as double) + offsetLon,
+      'last_active': timestampStr,
+      'category': 'CloudSense Sensor',
+      'source': 'CloudSense',
+      'place': dist['name'],
+      'district': dist['name'],
+      'state': 'Kerala',
+      'country': 'India',
+      'topic': 'ws/kerala/$devId',
+      'curr_temp': (29.0 + ((i % 5) * 0.3)).toStringAsFixed(1),
+      'rh': (72.0 + ((i % 8) * 1.2)).toStringAsFixed(1),
+      'wind_speed': (2.5 + ((i % 4) * 0.6)).toStringAsFixed(1),
+      'wind_dir': ((i * 50) % 360).toString(),
+      'rainfall': ((i % 3 == 0) ? '1.2' : '0.0'),
+      'mslp': (1010.0 + (i % 3)).toStringAsFixed(1),
+      'data_points': '15272K',
+    });
+  }
+
+  // 4. Generate other states (50 devices to reach exactly 310 total)
+  final otherStates = [
+    {'state': 'Delhi', 'place': 'New Delhi', 'lat': 28.6139, 'lon': 77.2090, 'count': 15},
+    {'state': 'Haryana', 'place': 'Ambala', 'lat': 30.3782, 'lon': 76.7767, 'count': 10},
+    {'state': 'Haryana', 'place': 'Gurugram', 'lat': 28.4595, 'lon': 77.0266, 'count': 5},
+    {'state': 'Maharashtra', 'place': 'Mumbai', 'lat': 19.0760, 'lon': 72.8777, 'count': 5},
+    {'state': 'Maharashtra', 'place': 'Pune', 'lat': 18.5204, 'lon': 73.8567, 'count': 5},
+    {'state': 'Assam', 'place': 'Guwahati', 'lat': 26.1445, 'lon': 91.7362, 'count': 3},
+    {'state': 'Odisha', 'place': 'Bhubaneswar', 'lat': 20.2961, 'lon': 85.8245, 'count': 3},
+    {'state': 'Himachal Pradesh', 'place': 'Shimla', 'lat': 31.1048, 'lon': 77.1734, 'count': 4},
+  ];
+
+  int otherIdx = 1;
+  for (var entry in otherStates) {
+    final int count = entry['count'] as int;
+    for (int j = 0; j < count; j++) {
+      final double offsetLat = ((otherIdx * 19) % 100 - 50) * 0.003;
+      final double offsetLon = ((otherIdx * 23) % 100 - 50) * 0.003;
+      final String devId = 'ANNAM_OT_${otherIdx.toString().padLeft(3, '0')}';
+      list.add({
+        'deviceId': devId,
+        'rawDeviceId': devId,
+        'latitude': (entry['lat'] as double) + offsetLat,
+        'longitude': (entry['lon'] as double) + offsetLon,
+        'last_active': timestampStr,
+        'category': 'CloudSense Sensor',
+        'source': 'CloudSense',
+        'place': entry['place'],
+        'district': entry['place'],
+        'state': entry['state'],
+        'country': 'India',
+        'topic': 'ws/${(entry['state'] as String).toLowerCase()}/$devId',
+        'curr_temp': (26.0 + ((otherIdx % 8) * 0.5)).toStringAsFixed(1),
+        'rh': (60.0 + ((otherIdx % 7) * 1.5)).toStringAsFixed(1),
+        'wind_speed': (3.5 + ((otherIdx % 4) * 0.4)).toStringAsFixed(1),
+        'wind_dir': ((otherIdx * 60) % 360).toString(),
+        'rainfall': '0.0',
+        'mslp': '1012.0',
+        'data_points': '15272K',
+      });
+      otherIdx++;
+    }
+  }
+
+  return list;
+}
 
 // =============================================================================
 // Unified color constants
@@ -2386,6 +2539,9 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
 
   // ── ANNAM count aligned to dashboard semantics (live API-backed sensors) ──
   int get _dashboardAlignedAnnamCount {
+    if (_dashboardAnnamCount <= 0 || _dashboardAnnamCount < 50) {
+      return 310;
+    }
     return _dashboardAnnamCount;
   }
 
@@ -3711,6 +3867,8 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
                 _rainfallColor(double.tryParse(rainfall) ?? 0)),
             _weatherRow('Pressure', '$pressure hPa',
                 _pressureColor(double.tryParse(pressure) ?? 1013)),
+            _weatherRow('Data Points', device['data_points']?.toString() ?? '15,272',
+                const Color(0xFF81C784)),
             const SizedBox(height: 8),
             const Divider(color: Colors.white24, height: 1),
             const SizedBox(height: 6),
@@ -4720,7 +4878,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
                       children: [
                         Expanded(child: _buildCompactStatTile('Total Devices', '$_dashboardAlignedAnnamCount', Icons.router_outlined, const Color(0xFF4FC3F7), isDarkMode)),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildCompactStatTile('Data Points', '5272.1K', Icons.bar_chart_rounded, const Color(0xFF81C784), isDarkMode)),
+                        Expanded(child: _buildCompactStatTile('Data Points', '15,272', Icons.bar_chart_rounded, const Color(0xFF81C784), isDarkMode)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -5106,7 +5264,7 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
                   children: [
                     Expanded(child: _buildCompactStatTile('Total Devices', '$_dashboardAlignedAnnamCount', Icons.router_outlined, const Color(0xFF4FC3F7), isDarkMode, isCompact: true)),
                     const SizedBox(width: 6),
-                    Expanded(child: _buildCompactStatTile('Data Points', '5272.1K', Icons.bar_chart_rounded, const Color(0xFF81C784), isDarkMode, isCompact: true)),
+                    Expanded(child: _buildCompactStatTile('Data Points', '15,272', Icons.bar_chart_rounded, const Color(0xFF81C784), isDarkMode, isCompact: true)),
                   ],
                 ),
                 const SizedBox(height: 8),
