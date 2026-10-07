@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 
 class DeviceHealthData {
   final String deviceId;
@@ -387,11 +388,16 @@ class _DeviceHealthStatusPageState extends State<DeviceHealthStatusPage> {
                 'https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity'))
             .catchError((e) {
           debugPrint("Error fetching device activity api: $e");
+          MaintenanceService.handleApiError('https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity', e);
           return http.Response('{"devices":[]}', 500);
         }),
       ];
 
       final results = await Future.wait(requests);
+
+      if (results.length > 1 && results[1].statusCode != 200) {
+        MaintenanceService.triggerMaintenance();
+      }
 
       if (results[0].statusCode == 200) {
         final healthResponse = json.decode(results[0].body);

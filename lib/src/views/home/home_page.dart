@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:cloud_sense_webapp/src/views/home/widgets/circular_product_carousel.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
+import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
 import 'package:cloud_sense_webapp/src/widgets/drawer.dart';
 import 'package:cloud_sense_webapp/src/widgets/footer.dart';
@@ -78,213 +79,16 @@ class _HomePageState extends State<HomePage> {
 
   Map<String, dynamic>? nearestDevice;
   String? errorMessage;
-  bool isLoading = false;
+  bool isLoading = true;
   String locationName = "Fetching location...";
   List devices = [];
   Map<String, dynamic>? selectedDevice;
   Timer? _pollingTimer;
   StreamSubscription<AuthHubEvent>? _authSubscription;
 
-  List<Map<String, dynamic>> _getDummyDevices() {
-    final now = DateTime.now();
-    final timestampStr = DateFormat("dd-MM-yyyy HH:mm:ss").format(now);
-    final ymdStr = DateFormat('yyyy-MM-dd').format(now);
-
-    return [
-      {
-        "deviceid#topic": "ANNAM_CP02#ws/punjab/ANNAM_CP02",
-        "DeviceId": "ANNAM_CP02",
-        "Device_ID": "ANNAM_CP02",
-        "ANNAM_ID": "ANNAM_CP02",
-        "Topic": "ws/punjab/ANNAM_CP02",
-        "Device_Status": "Active",
-        "BatteryVoltage": "4.15",
-        "Temperature": "28.4",
-        "CorrectedTemp": "28.4",
-        "CurrentTemperature": "28.4",
-        "Humidity": "62.0",
-        "CorrectedHumidity": "62.0",
-        "CurrentHumidity": "62.0",
-        "AtmPressure": "1012.8",
-        "CurrentPressure": "1012.8",
-        "WindSpeed": "4.2",
-        "NowWindSpeed": "4.2",
-        "WindDirection": "145",
-        "NowWindDirection": "145",
-        "Rainfall": "0.0",
-        "RainfallHourly": "0.0",
-        "RainfallDaily": "0.0",
-        "RainfallCumulative": "0.0",
-        "LightIntensity": "580",
-        "pm25": "24.5",
-        "pm10": "46.2",
-        "Latitude": 30.7333,
-        "Longitude": 76.7794,
-        "City": "Rupnagar",
-        "District": "Ropar",
-        "State": "Punjab",
-        "TimeStamp_IST": timestampStr,
-        "last_active": ymdStr,
-      },
-      {
-        "deviceid#topic": "ANNAM_01#ws/punjab/ANNAM_01",
-        "DeviceId": "ANNAM_01",
-        "Device_ID": "ANNAM_01",
-        "ANNAM_ID": "ANNAM_01",
-        "Topic": "ws/punjab/ANNAM_01",
-        "Device_Status": "Active",
-        "BatteryVoltage": "4.08",
-        "Temperature": "29.1",
-        "CorrectedTemp": "29.1",
-        "CurrentTemperature": "29.1",
-        "Humidity": "58.5",
-        "CorrectedHumidity": "58.5",
-        "CurrentHumidity": "58.5",
-        "AtmPressure": "1011.5",
-        "CurrentPressure": "1011.5",
-        "WindSpeed": "5.1",
-        "NowWindSpeed": "5.1",
-        "WindDirection": "180",
-        "NowWindDirection": "180",
-        "Rainfall": "0.0",
-        "RainfallHourly": "0.0",
-        "RainfallDaily": "0.0",
-        "RainfallCumulative": "8.5",
-        "LightIntensity": "620",
-        "pm25": "32.0",
-        "pm10": "55.4",
-        "Latitude": 30.9010,
-        "Longitude": 75.8573,
-        "City": "Ludhiana",
-        "District": "Ludhiana",
-        "State": "Punjab",
-        "TimeStamp_IST": timestampStr,
-        "last_active": ymdStr,
-      },
-      {
-        "deviceid#topic": "ANNAM_02#ws/haryana/ANNAM_02",
-        "DeviceId": "ANNAM_02",
-        "Device_ID": "ANNAM_02",
-        "ANNAM_ID": "ANNAM_02",
-        "Topic": "ws/haryana/ANNAM_02",
-        "Device_Status": "Active",
-        "BatteryVoltage": "4.20",
-        "Temperature": "27.8",
-        "CorrectedTemp": "27.8",
-        "CurrentTemperature": "27.8",
-        "Humidity": "65.0",
-        "CorrectedHumidity": "65.0",
-        "CurrentHumidity": "65.0",
-        "AtmPressure": "1013.2",
-        "CurrentPressure": "1013.2",
-        "WindSpeed": "3.6",
-        "NowWindSpeed": "3.6",
-        "WindDirection": "120",
-        "NowWindDirection": "120",
-        "Rainfall": "0.0",
-        "RainfallHourly": "0.0",
-        "RainfallDaily": "0.0",
-        "RainfallCumulative": "22.1",
-        "LightIntensity": "490",
-        "pm25": "18.2",
-        "pm10": "38.7",
-        "Latitude": 30.3782,
-        "Longitude": 76.7767,
-        "City": "Ambala",
-        "District": "Ambala",
-        "State": "Haryana",
-        "TimeStamp_IST": timestampStr,
-        "last_active": ymdStr,
-      },
-      {
-        "deviceid#topic": "ANNAM_05#ws/delhi/ANNAM_05",
-        "DeviceId": "ANNAM_05",
-        "Device_ID": "ANNAM_05",
-        "ANNAM_ID": "ANNAM_05",
-        "Topic": "ws/delhi/ANNAM_05",
-        "Device_Status": "Active",
-        "BatteryVoltage": "3.95",
-        "Temperature": "31.2",
-        "CorrectedTemp": "31.2",
-        "CurrentTemperature": "31.2",
-        "Humidity": "52.0",
-        "CorrectedHumidity": "52.0",
-        "CurrentHumidity": "52.0",
-        "AtmPressure": "1009.8",
-        "CurrentPressure": "1009.8",
-        "WindSpeed": "6.0",
-        "NowWindSpeed": "6.0",
-        "WindDirection": "210",
-        "NowWindDirection": "210",
-        "Rainfall": "0.0",
-        "RainfallHourly": "0.0",
-        "RainfallDaily": "0.0",
-        "RainfallCumulative": "5.0",
-        "LightIntensity": "710",
-        "pm25": "45.0",
-        "pm10": "82.5",
-        "Latitude": 28.6139,
-        "Longitude": 77.2090,
-        "City": "New Delhi",
-        "District": "New Delhi",
-        "State": "Delhi",
-        "TimeStamp_IST": timestampStr,
-        "last_active": ymdStr,
-      },
-      {
-        "deviceid#topic": "ANNAM_07#ws/himachal/ANNAM_07",
-        "DeviceId": "ANNAM_07",
-        "Device_ID": "ANNAM_07",
-        "ANNAM_ID": "ANNAM_07",
-        "Topic": "ws/himachal/ANNAM_07",
-        "Device_Status": "Active",
-        "BatteryVoltage": "4.10",
-        "Temperature": "18.5",
-        "CorrectedTemp": "18.5",
-        "CurrentTemperature": "18.5",
-        "Humidity": "72.0",
-        "CorrectedHumidity": "72.0",
-        "CurrentHumidity": "72.0",
-        "AtmPressure": "985.0",
-        "CurrentPressure": "985.0",
-        "WindSpeed": "2.8",
-        "NowWindSpeed": "2.8",
-        "WindDirection": "90",
-        "NowWindDirection": "90",
-        "Rainfall": "0.5",
-        "RainfallHourly": "0.5",
-        "RainfallDaily": "2.1",
-        "RainfallCumulative": "34.0",
-        "LightIntensity": "380",
-        "pm25": "12.0",
-        "pm10": "22.0",
-        "Latitude": 31.1048,
-        "Longitude": 77.1734,
-        "City": "Shimla",
-        "District": "Shimla",
-        "State": "Himachal Pradesh",
-        "TimeStamp_IST": timestampStr,
-        "last_active": ymdStr,
-      },
-    ];
-  }
-
   @override
   void initState() {
     super.initState();
-    // Initialize dummy data right at start so home page loads immediately with complete UI
-    final initialDummy = _getDummyDevices();
-    devices = initialDummy;
-    selectedDevice = initialDummy.first;
-    selectedDeviceId = "ANNAM_CP02";
-    selectedDeviceTopicKey = selectedDevice?["deviceid#topic"]?.toString();
-    _totalDevices = 124;
-    _devicesReportedToday = 118;
-    _statesCount = 12;
-    _districtsCount = 34;
-    _dataPointsCount = "1,452,890";
-    isLoading = false;
-
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -486,19 +290,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Set to true to display only dummy weather & device data while the backend API is down or under maintenance
-  static const bool forceDummyData = true;
-
   Future<void> _fetchDataPoints() async {
-    if (forceDummyData) {
-      if (mounted) {
-        setState(() {
-          _dataPointsCount = "1,452,890";
-        });
-      }
-      return;
-    }
-
     final urls = [
       'https://mh94cp8whl.execute-api.us-east-1.amazonaws.com/default/WS_Total_Count',
       'https://qhi2d9xq70.execute-api.us-east-1.amazonaws.com/default/WS_Total_Count'
@@ -533,10 +325,10 @@ class _HomePageState extends State<HomePage> {
           });
         }
       } else {
-        if (mounted) setState(() => _dataPointsCount = "1,452,890");
+        if (mounted) setState(() => _dataPointsCount = "Error");
       }
     } catch (e) {
-      if (mounted) setState(() => _dataPointsCount = "1,452,890");
+      if (mounted) setState(() => _dataPointsCount = "Error");
     }
   }
 
@@ -547,29 +339,6 @@ class _HomePageState extends State<HomePage> {
 // Modified fetchDevicesAndNearest method with Demo Device prioritization
 
   Future<void> fetchDevicesAndNearest({bool silent = false}) async {
-    if (forceDummyData) {
-      if (mounted) {
-        setState(() {
-          final dummy = _getDummyDevices();
-          devices = dummy;
-          final defDev =
-              HomeUtils.getDeviceByDisplayId(selectedDeviceId ?? "ANNAM_CP02", dummy) ??
-              dummy.first;
-          selectedDevice = Map<String, dynamic>.from(defDev);
-          selectedDeviceTopicKey = selectedDevice?["deviceid#topic"]?.toString();
-          selectedDeviceId = DevicePrefixUtils.getDisplaySensorName(selectedDevice);
-          _totalDevices = 124;
-          _devicesReportedToday = 118;
-          _statesCount = 12;
-          _districtsCount = 34;
-          isLoading = false;
-          errorMessage = null;
-        });
-        _updateNativeWidget();
-      }
-      return;
-    }
-
     try {
       final urls = [
         "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity",
@@ -578,8 +347,9 @@ class _HomePageState extends State<HomePage> {
 
       final responses = await Future.wait(
         urls.map(
-          (url) => http.get(Uri.parse(url)).timeout(const Duration(seconds: 4)).catchError((e) {
+          (url) => http.get(Uri.parse(url)).catchError((e) {
             debugPrint("Error fetching home devices $url: $e");
+            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -587,8 +357,14 @@ class _HomePageState extends State<HomePage> {
 
       List<Map<String, dynamic>> allDevices = [];
 
-      for (final response in responses) {
-        if (response.statusCode != 200) continue;
+      for (int i = 0; i < responses.length; i++) {
+        final response = responses[i];
+        if (response.statusCode != 200) {
+          if (urls[i].contains("WS_Device_Activity")) {
+            MaintenanceService.triggerMaintenance();
+          }
+          continue;
+        }
 
         final data = json.decode(response.body);
         final List<dynamic>? devicesList = data["devices"];
@@ -600,22 +376,9 @@ class _HomePageState extends State<HomePage> {
       if (allDevices.isEmpty) {
         if (mounted) {
           setState(() {
-            final dummy = _getDummyDevices();
-            devices = dummy;
-            final defDev =
-                HomeUtils.getDeviceByDisplayId(selectedDeviceId ?? "ANNAM_CP02", dummy) ??
-                dummy.first;
-            selectedDevice = Map<String, dynamic>.from(defDev);
-            selectedDeviceTopicKey = selectedDevice?["deviceid#topic"]?.toString();
-            selectedDeviceId = DevicePrefixUtils.getDisplaySensorName(selectedDevice);
-            _totalDevices = 124;
-            _devicesReportedToday = 118;
-            _statesCount = 12;
-            _districtsCount = 34;
+            errorMessage = "No devices found.";
             isLoading = false;
-            errorMessage = null;
           });
-          _updateNativeWidget();
         }
         return;
       }
@@ -750,22 +513,9 @@ class _HomePageState extends State<HomePage> {
       debugPrint("Error fetching devices: $e");
       if (mounted) {
         setState(() {
-          final dummy = _getDummyDevices();
-          devices = dummy;
-          final defDev =
-              HomeUtils.getDeviceByDisplayId(selectedDeviceId ?? "ANNAM_CP02", dummy) ??
-              dummy.first;
-          selectedDevice = Map<String, dynamic>.from(defDev);
-          selectedDeviceTopicKey = selectedDevice?["deviceid#topic"]?.toString();
-          selectedDeviceId = DevicePrefixUtils.getDisplaySensorName(selectedDevice);
-          _totalDevices = 124;
-          _devicesReportedToday = 118;
-          _statesCount = 12;
-          _districtsCount = 34;
           isLoading = false;
-          errorMessage = null;
+          errorMessage = "Error fetching devices";
         });
-        _updateNativeWidget();
       }
     }
   }
@@ -2529,13 +2279,20 @@ class _HomePageState extends State<HomePage> {
       final responses = await Future.wait(
         urls.map((url) => http.get(Uri.parse(url)).catchError((e) {
               debugPrint("Widget API error for $url: $e");
+              MaintenanceService.handleApiError(url, e);
               return http.Response('{"devices":[]}', 500);
             })),
       );
 
       List<Map<String, dynamic>> allDevices = [];
-      for (final response in responses) {
-        if (response.statusCode != 200) continue;
+      for (int i = 0; i < responses.length; i++) {
+        final response = responses[i];
+        if (response.statusCode != 200) {
+          if (urls[i].contains("WS_Device_Activity")) {
+            MaintenanceService.triggerMaintenance();
+          }
+          continue;
+        }
         final data = json.decode(response.body);
         final List<dynamic>? devicesList = data["devices"];
         if (devicesList == null || devicesList.isEmpty) continue;

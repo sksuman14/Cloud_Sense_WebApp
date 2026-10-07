@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
+import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -364,6 +365,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
         urls.map(
           (url) => http.get(Uri.parse(url)).catchError((e) {
             debugPrint("Error fetching timestamps $url: $e");
+            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -372,8 +374,14 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       Map<String, DateTime> tempMap = {};
       Map<String, List<String>> paramNamesMap = {};
 
-      for (var response in responses) {
-        if (response.statusCode != 200) continue;
+      for (int i = 0; i < responses.length; i++) {
+        final response = responses[i];
+        if (response.statusCode != 200) {
+          if (urls[i].contains('WS_Device_Activity')) {
+            MaintenanceService.triggerMaintenance();
+          }
+          continue;
+        }
 
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
         final List<dynamic> devices = jsonResponse['devices'] ?? [];

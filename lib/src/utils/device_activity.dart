@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
+import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 
 /// A data model to hold the results of the device activity fetch.
 class DeviceActivitySummary {
@@ -36,6 +37,7 @@ class DeviceService {
           (url) => http.get(Uri.parse(url),
               headers: {'Content-Type': 'application/json'}).catchError((e) {
             debugPrint("Error fetching device activity $url: $e");
+            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -48,6 +50,9 @@ class DeviceService {
 
         if (response.statusCode != 200) {
           print("❌ API ${i + 1} failed: HTTP ${response.statusCode}");
+          if (_apiUrls[i].contains("WS_Device_Activity")) {
+            MaintenanceService.triggerMaintenance();
+          }
           continue;
         }
 
