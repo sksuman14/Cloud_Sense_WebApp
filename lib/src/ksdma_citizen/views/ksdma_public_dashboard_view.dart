@@ -1296,21 +1296,36 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                 borderColor: const Color(0xFFBBF7D0),
                 onTap: () => _showAllLatestObservationsModal(context, state, activeStations),
               ),
-              _buildInteractiveSummaryCard(
-                title: 'Districts Covered',
-                value: _leftAppliedDistrict != 'All Districts' ? '1 / 14' : '14 / 14',
-                subtitle: 'Complete coverage',
-                icon: Icons.map,
-                iconBgColor: const Color(0xFFEDE9FE),
-                iconColor: const Color(0xFF7C3AED),
-                cardBgColor: const Color(0xFFF5F3FF),
-                borderColor: const Color(0xFFE9D5FF),
-                onTap: () => _showToast('Coverage: 14/14 Districts Monitored'),
-              ),
+              () {
+                final coveredDistrictsCount = KeralaAdminData.districts.where((dist) =>
+                    activeStations.any((s) => KeralaAdminData.matchDistrict(s.district, dist))
+                ).length;
+                final bool isFiltered = _leftAppliedDistrict != 'All Districts';
+                final bool hasStationInFilter = isFiltered && activeStations.any((s) => KeralaAdminData.matchDistrict(s.district, _leftAppliedDistrict));
+                final String coveredVal = isFiltered
+                    ? (hasStationInFilter ? '1 / 14' : '0 / 14')
+                    : '$coveredDistrictsCount / 14';
+                final String coveredSub = isFiltered
+                    ? (hasStationInFilter ? 'District monitored' : 'No stations in district')
+                    : (coveredDistrictsCount == 14
+                        ? 'Complete coverage'
+                        : (coveredDistrictsCount > 0 ? '$coveredDistrictsCount of 14 districts' : 'No coverage'));
+                return _buildInteractiveSummaryCard(
+                  title: 'Districts Covered',
+                  value: coveredVal,
+                  subtitle: coveredSub,
+                  icon: Icons.map,
+                  iconBgColor: const Color(0xFFEDE9FE),
+                  iconColor: const Color(0xFF7C3AED),
+                  cardBgColor: const Color(0xFFF5F3FF),
+                  borderColor: const Color(0xFFE9D5FF),
+                  onTap: () => _showToast('Coverage: $coveredVal Districts Monitored'),
+                );
+              }(),
               _buildInteractiveSummaryCard(
                 title: 'Weather Champions',
-                value: '${state.champions.length > 0 ? state.champions.length : 4}',
-                subtitle: 'Active volunteers',
+                value: '${state.champions.length}',
+                subtitle: state.champions.isEmpty ? 'No active volunteers' : 'Active volunteers',
                 icon: Icons.groups,
                 iconBgColor: const Color(0xFFFFEDD5),
                 iconColor: const Color(0xFFEA580C),
@@ -1693,10 +1708,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         _buildHighlightGridCard(
           title: 'Rainfall',
           reportingText: '$rainReportCount reporting',
-          stat1Label: 'Highest',
-          stat1Val: maxRainVal >= 0 ? '${maxRainVal.toStringAsFixed(1)} mm' : '33.0 mm',
-          stat2Label: '$regionLabel total',
-          stat2Val: rainReportCount > 0 ? '${totalRainVal.toStringAsFixed(1)} mm' : '46.5 mm',
+          stat1Label: rainReportCount > 0 ? 'Highest' : 'No stations reporting',
+          stat1Val: (rainReportCount > 0 && maxRainVal >= 0) ? '${maxRainVal.toStringAsFixed(1)} mm' : 'No data',
+          stat2Label: rainReportCount > 0 ? '$regionLabel total' : 'No data available',
+          stat2Val: rainReportCount > 0 ? '${totalRainVal.toStringAsFixed(1)} mm' : '',
           color: const Color(0xFF2563EB),
           bgColor: const Color(0xFFEFF6FF),
           borderColor: const Color(0xFFDBEAFE),
@@ -1711,10 +1726,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         _buildHighlightGridCard(
           title: 'Humidity',
           reportingText: '$humReportCount reporting',
-          stat1Label: 'Highest',
-          stat1Val: maxHumVal >= 0 ? '${maxHumVal.toStringAsFixed(0)} %' : '85.9 %',
-          stat2Label: '$regionLabel average',
-          stat2Val: humReportCount > 0 ? '${avgHum.toStringAsFixed(0)} %' : '77.0 %',
+          stat1Label: humReportCount > 0 ? 'Highest' : 'No stations reporting',
+          stat1Val: (humReportCount > 0 && maxHumVal >= 0) ? '${maxHumVal.toStringAsFixed(0)} %' : 'No data',
+          stat2Label: humReportCount > 0 ? '$regionLabel average' : 'No data available',
+          stat2Val: humReportCount > 0 ? '${avgHum.toStringAsFixed(0)} %' : '',
           color: const Color(0xFF7C3AED),
           bgColor: const Color(0xFFF3E8FF),
           borderColor: const Color(0xFFE9D5FF),
@@ -1729,10 +1744,10 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         _buildHighlightGridCard(
           title: 'Temperature',
           reportingText: '$tempReportCount reporting',
-          stat1Label: 'Highest',
-          stat1Val: maxTempVal > -90 ? '${maxTempVal.toStringAsFixed(1)} °C' : '42.3 °C',
-          stat2Label: '$regionLabel average',
-          stat2Val: tempReportCount > 0 ? '${avgTemp.toStringAsFixed(1)} °C' : '35.7 °C',
+          stat1Label: tempReportCount > 0 ? 'Highest' : 'No stations reporting',
+          stat1Val: (tempReportCount > 0 && maxTempVal > -90) ? '${maxTempVal.toStringAsFixed(1)} °C' : 'No data',
+          stat2Label: tempReportCount > 0 ? '$regionLabel average' : 'No data available',
+          stat2Val: tempReportCount > 0 ? '${avgTemp.toStringAsFixed(1)} °C' : '',
           color: const Color(0xFFEA580C),
           bgColor: const Color(0xFFFFF7ED),
           borderColor: const Color(0xFFFFEDD5),
@@ -1748,7 +1763,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           title: 'River Level',
           reportingText: '$riverReportCount reporting',
           stat1Label: riverReportCount > 0 ? 'Highest' : 'No stations reporting',
-          stat1Val: riverReportCount > 0 ? '${maxRiverVal.toStringAsFixed(1)} m' : '',
+          stat1Val: (riverReportCount > 0 && maxRiverVal >= 0) ? '${maxRiverVal.toStringAsFixed(1)} m' : 'No data',
           stat2Label: riverReportCount > 0 ? '$regionLabel average' : 'No data available',
           stat2Val: '',
           color: const Color(0xFF0D9488),
@@ -2840,9 +2855,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       double avgYestMax = yestMaxCount > 0 ? yestMax / yestMaxCount : 0.0;
                       final diffMax = avgTodayMax - avgYestMax;
 
-                      final tMaxStr = todayMaxCount > 0 ? avgTodayMax.toStringAsFixed(1) : '0.0';
-                      final yMaxStr = yestMaxCount > 0 ? avgYestMax.toStringAsFixed(1) : '0.0';
-                      final dMaxStr = (todayMaxCount > 0 && yestMaxCount > 0) ? '${diffMax >= 0 ? '+' : ''}${diffMax.toStringAsFixed(1)}' : '0.0';
+                      final tMaxStr = todayMaxCount > 0 ? avgTodayMax.toStringAsFixed(1) : '—';
+                      final yMaxStr = yestMaxCount > 0 ? avgYestMax.toStringAsFixed(1) : '—';
+                      final dMaxStr = (todayMaxCount > 0 && yestMaxCount > 0) ? '${diffMax >= 0 ? '+' : ''}${diffMax.toStringAsFixed(1)}' : '—';
 
                       return _buildDistrictDeltaRowItem(dist, tMaxStr, yMaxStr, dMaxStr, const Color(0xFFEA580C), distStations, state, '°C');
                     } else {
@@ -2879,9 +2894,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       final unit = _activeDeltaTab == 'Rainfall' ? 'mm' : (_activeDeltaTab == 'Humidity' ? '%' : 'm');
                       final color = _activeDeltaTab == 'Rainfall' ? const Color(0xFF2563EB) : (_activeDeltaTab == 'Humidity' ? const Color(0xFF7C3AED) : const Color(0xFF0D9488));
 
-                      final todayStr = tCount > 0 ? avgToday.toStringAsFixed(1) : '0.0';
-                      final yestStr = yCount > 0 ? avgYest.toStringAsFixed(1) : '0.0';
-                      final deltaStr = (tCount > 0 && yCount > 0) ? '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}' : '0.0';
+                      final todayStr = tCount > 0 ? avgToday.toStringAsFixed(1) : '—';
+                      final yestStr = yCount > 0 ? avgYest.toStringAsFixed(1) : '—';
+                      final deltaStr = (tCount > 0 && yCount > 0) ? '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}' : '—';
 
                       return _buildDistrictDeltaRowItem(dist, todayStr, yestStr, deltaStr, color, distStations, state, unit);
                     }
@@ -3832,16 +3847,16 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
     final yesterdayObs = state.getYesterdayObservation(station.stationId);
 
     if (_appliedParam == 'humidity' || station.instrumentType == InstrumentType.hygrometer) {
-      final tHum = todayObs?.humidityPercent != null ? '${todayObs!.humidityPercent} %' : '0 %';
-      final yHum = yesterdayObs?.humidityPercent != null ? '${yesterdayObs!.humidityPercent} %' : '0 %';
+      final tHum = todayObs?.humidityPercent != null ? '${todayObs!.humidityPercent} %' : '—';
+      final yHum = yesterdayObs?.humidityPercent != null ? '${yesterdayObs!.humidityPercent} %' : '—';
 
       final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
-      double avg2Day = 0.0;
+      double? avg2Day;
       if (obsList.isNotEmpty) {
         final sub2 = obsList.take(2).where((o) => o.humidityPercent != null).map((o) => o.humidityPercent!).toList();
         if (sub2.isNotEmpty) avg2Day = sub2.reduce((a, b) => a + b) / sub2.length;
       }
-      double avg5Day = 0.0;
+      double? avg5Day;
       if (obsList.isNotEmpty) {
         final sub5 = obsList.take(5).where((o) => o.humidityPercent != null).map((o) => o.humidityPercent!).toList();
         if (sub5.isNotEmpty) avg5Day = sub5.reduce((a, b) => a + b) / sub5.length;
@@ -3854,15 +3869,15 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         children: [
           _buildStatBox('Today Humidity', tHum, const Color(0xFF7C3AED)),
           _buildStatBox('Yesterday Humidity', yHum, Colors.black87),
-          _buildStatBox('2-Day Avg', '${avg2Day.toStringAsFixed(0)} %', Colors.black87),
-          _buildStatBox('5-Day Avg', '${avg5Day.toStringAsFixed(0)} %', Colors.black87),
+          _buildStatBox('2-Day Avg', avg2Day != null ? '${avg2Day.toStringAsFixed(0)} %' : '—', Colors.black87),
+          _buildStatBox('5-Day Avg', avg5Day != null ? '${avg5Day.toStringAsFixed(0)} %' : '—', Colors.black87),
         ],
       );
     } else if (_appliedParam == 'maxTemp' || station.instrumentType == InstrumentType.maxMinThermometer) {
-      final tMax = todayObs?.maxTemperatureC != null ? '${todayObs!.maxTemperatureC} °C' : '0.0 °C';
-      final tMin = todayObs?.minTemperatureC != null ? '${todayObs!.minTemperatureC} °C' : '0.0 °C';
-      final yMax = yesterdayObs?.maxTemperatureC != null ? '${yesterdayObs!.maxTemperatureC} °C' : '0.0 °C';
-      final yMin = yesterdayObs?.minTemperatureC != null ? '${yesterdayObs!.minTemperatureC} °C' : '0.0 °C';
+      final tMax = todayObs?.maxTemperatureC != null ? '${todayObs!.maxTemperatureC} °C' : '—';
+      final tMin = todayObs?.minTemperatureC != null ? '${todayObs!.minTemperatureC} °C' : '—';
+      final yMax = yesterdayObs?.maxTemperatureC != null ? '${yesterdayObs!.maxTemperatureC} °C' : '—';
+      final yMin = yesterdayObs?.minTemperatureC != null ? '${yesterdayObs!.minTemperatureC} °C' : '—';
 
       return Wrap(
         spacing: 8,
@@ -3876,16 +3891,16 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         ],
       );
     } else if (_appliedParam == 'riverLevel' || station.instrumentType == InstrumentType.riverGauge) {
-      final tRiv = todayObs?.riverWaterLevelM != null ? '${todayObs!.riverWaterLevelM} m' : '0.0 m';
-      final yRiv = yesterdayObs?.riverWaterLevelM != null ? '${yesterdayObs!.riverWaterLevelM} m' : '0.0 m';
+      final tRiv = todayObs?.riverWaterLevelM != null ? '${todayObs!.riverWaterLevelM} m' : '—';
+      final yRiv = yesterdayObs?.riverWaterLevelM != null ? '${yesterdayObs!.riverWaterLevelM} m' : '—';
 
       final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
-      double max2 = 0.0;
+      double? max2;
       if (obsList.isNotEmpty) {
         final sub2 = obsList.take(2).where((o) => o.riverWaterLevelM != null).map((o) => o.riverWaterLevelM!).toList();
         if (sub2.isNotEmpty) max2 = sub2.reduce((a, b) => a > b ? a : b);
       }
-      double max5 = 0.0;
+      double? max5;
       if (obsList.isNotEmpty) {
         final sub5 = obsList.take(5).where((o) => o.riverWaterLevelM != null).map((o) => o.riverWaterLevelM!).toList();
         if (sub5.isNotEmpty) max5 = sub5.reduce((a, b) => a > b ? a : b);
@@ -3898,15 +3913,17 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         children: [
           _buildStatBox('Today Level', tRiv, const Color(0xFF0D9488)),
           _buildStatBox('Yesterday Level', yRiv, Colors.black87),
-          _buildStatBox('2-Day Peak', '${max2.toStringAsFixed(1)} m', Colors.black87),
-          _buildStatBox('5-Day Peak', '${max5.toStringAsFixed(1)} m', Colors.black87),
+          _buildStatBox('2-Day Peak', max2 != null ? '${max2.toStringAsFixed(1)} m' : '—', Colors.black87),
+          _buildStatBox('5-Day Peak', max5 != null ? '${max5.toStringAsFixed(1)} m' : '—', Colors.black87),
         ],
       );
     } else {
       final tRain = todayObs?.rainfallMm != null ? '${todayObs!.rainfallMm} mm' : '—';
       final yRain = yesterdayObs?.rainfallMm != null ? '${yesterdayObs!.rainfallMm} mm' : '—';
-      final cum2 = state.getCumulativeRainfall(station.stationId, 2);
-      final cum5 = state.getCumulativeRainfall(station.stationId, 5);
+      final obsList = state.observations.where((o) => o.stationId == station.stationId && !o.isRemoved).toList();
+      final hasObs = obsList.isNotEmpty;
+      final cum2 = hasObs ? state.getCumulativeRainfall(station.stationId, 2) : null;
+      final cum5 = hasObs ? state.getCumulativeRainfall(station.stationId, 5) : null;
 
       return Wrap(
         spacing: 8,
@@ -3915,8 +3932,8 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
         children: [
           _buildStatBox('Today Rain', tRain, const Color(0xFF2563EB)),
           _buildStatBox('Yesterday Rain', yRain, Colors.black87),
-          _buildStatBox('2-Day Total', '${cum2.toStringAsFixed(1)} mm', Colors.black87),
-          _buildStatBox('5-Day Total', '${cum5.toStringAsFixed(1)} mm', Colors.black87),
+          _buildStatBox('2-Day Total', cum2 != null ? '${cum2.toStringAsFixed(1)} mm' : '—', Colors.black87),
+          _buildStatBox('5-Day Total', cum5 != null ? '${cum5.toStringAsFixed(1)} mm' : '—', Colors.black87),
         ],
       );
     }
