@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -52,7 +51,6 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
   DateTime? _startDate;
   DateTime? _endDate;
   List<List<dynamic>> _csvRows = [];
-  final DateFormat _formatter = DateFormat('dd-MM-yyyy HH:mm:ss');
 
   // Field Selection
   static const List<String> _allFields = [
@@ -110,6 +108,7 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     'PAR',
     'UVRadiation',
     'SolarRadiation',
+    'derived',
   ];
 
   // --- Group-based param display (friendly label → underlying field keys) ---
@@ -217,6 +216,14 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       }
     }
 
+    // Always add Derived option to parameter selection
+    if (!_paramGroups.any((g) => g.displayName.toLowerCase() == 'derived')) {
+      _paramGroups.add(const _ParamGroup(
+        displayName: 'Derived',
+        fieldKeys: {'derived'},
+      ));
+    }
+
     // All groups selected by default
     _selectedGroups = Set.from(List.generate(_paramGroups.length, (i) => i));
   }
@@ -233,13 +240,18 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
         name.startsWith('SV') ||
         name.startsWith('KD') ||
         name.startsWith('NA') ||
-        (name == 'CP001' || name == 'CP003') ||
+        name.startsWith('CP') ||
         name.startsWith('IT') ||
         name.startsWith('WN') ||
         name.startsWith('JW') ||
         name.startsWith('SH') ||
         name.startsWith('KR') ||
-        name.startsWith('AT');
+        name.startsWith('AT') ||
+        name.startsWith('AW') ||
+        name.startsWith('PJ') ||
+        name.contains('Punjab') ||
+        name.startsWith('AM') ||
+        name.startsWith('PS');
   }
 
   // Download status
