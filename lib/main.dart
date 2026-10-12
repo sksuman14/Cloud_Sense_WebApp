@@ -1127,8 +1127,12 @@ class MyApp extends StatelessWidget {
             return UpgradeAlert(
               upgrader: Upgrader(
                 durationUntilAlertAgain: const Duration(seconds: 1),
-                debugLogging: false,
+                debugLogging: kDebugMode,
+                countryCode: 'IN',
               ),
+              barrierDismissible: false,
+              showIgnore: false,
+              showLater: true,
               child: child ?? const SizedBox(),
             );
           },
