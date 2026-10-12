@@ -2608,12 +2608,22 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           p.key == 'CurrentWindSpeed' ||
           p.key == 'now_wind_speed' ||
           p.key == 'NowWindSpeed') {
-        windDir = _parametersData['WindDirection']?.last.value ??
-            _parametersData['WindDir']?.last.value ??
-            _parametersData['Wind-Dir']?.last.value ??
-            _parametersData['CurrentWindDirection']?.last.value ??
-            _parametersData['now_wind_direction']?.last.value ??
-            _parametersData['NowWindDirection']?.last.value;
+        var dirSeries = _parametersData['WindDirection'] ??
+            _parametersData['WindDir'] ??
+            _parametersData['Wind-Dir'] ??
+            _parametersData['CurrentWindDirection'] ??
+            _parametersData['now_wind_direction'] ??
+            _parametersData['NowWindDirection'];
+        if (dirSeries != null && !_shouldDisableCorrectedFields) {
+          final correctedDir = _parametersData['CorrectedField_WindDirection'] ??
+              _parametersData['CorrectedField_WindDir'] ??
+              _parametersData['CorrectedField_now_wind_direction'] ??
+              _parametersData['CorrectedField_NowWindDirection'];
+          if (correctedDir != null && correctedDir.isNotEmpty) {
+            dirSeries = _mergeCorrectedData(dirSeries, correctedDir);
+          }
+        }
+        windDir = dirSeries?.isNotEmpty == true ? dirSeries!.last.value : null;
       }
 
       double finalCurrent = current;
@@ -4449,15 +4459,51 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   p.key == 'Wind_Speed' ||
                                   p.key == 'now_wind_speed' ||
                                   p.key == 'NowWindSpeed') {
+                                var dirData = _parametersData['WindDirection'] ??
+                                    _parametersData['WindDir'] ??
+                                    _parametersData['now_wind_direction'] ??
+                                    _parametersData['NowWindDirection'] ??
+                                    [];
+
+                                List<ChartData>? secondarySpeedData;
+                                List<ChartData>? secondaryDirectionData;
+                                String? secondaryTitle;
+
+                                if (!_shouldDisableCorrectedFields) {
+                                  final correctedSpeed =
+                                      _parametersData['CorrectedField_${p.key}'] ??
+                                      _parametersData['CorrectedField_WindSpeed'];
+                                  final correctedDir =
+                                      _parametersData['CorrectedField_WindDirection'] ??
+                                      _parametersData['CorrectedField_WindDir'] ??
+                                      _parametersData['CorrectedField_now_wind_direction'];
+
+                                  if (_isAdmin) {
+                                    if (correctedSpeed != null && correctedSpeed.isNotEmpty) {
+                                      secondarySpeedData = correctedSpeed;
+                                      secondaryTitle = 'Corrected Wind';
+                                      if (correctedDir != null && correctedDir.isNotEmpty) {
+                                        secondaryDirectionData = correctedDir;
+                                      }
+                                    }
+                                  } else {
+                                    if (correctedSpeed != null && correctedSpeed.isNotEmpty) {
+                                      data = _mergeCorrectedData(data, correctedSpeed);
+                                    }
+                                    if (correctedDir != null && correctedDir.isNotEmpty) {
+                                      dirData = _mergeCorrectedData(dirData, correctedDir);
+                                    }
+                                  }
+                                }
+
                                 Widget windChart = _buildWindChartContainer(
                                   'Wind',
                                   data,
-                                  _parametersData['WindDirection'] ??
-                                      _parametersData['WindDir'] ??
-                                      _parametersData['now_wind_direction'] ??
-                                      _parametersData['NowWindDirection'] ??
-                                      [],
+                                  dirData,
                                   isDarkMode,
+                                  secondarySpeedData: secondarySpeedData,
+                                  secondaryDirectionData: secondaryDirectionData,
+                                  secondaryTitle: secondaryTitle,
                                 );
                                 return SizedBox(
                                   width: MediaQuery.of(context).size.width > 800
@@ -4616,36 +4662,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     );
   }
 
-// Helper method to build sidebar buttons
-
-  Widget _buildCurrentValue(
-      String parameterName, String currentValue, String unit) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // Align text to the top
-        children: [
-          // Display both parameter and value together in a single text widget
-          Text(
-            '$parameterName: $currentValue $unit',
-            style: TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-// This method will parse the percentage string (e.g., "84%") and return the numeric value
-  int _parseBatteryPercentage(String batteryPercentage) {
-    try {
-      // Remove the '%' symbol and parse the number
-      return int.parse(batteryPercentage.replaceAll('%', ''));
-    } catch (e) {
-      // If parsing fails, return a default value (e.g., 0)
-      return 0;
-    }
-  }
 
   IconData _getBatteryIcon(int batteryPercentage) =>
       DevicePrefixUtils.getBatteryIcon(batteryPercentage);
@@ -5020,25 +5036,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             markerSettings: const MarkerSettings(isVisible: false),
           );
         }
-
-      default:
-        return AreaSeries<ChartData, DateTime>(
-          dataSource: data,
-          xValueMapper: (ChartData data, _) => data.timestamp,
-          yValueMapper: (ChartData data, _) => data.value,
-          name: title,
-          borderColor: Colors.blue,
-          borderWidth: 2,
-          gradient: LinearGradient(
-            colors: [
-              Colors.blue.withOpacity(0.4),
-              Colors.blue.withOpacity(0.0),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          markerSettings: const MarkerSettings(isVisible: false),
-        );
     }
   }
 
@@ -5046,14 +5043,32 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     String title,
     List<ChartData> speedData,
     List<ChartData> directionData,
-    bool isDarkMode,
-  ) {
-    if (speedData.isEmpty) return const SizedBox.shrink();
+    bool isDarkMode, {
+    List<ChartData>? secondarySpeedData,
+    List<ChartData>? secondaryDirectionData,
+    String? secondaryTitle,
+  }) {
+    if (speedData.isEmpty && (secondarySpeedData == null || secondarySpeedData.isEmpty)) {
+      return const SizedBox.shrink();
+    }
 
     final convertedSpeed = _convertWindSpeed(speedData);
     final String unit = _isKmPerHour ? 'km/h' : 'm/s';
-    final bool hasDirection =
-        directionData.isNotEmpty && directionData.length == speedData.length;
+
+    List<ChartData>? convertedSecondarySpeed;
+    List<List<ChartData>> secondarySegments = [];
+    List<List<ChartData>> secondaryGapConnectors = [];
+    if (secondarySpeedData != null && secondarySpeedData.isNotEmpty) {
+      convertedSecondarySpeed = _convertWindSpeed(secondarySpeedData);
+      secondarySegments =
+          _splitDataByGaps(convertedSecondarySpeed, maxGap: const Duration(days: 1));
+      for (int i = 0; i < secondarySegments.length - 1; i++) {
+        ChartData endOfSegment = secondarySegments[i].last;
+        ChartData startOfNextSegment = secondarySegments[i + 1].first;
+        secondaryGapConnectors
+            .add(_createGapConnector(endOfSegment, startOfNextSegment));
+      }
+    }
 
     bool isSelected = _selectedParam == title;
 
@@ -5130,6 +5145,19 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       gapConnectors.add(_createGapConnector(endOfSegment, startOfNextSegment));
     }
 
+    double? getDirAt(DateTime? t, int? idx, List<ChartData> dirs) {
+      if (dirs.isEmpty) return null;
+      if (t != null) {
+        for (final d in dirs) {
+          if (d.timestamp == t) return d.value;
+        }
+      }
+      if (idx != null && idx >= 0 && idx < dirs.length) {
+        return dirs[idx].value;
+      }
+      return null;
+    }
+
     // ✅ Wrap with Focus + Listener for Shift+Scroll zoom
     return Focus(
       autofocus: false,
@@ -5201,17 +5229,22 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                           alignment: Alignment.center,
                           children: [
                             Center(
-                              child: Text(
-                                "$title ($unit)",
-                                style: TextStyle(
-                                  fontSize:
-                                      MediaQuery.of(context).size.width < 800
-                                          ? 18
-                                          : 22,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "$title ($unit)",
+                                    style: TextStyle(
+                                      fontSize:
+                                          MediaQuery.of(context).size.width < 800
+                                              ? 18
+                                              : 22,
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          isDarkMode ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Positioned(
@@ -5355,15 +5388,36 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                           trackballBehavior: TrackballBehavior(
                             enable: true,
                             activationMode: ActivationMode.singleTap,
+                            tooltipDisplayMode:
+                                TrackballDisplayMode.groupAllPoints,
                             lineType: TrackballLineType.vertical,
-                            lineColor: isDarkMode
-                                ? Colors.blue
-                                : const Color.fromARGB(255, 42, 147, 212),
+                            lineColor: _getParamColor('Wind'),
                             lineWidth: 1,
-                            builder: (context, details) {
+                            markerSettings: TrackballMarkerSettings(
+                              markerVisibility:
+                                  TrackballVisibilityMode.visible,
+                              width: 8,
+                              height: 8,
+                              borderWidth: 2,
+                              color: _getParamColor('Wind'),
+                            ),
+                            builder: (BuildContext context,
+                                TrackballDetails details) {
                               try {
-                                final DateTime? time = details.point?.x;
-                                final num? value = details.point?.y;
+                                DateTime? time;
+                                num? value;
+
+                                if (details.point != null) {
+                                  time = details.point?.x;
+                                  value = details.point?.y;
+                                } else if (details.groupingModeInfo != null &&
+                                    details.groupingModeInfo!.points.isNotEmpty) {
+                                  time = details
+                                      .groupingModeInfo!.points.first.x;
+                                  value = details
+                                      .groupingModeInfo!.points.first.y;
+                                }
+
                                 if (time == null || value == null) {
                                   return const SizedBox();
                                 }
@@ -5371,81 +5425,188 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                 String formattedDate =
                                     DateFormat('MM/dd HH:mm').format(time);
 
-                                String anomalyText = "";
+                                String? anomalyText;
                                 for (var band in periodBands) {
                                   if (band.start != null &&
                                       band.end != null &&
                                       (time.isAtSameMomentAs(band.start!) ||
                                           (time.isAfter(band.start!) &&
                                               time.isBefore(band.end!)))) {
-                                    anomalyText = band.text ?? "";
+                                    anomalyText = band.text;
                                   }
                                 }
 
-                                Widget? arrowIcon;
-                                String directionText = "";
-                                if (hasDirection &&
-                                    details.pointIndex != null) {
-                                  final double dir =
-                                      directionData[details.pointIndex!].value;
-                                  directionText =
-                                      " (${dir.toStringAsFixed(0)}°)";
-                                  arrowIcon = Transform.rotate(
-                                    angle: (dir * math.pi / 180) + math.pi,
+                                double? primaryDir = getDirAt(time, details.pointIndex, directionData);
+                                Widget? primaryArrow;
+                                String primaryDirText = "";
+                                if (primaryDir != null) {
+                                  primaryDirText = " (${primaryDir.toStringAsFixed(0)}°)";
+                                  primaryArrow = Transform.rotate(
+                                    angle: (primaryDir * math.pi / 180) + math.pi,
                                     child: Icon(
                                       Icons.navigation,
-                                      size: 24,
-                                      color: isDarkMode
-                                          ? Colors.white
-                                          : Colors.black,
+                                      size: 14,
+                                      color: isDarkMode ? Colors.white : Colors.black,
                                     ),
                                   );
                                 }
 
+                                num? secSpeedVal;
+                                double? secDirVal;
+                                Widget? secArrow;
+                                String secDirText = "";
+
+                                if (convertedSecondarySpeed != null) {
+                                  for (final s in convertedSecondarySpeed) {
+                                    if (s.timestamp == time) {
+                                      secSpeedVal = s.value;
+                                      break;
+                                    }
+                                  }
+                                  if (secSpeedVal == null &&
+                                      details.pointIndex != null &&
+                                      details.pointIndex! < convertedSecondarySpeed.length) {
+                                    if (convertedSecondarySpeed[details.pointIndex!].timestamp == time) {
+                                      secSpeedVal = convertedSecondarySpeed[details.pointIndex!].value;
+                                    }
+                                  }
+                                }
+
+                                if (secondaryDirectionData != null && secondaryDirectionData.isNotEmpty) {
+                                  secDirVal = getDirAt(time, details.pointIndex, secondaryDirectionData);
+                                  if (secDirVal != null) {
+                                    secDirText = " (${secDirVal.toStringAsFixed(0)}°)";
+                                    secArrow = Transform.rotate(
+                                      angle: (secDirVal * math.pi / 180) + math.pi,
+                                      child: const Icon(
+                                        Icons.navigation,
+                                        size: 14,
+                                        color: Colors.cyan,
+                                      ),
+                                    );
+                                  }
+                                }
+
+                                Widget buildRow(
+                                    String name,
+                                    String valText,
+                                    Color col, {
+                                    Widget? arrow,
+                                  }) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 2.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                              color: col,
+                                              shape: BoxShape.circle),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '$name: ',
+                                          style: TextStyle(
+                                              color: isDarkMode
+                                                  ? Colors.white70
+                                                  : Colors.black54,
+                                              fontSize: 12),
+                                        ),
+                                        Text(
+                                          valText,
+                                          style: TextStyle(
+                                              color: isDarkMode
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12),
+                                        ),
+                                        if (arrow != null) ...[
+                                          const SizedBox(width: 4),
+                                          arrow,
+                                        ],
+                                      ],
+                                    ),
+                                  );
+                                }
+
+                                final primaryLabel = secondarySpeedData != null ? 'Current' : title;
+
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 6),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: isDarkMode
-                                        ? const Color.fromARGB(200, 0, 0, 0)
+                                        ? const Color.fromARGB(220, 10, 20, 30)
                                         : Colors.white,
                                     borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                   child: Column(
-                                    mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.center,
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (arrowIcon != null)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                              bottom: 4.0),
-                                          child: arrowIcon,
-                                        ),
                                       Text(
                                         formattedDate,
                                         style: TextStyle(
                                           color: isDarkMode
                                               ? Colors.white70
-                                              : Colors.black87,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      Text(
-                                        "Speed: ${value.toStringAsFixed(1)} $unit$directionText",
-                                        style: TextStyle(
-                                          color: isDarkMode
-                                              ? Colors.white
-                                              : Colors.black,
+                                              : Colors.black54,
+                                          fontSize: 10,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      if (anomalyText.isNotEmpty)
-                                        Text(
-                                          "Anomaly: $anomalyText",
-                                          style: const TextStyle(
-                                            color: Colors.red,
-                                            fontWeight: FontWeight.bold,
+                                      const SizedBox(height: 4),
+                                      buildRow(
+                                        primaryLabel,
+                                        "${value.toStringAsFixed(1)} $unit$primaryDirText",
+                                        _getParamColor('Wind'),
+                                        arrow: primaryArrow,
+                                      ),
+                                      if (secSpeedVal != null) ...[
+                                        buildRow(
+                                          secondaryTitle ?? 'Corrected Wind',
+                                          "${secSpeedVal.toStringAsFixed(1)} $unit$secDirText",
+                                          Colors.cyan,
+                                          arrow: secArrow,
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 14.0, bottom: 2.0),
+                                          child: Text(
+                                            'Diff: ${(secSpeedVal - value).toStringAsFixed(1)} $unit',
+                                            style: TextStyle(
+                                                color: isDarkMode
+                                                    ? Colors.white60
+                                                    : Colors.black45,
+                                                fontSize: 10,
+                                                fontStyle:
+                                                    FontStyle.italic,
+                                                fontWeight:
+                                                    FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                      if (anomalyText != null &&
+                                          anomalyText.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            "Anomaly: $anomalyText",
+                                            style: const TextStyle(
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                            ),
                                           ),
                                         ),
                                     ],
@@ -5470,7 +5631,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                 xValueMapper: (ChartData data, _) =>
                                     data.timestamp,
                                 yValueMapper: (ChartData data, _) => data.value,
-                                name: title,
+                                name: secondarySpeedData != null ? 'Current' : title,
                                 borderColor: _getParamColor('Wind'),
                                 borderWidth: 3,
                                 gradient: LinearGradient(
@@ -5498,6 +5659,36 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     const MarkerSettings(isVisible: false),
                               );
                             }).toList(),
+                            if (secondarySpeedData != null) ...[
+                              ...secondarySegments.map((segment) {
+                                return LineSeries<ChartData, DateTime>(
+                                  dataSource: segment,
+                                  xValueMapper: (ChartData data, _) =>
+                                      data.timestamp,
+                                  yValueMapper: (ChartData data, _) =>
+                                      data.value,
+                                  name: secondaryTitle ?? 'Corrected Wind',
+                                  color: Colors.cyan,
+                                  width: 3,
+                                  markerSettings: const MarkerSettings(
+                                      isVisible: false),
+                                );
+                              }),
+                              ...secondaryGapConnectors.map((connector) {
+                                return LineSeries<ChartData, DateTime>(
+                                  dataSource: connector,
+                                  xValueMapper: (ChartData data, _) =>
+                                      data.timestamp,
+                                  yValueMapper: (ChartData data, _) =>
+                                      data.value,
+                                  color: Colors.cyan,
+                                  width: 3,
+                                  dashArray: const <double>[5, 5],
+                                  markerSettings: const MarkerSettings(
+                                      isVisible: false),
+                                );
+                              }),
+                            ],
                           ],
                         ),
                       ),
@@ -6430,13 +6621,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                         time = details
                                             .groupingModeInfo!.points.first.x;
 
-                                        // To ensure 'value' is the primary series value,
-                                        // we try to find the point matching the primary series name,
-                                        // otherwise default to the first point.
-                                        final primaryName =
-                                            secondaryData != null
-                                                ? 'Current'
-                                                : title;
                                         final primaryPoint = details
                                             .groupingModeInfo!.points.first;
                                         value = primaryPoint.y;
@@ -6617,7 +6801,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                                   padding: const EdgeInsets.only(
                                                       left: 14.0, bottom: 2.0),
                                                   child: Text(
-                                                    'Diff: ',
+                                                    'Diff: ${(secValue - value).toStringAsFixed(2)}',
                                                     style: TextStyle(
                                                         color: isDarkMode
                                                             ? Colors.white60
@@ -6848,62 +7032,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     );
   }
 
-  List<ChartData> _fillZerosWithLastNonZero(List<ChartData> data) {
-    if (data.isEmpty) return data;
-
-    List<ChartData> result = List.from(data);
-
-    // ── Step 1: Forward fill (existing behavior) ──
-    // Replace 0s with the last seen non-zero value
-    double? lastNonZero;
-    for (int i = 0; i < result.length; i++) {
-      if (result[i].value != 0) {
-        lastNonZero = result[i].value;
-      } else if (lastNonZero != null) {
-        result[i] = ChartData(
-          timestamp: result[i].timestamp,
-          value: lastNonZero,
-        );
-      }
-    }
-
-    // ── Step 2: Backward fill for leading zeros at start of each day ──
-    // Group indices by date
-    Map<String, List<int>> dayIndices = {};
-    for (int i = 0; i < result.length; i++) {
-      final dayKey =
-          '${result[i].timestamp.year}-${result[i].timestamp.month}-${result[i].timestamp.day}';
-      dayIndices.putIfAbsent(dayKey, () => []);
-      dayIndices[dayKey]!.add(i);
-    }
-
-    for (final indices in dayIndices.values) {
-      // Find first non-zero value in this day
-      double? firstNonZeroOfDay;
-      for (final idx in indices) {
-        if (result[idx].value != 0) {
-          firstNonZeroOfDay = result[idx].value;
-          break;
-        }
-      }
-
-      if (firstNonZeroOfDay == null) continue; // entire day is 0, skip
-
-      // Backfill leading zeros with that first non-zero value
-      for (final idx in indices) {
-        if (result[idx].value == 0) {
-          result[idx] = ChartData(
-            timestamp: result[idx].timestamp,
-            value: firstNonZeroOfDay!,
-          );
-        } else {
-          break; // stop at first non-zero — only fill leading zeros
-        }
-      }
-    }
-
-    return result;
-  }
 
   void _showHourlyRainfallDialog(List<ChartData> data, bool isDarkMode) {
     if (data.isEmpty) return;
