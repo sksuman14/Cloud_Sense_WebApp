@@ -34,8 +34,6 @@ import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_portal_main.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
 import 'package:upgrader/upgrader.dart';
-import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
-import 'package:cloud_sense_webapp/src/widgets/maintenance_screen.dart';
 
 
 
@@ -1117,25 +1115,17 @@ class MyApp extends StatelessWidget {
         );
       },
       builder: (context, child) {
-        return ValueListenableBuilder<bool>(
-          valueListenable: MaintenanceService.isUnderMaintenance,
-          builder: (context, isMaintenance, _) {
-            if (isMaintenance) {
-              return const MaintenanceScreen();
-            }
-            if (kIsWeb) return child ?? const SizedBox();
-            return UpgradeAlert(
-              upgrader: Upgrader(
-                durationUntilAlertAgain: const Duration(seconds: 1),
-                debugLogging: kDebugMode,
-                countryCode: 'IN',
-              ),
-              barrierDismissible: false,
-              showIgnore: false,
-              showLater: true,
-              child: child ?? const SizedBox(),
-            );
-          },
+        if (kIsWeb) return child ?? const SizedBox();
+        return UpgradeAlert(
+          upgrader: Upgrader(
+            durationUntilAlertAgain: const Duration(seconds: 1),
+            debugLogging: kDebugMode,
+            countryCode: 'IN',
+          ),
+          barrierDismissible: false,
+          showIgnore: false,
+          showLater: true,
+          child: child ?? const SizedBox(),
         );
       },
       navigatorObservers: [routeObserver, LastRouteObserver()],

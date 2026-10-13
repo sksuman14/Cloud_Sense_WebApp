@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 import 'package:cloud_sense_webapp/src/views/home/widgets/circular_product_carousel.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
-import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
 import 'package:cloud_sense_webapp/src/widgets/drawer.dart';
 import 'package:cloud_sense_webapp/src/widgets/footer.dart';
@@ -349,7 +348,6 @@ class _HomePageState extends State<HomePage> {
         urls.map(
           (url) => http.get(Uri.parse(url)).catchError((e) {
             debugPrint("Error fetching home devices $url: $e");
-            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -360,9 +358,6 @@ class _HomePageState extends State<HomePage> {
       for (int i = 0; i < responses.length; i++) {
         final response = responses[i];
         if (response.statusCode != 200) {
-          if (urls[i].contains("WS_Device_Activity")) {
-            MaintenanceService.triggerMaintenance();
-          }
           continue;
         }
 
@@ -2279,7 +2274,6 @@ class _HomePageState extends State<HomePage> {
       final responses = await Future.wait(
         urls.map((url) => http.get(Uri.parse(url)).catchError((e) {
               debugPrint("Widget API error for $url: $e");
-              MaintenanceService.handleApiError(url, e);
               return http.Response('{"devices":[]}', 500);
             })),
       );
@@ -2288,9 +2282,6 @@ class _HomePageState extends State<HomePage> {
       for (int i = 0; i < responses.length; i++) {
         final response = responses[i];
         if (response.statusCode != 200) {
-          if (urls[i].contains("WS_Device_Activity")) {
-            MaintenanceService.triggerMaintenance();
-          }
           continue;
         }
         final data = json.decode(response.body);

@@ -22,7 +22,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/file_download_helper.dart';
-import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -134,7 +133,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         urls.map(
           (url) => http.get(Uri.parse(url)).catchError((e) {
             debugPrint("Error fetching location $url: $e");
-            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -143,9 +141,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       for (int i = 0; i < responses.length; i++) {
         final response = responses[i];
         if (response.statusCode != 200) {
-          if (urls[i].contains('WS_Device_Activity')) {
-            MaintenanceService.triggerMaintenance();
-          }
           continue;
         }
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -764,7 +759,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             headers: {'Content-Type': 'application/json'},
           ).catchError((e) {
             debugPrint("Error fetching details $url: $e");
-            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -775,9 +769,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       for (int i = 0; i < responses.length; i++) {
         final response = responses[i];
         if (response.statusCode != 200) {
-          if (urls[i].contains('WS_Device_Activity')) {
-            MaintenanceService.triggerMaintenance();
-          }
           continue;
         }
 

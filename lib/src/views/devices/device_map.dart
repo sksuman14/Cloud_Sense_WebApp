@@ -16,7 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_utils.dart';
-import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -1504,7 +1503,6 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
         urls.map(
           (url) => http.get(Uri.parse(url)).catchError((e) {
             debugPrint("Error fetching device map data $url: $e");
-            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -1520,9 +1518,6 @@ class _DeviceMapScreenState extends State<DeviceMapScreen>
       for (int i = 0; i < responses.length; i++) {
         final response = responses[i];
         if (response.statusCode != 200) {
-          if (urls[i].contains('WS_Device_Activity')) {
-            MaintenanceService.triggerMaintenance();
-          }
           continue;
         }
 

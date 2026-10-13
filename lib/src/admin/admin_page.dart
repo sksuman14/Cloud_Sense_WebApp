@@ -10,7 +10,6 @@ import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
 import 'package:cloud_sense_webapp/src/views/devices/qr_scan_add_device.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
-import 'package:cloud_sense_webapp/src/services/maintenance_service.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -2978,7 +2977,6 @@ class _AdminPageState extends State<AdminPage> {
         urls.map(
           (url) => http.get(Uri.parse(url)).catchError((e) {
             debugPrint("Error fetching timestamps $url: $e");
-            MaintenanceService.handleApiError(url, e);
             return http.Response('{"devices":[]}', 500);
           }),
         ),
@@ -2989,9 +2987,6 @@ class _AdminPageState extends State<AdminPage> {
       for (int i = 0; i < responses.length; i++) {
         final response = responses[i];
         if (response.statusCode != 200) {
-          if (urls[i].contains('WS_Device_Activity')) {
-            MaintenanceService.triggerMaintenance();
-          }
           continue;
         }
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
