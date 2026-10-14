@@ -448,6 +448,7 @@ class KsdmaApiService {
           'taluk': station.taluk,
           'grama_panchayat': station.gramaPanchayat,
           'village': station.village,
+          'created_at': station.createdAt.toIso8601String(),
         }),
       );
       return response.statusCode == 200 || response.statusCode == 201;
@@ -1208,7 +1209,7 @@ class KsdmaApiService {
               ? ApprovalStatus.rejected
               : ApprovalStatus.pending,
       rejectionReason: r['rejection_reason'] ?? '',
-      createdAt: DateTime.parse(r['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.tryParse(r['created_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 

@@ -413,7 +413,7 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
                     DataColumn(label: Text('ACTIONS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
                   ],
                   rows: filteredPending.map((station) {
-                    final dt = station.createdAt;
+                    final dt = station.createdAt.toLocal();
                     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     final submittedDateStr = '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]}';
                     return DataRow(
