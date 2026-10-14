@@ -38,6 +38,8 @@ import 'widgets/station_image_card.dart';
 import 'widgets/stats_banner.dart';
 import 'widgets/sensor_card.dart';
 import 'widgets/certified_validated_section.dart';
+import 'widgets/derived_keys_section.dart';
+import 'package:cloud_sense_webapp/src/services/derived_keys_service.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -1871,6 +1873,9 @@ class _HomePageState extends State<HomePage> {
                                                             "battery_percentage"
                                                           ]);
 
+                                                          // Build derived weather parameters for card subtitles (No Rain, Gentle Breeze, Feels Like)
+                                                          final derivedKeys = DerivedKeysService.buildDerivedKeys(selectedDevice);
+
                                                           // Build the shared list of grid items once
                                                           List<Widget> gridItems = [
                                                             if (!HomeUtils.isNullOrEmpty(tempVal))
@@ -1878,6 +1883,9 @@ class _HomePageState extends State<HomePage> {
                                                                 icon: Icons.thermostat,
                                                                 label: "Temperature",
                                                                 value: "${HomeUtils.formatValue(tempVal)}°C",
+                                                                subtitle: derivedKeys.feelsLike != null
+                                                                    ? "Feels ${derivedKeys.feelsLike!.toStringAsFixed(1)}°C"
+                                                                    : null,
                                                                 glowColor: Colors.amber,
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                                 type: SensorType.temperature,
@@ -1918,6 +1926,7 @@ class _HomePageState extends State<HomePage> {
                                                                 icon: Icons.air,
                                                                 label: "Wind Speed",
                                                                 value: "${HomeUtils.formatValue(windSpeedVal)} m/s",
+                                                                subtitle: derivedKeys.windBeaufortDescription,
                                                                 glowColor: Colors.tealAccent,
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                                 type: SensorType.wind,
@@ -1928,6 +1937,7 @@ class _HomePageState extends State<HomePage> {
                                                                 icon: Icons.grain,
                                                                 label: "Rainfall",
                                                                 value: "${HomeUtils.formatValue(rainfallVal)} mm",
+                                                                subtitle: derivedKeys.rainIntensityCategory,
                                                                 glowColor: Colors.blueAccent,
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                                 type: SensorType.rainfall,
@@ -1938,6 +1948,7 @@ class _HomePageState extends State<HomePage> {
                                                                 icon: Icons.cloud_download_outlined,
                                                                 label: "Rainfall Cumulative",
                                                                 value: "${HomeUtils.formatValue(rainfallCumulativeVal)} mm",
+                                                                subtitle: derivedKeys.rainIntensityCategory,
                                                                 glowColor: Colors.indigoAccent,
                                                                 isDarkMode: themeProvider.isDarkMode,
                                                                 type: SensorType.rainfall,
@@ -2051,6 +2062,10 @@ class _HomePageState extends State<HomePage> {
                                                                     FontWeight
                                                                         .bold)),
                                                       ],
+                                                      DerivedKeysSection(
+                                                        selectedDevice: selectedDevice,
+                                                        isDarkMode: themeProvider.isDarkMode,
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
@@ -3541,6 +3556,7 @@ class _HoverableGlassCard extends StatefulWidget {
   final bool isDarkMode;
   final SensorType type;
   final double? numericValue;
+  final String? subtitle;
 
   const _HoverableGlassCard({
     Key? key,
@@ -3551,6 +3567,7 @@ class _HoverableGlassCard extends StatefulWidget {
     required this.isDarkMode,
     required this.type,
     this.numericValue,
+    this.subtitle,
   }) : super(key: key);
 
   @override
@@ -3735,16 +3752,38 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
                             size: 18,
                           ),
                         ),
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _isHovered
-                                ? widget.glowColor
-                                : widget.glowColor.withOpacity(0.6),
+                        if (widget.subtitle != null && widget.subtitle!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: widget.glowColor.withValues(alpha: widget.isDarkMode ? 0.16 : 0.10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: widget.glowColor.withValues(alpha: widget.isDarkMode ? 0.38 : 0.28),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Text(
+                              widget.subtitle!,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: (widget.isDarkMode ? Colors.white70 : Colors.black87),
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isHovered
+                                  ? widget.glowColor
+                                  : widget.glowColor.withValues(alpha: 0.6),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
