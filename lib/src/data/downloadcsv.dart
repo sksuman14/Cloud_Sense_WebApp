@@ -58,7 +58,10 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
     'FirmwareVersion',
     'SDcardStatus',
     'CurrentTemperature',
+    'Temperature',
+    'temp',
     'CurrentHumidity',
+    'Humidity',
     'LightIntensity',
     'AtmPressure',
     'WindSpeed',
@@ -151,41 +154,29 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
                 bool isHum = (vis.toLowerCase() == 'humidity');
 
                 if (isTemp) {
-                  bool hasCorrected = widget.deviceName.startsWith('SW') ||
-                      widget.deviceName.startsWith('WJ') ||
-                      widget.deviceName.startsWith('WA') ||
-                      widget.deviceName.startsWith('JW') ||
-                      widget.deviceName.startsWith('KR') ||
-                      widget.deviceName.startsWith('SH') ||
-                      widget.deviceName.startsWith('WN') ||
-                      widget.deviceName.startsWith('GP') ||
-                      widget.deviceName.startsWith('PC');
-                  if (widget.isAdmin) {
-                    groupKeys.add('CorrectedTemp');
-                    groupKeys.add(p.key);
-                  } else if (hasCorrected) {
-                    groupKeys.add('CorrectedTemp');
-                  } else {
-                    groupKeys.add(p.key);
-                  }
+                  groupKeys.add(p.key);
+                  groupKeys.addAll([
+                    'CurrentTemperature',
+                    'Temperature',
+                    'temp',
+                    'TEMP',
+                    'NowTemperature',
+                    'now_temperature',
+                    'CorrectedTemp',
+                    'CorrectedTemperature',
+                  ]);
                 } else if (isHum) {
-                  bool hasCorrected = widget.deviceName.startsWith('SW') ||
-                      widget.deviceName.startsWith('WJ') ||
-                      widget.deviceName.startsWith('WA') ||
-                      widget.deviceName.startsWith('JW') ||
-                      widget.deviceName.startsWith('KR') ||
-                      widget.deviceName.startsWith('SH') ||
-                      widget.deviceName.startsWith('WN') ||
-                      widget.deviceName.startsWith('GP') ||
-                      widget.deviceName.startsWith('PC');
-                  if (widget.isAdmin) {
-                    groupKeys.add('CorrectedHumidity');
-                    groupKeys.add(p.key);
-                  } else if (hasCorrected) {
-                    groupKeys.add('CorrectedHumidity');
-                  } else {
-                    groupKeys.add(p.key);
-                  }
+                  groupKeys.add(p.key);
+                  groupKeys.addAll([
+                    'CurrentHumidity',
+                    'Humidity',
+                    'humidity',
+                    'HUMIDITY',
+                    'CurrentRelativeHumidity',
+                    'NowRelativeHumidity',
+                    'now_relative_humidity',
+                    'CorrectedHumidity',
+                  ]);
                 } else {
                   groupKeys.add(p.key);
                 }
@@ -198,15 +189,50 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           }
         }
       } else {
-        // Fallback: one group per field from _allFields
-        for (var field in _allFields) {
-          final lowerField = field.toLowerCase().replaceAll(' ', '');
-          for (var vis in widget.visibleParameters!) {
-            if (lowerField == vis.toLowerCase().replaceAll(' ', '')) {
-              _paramGroups.add(_ParamGroup(displayName: vis, fieldKeys: {field}));
-              break;
+        // Fallback: one group per visible parameter
+        for (var vis in widget.visibleParameters!) {
+          final visLower = vis.toLowerCase().replaceAll(' ', '');
+          final groupKeys = <String>{};
+          for (var field in _allFields) {
+            final lowerField = field.toLowerCase().replaceAll(' ', '');
+            if (lowerField == visLower) {
+              groupKeys.add(field);
+            } else if ((visLower == 'temperature' || visLower == 'temp') &&
+                (lowerField.contains('temp'))) {
+              groupKeys.add(field);
+            } else if (visLower == 'humidity' && lowerField.contains('hum')) {
+              groupKeys.add(field);
+            } else if (visLower == 'wind' && lowerField.contains('wind')) {
+              groupKeys.add(field);
             }
           }
+          if (visLower == 'temperature' || visLower == 'temp') {
+            groupKeys.addAll([
+              'CurrentTemperature',
+              'Temperature',
+              'temp',
+              'TEMP',
+              'NowTemperature',
+              'now_temperature',
+              'CorrectedTemp',
+              'CorrectedTemperature',
+            ]);
+          } else if (visLower == 'humidity') {
+            groupKeys.addAll([
+              'CurrentHumidity',
+              'Humidity',
+              'humidity',
+              'HUMIDITY',
+              'CurrentRelativeHumidity',
+              'NowRelativeHumidity',
+              'now_relative_humidity',
+              'CorrectedHumidity',
+            ]);
+          }
+          if (groupKeys.isEmpty) {
+            groupKeys.add(vis);
+          }
+          _paramGroups.add(_ParamGroup(displayName: vis, fieldKeys: groupKeys));
         }
       }
     } else {
@@ -851,11 +877,11 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
           'SolarIrradiance'
         ]);
         (data['weather_items'] as List).forEach((i) => _csvRows.add([
-              i['HumanTime'],
-              i['Temperature'],
-              i['Humidity'],
-              i['LightIntensity'],
-              i['SolarIrradiance'],
+              i['HumanTime'] ?? i['Timestamp'] ?? i['TimeStamp'] ?? '',
+              i['Temperature'] ?? i['CurrentTemperature'] ?? i['temp'] ?? i['CorrectedTemp'] ?? '',
+              i['Humidity'] ?? i['CurrentHumidity'] ?? i['humidity'] ?? i['CorrectedHumidity'] ?? '',
+              i['LightIntensity'] ?? '',
+              i['SolarIrradiance'] ?? '',
             ]));
       }
 
@@ -968,10 +994,18 @@ class _CsvDownloadDialogState extends State<_CsvDownloadDialog> {
       return;
     }
 
-    final sample = items.first;
-    final paramKeys = sample.keys
-        .where((k) => !exclude.contains(k) && sample[k] != null)
-        .toList();
+    final paramKeysSet = <String>{};
+    for (final item in items) {
+      if (item is Map) {
+        for (final k in item.keys) {
+          final keyStr = k.toString();
+          if (!exclude.contains(keyStr)) {
+            paramKeysSet.add(keyStr);
+          }
+        }
+      }
+    }
+    final paramKeys = paramKeysSet.toList();
 
     if (paramKeys.isEmpty) {
       _csvRows = [
