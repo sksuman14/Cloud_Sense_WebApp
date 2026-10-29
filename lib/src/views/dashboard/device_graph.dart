@@ -3813,6 +3813,816 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   }
 
   @override
+  Widget _buildControlRow(BuildContext context, bool isDarkMode,
+      Color surfaceColor, Color borderColor, Color strongText) {
+    return TourTarget(
+      targetId: 'graph_controls',
+      child: Padding(
+        padding: const EdgeInsets.only(
+          left: 16.0, right: 16.0, top: 0.0, bottom: 8.0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: MediaQuery.of(context).size.width - 32,
+          ),
+          child: Builder(
+            builder: (context) {
+              final bool isLarge =
+                  MediaQuery.of(context).size.width > 1100;
+
+              final Widget timeFiltersRow = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  'single',
+                  '7days',
+                  '30days',
+                  '3months',
+                  '1year'
+                ].map((String value) {
+                  String label = value == 'single'
+                      ? DateFormat('dd/MM/yyyy').format(_selectedDay)
+                      : value == '7days'
+                          ? '7 Days'
+                          : value == '30days'
+                              ? '1 Month'
+                              : value == '3months'
+                                  ? '3 Months'
+                                  : '1 Year';
+
+                  final bool isSelected = _lastSelectedRange == value;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: InkWell(
+                      onTap: () {
+                        if (value == 'single') {
+                          _selectDate();
+                        } else if (value == '30days') {
+                          _selectMonthYear();
+                        } else {
+                          _reloadData(range: value);
+                          _fetchDataForRange(value);
+                        }
+                        setState(() => _lastSelectedRange = value);
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.blueAccent
+                              : surfaceColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.blueAccent
+                                : borderColor,
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            if (!isDarkMode)
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                          ],
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : strongText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+
+              final Widget dropdownsRow = (_isAdmin &&
+                      _config != null &&
+                      !_isLoading)
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isLarge) const SizedBox(width: 16),
+                        if (MediaQuery.of(context).size.width > 800)
+                          PopupMenuButton<int>(
+                            tooltip: 'Graphs per Row',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: borderColor,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  if (!isDarkMode)
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.grid_view,
+                                      size: 16, color: strongText),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Graphs per Row: $_graphsPerRow',
+                                    style: TextStyle(
+                                      color: strongText,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            onSelected: (int value) {
+                              setState(() {
+                                _graphsPerRow = value;
+                              });
+                            },
+                            itemBuilder: (BuildContext context) => [
+                              const PopupMenuItem(
+                                value: 1,
+                                child: Text('1 per row'),
+                              ),
+                              const PopupMenuItem(
+                                value: 2,
+                                child: Text('2 per row'),
+                              ),
+                              if (MediaQuery.of(context).size.width >
+                                  1100)
+                                const PopupMenuItem(
+                                  value: 3,
+                                  child: Text('3 per row'),
+                                ),
+                            ],
+                          ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<String>(
+                          tooltip: 'Compare Sensors',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: surfaceColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: borderColor,
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                if (!isDarkMode)
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.compare_arrows,
+                                    size: 16, color: strongText),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Compare Sensors',
+                                  style: TextStyle(
+                                    color: strongText,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          itemBuilder: (BuildContext context) {
+                            List<StateSetter> setters = [];
+
+                            final allValidDisplayNames =
+                                _config!.parameters
+                                    .where((p) {
+                                       if (p.isMetadata) return false;
+                                       if (p.key == 'Moisture1' ||
+                                           p.key == 'Moisture2' ||
+                                           p.key == 'Moisture3' ||
+                                           p.key == 'Conductivity1' ||
+                                           p.key == 'Conductivity2' ||
+                                           p.key == 'Conductivity3') {
+                                         return false;
+                                       }
+                                      if (p.key == 'WindDirection' ||
+                                          p.key == 'WindDir' ||
+                                          p.key == 'now_wind_direction' ||
+                                          p.key == 'NowWindDirection')
+                                        return false;
+                                      final data = _parametersData[p.key];
+                                      if (data == null || data.isEmpty)
+                                        return false;
+                                      return true;
+                                    })
+                                    .map((p) {
+                                      if (p.key == 'WindSpeed' ||
+                                          p.key == 'Wind_Speed' ||
+                                          p.key == 'now_wind_speed' ||
+                                          p.key == 'NowWindSpeed') {
+                                        return 'Wind';
+                                      }
+                                      return p.displayName;
+                                    })
+                                    .toSet()
+                                    .toList();
+
+                            final hasMultiMoistureData = ['Moisture1', 'Moisture2', 'Moisture3'].any(
+                                (k) => _parametersData[k] != null && _parametersData[k]!.isNotEmpty);
+                            if (hasMultiMoistureData && !allValidDisplayNames.contains('Moisture')) {
+                              allValidDisplayNames.add('Moisture');
+                            }
+
+                            List<PopupMenuEntry<String>> menuItems = [
+                              PopupMenuItem<String>(
+                                value: 'actions',
+                                enabled: false,
+                                child: StatefulBuilder(
+                                  builder: (context, setMenuItemState) {
+                                    if (!setters
+                                        .contains(setMenuItemState)) {
+                                      setters.add(setMenuItemState);
+                                    }
+                                    bool isAllSelected = true;
+                                    for (var name
+                                        in allValidDisplayNames) {
+                                      if (!_visibleParameters
+                                          .contains(name)) {
+                                        isAllSelected = false;
+                                        break;
+                                      }
+                                    }
+                                    bool isNoneSelected =
+                                        _visibleParameters.isEmpty;
+
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _visibleParameters.addAll(
+                                                    allValidDisplayNames);
+                                              });
+                                              for (var s in setters) {
+                                                s(() {});
+                                              }
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets
+                                                  .symmetric(vertical: 8),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        20),
+                                                border: Border.all(
+                                                  color: isAllSelected
+                                                      ? Colors.blue
+                                                      : Colors
+                                                          .grey.shade600,
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                'Select all',
+                                                style: TextStyle(
+                                                  color: isAllSelected
+                                                      ? Colors.blue
+                                                      : Colors
+                                                          .grey.shade600,
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _visibleParameters
+                                                    .clear();
+                                              });
+                                              for (var s in setters) {
+                                                s(() {});
+                                              }
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets
+                                                  .symmetric(vertical: 8),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        20),
+                                                border: Border.all(
+                                                  color: isNoneSelected
+                                                      ? Colors.blue
+                                                      : Colors
+                                                          .grey.shade600,
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                'Deselect all',
+                                                style: TextStyle(
+                                                  color: isNoneSelected
+                                                      ? Colors.blue
+                                                      : Colors
+                                                          .grey.shade600,
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                              const PopupMenuDivider(),
+                            ];
+
+                            menuItems.addAll(allValidDisplayNames
+                                .map((String displayName) {
+                              return PopupMenuItem<String>(
+                                value: displayName,
+                                child: StatefulBuilder(
+                                  builder: (context, setMenuItemState) {
+                                    if (!setters
+                                        .contains(setMenuItemState)) {
+                                      setters.add(setMenuItemState);
+                                    }
+                                    return CheckboxListTile(
+                                      title: Text(displayName),
+                                      value: _visibleParameters
+                                          .contains(displayName),
+                                      onChanged: (bool? val) {
+                                        setState(() {
+                                          if (val == true) {
+                                            _visibleParameters
+                                                .add(displayName);
+                                          } else {
+                                            _visibleParameters
+                                                .remove(displayName);
+                                          }
+                                        });
+                                        for (var s in setters) {
+                                          s(() {});
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                              );
+                            }).toList());
+
+                            return menuItems;
+                          },
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink();
+
+              final Widget forecastButton = (_config?.hasWeatherForecasting == true && !_isLoading)
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/nowcasting',
+                            arguments: {
+                              'deviceName': widget.deviceName,
+                              'sequentialName': widget.sequentialName,
+                            },
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: borderColor,
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              if (!isDarkMode)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.cloudy_snowing,
+                                  size: 16, color: strongText),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Nowcast & Forecast 🌦️',
+                                style: TextStyle(
+                                  color: strongText,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink();
+
+              if (isLarge) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                        width: MediaQuery.of(context).size.width - 32),
+                    if (_config?.hasWeatherForecasting == true && !_isLoading)
+                      Positioned(left: 0, child: forecastButton)
+                    else
+                      const SizedBox.shrink(),
+                    timeFiltersRow,
+                    if (_isAdmin && _config != null && !_isLoading)
+                      Positioned(right: 0, child: dropdownsRow),
+                  ],
+                );
+              } else {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    timeFiltersRow,
+                    dropdownsRow,
+                    forecastButton,
+                  ],
+                );
+              }
+            },
+          ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartsContent(BuildContext context, bool isDarkMode,
+      Color strongText, bool isPortrait) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double chartWidth;
+    if (isPortrait) {
+      chartWidth = (screenWidth < 1100 || _graphsPerRow == 1)
+          ? screenWidth
+          : screenWidth / _graphsPerRow;
+    } else {
+      chartWidth = screenWidth > 800
+          ? screenWidth / _graphsPerRow
+          : screenWidth;
+    }
+
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 100),
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.blueAccent),
+        ),
+      );
+    }
+
+    if (_config != null) {
+      if (!_parametersData.values.any((l) => l.isNotEmpty)) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.bar_chart_outlined,
+                size: 64,
+                color: isDarkMode ? Colors.white38 : Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "No Data Found",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: strongText,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "No telemetry data was recorded for ${widget.deviceName} on the selected date range.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return Wrap(
+        spacing: 0,
+        runSpacing: 0,
+        alignment: WrapAlignment.center,
+        children: _config!.parameters.where((p) {
+          if (p.isMetadata) return false;
+          if (p.key == 'WindDirection' ||
+              p.key == 'WindDir' ||
+              p.key == 'now_wind_direction' ||
+              p.key == 'NowWindDirection') return false;
+
+          String displayName = p.displayName;
+          if (p.key == 'WindSpeed' ||
+              p.key == 'Wind_Speed' ||
+              p.key == 'now_wind_speed' ||
+              p.key == 'NowWindSpeed') {
+            displayName = 'Wind';
+          }
+
+          if (p.key == 'Moisture1' ||
+              p.key == 'Moisture2' ||
+              p.key == 'Moisture3') {
+            final firstMoisture = _config!.parameters.firstWhere(
+              (param) =>
+                  param.key == 'Moisture1' ||
+                  param.key == 'Moisture2' ||
+                  param.key == 'Moisture3',
+            );
+            if (p.key != firstMoisture.key) return false;
+            displayName = 'Moisture';
+            final hasMoistureData = [
+              'Moisture1',
+              'Moisture2',
+              'Moisture3'
+            ].any((k) =>
+                _parametersData[k] != null &&
+                _parametersData[k]!.isNotEmpty);
+            if (!hasMoistureData) return false;
+          }
+
+          if (!_visibleParameters.contains(displayName))
+            return false;
+          if ((p.key == 'Heat_Index_Feels_Like' ||
+                  p.key == 'Feels Like' ||
+                  p.displayName == 'Feels Like') &&
+              (_parametersData.containsKey('now_temperature') ||
+                  _parametersData.containsKey('NowTemperature') ||
+                  _parametersData.containsKey('Temperature'))) {
+            return false;
+          }
+
+          if (p.key == 'Moisture1' ||
+              p.key == 'Moisture2' ||
+              p.key == 'Moisture3') {
+            return true;
+          }
+
+          final data = _parametersData[p.key];
+          return data != null && data.isNotEmpty;
+        }).map((p) {
+          if (p.key == 'Moisture1' ||
+              p.key == 'Moisture2' ||
+              p.key == 'Moisture3') {
+            Widget moistureChart =
+                _buildMultiMoistureChartContainer(
+              'Moisture',
+              isDarkMode,
+            );
+            return SizedBox(
+              width: chartWidth,
+              child: moistureChart,
+            );
+          }
+
+          var data = _parametersData[p.key]!;
+          if (p.key == 'WindSpeed' ||
+              p.key == 'Wind_Speed' ||
+              p.key == 'now_wind_speed' ||
+              p.key == 'NowWindSpeed') {
+            var dirData = _parametersData['WindDirection'] ??
+                _parametersData['WindDir'] ??
+                _parametersData['now_wind_direction'] ??
+                _parametersData['NowWindDirection'] ??
+                [];
+
+            List<ChartData>? secondarySpeedData;
+            List<ChartData>? secondaryDirectionData;
+            String? secondaryTitle;
+
+            if (!_shouldDisableCorrectedFields) {
+              final correctedSpeed =
+                  _parametersData['CorrectedField_${p.key}'] ??
+                  _parametersData['CorrectedField_WindSpeed'];
+              final correctedDir =
+                  _parametersData['CorrectedField_WindDirection'] ??
+                  _parametersData['CorrectedField_WindDir'] ??
+                  _parametersData['CorrectedField_now_wind_direction'];
+
+              if (_isAdmin) {
+                if (correctedSpeed != null && correctedSpeed.isNotEmpty) {
+                  secondarySpeedData = correctedSpeed;
+                  secondaryTitle = 'Corrected Wind';
+                  if (correctedDir != null && correctedDir.isNotEmpty) {
+                    secondaryDirectionData = correctedDir;
+                  }
+                }
+              } else {
+                if (correctedSpeed != null && correctedSpeed.isNotEmpty) {
+                  data = _mergeCorrectedData(data, correctedSpeed);
+                }
+                if (correctedDir != null && correctedDir.isNotEmpty) {
+                  dirData = _mergeCorrectedData(dirData, correctedDir);
+                }
+              }
+            }
+
+            Widget windChart = _buildWindChartContainer(
+              'Wind',
+              data,
+              dirData,
+              isDarkMode,
+              secondarySpeedData: secondarySpeedData,
+              secondaryDirectionData: secondaryDirectionData,
+              secondaryTitle: secondaryTitle,
+            );
+            return SizedBox(
+              width: chartWidth,
+              child: windChart,
+            );
+          }
+          List<ChartData>? secondaryData;
+          String? secondaryTitle;
+
+          final isTempParam = (p.key == 'now_temperature' ||
+              p.key == 'NowTemperature' ||
+              p.key == 'Temperature' ||
+              (p.displayName.toLowerCase().contains('temperature') &&
+                  !p.displayName.toLowerCase().contains('soil') &&
+                  !p.displayName.toLowerCase().contains('min') &&
+                  !p.displayName.toLowerCase().contains('max') &&
+                  !p.displayName.toLowerCase().contains('feels')));
+
+          if (isTempParam) {
+            final feelsLikeData = _parametersData['Heat_Index_Feels_Like'] ??
+                _parametersData['Feels Like'] ??
+                _parametersData['feels_like'];
+            if (feelsLikeData != null && feelsLikeData.isNotEmpty) {
+              secondaryData = feelsLikeData;
+              secondaryTitle = 'Feels Like';
+            }
+          }
+
+
+
+          if (!_shouldDisableCorrectedFields) {
+            if (secondaryData == null && _isAdmin) {
+              final correctedField =
+                  (_isDevice250 && p.key.toLowerCase().contains('rain'))
+                      ? null
+                      : _parametersData['CorrectedField_${p.key}'];
+              if (correctedField != null &&
+                  correctedField.isNotEmpty) {
+                secondaryData = correctedField;
+                secondaryTitle = 'Corrected ${p.displayName}';
+              } else if (p.displayName
+                  .toLowerCase()
+                  .contains('temperature')) {
+                final corrected =
+                    _parametersData['CorrectedTemp'];
+                if (corrected != null &&
+                    corrected.isNotEmpty) {
+                  secondaryData = corrected;
+                  secondaryTitle = 'Corrected Temp';
+                }
+              } else if (p.displayName
+                  .toLowerCase()
+                  .contains('humidity')) {
+                final corrected =
+                    _parametersData['CorrectedHumidity'];
+                if (corrected != null &&
+                    corrected.isNotEmpty) {
+                  secondaryData = corrected;
+                  secondaryTitle = 'Corrected Humidity';
+                }
+              } else if ((p.displayName.toLowerCase().contains('rain') ||
+                      p.key.toLowerCase().contains('rain')) &&
+                  !_isDevice250) {
+                for (final k in _parametersData.keys) {
+                  if (k.toLowerCase().contains('correctedfield') &&
+                      k.toLowerCase().contains('rain')) {
+                    final corrected = _parametersData[k];
+                    if (corrected != null && corrected.isNotEmpty) {
+                      secondaryData = corrected;
+                      secondaryTitle = 'Corrected ${p.displayName}';
+                      break;
+                    }
+                  }
+                }
+              }
+            } else {
+              final correctedField =
+                  (_isDevice250 && p.key.toLowerCase().contains('rain'))
+                      ? null
+                      : _parametersData['CorrectedField_${p.key}'];
+              if (correctedField != null &&
+                  correctedField.isNotEmpty) {
+                data = _mergeCorrectedData(data, correctedField);
+              } else if (p.displayName
+                  .toLowerCase()
+                  .contains('temperature')) {
+                final corrected =
+                    _parametersData['CorrectedTemp'];
+                if (corrected != null &&
+                    corrected.isNotEmpty) {
+                  data = _mergeCorrectedData(data, corrected);
+                }
+              } else if (p.displayName
+                  .toLowerCase()
+                  .contains('humidity')) {
+                final corrected =
+                    _parametersData['CorrectedHumidity'];
+                if (corrected != null &&
+                    corrected.isNotEmpty) {
+                  data = _mergeCorrectedData(data, corrected);
+                }
+              } else if ((p.displayName.toLowerCase().contains('rain') ||
+                      p.key.toLowerCase().contains('rain')) &&
+                  !_isDevice250) {
+                for (final k in _parametersData.keys) {
+                  if (k.toLowerCase().contains('correctedfield') &&
+                      k.toLowerCase().contains('rain')) {
+                    final corrected = _parametersData[k];
+                    if (corrected != null && corrected.isNotEmpty) {
+                      data = _mergeCorrectedData(data, corrected);
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          Widget chart = _buildChartContainer(
+            p.displayName,
+            data,
+            p.unit.isNotEmpty ? '(${p.unit})' : '',
+            ChartType.line,
+            isDarkMode,
+            secondaryData: secondaryData,
+            secondaryTitle: secondaryTitle,
+          );
+
+          return SizedBox(
+            width: chartWidth,
+            child: chart,
+          );
+        }).toList(),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final bgColor =
@@ -3823,497 +4633,69 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         : Colors.black.withOpacity(0.08);
     final strongText = isDarkMode ? Colors.white : Colors.black87;
 
+    final mediaQuery = MediaQuery.of(context);
+    final bool isPortrait = mediaQuery.orientation == Orientation.portrait ||
+        mediaQuery.size.height > mediaQuery.size.width;
+    final bool shouldScrollEntireScreen = isPortrait ||
+        mediaQuery.size.width < 1100 ||
+        mediaQuery.size.height < 850;
+
+    final controlRow = _buildControlRow(
+        context, isDarkMode, surfaceColor, borderColor, strongText);
+    final chartsContent =
+        _buildChartsContent(context, isDarkMode, strongText, isPortrait);
+
+    if (shouldScrollEntireScreen) {
+      return Scaffold(
+        backgroundColor: bgColor,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                bgColor,
+                isDarkMode
+                    ? const Color(0xFF091520)
+                    : const Color(0xFFEBF4FF),
+              ],
+            ),
+          ),
+          child: RefreshIndicator(
+            onRefresh: () async {
+              _reloadData(range: _lastSelectedRange);
+            },
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildNewHeader(isDarkMode),
+                  _buildHorizontalStatsRow(isDarkMode),
+                  controlRow,
+                  chartsContent,
+                  const SizedBox(height: 100), // Bottom padding
+                ],
+              ),
+            ),
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _showDownloadOptionsDialog(context),
+          backgroundColor: Colors.blueAccent,
+          elevation: 6,
+          child: const Icon(Icons.download_rounded, color: Colors.white),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: bgColor,
       body: Column(
         children: [
           _buildNewHeader(isDarkMode),
           _buildHorizontalStatsRow(isDarkMode),
-          // Control Row (New Time Range Buttons + Status)
-          TourTarget(
-            targetId: 'graph_controls',
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 16.0, right: 16.0, top: 0.0, bottom: 8.0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width - 32,
-                ),
-                child: Builder(
-                  builder: (context) {
-                    final bool isLarge =
-                        MediaQuery.of(context).size.width > 1100;
-
-                    final Widget timeFiltersRow = Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        'single',
-                        '7days',
-                        '30days',
-                        '3months',
-                        '1year'
-                      ].map((String value) {
-                        String label = value == 'single'
-                            ? DateFormat('dd/MM/yyyy').format(_selectedDay)
-                            : value == '7days'
-                                ? '7 Days'
-                                : value == '30days'
-                                    ? '1 Month'
-                                    : value == '3months'
-                                        ? '3 Months'
-                                        : '1 Year';
-
-                        final bool isSelected = _lastSelectedRange == value;
-
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: InkWell(
-                            onTap: () {
-                              if (value == 'single') {
-                                _selectDate();
-                              } else if (value == '30days') {
-                                _selectMonthYear();
-                              } else {
-                                _reloadData(range: value);
-                                _fetchDataForRange(value);
-                              }
-                              setState(() => _lastSelectedRange = value);
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Colors.blueAccent
-                                    : surfaceColor,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? Colors.blueAccent
-                                      : borderColor,
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  if (!isDarkMode)
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                ],
-                              ),
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : strongText,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-
-                    final Widget dropdownsRow = (_isAdmin &&
-                            _config != null &&
-                            !_isLoading)
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!isLarge) const SizedBox(width: 16),
-                              if (MediaQuery.of(context).size.width > 800)
-                                PopupMenuButton<int>(
-                                  tooltip: 'Graphs per Row',
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: surfaceColor,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: borderColor,
-                                        width: 1,
-                                      ),
-                                      boxShadow: [
-                                        if (!isDarkMode)
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.05),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.grid_view,
-                                            size: 16, color: strongText),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Graphs per Row: $_graphsPerRow',
-                                          style: TextStyle(
-                                            color: strongText,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  onSelected: (int value) {
-                                    setState(() {
-                                      _graphsPerRow = value;
-                                    });
-                                  },
-                                  itemBuilder: (BuildContext context) => [
-                                    const PopupMenuItem(
-                                      value: 1,
-                                      child: Text('1 per row'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 2,
-                                      child: Text('2 per row'),
-                                    ),
-                                    if (MediaQuery.of(context).size.width >
-                                        1100)
-                                      const PopupMenuItem(
-                                        value: 3,
-                                        child: Text('3 per row'),
-                                      ),
-                                  ],
-                                ),
-                              const SizedBox(width: 8),
-                              PopupMenuButton<String>(
-                                tooltip: 'Compare Sensors',
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: surfaceColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: borderColor,
-                                      width: 1,
-                                    ),
-                                    boxShadow: [
-                                      if (!isDarkMode)
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.compare_arrows,
-                                          size: 16, color: strongText),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Compare Sensors',
-                                        style: TextStyle(
-                                          color: strongText,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                itemBuilder: (BuildContext context) {
-                                  List<StateSetter> setters = [];
-
-                                  final allValidDisplayNames =
-                                      _config!.parameters
-                                          .where((p) {
-                                             if (p.isMetadata) return false;
-                                             if (p.key == 'Moisture1' ||
-                                                 p.key == 'Moisture2' ||
-                                                 p.key == 'Moisture3' ||
-                                                 p.key == 'Conductivity1' ||
-                                                 p.key == 'Conductivity2' ||
-                                                 p.key == 'Conductivity3') {
-                                               return false;
-                                             }
-                                            if (p.key == 'WindDirection' ||
-                                                p.key == 'WindDir' ||
-                                                p.key == 'now_wind_direction' ||
-                                                p.key == 'NowWindDirection')
-                                              return false;
-                                            final data = _parametersData[p.key];
-                                            if (data == null || data.isEmpty)
-                                              return false;
-                                            return true;
-                                          })
-                                          .map((p) {
-                                            if (p.key == 'WindSpeed' ||
-                                                p.key == 'Wind_Speed' ||
-                                                p.key == 'now_wind_speed' ||
-                                                p.key == 'NowWindSpeed') {
-                                              return 'Wind';
-                                            }
-                                            return p.displayName;
-                                          })
-                                          .toSet()
-                                          .toList();
-
-                                  final hasMultiMoistureData = ['Moisture1', 'Moisture2', 'Moisture3'].any(
-                                      (k) => _parametersData[k] != null && _parametersData[k]!.isNotEmpty);
-                                  if (hasMultiMoistureData && !allValidDisplayNames.contains('Moisture')) {
-                                    allValidDisplayNames.add('Moisture');
-                                  }
-
-                                  List<PopupMenuEntry<String>> menuItems = [
-                                    PopupMenuItem<String>(
-                                      value: 'actions',
-                                      enabled: false,
-                                      child: StatefulBuilder(
-                                        builder: (context, setMenuItemState) {
-                                          if (!setters
-                                              .contains(setMenuItemState)) {
-                                            setters.add(setMenuItemState);
-                                          }
-                                          bool isAllSelected = true;
-                                          for (var name
-                                              in allValidDisplayNames) {
-                                            if (!_visibleParameters
-                                                .contains(name)) {
-                                              isAllSelected = false;
-                                              break;
-                                            }
-                                          }
-                                          bool isNoneSelected =
-                                              _visibleParameters.isEmpty;
-
-                                          return Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Expanded(
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      _visibleParameters.addAll(
-                                                          allValidDisplayNames);
-                                                    });
-                                                    for (var s in setters) {
-                                                      s(() {});
-                                                    }
-                                                  },
-                                                  child: Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(vertical: 8),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                      border: Border.all(
-                                                        color: isAllSelected
-                                                            ? Colors.blue
-                                                            : Colors
-                                                                .grey.shade600,
-                                                        width: 1.5,
-                                                      ),
-                                                    ),
-                                                    alignment: Alignment.center,
-                                                    child: Text(
-                                                      'Select all',
-                                                      style: TextStyle(
-                                                        color: isAllSelected
-                                                            ? Colors.blue
-                                                            : Colors
-                                                                .grey.shade600,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      _visibleParameters
-                                                          .clear();
-                                                    });
-                                                    for (var s in setters) {
-                                                      s(() {});
-                                                    }
-                                                  },
-                                                  child: Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(vertical: 8),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                      border: Border.all(
-                                                        color: isNoneSelected
-                                                            ? Colors.blue
-                                                            : Colors
-                                                                .grey.shade600,
-                                                        width: 1.5,
-                                                      ),
-                                                    ),
-                                                    alignment: Alignment.center,
-                                                    child: Text(
-                                                      'Deselect all',
-                                                      style: TextStyle(
-                                                        color: isNoneSelected
-                                                            ? Colors.blue
-                                                            : Colors
-                                                                .grey.shade600,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const PopupMenuDivider(),
-                                  ];
-
-                                  menuItems.addAll(allValidDisplayNames
-                                      .map((String displayName) {
-                                    return PopupMenuItem<String>(
-                                      value: displayName,
-                                      child: StatefulBuilder(
-                                        builder: (context, setMenuItemState) {
-                                          if (!setters
-                                              .contains(setMenuItemState)) {
-                                            setters.add(setMenuItemState);
-                                          }
-                                          return CheckboxListTile(
-                                            title: Text(displayName),
-                                            value: _visibleParameters
-                                                .contains(displayName),
-                                            onChanged: (bool? val) {
-                                              setState(() {
-                                                if (val == true) {
-                                                  _visibleParameters
-                                                      .add(displayName);
-                                                } else {
-                                                  _visibleParameters
-                                                      .remove(displayName);
-                                                }
-                                              });
-                                              for (var s in setters) {
-                                                s(() {});
-                                              }
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    );
-                                  }).toList());
-
-                                  return menuItems;
-                                },
-                              ),
-                            ],
-                          )
-                        : const SizedBox.shrink();
-
-                    final Widget forecastButton = (_config?.hasWeatherForecasting == true && !_isLoading)
-                        ? Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/nowcasting',
-                                  arguments: {
-                                    'deviceName': widget.deviceName,
-                                    'sequentialName': widget.sequentialName,
-                                  },
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: surfaceColor,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: borderColor,
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    if (!isDarkMode)
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.cloudy_snowing,
-                                        size: 16, color: strongText),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Nowcast & Forecast 🌦️',
-                                      style: TextStyle(
-                                        color: strongText,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink();
-
-                    if (isLarge) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                              width: MediaQuery.of(context).size.width - 32),
-                          if (_config?.hasWeatherForecasting == true && !_isLoading)
-                            Positioned(left: 0, child: forecastButton)
-                          else
-                            const SizedBox.shrink(),
-                          timeFiltersRow,
-                          if (_isAdmin && _config != null && !_isLoading)
-                            Positioned(right: 0, child: dropdownsRow),
-                        ],
-                      );
-                    } else {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          timeFiltersRow,
-                          dropdownsRow,
-                          forecastButton,
-                        ],
-                      );
-                    }
-                  },
-                ),
-                ),
-              ),
-            ),
-          ),
+          controlRow,
           Expanded(
             child: Stack(
               children: [
@@ -4340,315 +4722,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Column(
                       children: [
-                        // Parameters and Charts
-
-                        if (_isLoading)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 100),
-                            child: CircularProgressIndicator(
-                                color: Colors.blueAccent),
-                          )
-                        else if (_config != null)
-                          if (!_parametersData.values.any((l) => l.isNotEmpty))
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 20),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.bar_chart_outlined,
-                                    size: 64,
-                                    color: isDarkMode ? Colors.white38 : Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    "No Data Found",
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: strongText,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    "No telemetry data was recorded for ${widget.deviceName} on the selected date range.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: isDarkMode ? Colors.white70 : Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Wrap(
-                            spacing: 0,
-                            runSpacing: 0,
-                            alignment: WrapAlignment.center,
-                            children: _config!.parameters.where((p) {
-                              if (p.isMetadata) return false;
-                              if (p.key == 'WindDirection' ||
-                                  p.key == 'WindDir' ||
-                                  p.key == 'now_wind_direction' ||
-                                  p.key == 'NowWindDirection') return false;
-
-                              String displayName = p.displayName;
-                              if (p.key == 'WindSpeed' ||
-                                  p.key == 'Wind_Speed' ||
-                                  p.key == 'now_wind_speed' ||
-                                  p.key == 'NowWindSpeed') {
-                                displayName = 'Wind';
-                              }
-
-                              if (p.key == 'Moisture1' ||
-                                  p.key == 'Moisture2' ||
-                                  p.key == 'Moisture3') {
-                                final firstMoisture = _config!.parameters.firstWhere(
-                                  (param) =>
-                                      param.key == 'Moisture1' ||
-                                      param.key == 'Moisture2' ||
-                                      param.key == 'Moisture3',
-                                );
-                                if (p.key != firstMoisture.key) return false;
-                                displayName = 'Moisture';
-                                final hasMoistureData = [
-                                  'Moisture1',
-                                  'Moisture2',
-                                  'Moisture3'
-                                ].any((k) =>
-                                    _parametersData[k] != null &&
-                                    _parametersData[k]!.isNotEmpty);
-                                if (!hasMoistureData) return false;
-                              }
-
-                              if (!_visibleParameters.contains(displayName))
-                                return false;
-                              if ((p.key == 'Heat_Index_Feels_Like' ||
-                                      p.key == 'Feels Like' ||
-                                      p.displayName == 'Feels Like') &&
-                                  (_parametersData.containsKey('now_temperature') ||
-                                      _parametersData.containsKey('NowTemperature') ||
-                                      _parametersData.containsKey('Temperature'))) {
-                                return false;
-                              }
-
-                              if (p.key == 'Moisture1' ||
-                                  p.key == 'Moisture2' ||
-                                  p.key == 'Moisture3') {
-                                return true;
-                              }
-
-                              final data = _parametersData[p.key];
-                              return data != null && data.isNotEmpty;
-                            }).map((p) {
-                              if (p.key == 'Moisture1' ||
-                                  p.key == 'Moisture2' ||
-                                  p.key == 'Moisture3') {
-                                Widget moistureChart =
-                                    _buildMultiMoistureChartContainer(
-                                  'Moisture',
-                                  isDarkMode,
-                                );
-                                return SizedBox(
-                                  width: MediaQuery.of(context).size.width > 800
-                                      ? MediaQuery.of(context).size.width /
-                                          _graphsPerRow
-                                      : MediaQuery.of(context).size.width,
-                                  child: moistureChart,
-                                );
-                              }
-
-                              var data = _parametersData[p.key]!;
-                              if (p.key == 'WindSpeed' ||
-                                  p.key == 'Wind_Speed' ||
-                                  p.key == 'now_wind_speed' ||
-                                  p.key == 'NowWindSpeed') {
-                                var dirData = _parametersData['WindDirection'] ??
-                                    _parametersData['WindDir'] ??
-                                    _parametersData['now_wind_direction'] ??
-                                    _parametersData['NowWindDirection'] ??
-                                    [];
-
-                                List<ChartData>? secondarySpeedData;
-                                List<ChartData>? secondaryDirectionData;
-                                String? secondaryTitle;
-
-                                if (!_shouldDisableCorrectedFields) {
-                                  final correctedSpeed =
-                                      _parametersData['CorrectedField_${p.key}'] ??
-                                      _parametersData['CorrectedField_WindSpeed'];
-                                  final correctedDir =
-                                      _parametersData['CorrectedField_WindDirection'] ??
-                                      _parametersData['CorrectedField_WindDir'] ??
-                                      _parametersData['CorrectedField_now_wind_direction'];
-
-                                  if (_isAdmin) {
-                                    if (correctedSpeed != null && correctedSpeed.isNotEmpty) {
-                                      secondarySpeedData = correctedSpeed;
-                                      secondaryTitle = 'Corrected Wind';
-                                      if (correctedDir != null && correctedDir.isNotEmpty) {
-                                        secondaryDirectionData = correctedDir;
-                                      }
-                                    }
-                                  } else {
-                                    if (correctedSpeed != null && correctedSpeed.isNotEmpty) {
-                                      data = _mergeCorrectedData(data, correctedSpeed);
-                                    }
-                                    if (correctedDir != null && correctedDir.isNotEmpty) {
-                                      dirData = _mergeCorrectedData(dirData, correctedDir);
-                                    }
-                                  }
-                                }
-
-                                Widget windChart = _buildWindChartContainer(
-                                  'Wind',
-                                  data,
-                                  dirData,
-                                  isDarkMode,
-                                  secondarySpeedData: secondarySpeedData,
-                                  secondaryDirectionData: secondaryDirectionData,
-                                  secondaryTitle: secondaryTitle,
-                                );
-                                return SizedBox(
-                                  width: MediaQuery.of(context).size.width > 800
-                                      ? MediaQuery.of(context).size.width /
-                                          _graphsPerRow
-                                      : MediaQuery.of(context).size.width,
-                                  child: windChart,
-                                );
-                              }
-                              List<ChartData>? secondaryData;
-                              String? secondaryTitle;
-
-                              final isTempParam = (p.key == 'now_temperature' ||
-                                  p.key == 'NowTemperature' ||
-                                  p.key == 'Temperature' ||
-                                  (p.displayName.toLowerCase().contains('temperature') &&
-                                      !p.displayName.toLowerCase().contains('soil') &&
-                                      !p.displayName.toLowerCase().contains('min') &&
-                                      !p.displayName.toLowerCase().contains('max') &&
-                                      !p.displayName.toLowerCase().contains('feels')));
-
-                              if (isTempParam) {
-                                final feelsLikeData = _parametersData['Heat_Index_Feels_Like'] ??
-                                    _parametersData['Feels Like'] ??
-                                    _parametersData['feels_like'];
-                                if (feelsLikeData != null && feelsLikeData.isNotEmpty) {
-                                  secondaryData = feelsLikeData;
-                                  secondaryTitle = 'Feels Like';
-                                }
-                              }
-
-
-
-                              if (!_shouldDisableCorrectedFields) {
-                                if (secondaryData == null && _isAdmin) {
-                                  final correctedField =
-                                      (_isDevice250 && p.key.toLowerCase().contains('rain'))
-                                          ? null
-                                          : _parametersData['CorrectedField_${p.key}'];
-                                  if (correctedField != null &&
-                                      correctedField.isNotEmpty) {
-                                    secondaryData = correctedField;
-                                    secondaryTitle = 'Corrected ${p.displayName}';
-                                  } else if (p.displayName
-                                      .toLowerCase()
-                                      .contains('temperature')) {
-                                    final corrected =
-                                        _parametersData['CorrectedTemp'];
-                                    if (corrected != null &&
-                                        corrected.isNotEmpty) {
-                                      secondaryData = corrected;
-                                      secondaryTitle = 'Corrected Temp';
-                                    }
-                                  } else if (p.displayName
-                                      .toLowerCase()
-                                      .contains('humidity')) {
-                                    final corrected =
-                                        _parametersData['CorrectedHumidity'];
-                                    if (corrected != null &&
-                                        corrected.isNotEmpty) {
-                                      secondaryData = corrected;
-                                      secondaryTitle = 'Corrected Humidity';
-                                    }
-                                  } else if ((p.displayName.toLowerCase().contains('rain') ||
-                                          p.key.toLowerCase().contains('rain')) &&
-                                      !_isDevice250) {
-                                    for (final k in _parametersData.keys) {
-                                      if (k.toLowerCase().contains('correctedfield') &&
-                                          k.toLowerCase().contains('rain')) {
-                                        final corrected = _parametersData[k];
-                                        if (corrected != null && corrected.isNotEmpty) {
-                                          secondaryData = corrected;
-                                          secondaryTitle = 'Corrected ${p.displayName}';
-                                          break;
-                                        }
-                                      }
-                                    }
-                                  }
-                                } else {
-                                  final correctedField =
-                                      (_isDevice250 && p.key.toLowerCase().contains('rain'))
-                                          ? null
-                                          : _parametersData['CorrectedField_${p.key}'];
-                                  if (correctedField != null &&
-                                      correctedField.isNotEmpty) {
-                                    data = _mergeCorrectedData(data, correctedField);
-                                  } else if (p.displayName
-                                      .toLowerCase()
-                                      .contains('temperature')) {
-                                    final corrected =
-                                        _parametersData['CorrectedTemp'];
-                                    if (corrected != null &&
-                                        corrected.isNotEmpty) {
-                                      data = _mergeCorrectedData(data, corrected);
-                                    }
-                                  } else if (p.displayName
-                                      .toLowerCase()
-                                      .contains('humidity')) {
-                                    final corrected =
-                                        _parametersData['CorrectedHumidity'];
-                                    if (corrected != null &&
-                                        corrected.isNotEmpty) {
-                                      data = _mergeCorrectedData(data, corrected);
-                                    }
-                                  } else if ((p.displayName.toLowerCase().contains('rain') ||
-                                          p.key.toLowerCase().contains('rain')) &&
-                                      !_isDevice250) {
-                                    for (final k in _parametersData.keys) {
-                                      if (k.toLowerCase().contains('correctedfield') &&
-                                          k.toLowerCase().contains('rain')) {
-                                        final corrected = _parametersData[k];
-                                        if (corrected != null && corrected.isNotEmpty) {
-                                          data = _mergeCorrectedData(data, corrected);
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-
-                              Widget chart = _buildChartContainer(
-                                p.displayName,
-                                data,
-                                p.unit.isNotEmpty ? '(${p.unit})' : '',
-                                ChartType.line,
-                                isDarkMode,
-                                secondaryData: secondaryData,
-                                secondaryTitle: secondaryTitle,
-                              );
-
-                              return SizedBox(
-                                width: MediaQuery.of(context).size.width > 800
-                                    ? MediaQuery.of(context).size.width /
-                                        _graphsPerRow
-                                    : MediaQuery.of(context).size.width,
-                                child: chart,
-                              );
-                            }).toList(),
-                          ),
+                        chartsContent,
                         const SizedBox(height: 100), // Bottom padding
                       ],
                     ),
@@ -4667,7 +4741,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       ),
     );
   }
-
 
   IconData _getBatteryIcon(int batteryPercentage) =>
       DevicePrefixUtils.getBatteryIcon(batteryPercentage);
