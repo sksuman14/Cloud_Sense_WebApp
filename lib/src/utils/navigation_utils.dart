@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_sense_webapp/main.dart';
 
 class NavigationUtils {
   /// Checks if either Control or Command (Meta) key is currently pressed.
@@ -57,14 +58,15 @@ class NavigationUtils {
         await launchUrl(url, webOnlyWindowName: '_blank');
       }
     } else {
+      final nav = appNavigatorKey.currentState ?? Navigator.of(context);
       if (removeUntil) {
-        Navigator.pushNamedAndRemoveUntil(context, routeName, (route) => false,
+        nav.pushNamedAndRemoveUntil(routeName, (route) => false,
             arguments: arguments);
       } else if (isReplacement) {
-        Navigator.pushReplacementNamed(context, routeName,
+        nav.pushReplacementNamed(routeName,
             arguments: arguments);
       } else {
-        Navigator.pushNamed(context, routeName, arguments: arguments);
+        nav.pushNamed(routeName, arguments: arguments);
       }
     }
   }

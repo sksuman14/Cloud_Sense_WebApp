@@ -9,6 +9,7 @@ import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
 import 'package:cloud_sense_webapp/src/widgets/drawer.dart';
 import 'package:cloud_sense_webapp/src/widgets/footer.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2609,6 +2610,9 @@ class _HeroSectionState extends State<HeroSection> {
     double btnFontSize = isMobile ? 12.0 : (isTablet ? 13.0 : 14.0);
     double iconSize = isMobile ? 16.0 : (isTablet ? 18.0 : 20.0);
 
+    final userProvider = Provider.of<UserProvider>(context);
+    final bool isSuperAdmin = DeviceUtils.isSuperAdmin(userProvider.userEmail);
+
     return Container(
       width: double.infinity,
       height: isMobile ? 650 : 750,
@@ -2808,22 +2812,69 @@ class _HeroSectionState extends State<HeroSection> {
                     Column(
                       crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
                       children: [
+                        /*
+                        // Interactive Tour Pill for Normal Users
+                        InkWell(
+                          onTap: () => AppTourGuide.startTour(context),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0284C7).withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.4)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.explore_outlined, color: Colors.white, size: 16),
+                                SizedBox(width: 8),
+                                Text(
+                                  "New User? Take Step-by-Step Interactive Tour ✨",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        */
                         // Top Row: My Devices, Explore Hardware, Nationwide Map
                         Wrap(
                           spacing: isMobile ? 10 : 16,
                           runSpacing: isMobile ? 10 : 16,
                           alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
                           children: [
-                            ElevatedButton.icon(
-                              onPressed: widget.onMyDevicesTap,
-                              icon: Icon(Icons.devices, color: Colors.black, size: iconSize),
-                              label: const Text("My Devices"),
-                              style: ElevatedButton.styleFrom(
-                                foregroundColor: Colors.black,
-                                backgroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            TourTarget(
+                              targetId: 'my_devices',
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 0) {
+                                    AppTourGuide.nextStep(context);
+                                  } else {
+                                    widget.onMyDevicesTap();
+                                  }
+                                },
+                                icon: Icon(Icons.devices, color: Colors.black, size: iconSize),
+                                label: const Text("My Devices"),
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.black,
+                                  backgroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                  textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                ),
                               ),
                             ),
                             OutlinedButton.icon(
@@ -2871,6 +2922,21 @@ class _HeroSectionState extends State<HeroSection> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                               ),
                             ),
+                            if (isSuperAdmin)
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  NavigationUtils.navigateTo(context, '/compare');
+                                },
+                                icon: Icon(Icons.compare_arrows, color: Colors.white, size: iconSize),
+                                label: const Text("Device Comparison"),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.white, width: 2),
+                                  padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
+                                  textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                ),
+                              ),
                             ElevatedButton.icon(
                               onPressed: () {
                                 NavigationUtils.navigateTo(context, '/ksdma');

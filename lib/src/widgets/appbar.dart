@@ -5,6 +5,7 @@ import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui' as ui;
@@ -543,7 +544,39 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                       ],
                     ),
                   ),
-                  SizedBox(width: screenWidth <= 1024 ? 12 : 24),
+                  SizedBox(width: screenWidth <= 1024 ? 8 : 16),
+
+                  /*
+                  /// App Tour Interactive Guide Button
+                  Tooltip(
+                    message: "Interactive Step-by-Step Guide for Normal Users",
+                    child: TextButton.icon(
+                      onPressed: () => AppTourGuide.startTour(context),
+                      icon: Icon(
+                        Icons.explore_outlined,
+                        color: const Color(0xFF38BDF8),
+                        size: isTablet ? 18 : 20,
+                      ),
+                      label: Text(
+                        'App Tour',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isTablet ? 14 : 16,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: screenWidth <= 1024 ? 12 : 20),
+                  */
 
                   PopupMenuButton<String>(
                     tooltip: "Help & Manuals",
@@ -564,7 +597,9 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                     ),
                     offset: const Offset(0, 50),
                     onSelected: (String value) {
-                      if (value == 'app_manual') {
+                      if (value == 'interactive_tour') {
+                        AppTourGuide.startTour(context);
+                      } else if (value == 'app_manual') {
                         DownloadManager.downloadFile(
                           context: context,
                           sensorKey: "UserManual",
@@ -580,13 +615,45 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
+                      /*
+                      PopupMenuItem<String>(
+                        value: 'interactive_tour',
+                        child: Row(
+                          children: const [
+                            Icon(Icons.explore_outlined,
+                                color: Color(0xFF0284C7), size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Interactive App Tour ✨',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      */
                       const PopupMenuItem<String>(
                         value: 'app_manual',
-                        child: Text('App Manual'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.picture_as_pdf, size: 18, color: Colors.redAccent),
+                            SizedBox(width: 8),
+                            Text('App Manual (PDF)'),
+                          ],
+                        ),
                       ),
                       const PopupMenuItem<String>(
                         value: 'setup_manual',
-                        child: Text('Setup Manual'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.description, size: 18, color: Colors.blueAccent),
+                            SizedBox(width: 8),
+                            Text('Setup Manual (PDF)'),
+                          ],
+                        ),
                       ),
                     ],
                   ),

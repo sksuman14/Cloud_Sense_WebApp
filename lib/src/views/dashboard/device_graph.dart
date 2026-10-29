@@ -22,6 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/file_download_helper.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 
 // ── Using DevicePrefixUtils for consistent ANNAM/TS prefix mapping ──
 
@@ -3484,6 +3485,17 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             constraints: const BoxConstraints(),
                           ),
                         ),
+                        /*
+                        const SizedBox(width: 6),
+                        IconButton(
+                          icon: const Icon(Icons.help_outline,
+                              color: Colors.white70, size: 20),
+                          tooltip: 'Step-by-Step Graph Guide',
+                          onPressed: () => AppTourGuide.showGraphGuide(context),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        */
                       ],
                     ),
                     if (!isLive) ...[
@@ -3818,8 +3830,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           _buildNewHeader(isDarkMode),
           _buildHorizontalStatsRow(isDarkMode),
           // Control Row (New Time Range Buttons + Status)
-          Padding(
-            padding: const EdgeInsets.only(
+          TourTarget(
+            targetId: 'graph_controls',
+            child: Padding(
+              padding: const EdgeInsets.only(
                 left: 16.0, right: 16.0, top: 0.0, bottom: 8.0),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -4295,6 +4309,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                       );
                     }
                   },
+                ),
                 ),
               ),
             ),

@@ -4,6 +4,7 @@ import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_page.dart';
 import 'package:cloud_sense_webapp/src/services/app_update_service.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -210,6 +211,19 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                   title: const Text('Login/Signup'),
                   onTap: () => _showLoginPopup(context),
                 ),
+                /*
+                ListTile(
+                  leading: const Icon(Icons.explore_outlined, color: Color(0xFF0284C7)),
+                  title: const Text(
+                    'App Tour (Step-by-Step)',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    AppTourGuide.startTour(context);
+                  },
+                ),
+                */
               ],
 
               ExpansionTile(
@@ -223,11 +237,34 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
 
                 // These are the options that appear when you tap the tile
                 children: <Widget>[
+                  /*
+                  // Interactive App Tour
+                  ListTile(
+                    contentPadding: const EdgeInsets.only(left: 30.0),
+                    leading: const Icon(Icons.explore_outlined, color: Color(0xFF0284C7), size: 20),
+                    title: const Text(
+                      'Interactive App Tour ✨',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0284C7),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Step-by-step popup guide for normal users',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context); // Close the drawer
+                      AppTourGuide.startTour(context);
+                    },
+                  ),
+                  */
                   // ListTile for the App Manual
                   ListTile(
                     // Indent the title a bit for a cleaner look
                     contentPadding: const EdgeInsets.only(left: 30.0),
-                    title: const Text('App Manual'),
+                    leading: const Icon(Icons.picture_as_pdf, color: Colors.redAccent, size: 20),
+                    title: const Text('App Manual (PDF)'),
                     onTap: () {
                       Navigator.pop(context); // Close the drawer
                       DownloadManager.downloadFile(
@@ -240,7 +277,8 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                   // ListTile for the Setup Manual
                   ListTile(
                     contentPadding: const EdgeInsets.only(left: 30.0),
-                    title: const Text('Setup Manual'),
+                    leading: const Icon(Icons.description, color: Colors.blueAccent, size: 20),
+                    title: const Text('Setup Manual (PDF)'),
                     onTap: () {
                       Navigator.pop(context); // Close the drawer
                       DownloadManager.downloadFile(

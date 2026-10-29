@@ -11,6 +11,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 
 class SignInSignUpScreen extends StatefulWidget {
   @override
@@ -181,6 +182,12 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
               "FCM Token error during login (possibly blocked by browser): $fcmError");
         }
         print("✅ Subscription handling completed after login.");
+        // Advance interactive tour if on Login step
+        if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 1) {
+          AppTourGuide.nextStep(context);
+          return;
+        }
+
         // ✅ Navigate based on specific user
         if (DeviceUtils.isSuperAdmin(email.trim().toLowerCase())) {
           print("Navigating to / (Home) for admin $email");
@@ -254,6 +261,10 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
           final userProvider =
               Provider.of<UserProvider>(context, listen: false);
           userProvider.setUser(email);
+        }
+        if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 1) {
+          AppTourGuide.nextStep(context);
+          return;
         }
         NavigationUtils.navigateTo(context, '/', removeUntil: true);
       } else {
@@ -675,13 +686,16 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 500),
-                child: _isSignIn
-                    ? _buildSignInCard(isDark)
-                    : _buildSignUpCard(isDark),
+            child: TourTarget(
+              targetId: 'login_card',
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  child: _isSignIn
+                      ? _buildSignInCard(isDark)
+                      : _buildSignUpCard(isDark),
+                ),
               ),
             ),
           ),
@@ -768,13 +782,29 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Login',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: strong,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Login',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: strong,
+                            ),
+                          ),
+                          /*
+                          /*
+                          /*
+                          TextButton.icon(
+                            onPressed: () => AppTourGuide.startTour(context, initialStep: 1),
+                            icon: const Icon(Icons.explore_outlined, size: 16),
+                            label: const Text('Tour Guide', style: TextStyle(fontSize: 12)),
+                          ),
+                          */
+                          */
+                          */
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -983,13 +1013,23 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Create Account',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: strong,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Create Account',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: strong,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => AppTourGuide.startTour(context, initialStep: 1),
+                            icon: const Icon(Icons.explore_outlined, size: 16),
+                            label: const Text('Tour Guide', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 32),
                       _buildTextField(

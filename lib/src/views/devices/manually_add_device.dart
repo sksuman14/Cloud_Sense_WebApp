@@ -2,6 +2,7 @@ import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -130,16 +131,31 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Text(
-                widget.targetUserEmail != null
-                    ? 'Add Device to ${widget.targetUserEmail}'
-                    : 'Add Device Manually',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              // Header with Title & Help Guide
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.targetUserEmail != null
+                        ? 'Add Device to ${widget.targetUserEmail}'
+                        : 'Add Device Manually',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  /*
+                  IconButton(
+                    icon: const Icon(Icons.help_outline, color: Color(0xFF0284C7), size: 20),
+                    tooltip: 'Step-by-Step Guide for Adding Device',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      AppTourGuide.startTour(context, initialStep: 4); // Step 5: Select Device Type
+                    },
+                  ),
+                  */
+                ],
               ),
               const SizedBox(height: 6),
               Text(
@@ -162,61 +178,67 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: templates.map((t) {
-                  return ActionChip(
-                    label: Text(
-                      t['name']!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDarkMode ? Colors.white : Colors.black87,
+              TourTarget(
+                targetId: 'template_chips',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: templates.map((t) {
+                    return ActionChip(
+                      label: Text(
+                        t['name']!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
                       ),
-                    ),
-                    backgroundColor: cardBg,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(
-                        color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.06),
+                      backgroundColor: cardBg,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.06),
+                        ),
                       ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    onPressed: () {
-                      setState(() {
-                        deviceIdController.text = t['prefix']!;
-                        deviceIdController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: deviceIdController.text.length),
-                        );
-                      });
-                    },
-                  );
-                }).toList(),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      onPressed: () {
+                        setState(() {
+                          deviceIdController.text = t['prefix']!;
+                          deviceIdController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: deviceIdController.text.length),
+                          );
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
               const SizedBox(height: 20),
 
               // Input Field
-              TextField(
-                controller: deviceIdController,
-                autofocus: true,
-                onChanged: (val) {
-                  setState(() {});
-                },
-                decoration: InputDecoration(
-                  labelText: 'Enter Device ID',
-                  labelStyle: TextStyle(
-                    color: isDarkMode ? Colors.white70 : Colors.black54,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.developer_board,
-                    color: primaryColor.withOpacity(0.7),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: primaryColor, width: 2),
+              TourTarget(
+                targetId: 'device_id_input',
+                child: TextField(
+                  controller: deviceIdController,
+                  autofocus: true,
+                  onChanged: (val) {
+                    setState(() {});
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Enter Device ID',
+                    labelStyle: TextStyle(
+                      color: isDarkMode ? Colors.white70 : Colors.black54,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.developer_board,
+                      color: primaryColor.withOpacity(0.7),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: primaryColor, width: 2),
+                    ),
                   ),
                 ),
               ),
@@ -320,66 +342,73 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                       ),
                     ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () async {
-                      String inputId = deviceIdController.text.trim().toUpperCase();
-                      if (inputId.isEmpty) {
-                        DeleteDeviceUtils.showToastNotification(
-                          context: context,
-                          title: 'Validation Error',
-                          message: 'Please enter a valid device ID.',
-                          isError: true,
-                        );
-                        return;
-                      }
-
-                      String? finalDeviceId;
-                      final candidates = DeviceUtils.getPossibleInternalIDs(inputId);
-                      if (candidates.isEmpty) {
-                        finalDeviceId = inputId;
-                      } else if (candidates.length == 1) {
-                        finalDeviceId = candidates.first;
-                      } else {
-                        finalDeviceId = await DeviceUtils.showPrefixChoiceDialog(
-                            context, candidates);
-                      }
-
-                      if (finalDeviceId == null) return; // User cancelled choice dialog
-
-                      DeviceUtils.showConfirmationDialog(
-                        context: context,
-                        deviceId: finalDeviceId,
-                        devices: widget.devices,
-                        onConfirm: () async {
-                          bool success = await DeviceUtils.addDeviceToUser(
+                  TourTarget(
+                    targetId: 'confirm_add_btn',
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        String inputId = deviceIdController.text.trim().toUpperCase();
+                        if (inputId.isEmpty) {
+                          DeleteDeviceUtils.showToastNotification(
                             context: context,
-                            email: _email,
-                            deviceId: finalDeviceId!,
+                            title: 'Validation Error',
+                            message: 'Please enter a valid device ID.',
+                            isError: true,
                           );
+                          return;
+                        }
 
-                          if (context.mounted) {
-                            Navigator.pop(context); // close manual entry popup
-                            if (widget.targetUserEmail != null) {
-                              widget.onDeviceAdded?.call();
-                            } else if (success) {
-                              NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
+                        String? finalDeviceId;
+                        final candidates = DeviceUtils.getPossibleInternalIDs(inputId);
+                        if (candidates.isEmpty) {
+                          finalDeviceId = inputId;
+                        } else if (candidates.length == 1) {
+                          finalDeviceId = candidates.first;
+                        } else {
+                          finalDeviceId = await DeviceUtils.showPrefixChoiceDialog(
+                              context, candidates);
+                        }
+
+                        if (finalDeviceId == null) return; // User cancelled choice dialog
+
+                        if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 7) {
+                          AppTourGuide.nextStep(context);
+                        }
+
+                        DeviceUtils.showConfirmationDialog(
+                          context: context,
+                          deviceId: finalDeviceId,
+                          devices: widget.devices,
+                          onConfirm: () async {
+                            bool success = await DeviceUtils.addDeviceToUser(
+                              context: context,
+                              email: _email,
+                              deviceId: finalDeviceId!,
+                            );
+
+                            if (context.mounted) {
+                              Navigator.pop(context); // close manual entry popup
+                              if (widget.targetUserEmail != null) {
+                                widget.onDeviceAdded?.call();
+                              } else if (success) {
+                                NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
+                              }
                             }
-                          }
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: primaryColor,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                          },
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: primaryColor,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Confirm & Add',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      child: const Text(
+                        'Confirm & Add',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],

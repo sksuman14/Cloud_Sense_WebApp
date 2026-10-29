@@ -33,6 +33,7 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_sense_webapp/src/views/dashboard/Weather_Nowcasting.dart';
 import 'package:cloud_sense_webapp/src/ksdma_citizen/views/ksdma_portal_main.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_guard.dart';
+import 'package:cloud_sense_webapp/src/views/comparison/multi_station_comparison_page.dart';
 import 'package:upgrader/upgrader.dart';
 
 
@@ -736,6 +737,8 @@ void main() async {
   _initBackgroundServices();
 }
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class MyApp extends StatelessWidget {
   final String initialRoute;
 
@@ -746,6 +749,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'Cloud Sense Vis',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _NoScrollbarBehavior(),
@@ -801,6 +805,17 @@ class MyApp extends StatelessWidget {
           case '/citizen-weather':
           case '/kerala-weather':
             pageContent = const KsdmaPortalMainPage();
+            break;
+          case '/compare':
+          case '/station-comparison':
+            final compArgs = settings.arguments as Map<String, dynamic>?;
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.superAdmin,
+              child: MultiStationComparisonPage(
+              initialStationA: compArgs?['stationA'] as String?,
+              initialStationB: compArgs?['stationB'] as String?,
+            ),
+            );
             break;
           case '/login':
             pageContent = SignInSignUpScreen();

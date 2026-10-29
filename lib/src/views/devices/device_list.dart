@@ -2,6 +2,7 @@ import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
 import 'package:cloud_sense_webapp/src/views/devices/qr_scan_add_device.dart';
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 import 'package:cloud_sense_webapp/src/widgets/appbar.dart';
 import 'package:cloud_sense_webapp/src/widgets/drawer.dart';
 import 'package:flutter/material.dart';
@@ -825,20 +826,36 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                 ),
                                 const SizedBox(width: 8),
                               ],
-                              ElevatedButton(
-                                onPressed: () =>
-                                    _showAddDeviceDialog(context, strong),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF10B981),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                              TourTarget(
+                                targetId: 'add_device_btn',
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    _showAddDeviceDialog(context, strong);
+                                    if (AppTourGuide.isTourActive && (AppTourGuide.currentStep == 2 || AppTourGuide.currentStep == 3)) {
+                                      AppTourGuide.nextStep(context);
+                                    }
+                                  },
+                                  icon: const Icon(Icons.add, size: 18),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF10B981),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 10),
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
+                                  label: const Text("Add Device"),
                                 ),
-                                child: const Text("Add Device"),
                               ),
+                              /*
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: "Normal User Step-by-Step Guide",
+                                icon: const Icon(Icons.help_outline, color: Color(0xFF0284C7)),
+                                onPressed: () => AppTourGuide.startTour(context, initialStep: 2),
+                              ),
+                              */
                             ],
                           ),
                         ],
@@ -1267,7 +1284,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
 
     final statusColor = isActive ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
-    return MouseRegion(
+    final cardWidget = MouseRegion(
       onEnter: (_) => setState(() => _hoverStates[sensorName] = true),
       onExit: (_) => setState(() => _hoverStates[sensorName] = false),
       child: Container(
@@ -1461,6 +1478,14 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
         ),
       ),
     );
+
+    if (index == 0) {
+      return TourTarget(
+        targetId: 'device_card',
+        child: cardWidget,
+      );
+    }
+    return cardWidget;
   }
 
   void _showAddDeviceDialog(BuildContext context, Color strong) {
@@ -1471,14 +1496,27 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Center(
-            child: Text(
-              "Add New Device",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: strong,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Add New Device",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: strong,
+                ),
               ),
-            ),
+              /*
+              IconButton(
+                icon: const Icon(Icons.help_outline, color: Color(0xFF0284C7), size: 20),
+                tooltip: "Step-by-Step Pairing Guide",
+                onPressed: () {
+                  Navigator.pop(context);
+                  AppTourGuide.startTour(context, initialStep: 3);
+                },
+              ),
+              */
+            ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1496,16 +1534,22 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                 child: const Text("Scan QR Code"),
               ),
               const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    builder: (context) =>
-                        ManualEntryPopup(devices: _deviceCategories),
-                  );
-                },
-                child: const Text("Add Manually"),
+              TourTarget(
+                targetId: 'add_manually_btn',
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    showDialog(
+                      context: context,
+                      builder: (context) =>
+                          ManualEntryPopup(devices: _deviceCategories),
+                    );
+                    if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 4) {
+                      AppTourGuide.nextStep(context);
+                    }
+                  },
+                  child: const Text("Add Manually"),
+                ),
               ),
             ],
           ),
