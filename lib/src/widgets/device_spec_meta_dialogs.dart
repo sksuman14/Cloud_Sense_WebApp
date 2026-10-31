@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_sense_webapp/main.dart';
+import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
+import 'package:cloud_sense_webapp/src/services/device_image_service.dart';
 
 // ==========================================
 // DATA MODELS
@@ -337,6 +341,7 @@ void showDeviceSpecificationDialog({
   String? sensorName,
   String? displayName,
   required bool isDark,
+  bool isAdmin = false,
 }) {
   showDialog(
     context: context,
@@ -346,6 +351,7 @@ void showDeviceSpecificationDialog({
       sensorName: sensorName,
       displayName: displayName,
       isDark: isDark,
+      isAdmin: isAdmin,
     ),
   );
 }
@@ -356,6 +362,7 @@ class _DeviceSpecificationDialogWidget extends StatefulWidget {
   final String? sensorName;
   final String? displayName;
   final bool isDark;
+  final bool isAdmin;
 
   const _DeviceSpecificationDialogWidget({
     Key? key,
@@ -364,6 +371,7 @@ class _DeviceSpecificationDialogWidget extends StatefulWidget {
     this.sensorName,
     this.displayName,
     required this.isDark,
+    this.isAdmin = false,
   }) : super(key: key);
 
   @override
@@ -379,6 +387,71 @@ class _DeviceSpecificationDialogWidgetState
   DeviceSpecification? _selectedSpec;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+
+  DeviceImageResult? _deviceImages;
+  bool _isLoadingImages = true;
+  int _selectedImageSlot = 1;
+
+  bool get _isEffectiveAdmin {
+    if (widget.isAdmin) return true;
+    try {
+      final email = Provider.of<UserProvider>(context, listen: false).userEmail;
+      return DeviceUtils.isSuperAdmin(email);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _resolveTopicForImage(DeviceSpecification? currentSpec) {
+    // If widget.topic is present, it is the user's actual station topic (e.g. WS/SSMet_0126/280)
+    var t = DeviceImageService.cleanTopic(widget.topic);
+    if (t.isNotEmpty && t.toLowerCase() != 'unknown') return t;
+    if (currentSpec != null && currentSpec.deviceIdTopic.isNotEmpty) {
+      return DeviceImageService.cleanTopic(currentSpec.deviceIdTopic);
+    }
+    return t;
+  }
+
+  String _resolveDeviceIdForImage(DeviceSpecification? currentSpec, String resolvedTopic) {
+    // Prefer widget's deviceId / sensorName, cleaned against the topic (e.g. 280)
+    String rawDev = widget.deviceId.trim();
+    if (rawDev.isEmpty || rawDev.toLowerCase() == 'unknown') {
+      rawDev = widget.sensorName ?? (currentSpec?.deviceId ?? '');
+    }
+    return DeviceImageService.cleanDeviceId(rawDev, topic: resolvedTopic);
+  }
+
+  Future<void> _loadImagesForSpec(DeviceSpecification? spec, {bool forceRefresh = false}) async {
+    final top = _resolveTopicForImage(spec);
+    final devId = _resolveDeviceIdForImage(spec, top);
+
+    setState(() {
+      _isLoadingImages = true;
+    });
+
+    try {
+      final imgResult = await DeviceImageService.fetchImages(
+        deviceId: devId,
+        topic: top,
+        forceRefresh: forceRefresh,
+      );
+      if (mounted) {
+        setState(() {
+          _deviceImages = imgResult;
+          _isLoadingImages = false;
+          if (imgResult != null && imgResult.images.isNotEmpty) {
+            _selectedImageSlot = imgResult.images.first.slot;
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingImages = false;
+        });
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -415,6 +488,7 @@ class _DeviceSpecificationDialogWidgetState
           _selectedSpec = matched;
           _isLoading = false;
         });
+        _loadImagesForSpec(matched, forceRefresh: forceRefresh);
       }
     } catch (e) {
       if (mounted) {
@@ -801,6 +875,10 @@ class _DeviceSpecificationDialogWidgetState
         ),
         const SizedBox(height: 14),
 
+        // Device Photo Section (from AWS S3 via GET API)
+        _buildDeviceImageSection(spec, isDark, cardBg, borderColor, strongText, subtleText),
+        const SizedBox(height: 14),
+
         // Grid of Specs
         LayoutBuilder(builder: (context, constraints) {
           final isNarrow = constraints.maxWidth < 500;
@@ -925,6 +1003,319 @@ class _DeviceSpecificationDialogWidgetState
         }),
       ],
     );
+  }
+
+  Widget _buildDeviceImageSection(
+    DeviceSpecification spec,
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color strongText,
+    Color subtleText,
+  ) {
+    final top = _resolveTopicForImage(spec);
+    final devId = _resolveDeviceIdForImage(spec, top);
+    final bool canUpload = _isEffectiveAdmin;
+
+    if (_isLoadingImages) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Checking device installation photos from S3...',
+              style: TextStyle(fontSize: 11.5, color: subtleText),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_deviceImages != null && _deviceImages!.images.isNotEmpty) {
+      final images = _deviceImages!.images;
+      final currentImg = images.firstWhere(
+        (img) => img.slot == _selectedImageSlot,
+        orElse: () => images.first,
+      );
+
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Image Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.photo_camera_back_outlined,
+                      size: 16, color: Colors.cyan),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Installation Photo',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: strongText,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Slot selector if multiple images
+                  if (images.length > 1)
+                    Row(
+                      children: images.map((img) {
+                        final isSelected = img.slot == _selectedImageSlot;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            onTap: () => setState(() => _selectedImageSlot = img.slot),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.cyan.withOpacity(0.2)
+                                    : (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isSelected ? Colors.cyan : borderColor,
+                                ),
+                              ),
+                              child: Text(
+                                'Slot ${img.slot}',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? Colors.cyan : subtleText,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                  const Spacer(),
+
+                  // Admin Upload / Replace Button
+                  if (canUpload)
+                    InkWell(
+                      onTap: () {
+                        showUploadDeviceImageDialog(
+                          context: context,
+                          deviceId: devId,
+                          topic: top,
+                          sensorName: widget.sensorName,
+                          displayName: widget.displayName,
+                          isDark: isDark,
+                          onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.add_a_photo, size: 14, color: Colors.indigoAccent),
+                            SizedBox(width: 4),
+                            Text(
+                              'Update Photo',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigoAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Image display with tap to preview (Contain fit so full photo & GPS stamps are completely visible)
+            InkWell(
+              onTap: () {
+                showDeviceImageLightboxDialog(
+                  context: context,
+                  imageUrl: currentImg.imageUrl,
+                  title: '${widget.displayName ?? spec.deviceId} (Slot ${currentImg.slot})',
+                  subtitle: _deviceImages!.locationSummary.isNotEmpty
+                      ? _deviceImages!.locationSummary
+                      : spec.deviceIdTopic,
+                  isDark: isDark,
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 250,
+                      width: double.infinity,
+                      color: isDark ? const Color(0xFF090D16) : const Color(0xFF0F172A),
+                      child: DeviceImageView(
+                        imageUrl: currentImg.imageUrl,
+                        height: 250,
+                        fit: BoxFit.contain,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Separate bar below the photo so no part of the image or stamps are obscured
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A).withOpacity(0.6) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (_deviceImages!.locationSummary.isNotEmpty)
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on, size: 13, color: Colors.amberAccent),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    _deviceImages!.locationSummary,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: strongText,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          const SizedBox.shrink(),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.fullscreen, size: 15, color: Colors.cyan),
+                            SizedBox(width: 4),
+                            Text(
+                              'Click to view full size',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.cyan,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // No image available
+    if (canUpload) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.indigoAccent.withOpacity(0.3),
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.indigoAccent.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add_a_photo_outlined,
+                  size: 18, color: Colors.indigoAccent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No installation photo uploaded yet',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: strongText,
+                    ),
+                  ),
+                  Text(
+                    'As an admin, you can upload GPS-tagged photos to S3.',
+                    style: TextStyle(fontSize: 10.5, color: subtleText),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                showUploadDeviceImageDialog(
+                  context: context,
+                  deviceId: devId,
+                  topic: top,
+                  sensorName: widget.sensorName,
+                  displayName: widget.displayName,
+                  isDark: isDark,
+                  onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
+                );
+              },
+              icon: const Icon(Icons.upload, size: 13),
+              label: const Text('Upload Photo', style: TextStyle(fontSize: 11)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigoAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildFieldCard({
@@ -1075,6 +1466,7 @@ class _DeviceSpecificationDialogWidgetState
                       : const Icon(Icons.chevron_right, size: 16),
                   onTap: () {
                     setState(() => _selectedSpec = item);
+                    _loadImagesForSpec(item);
                   },
                 );
               },

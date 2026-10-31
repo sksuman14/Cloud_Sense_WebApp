@@ -9,6 +9,7 @@ import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/views/devices/AdvancedDataSendDialog.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_spec_meta_dialogs.dart';
+import 'package:cloud_sense_webapp/src/services/device_image_service.dart';
 
 const Map<String, String> defaultParameterDisplayNames = {
   'temperature': 'Temperature',
@@ -293,6 +294,10 @@ class DeviceActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final providerEmail = Provider.of<UserProvider>(context, listen: false).userEmail ?? "";
+    final currentEmail = (userEmail ?? providerEmail).trim().toLowerCase();
+    final bool effectiveIsAdmin = isAdmin || DeviceUtils.isSuperAdmin(currentEmail);
+
     return PopupMenuButton<String>(
       padding: EdgeInsets.zero,
       tooltip: 'Actions',
@@ -429,6 +434,23 @@ class DeviceActionButton extends StatelessWidget {
               sensorName: sn,
               displayName: dn,
               isDark: isDark,
+              isAdmin: effectiveIsAdmin,
+            );
+            break;
+
+          case 'upload_image':
+            final resolvedTop = DeviceImageService.cleanTopic(topic);
+            final resolvedDev = DeviceImageService.cleanDeviceId(
+              deviceId.isNotEmpty ? deviceId : sn,
+              topic: resolvedTop,
+            );
+            showUploadDeviceImageDialog(
+              context: context,
+              deviceId: resolvedDev,
+              topic: resolvedTop,
+              sensorName: sn,
+              displayName: dn,
+              isDark: isDark,
             );
             break;
 
@@ -554,7 +576,21 @@ class DeviceActionButton extends StatelessWidget {
               Expanded(child: Text('Metadata', style: TextStyle(fontSize: 13))),
             ]),
           ),
-          if (isAdmin)
+          if (effectiveIsAdmin) ...[
+            const PopupMenuItem<String>(
+              value: 'upload_image',
+              child: Row(children: [
+                Icon(Icons.add_a_photo_outlined, color: Colors.indigoAccent, size: 18),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Upload Device Image',
+                    style: TextStyle(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ]),
+            ),
             const PopupMenuItem<String>(
               value: 'quality',
               child: Row(children: [
@@ -569,7 +605,8 @@ class DeviceActionButton extends StatelessWidget {
                 ),
               ]),
             ),
-          if (onDeleteSuccess != null && !isAdmin) ...[
+          ],
+          if (onDeleteSuccess != null && !effectiveIsAdmin) ...[
             const PopupMenuDivider(),
             const PopupMenuItem<String>(
               value: 'delete',
