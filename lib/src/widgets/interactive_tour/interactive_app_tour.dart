@@ -1,3 +1,4 @@
+import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -79,6 +80,9 @@ class AppTourGuide {
   static bool _isActive = false;
   static bool _wasDemoAuthSet = false;
 
+  static String? lastAddedDeviceId;
+  static String? lastAddedDeviceSequentialName;
+
   static final Map<String, BuildContext> _registeredTargets = {};
 
   static bool get isTourActive => _isActive;
@@ -123,6 +127,22 @@ class AppTourGuide {
     } catch (_) {}
   }
 
+  // Contextual action triggers
+  static VoidCallback? onTriggerAddDeviceDialog;
+  static VoidCallback? onTriggerManualEntry;
+  static VoidCallback? onTriggerConfirmAdd;
+  static VoidCallback? onTriggerSelectTopic;
+  static VoidCallback? onTriggerConfirmYes;
+  static ValueChanged<String>? onAutoFillDeviceId;
+
+  static void goToStep(BuildContext context, int stepIndex) {
+    if (stepIndex >= 0 && stepIndex < steps.length) {
+      _currentStepIndex = stepIndex;
+      activeStepNotifier.value = _currentStepIndex;
+      _overlayEntry?.markNeedsBuild();
+    }
+  }
+
   // Active step change listener
   static final ValueNotifier<int> activeStepNotifier = ValueNotifier<int>(0);
 
@@ -130,20 +150,20 @@ class AppTourGuide {
     // Step 0: My Devices button on Home page
     LiveTourStepConfig(
       index: 0,
-      stepTag: 'STEP 1 OF 10 · HOME PAGE',
+      stepTag: 'STEP 1 OF 11 · HOME PAGE',
       title: '1. "My Devices" Button',
       description:
           'Click this button to access your connected stations.\n\n'
           '👉 For normal users: If you are not signed in, clicking here prompts Login or Sign Up. If already signed in, it opens your Device List directly.',
       targetButtonLabel: 'My Devices',
       targetId: 'my_devices',
-      nextButtonText: 'Next: Login / Sign Up >',
+      nextButtonText: 'Next: Login >',
     ),
 
     // Step 1: Login / Sign Up prompt
     LiveTourStepConfig(
       index: 1,
-      stepTag: 'STEP 2 OF 10 · AUTHENTICATION',
+      stepTag: 'STEP 2 OF 11 · AUTHENTICATION',
       title: '2. Login or Sign Up',
       description:
           'Enter your email and password to log in, or switch to "Sign Up" to register.\n\n'
@@ -153,99 +173,114 @@ class AppTourGuide {
       nextButtonText: 'Next: Device List >',
     ),
 
-    // Step 2: Device List page
+    // Step 2: Add Device button on Device List page
     LiveTourStepConfig(
       index: 2,
-      stepTag: 'STEP 3 OF 10 · DEVICE LIST',
-      title: '3. Your Device Fleet',
+      stepTag: 'STEP 3 OF 11 · DEVICE FLEET',
+      title: '3. "Add Device" Button',
       description:
-          'This is your devices hub. Here you see all your registered IoT stations, their status (Active Today / Inactive), and battery levels.',
-      targetButtonLabel: 'Device List Overview',
+          'Click the green "+ Add Device" button to pair and register a new weather station to your account.',
+      targetButtonLabel: '+ Add Device',
       targetId: 'add_device_btn',
-      nextButtonText: 'Next: Add Device >',
+      nextButtonText: 'Next: Method >',
     ),
 
-    // Step 3: Add Device button
+    // Step 3: Choose QR or Manual Entry in pairing dialog
     LiveTourStepConfig(
       index: 3,
-      stepTag: 'STEP 4 OF 10 · PAIRING HARDWARE',
-      title: '4. "Add Device" Button',
+      stepTag: 'STEP 4 OF 11 · PAIRING OPTIONS',
+      title: '4. Choose QR or Manual Entry',
       description:
-          'Click this green button whenever you want to pair a new weather station or IoT sensor to your account.',
-      targetButtonLabel: 'Add Device',
-      targetId: 'add_device_btn',
-      nextButtonText: 'Next: Choose Add Manually >',
+          'Choose either "Scan QR Code" (to scan the QR sticker on the device) or "Add Manually" (to enter the serial number or model ID).\n\n'
+          '👉 Click "Add Manually" to enter your device serial number!',
+      targetButtonLabel: 'Pairing Options',
+      targetId: 'pairing_choices',
+      nextButtonText: 'Next: Add Manually >',
     ),
 
-    // Step 4: Add Manually button inside Add New Device dialog
+    // Step 4: Select Device Template in manual entry dialog
     LiveTourStepConfig(
       index: 4,
-      stepTag: 'STEP 5 OF 10 · PAIRING OPTIONS',
-      title: '5. Choose "Add Manually"',
+      stepTag: 'STEP 5 OF 11 · DEVICE TEMPLATES',
+      title: '5. Select Device Template',
       description:
-          'In the popup, click "Add Manually" to register your station using templates and your device serial number.',
-      targetButtonLabel: 'Add Manually',
-      targetId: 'add_manually_btn',
-      nextButtonText: 'Next: Select Device Type >',
-    ),
-
-    // Step 5: Select Device Type / Category template chips
-    LiveTourStepConfig(
-      index: 5,
-      stepTag: 'STEP 6 OF 10 · MANUAL ENTRY',
-      title: '6. Select Device Type',
-      description:
-          'Tap the chip matching your hardware model (e.g. ANNAM Weather ⛅, Soil Sensor 🌱, Water Quality 💧).\n\n'
-          '👉 Tapping a chip automatically inserts the correct system prefix into the box for you!',
+          'Select a template category like "ANNAM Weather ⛅", "Sobha Sensor 🏠", or "CPS Sensor 🌡️" to auto-fill the device prefix.\n\n'
+          '👉 Tap any template chip to select it, or click "Next" to type your custom Station ID directly!',
       targetButtonLabel: 'Device Templates',
       targetId: 'template_chips',
-      nextButtonText: 'Next: Write Device ID >',
+      nextButtonText: 'Next: Enter ID >',
     ),
 
-    // Step 6: Enter Device ID
+    // Step 5: Enter Device ID in manual entry dialog
     LiveTourStepConfig(
-      index: 6,
-      stepTag: 'STEP 7 OF 10 · MANUAL ENTRY',
-      title: '7. Write Device ID',
+      index: 5,
+      stepTag: 'STEP 6 OF 11 · MANUAL ENTRY',
+      title: '6. Enter Device ID',
       description:
-          'Type your hardware serial number or numeric node ID (e.g. 01, 101, 214).\n\n'
-          '👉 The real-time validator console below automatically checks the format with a green checkmark ✅.',
+          'Type or complete your Station ID (e.g. ANNAM-250, 01, 214).\n\n'
+          '👉 Once you enter a Device ID, the tour automatically highlights "Confirm & Add"!',
       targetButtonLabel: 'Enter Device ID',
       targetId: 'device_id_input',
       nextButtonText: 'Next: Confirm & Add >',
     ),
 
-    // Step 7: Confirm & Add button
+    // Step 6: Confirm & Add button
     LiveTourStepConfig(
-      index: 7,
-      stepTag: 'STEP 8 OF 10 · MANUAL ENTRY',
-      title: '8. "Confirm & Add" Button',
+      index: 6,
+      stepTag: 'STEP 7 OF 11 · CONFIRM REGISTRATION',
+      title: '7. "Confirm & Add" Button',
       description:
-          'Click "Confirm & Add" to bind the station to your account.\n\n'
-          '👉 Your device will now appear on your Device List and start reporting telemetry.',
+          'Click "Confirm & Add" to register this device to your account.\n\n'
+          '👉 If multiple installation topics exist for your device, you will be prompted to select your station topic next.',
       targetButtonLabel: 'Confirm & Add',
       targetId: 'confirm_add_btn',
-      nextButtonText: 'Next: Tap Device Card >',
+      nextButtonText: 'Next: Select Topic >',
     ),
 
-    // Step 8: Device card tap
+    // Step 7: Select Device Topic (when candidates > 1)
+    LiveTourStepConfig(
+      index: 7,
+      stepTag: 'STEP 8 OF 11 · DEVICE TOPIC',
+      title: '8. Select Device Topic',
+      description:
+          'Multiple installation topics were found for this device ID.\n\n'
+          '👉 Tap your station\'s deployment topic (e.g. SSMet, Kerala, or Punjab) to select it and proceed to confirmation!',
+      targetButtonLabel: 'Device Topics List',
+      targetId: 'device_topic_choice',
+      nextButtonText: 'Next: Confirm Addition >',
+    ),
+
+    // Step 8: Confirm Device Addition dialog
     LiveTourStepConfig(
       index: 8,
-      stepTag: 'STEP 9 OF 10 · ACCESS TELEMETRY',
-      title: '9. Tap Device Card to Open Graphs',
+      stepTag: 'STEP 9 OF 11 · CONFIRMATION',
+      title: '9. Confirm Device Addition',
+      description:
+          'Review the prompt and click "Yes" to confirm adding this station to your account.\n\n'
+          '👉 Once confirmed, the station will be paired and added to your device fleet!',
+      targetButtonLabel: 'Confirm "Yes"',
+      targetId: 'confirm_addition_dialog',
+      nextButtonText: 'Next: Confirm Yes >',
+    ),
+
+    // Step 9: Device card tap
+    LiveTourStepConfig(
+      index: 9,
+      stepTag: 'STEP 10 OF 11 · ACCESS TELEMETRY',
+      title: '10. Tap Device Card to Open Graphs',
       description:
           'Click anywhere on your device card to open its live telemetry and graphs dashboard!\n\n'
           '👉 The Device Graph page will open showing real-time temperature, humidity, rain, wind, and historical curves.',
       targetButtonLabel: 'Device Card',
       targetId: 'device_card',
-      nextButtonText: 'Next: View Graphs & Controls >',
+      nextButtonText: 'Next: View Graphs >',
     ),
 
-    // Step 9: Device Graph Controls & Analysis
+    // Step 10: Device Graph Controls & Analysis
     LiveTourStepConfig(
-      index: 9,
-      stepTag: 'STEP 10 OF 10 · TELEMETRY & CONTROLS',
-      title: '10. Time Range & Sensor Analysis',
+      index: 10,
+      stepTag: 'STEP 11 OF 11 · TELEMETRY & CONTROLS',
+      title: '11. Time Range & Sensor Analysis',
       description:
           'Switch between Single Day, 7 Days, 30 Days, 3 Months, or 1 Year to analyze historical trends.\n\n'
           '👉 Scroll down to explore parameter curves (temperature, humidity, pressure, wind), toggle parameters, or download CSV data.',
@@ -258,6 +293,11 @@ class AppTourGuide {
   /// Start the live on-screen tour
   static void startTour(BuildContext context, {int initialStep = 0}) {
     stopTour();
+
+    if (initialStep == 0) {
+      lastAddedDeviceId = null;
+      lastAddedDeviceSequentialName = null;
+    }
 
     _isActive = true;
     _currentStepIndex = initialStep.clamp(0, steps.length - 1);
@@ -281,6 +321,8 @@ class AppTourGuide {
     _isActive = false;
     _overlayEntry?.remove();
     _overlayEntry = null;
+    lastAddedDeviceId = null;
+    lastAddedDeviceSequentialName = null;
 
     if (_wasDemoAuthSet) {
       _wasDemoAuthSet = false;
@@ -325,35 +367,66 @@ class AppTourGuide {
       _currentStepIndex = 2;
       activeStepNotifier.value = _currentStepIndex;
       NavigationUtils.navigateTo(context, '/devicelist');
-    } else if (_currentStepIndex == 2 || _currentStepIndex == 3) {
+    } else if (_currentStepIndex == 2) {
+      // From Add Device button -> open pairing options dialog
+      _currentStepIndex = 3;
+      activeStepNotifier.value = _currentStepIndex;
+      onTriggerAddDeviceDialog?.call();
+    } else if (_currentStepIndex == 3) {
+      // From pairing options dialog -> open manual entry popup
       _currentStepIndex = 4;
       activeStepNotifier.value = _currentStepIndex;
+      onTriggerManualEntry?.call();
     } else if (_currentStepIndex == 4) {
+      // From select device templates -> move to enter device id
+      onAutoFillDeviceId?.call('ANNAM-');
       _currentStepIndex = 5;
       activeStepNotifier.value = _currentStepIndex;
     } else if (_currentStepIndex == 5) {
+      // From enter device id -> move to Confirm & Add (complete with sample ID)
+      onAutoFillDeviceId?.call('ANNAM-250');
       _currentStepIndex = 6;
       activeStepNotifier.value = _currentStepIndex;
     } else if (_currentStepIndex == 6) {
-      _currentStepIndex = 7;
-      activeStepNotifier.value = _currentStepIndex;
+      // From confirm & add -> trigger action or move to topic choice
+      if (onTriggerConfirmAdd != null) {
+        onTriggerConfirmAdd!();
+      } else {
+        _currentStepIndex = 7;
+        activeStepNotifier.value = _currentStepIndex;
+      }
     } else if (_currentStepIndex == 7) {
-      _currentStepIndex = 8;
-      activeStepNotifier.value = _currentStepIndex;
-      Navigator.of(context, rootNavigator: true).maybePop();
+      // From select device topic -> trigger auto-select topic if modal is open
+      if (onTriggerSelectTopic != null) {
+        onTriggerSelectTopic!();
+      } else {
+        _currentStepIndex = 8;
+        activeStepNotifier.value = _currentStepIndex;
+      }
     } else if (_currentStepIndex == 8) {
-      _currentStepIndex = 9;
+      // From confirm addition dialog -> trigger "Yes" confirmation
+      if (onTriggerConfirmYes != null) {
+        onTriggerConfirmYes!();
+      } else {
+        _currentStepIndex = 9;
+        activeStepNotifier.value = _currentStepIndex;
+      }
+    } else if (_currentStepIndex == 9) {
+      // From device card -> open device graph for the newly added device
+      _currentStepIndex = 10;
       activeStepNotifier.value = _currentStepIndex;
+      final targetDev = lastAddedDeviceId ?? 'ANNAM_CP02';
+      final targetSeq = lastAddedDeviceSequentialName ?? 'Annam Weather Sensor';
       NavigationUtils.navigateTo(
         context,
         '/devicegraph',
         arguments: {
-          'deviceName': 'ANNAM_CP02',
-          'sequentialName': 'Annam Weather Sensor',
+          'deviceName': targetDev,
+          'sequentialName': targetSeq,
           'backgroundImagePath': 'assets/backgroundd.jpg',
         },
       );
-    } else if (_currentStepIndex == 9) {
+    } else if (_currentStepIndex == 10) {
       stopTour();
     } else {
       _currentStepIndex++;
@@ -379,12 +452,12 @@ class AppTourGuide {
 
   /// Launch specifically for manual entry
   static void showAddDeviceGuide(BuildContext context) {
-    startTour(context, initialStep: 5);
+    startTour(context, initialStep: 4);
   }
 
   /// Launch specifically for device graph
   static void showGraphGuide(BuildContext context) {
-    startTour(context, initialStep: 9);
+    startTour(context, initialStep: 10);
   }
 }
 
@@ -457,21 +530,34 @@ class _LiveTourOverlayViewState extends State<_LiveTourOverlayView>
 
         final size = MediaQuery.of(context).size;
         final isMobile = size.width < 700;
-        final tooltipWidth = isMobile ? size.width - 32 : 380.0;
+        final tooltipWidth = isMobile ? (size.width - 32).clamp(280.0, 360.0) : 400.0;
 
-        // Position calculation: above or below the target button
+        // Position calculation: intelligently place above or below to NEVER clip off-screen
         double? topPos;
         double? bottomPos;
         bool arrowPointsUp = true;
+        const estimatedTooltipHeight = 260.0;
 
         if (targetRect != null) {
           final spaceBelow = size.height - targetRect.bottom;
-          if (spaceBelow > 230 || spaceBelow > targetRect.top) {
+          final spaceAbove = targetRect.top;
+
+          // If space below is not enough for the full tooltip, or if there is substantially more space above:
+          if (spaceBelow < estimatedTooltipHeight + 20 && spaceAbove > spaceBelow) {
+            bottomPos = (size.height - targetRect.top) + 14;
+            arrowPointsUp = false;
+          } else if (spaceBelow >= estimatedTooltipHeight + 20) {
             topPos = targetRect.bottom + 14;
             arrowPointsUp = true;
           } else {
-            bottomPos = (size.height - targetRect.top) + 14;
-            arrowPointsUp = false;
+            // Screen is tight: place on whichever side has more space
+            if (spaceAbove >= spaceBelow) {
+              bottomPos = ((size.height - targetRect.top) + 14).clamp(16.0, (size.height - estimatedTooltipHeight - 16.0).clamp(16.0, size.height));
+              arrowPointsUp = false;
+            } else {
+              topPos = (targetRect.bottom + 14).clamp(16.0, (size.height - estimatedTooltipHeight - 16.0).clamp(16.0, size.height));
+              arrowPointsUp = true;
+            }
           }
         } else {
           topPos = size.height * 0.35;
@@ -541,9 +627,12 @@ class _LiveTourOverlayViewState extends State<_LiveTourOverlayView>
                           ),
                         ),
 
-                      // Tooltip Card Body
+                      // Tooltip Card Body (Constrained with SingleChildScrollView to prevent vertical overflow)
                       Container(
-                        padding: const EdgeInsets.all(18),
+                        constraints: BoxConstraints(
+                          maxHeight: (size.height - 30).clamp(200.0, 520.0),
+                        ),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0xFF0F172A),
                           borderRadius: BorderRadius.circular(16),
@@ -562,11 +651,13 @@ class _LiveTourOverlayViewState extends State<_LiveTourOverlayView>
                             ),
                           ],
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Tag Header & Close X
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Tag Header & Close X
                             Row(
                               children: [
                                 Container(
@@ -617,7 +708,7 @@ class _LiveTourOverlayViewState extends State<_LiveTourOverlayView>
                                 const Icon(Icons.gps_fixed, size: 13, color: Color(0xFF10B981)),
                                 const SizedBox(width: 5),
                                 Text(
-                                  'Points to: ${step.targetButtonLabel}',
+                                  'Points to: ${(step.index == 9 && AppTourGuide.lastAddedDeviceId != null) ? DevicePrefixUtils.toAnnamDisplayName(AppTourGuide.lastAddedDeviceId!) : step.targetButtonLabel}',
                                   style: const TextStyle(
                                     color: Color(0xFF10B981),
                                     fontSize: 11.5,
@@ -639,64 +730,86 @@ class _LiveTourOverlayViewState extends State<_LiveTourOverlayView>
                             ),
                             const SizedBox(height: 16),
 
-                            // Navigation Action Buttons
-                            Row(
-                              children: [
-                                TextButton(
-                                  onPressed: widget.onClose,
-                                  child: const Text(
-                                    'Skip Tour',
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
+                            // Navigation Action Buttons (with Wrap to eliminate all overflow risks)
+                            SizedBox(
+                              width: double.infinity,
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  TextButton(
+                                    onPressed: widget.onClose,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white54,
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Skip Tour',
+                                      style: TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const Spacer(),
-                                if (stepIndex > 0) ...[
-                                  OutlinedButton(
-                                    onPressed: widget.onPrev,
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Colors.white24),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    child: const Text('Back', style: TextStyle(fontSize: 12)),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      if (stepIndex > 0)
+                                        OutlinedButton(
+                                          onPressed: widget.onPrev,
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.white,
+                                            side: const BorderSide(color: Colors.white24),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: const Text('Back', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ElevatedButton.icon(
+                                        onPressed: widget.onNext,
+                                        icon: Icon(
+                                          stepIndex == AppTourGuide.steps.length - 1
+                                              ? Icons.check
+                                              : Icons.arrow_forward,
+                                          size: 13,
+                                          color: Colors.white,
+                                        ),
+                                        label: Text(
+                                          stepIndex == AppTourGuide.steps.length - 1
+                                              ? 'Finish Tour 🎉'
+                                              : step.nextButtonText,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: stepIndex == AppTourGuide.steps.length - 1
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFF0284C7),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          elevation: 2,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
                                 ],
-                                ElevatedButton.icon(
-                                  onPressed: widget.onNext,
-                                  icon: Icon(
-                                    stepIndex == AppTourGuide.steps.length - 1
-                                        ? Icons.check
-                                        : Icons.arrow_forward,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                  label: Text(
-                                    stepIndex == AppTourGuide.steps.length - 1
-                                        ? 'Finish Tour 🎉'
-                                        : step.nextButtonText,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12.5,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: stepIndex == AppTourGuide.steps.length - 1
-                                        ? const Color(0xFF10B981)
-                                        : const Color(0xFF0284C7),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    elevation: 2,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ],
+                          ),
                         ),
                       ),
 

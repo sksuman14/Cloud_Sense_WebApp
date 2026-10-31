@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
@@ -28,17 +29,62 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
   String message = "";
   Color messageColor = Colors.teal;
   bool _canClose = true;
+  Timer? _tourDebounceTimer;
 
   @override
   void initState() {
     super.initState();
     _loadEmail();
+    AppTourGuide.onAutoFillDeviceId = (id) {
+      if (mounted) {
+        final currentText = deviceIdController.text.trim();
+        // NEVER overwrite if user has typed their own ID (e.g. 23 or ANNAM-23)
+        final bool isUnfilled = currentText.isEmpty ||
+            currentText == 'ANNAM-' ||
+            currentText == 'SOBHA-' ||
+            currentText == 'ANNAM-CP-' ||
+            currentText == 'ANNAM-CPS-' ||
+            currentText == 'SS-' ||
+            currentText == 'WQ-' ||
+            currentText == 'CL-' ||
+            currentText == 'IT-' ||
+            currentText == 'TESTING-';
+
+        if (isUnfilled) {
+          setState(() {
+            deviceIdController.text = id;
+            deviceIdController.selection = TextSelection.fromPosition(
+              TextPosition(offset: deviceIdController.text.length),
+            );
+          });
+        }
+      }
+    };
+    AppTourGuide.onTriggerConfirmAdd = () {
+      _handleConfirmAdd();
+    };
   }
 
   @override
   void dispose() {
+    _tourDebounceTimer?.cancel();
+    AppTourGuide.onAutoFillDeviceId = null;
+    AppTourGuide.onTriggerConfirmAdd = null;
     deviceIdController.dispose();
     super.dispose();
+  }
+
+  void _checkTourAutoAdvance() {
+    if (!AppTourGuide.isTourActive || AppTourGuide.currentStep != 5) return;
+    _tourDebounceTimer?.cancel();
+    _tourDebounceTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted && AppTourGuide.isTourActive && AppTourGuide.currentStep == 5) {
+        final text = deviceIdController.text.trim();
+        if (text.length >= 2) {
+          AppTourGuide.nextStep(context);
+        }
+      }
+    });
   }
 
   Future<void> _loadEmail() async {
@@ -80,6 +126,71 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
       'targetId': targetId,
       'candidateCount': candidates.length,
     };
+  }
+
+  Future<void> _handleConfirmAdd() async {
+    String inputId = deviceIdController.text.trim().toUpperCase();
+    if (inputId.isEmpty) {
+      DeleteDeviceUtils.showToastNotification(
+        context: context,
+        title: 'Validation Error',
+        message: 'Please enter a valid device ID.',
+        isError: true,
+      );
+      return;
+    }
+
+    String? finalDeviceId;
+    final candidates = DeviceUtils.getPossibleInternalIDs(inputId);
+    if (candidates.isEmpty) {
+      finalDeviceId = inputId;
+    } else if (candidates.length == 1) {
+      finalDeviceId = candidates.first;
+    } else {
+      if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 6) {
+        AppTourGuide.goToStep(context, 7);
+      }
+      finalDeviceId = await DeviceUtils.showPrefixChoiceDialog(
+          context, candidates);
+    }
+
+    if (finalDeviceId == null) return; // User cancelled choice dialog
+    final confirmedId = finalDeviceId;
+
+    // Store the newly confirmed device ID in the tour so it highlights this specific card!
+    if (AppTourGuide.isTourActive) {
+      AppTourGuide.lastAddedDeviceId = confirmedId;
+      AppTourGuide.lastAddedDeviceSequentialName = DevicePrefixUtils.getSensorType(confirmedId) ?? 'ANNAM Sensor';
+      AppTourGuide.goToStep(context, 8);
+    }
+
+    DeviceUtils.showConfirmationDialog(
+      context: context,
+      deviceId: confirmedId,
+      devices: widget.devices,
+      onConfirm: () async {
+        bool success = await DeviceUtils.addDeviceToUser(
+          context: context,
+          email: _email,
+          deviceId: confirmedId,
+        );
+
+        if (context.mounted) {
+          Navigator.pop(context); // close manual entry popup
+          if (widget.targetUserEmail != null) {
+            widget.onDeviceAdded?.call();
+          } else if (success) {
+            NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
+          }
+          // After addition is confirmed & dialog closes, advance to Step 9: Tap Device Card for THIS newly added station!
+          if (AppTourGuide.isTourActive) {
+            AppTourGuide.lastAddedDeviceId = confirmedId;
+            AppTourGuide.lastAddedDeviceSequentialName = DevicePrefixUtils.getSensorType(confirmedId) ?? 'ANNAM Sensor';
+            AppTourGuide.goToStep(context, 9);
+          }
+        }
+      },
+    );
   }
 
   @override
@@ -150,8 +261,7 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                     icon: const Icon(Icons.help_outline, color: Color(0xFF0284C7), size: 20),
                     tooltip: 'Step-by-Step Guide for Adding Device',
                     onPressed: () {
-                      Navigator.pop(context);
-                      AppTourGuide.startTour(context, initialStep: 4); // Step 5: Select Device Type
+                      AppTourGuide.startTour(context, initialStep: 4);
                     },
                   ),
                   */
@@ -168,48 +278,57 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
               const SizedBox(height: 18),
 
               // Interactive template chips
-              Text(
-                'DEVICE TEMPLATES',
-                style: TextStyle(
-                  color: primaryColor.withOpacity(0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              const SizedBox(height: 8),
               TourTarget(
                 targetId: 'template_chips',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: templates.map((t) {
-                    return ActionChip(
-                      label: Text(
-                        t['name']!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDarkMode ? Colors.white : Colors.black87,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'DEVICE TEMPLATES',
+                      style: TextStyle(
+                        color: primaryColor.withOpacity(0.8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
                       ),
-                      backgroundColor: cardBg,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.06),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      onPressed: () {
-                        setState(() {
-                          deviceIdController.text = t['prefix']!;
-                          deviceIdController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: deviceIdController.text.length),
-                          );
-                        });
-                      },
-                    );
-                  }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: templates.map((t) {
+                        return ActionChip(
+                          label: Text(
+                            t['name']!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          backgroundColor: cardBg,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.06),
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          onPressed: () {
+                            setState(() {
+                              deviceIdController.text = t['prefix']!;
+                              deviceIdController.selection = TextSelection.fromPosition(
+                                TextPosition(offset: deviceIdController.text.length),
+                              );
+                            });
+                            if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 4) {
+                              AppTourGuide.nextStep(context);
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -222,6 +341,13 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                   autofocus: true,
                   onChanged: (val) {
                     setState(() {});
+                    _checkTourAutoAdvance();
+                  },
+                  onSubmitted: (val) {
+                    if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 5 && val.trim().isNotEmpty) {
+                      _tourDebounceTimer?.cancel();
+                      AppTourGuide.nextStep(context);
+                    }
                   },
                   decoration: InputDecoration(
                     labelText: 'Enter Device ID',
@@ -345,57 +471,7 @@ class _ManualEntryPopupState extends State<ManualEntryPopup> {
                   TourTarget(
                     targetId: 'confirm_add_btn',
                     child: ElevatedButton(
-                      onPressed: () async {
-                        String inputId = deviceIdController.text.trim().toUpperCase();
-                        if (inputId.isEmpty) {
-                          DeleteDeviceUtils.showToastNotification(
-                            context: context,
-                            title: 'Validation Error',
-                            message: 'Please enter a valid device ID.',
-                            isError: true,
-                          );
-                          return;
-                        }
-
-                        String? finalDeviceId;
-                        final candidates = DeviceUtils.getPossibleInternalIDs(inputId);
-                        if (candidates.isEmpty) {
-                          finalDeviceId = inputId;
-                        } else if (candidates.length == 1) {
-                          finalDeviceId = candidates.first;
-                        } else {
-                          finalDeviceId = await DeviceUtils.showPrefixChoiceDialog(
-                              context, candidates);
-                        }
-
-                        if (finalDeviceId == null) return; // User cancelled choice dialog
-
-                        if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 7) {
-                          AppTourGuide.nextStep(context);
-                        }
-
-                        DeviceUtils.showConfirmationDialog(
-                          context: context,
-                          deviceId: finalDeviceId,
-                          devices: widget.devices,
-                          onConfirm: () async {
-                            bool success = await DeviceUtils.addDeviceToUser(
-                              context: context,
-                              email: _email,
-                              deviceId: finalDeviceId!,
-                            );
-
-                            if (context.mounted) {
-                              Navigator.pop(context); // close manual entry popup
-                              if (widget.targetUserEmail != null) {
-                                widget.onDeviceAdded?.call();
-                              } else if (success) {
-                                NavigationUtils.navigateTo(context, '/devicelist', isReplacement: true);
-                              }
-                            }
-                          },
-                        );
-                      },
+                      onPressed: _handleConfirmAdd,
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: primaryColor,

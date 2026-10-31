@@ -546,7 +546,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                   ),
                   SizedBox(width: screenWidth <= 1024 ? 8 : 16),
 
-                  /*
                   /// App Tour Interactive Guide Button
                   Tooltip(
                     message: "Interactive Step-by-Step Guide for Normal Users",
@@ -576,7 +575,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                     ),
                   ),
                   SizedBox(width: screenWidth <= 1024 ? 12 : 20),
-                  */
 
                   PopupMenuButton<String>(
                     tooltip: "Help & Manuals",
@@ -615,7 +613,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
-                      /*
                       PopupMenuItem<String>(
                         value: 'interactive_tour',
                         child: Row(
@@ -634,7 +631,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                         ),
                       ),
                       const PopupMenuDivider(),
-                      */
                       const PopupMenuItem<String>(
                         value: 'app_manual',
                         child: Row(

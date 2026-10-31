@@ -2812,8 +2812,9 @@ class _HeroSectionState extends State<HeroSection> {
                     Column(
                       crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
                       children: [
+                        
+                        // Interactive Tour Pill for Normal Users (Commented out as requested)
                         /*
-                        // Interactive Tour Pill for Normal Users
                         InkWell(
                           onTap: () => AppTourGuide.startTour(context),
                           borderRadius: BorderRadius.circular(20),
@@ -2850,6 +2851,7 @@ class _HeroSectionState extends State<HeroSection> {
                           ),
                         ),
                         */
+                        
                         // Top Row: My Devices, Explore Hardware, Nationwide Map
                         Wrap(
                           spacing: isMobile ? 10 : 16,

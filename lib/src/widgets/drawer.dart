@@ -211,7 +211,6 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                   title: const Text('Login/Signup'),
                   onTap: () => _showLoginPopup(context),
                 ),
-                /*
                 ListTile(
                   leading: const Icon(Icons.explore_outlined, color: Color(0xFF0284C7)),
                   title: const Text(
@@ -223,7 +222,6 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                     AppTourGuide.startTour(context);
                   },
                 ),
-                */
               ],
 
               ExpansionTile(
@@ -237,7 +235,6 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
 
                 // These are the options that appear when you tap the tile
                 children: <Widget>[
-                  /*
                   // Interactive App Tour
                   ListTile(
                     contentPadding: const EdgeInsets.only(left: 30.0),
@@ -258,7 +255,6 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                       AppTourGuide.startTour(context);
                     },
                   ),
-                  */
                   // ListTile for the App Manual
                   ListTile(
                     // Indent the title a bit for a cleaner look

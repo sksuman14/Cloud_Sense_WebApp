@@ -18,6 +18,8 @@ class DeviceSpecification {
   final String ultrasonicBaudrate;
   final String simProvider;
   final String lastSyncedAt;
+  final String hardwareVersion;
+  final String firmwareVersion;
 
   DeviceSpecification({
     required this.deviceId,
@@ -28,18 +30,37 @@ class DeviceSpecification {
     required this.ultrasonicBaudrate,
     required this.simProvider,
     required this.lastSyncedAt,
+    this.hardwareVersion = '',
+    this.firmwareVersion = '',
   });
 
   factory DeviceSpecification.fromJson(Map<String, dynamic> json) {
     return DeviceSpecification(
       deviceId: json['deviceId']?.toString() ?? '',
-      deviceIdTopic: json['deviceid#topic']?.toString() ?? '',
+      deviceIdTopic: json['deviceid#topic']?.toString() ??
+          json['deviceId_topic']?.toString() ??
+          json['deviceIdTopic']?.toString() ??
+          '',
       partnershipName: json['partnershipName']?.toString() ?? '',
       atrhSensor: json['atrhSensor']?.toString() ?? '',
       rainSensor: json['rainSensor']?.toString() ?? '',
-      ultrasonicBaudrate: json['ultrasonicBaudrate']?.toString() ?? '',
+      ultrasonicBaudrate: (json['ultrasonicBaudrate'] ??
+              json['baudRate'] ??
+              json['baudrate'])
+          ?.toString() ??
+          '',
       simProvider: json['simProvider']?.toString() ?? '',
       lastSyncedAt: json['lastSyncedAt']?.toString() ?? '',
+      hardwareVersion: (json['hardwareVersion'] ??
+              json['hardware_version'] ??
+              json['hardware'])
+          ?.toString() ??
+          '',
+      firmwareVersion: (json['firmwareVersion'] ??
+              json['firmware_version'] ??
+              json['firmware'])
+          ?.toString() ??
+          '',
     );
   }
 }
@@ -179,10 +200,25 @@ class DeviceSpecMetaService {
     final cleanSn = sensorName != null ? _cleanId(sensorName) : cleanDevId;
     final cleanDn = displayName != null ? _cleanId(displayName) : cleanDevId;
 
+    // Flexible helper: matches 'aws_216' with 'aws-216', 'aws 216', or '216'
+    bool looseMatch(String a, String b) {
+      if (a.isEmpty || b.isEmpty) return false;
+      if (a == b) return true;
+      final normA = a.replaceAll('-', '_').replaceAll(' ', '_');
+      final normB = b.replaceAll('-', '_').replaceAll(' ', '_');
+      if (normA == normB) return true;
+      final alphaA = a.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final alphaB = b.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      if (alphaA.isNotEmpty && alphaA == alphaB) return true;
+      return false;
+    }
+
     // 1. Direct match on topic in deviceid#topic
     for (final item in list) {
       final itemTopic = _normalizeTopic(item.deviceIdTopic);
-      if (cleanT.isNotEmpty && itemTopic.isNotEmpty && itemTopic == cleanT) {
+      if (cleanT.isNotEmpty &&
+          itemTopic.isNotEmpty &&
+          (itemTopic == cleanT || looseMatch(itemTopic, cleanT))) {
         return item;
       }
     }
@@ -190,7 +226,8 @@ class DeviceSpecMetaService {
     // 2. Direct match on deviceid#topic
     final targetCombined = '$cleanDevId#$cleanT';
     for (final item in list) {
-      if (item.deviceIdTopic.toLowerCase().trim() == targetCombined) {
+      final combined = item.deviceIdTopic.toLowerCase().trim();
+      if (combined == targetCombined || looseMatch(combined, targetCombined)) {
         return item;
       }
     }
@@ -198,23 +235,34 @@ class DeviceSpecMetaService {
     // 3. Match on deviceId
     for (final item in list) {
       final id = item.deviceId.toLowerCase().trim();
-      if (id.isNotEmpty && (id == cleanDevId || id == cleanSn || id == cleanDn)) {
+      if (id.isNotEmpty &&
+          (id == cleanDevId ||
+              id == cleanSn ||
+              id == cleanDn ||
+              looseMatch(id, cleanDevId) ||
+              looseMatch(id, cleanSn) ||
+              looseMatch(id, cleanDn))) {
         return item;
       }
     }
 
-    // 4. Match numeric suffix if topic ends with number
-    final numMatch = RegExp(r'\d+$').firstMatch(cleanT)?.group(0);
+    // 4. Match numeric suffix if topic or deviceId ends with number
+    final numMatch = RegExp(r'\d+$').firstMatch(cleanT)?.group(0) ??
+        RegExp(r'\d+$').firstMatch(cleanDevId)?.group(0);
     if (numMatch != null && numMatch.isNotEmpty) {
       for (final item in list) {
         final itemTopic = _normalizeTopic(item.deviceIdTopic);
-        final itemNum = RegExp(r'\d+$').firstMatch(itemTopic)?.group(0);
+        final itemDevId = item.deviceId.toLowerCase().trim();
+        final itemNum = RegExp(r'\d+$').firstMatch(itemTopic)?.group(0) ??
+            RegExp(r'\d+$').firstMatch(itemDevId)?.group(0);
         if (itemNum == numMatch) {
           // Check prefix similarity
-          if (cleanT.contains('kerala') && itemTopic.contains('kerala')) return item;
-          if (cleanT.contains('annam') && itemTopic.contains('annam')) return item;
-          if (cleanT.contains('ssmet') && itemTopic.contains('ssmet')) return item;
-          if (cleanT.contains('punjab') && itemTopic.contains('punjab')) return item;
+          if (cleanT.contains('kerala') && (itemTopic.contains('kerala') || itemDevId.contains('kerala'))) return item;
+          if (cleanT.contains('annam') && (itemTopic.contains('annam') || itemDevId.contains('annam'))) return item;
+          if (cleanT.contains('ssmet') && (itemTopic.contains('ssmet') || itemDevId.contains('ssmet') || item.partnershipName.toLowerCase().contains('ss-met') || item.partnershipName.toLowerCase().contains('ssmet'))) return item;
+          if (cleanT.contains('punjab') && (itemTopic.contains('punjab') || itemDevId.contains('punjab'))) return item;
+          if (cleanT.contains('aws') && (itemTopic.contains('aws') || itemDevId.contains('aws'))) return item;
+          return item;
         }
       }
     }
@@ -396,12 +444,14 @@ class _DeviceSpecificationDialogWidgetState
     buffer.writeln('=== Device Specification ===');
     buffer.writeln('Device ID: ${spec.deviceId}');
     buffer.writeln('Topic: ${spec.deviceIdTopic}');
-    buffer.writeln('Partnership: ${spec.partnershipName}');
-    buffer.writeln('AT/RH Sensor: ${spec.atrhSensor}');
-    buffer.writeln('Rain Sensor: ${spec.rainSensor}');
-    buffer.writeln('Ultrasonic Baudrate: ${spec.ultrasonicBaudrate}');
-    buffer.writeln('SIM Provider: ${spec.simProvider}');
-    buffer.writeln('Last Synced At: ${spec.lastSyncedAt}');
+    buffer.writeln('Partnership: ${spec.partnershipName.isNotEmpty ? spec.partnershipName : "N/A"}');
+    buffer.writeln('Hardware Specification: ${spec.hardwareVersion.isNotEmpty ? spec.hardwareVersion : "N/A"}');
+    buffer.writeln('Firmware Specification: ${spec.firmwareVersion.isNotEmpty ? spec.firmwareVersion : "N/A"}');
+    buffer.writeln('Baud Rate: ${spec.ultrasonicBaudrate.isNotEmpty ? spec.ultrasonicBaudrate : "N/A"}');
+    buffer.writeln('SIM Provider: ${spec.simProvider.isNotEmpty ? spec.simProvider : "N/A"}');
+    buffer.writeln('AT/RH Sensor: ${spec.atrhSensor.isNotEmpty ? spec.atrhSensor : "N/A"}');
+    buffer.writeln('Rain Sensor: ${spec.rainSensor.isNotEmpty ? spec.rainSensor : "N/A"}');
+    buffer.writeln('Last Synced At: ${spec.lastSyncedAt.isNotEmpty ? spec.lastSyncedAt : "N/A"}');
     _copyToClipboard(buffer.toString(), 'All Specifications');
   }
 
@@ -767,6 +817,7 @@ class _DeviceSpecificationDialogWidgetState
                 label: 'Device ID',
                 value: spec.deviceId,
                 icon: Icons.tag,
+                badgeColor: Colors.cyan,
                 isDark: isDark,
                 cardBg: cardBg,
                 borderColor: borderColor,
@@ -779,6 +830,54 @@ class _DeviceSpecificationDialogWidgetState
                 value: spec.partnershipName,
                 icon: Icons.handshake_outlined,
                 badgeColor: Colors.blueAccent,
+                isDark: isDark,
+                cardBg: cardBg,
+                borderColor: borderColor,
+                strongText: strongText,
+                subtleText: subtleText,
+              ),
+              _buildFieldCard(
+                width: itemW,
+                label: 'Hardware Specification',
+                value: spec.hardwareVersion,
+                icon: Icons.memory_rounded,
+                badgeColor: Colors.deepPurpleAccent,
+                isDark: isDark,
+                cardBg: cardBg,
+                borderColor: borderColor,
+                strongText: strongText,
+                subtleText: subtleText,
+              ),
+              _buildFieldCard(
+                width: itemW,
+                label: 'Firmware Specification',
+                value: spec.firmwareVersion,
+                icon: Icons.system_update_alt_rounded,
+                badgeColor: Colors.orangeAccent,
+                isDark: isDark,
+                cardBg: cardBg,
+                borderColor: borderColor,
+                strongText: strongText,
+                subtleText: subtleText,
+              ),
+              _buildFieldCard(
+                width: itemW,
+                label: 'Baud Rate',
+                value: spec.ultrasonicBaudrate,
+                icon: Icons.speed_rounded,
+                badgeColor: Colors.cyan,
+                isDark: isDark,
+                cardBg: cardBg,
+                borderColor: borderColor,
+                strongText: strongText,
+                subtleText: subtleText,
+              ),
+              _buildFieldCard(
+                width: itemW,
+                label: 'SIM Provider',
+                value: spec.simProvider,
+                icon: Icons.sim_card_outlined,
+                badgeColor: Colors.pinkAccent,
                 isDark: isDark,
                 cardBg: cardBg,
                 borderColor: borderColor,
@@ -810,32 +909,11 @@ class _DeviceSpecificationDialogWidgetState
                 subtleText: subtleText,
               ),
               _buildFieldCard(
-                width: itemW,
-                label: 'Ultrasonic Baudrate',
-                value: spec.ultrasonicBaudrate,
-                icon: Icons.speed,
-                isDark: isDark,
-                cardBg: cardBg,
-                borderColor: borderColor,
-                strongText: strongText,
-                subtleText: subtleText,
-              ),
-              _buildFieldCard(
-                width: itemW,
-                label: 'SIM Provider',
-                value: spec.simProvider,
-                icon: Icons.sim_card_outlined,
-                isDark: isDark,
-                cardBg: cardBg,
-                borderColor: borderColor,
-                strongText: strongText,
-                subtleText: subtleText,
-              ),
-              _buildFieldCard(
                 width: constraints.maxWidth,
                 label: 'Last Synced At',
                 value: spec.lastSyncedAt,
                 icon: Icons.sync,
+                badgeColor: Colors.greenAccent,
                 isDark: isDark,
                 cardBg: cardBg,
                 borderColor: borderColor,
@@ -948,7 +1026,10 @@ class _DeviceSpecificationDialogWidgetState
       if (_searchQuery.isEmpty) return true;
       return s.deviceId.toLowerCase().contains(_searchQuery) ||
           s.deviceIdTopic.toLowerCase().contains(_searchQuery) ||
-          s.partnershipName.toLowerCase().contains(_searchQuery);
+          s.partnershipName.toLowerCase().contains(_searchQuery) ||
+          s.hardwareVersion.toLowerCase().contains(_searchQuery) ||
+          s.firmwareVersion.toLowerCase().contains(_searchQuery) ||
+          s.ultrasonicBaudrate.toLowerCase().contains(_searchQuery);
     }).toList();
 
     return Container(
@@ -986,7 +1067,7 @@ class _DeviceSpecificationDialogWidgetState
                     ),
                   ),
                   subtitle: Text(
-                    'Partner: ${item.partnershipName.isEmpty ? 'N/A' : item.partnershipName} • Sensor: ${item.atrhSensor}',
+                    'Partner: ${item.partnershipName.isEmpty ? 'N/A' : item.partnershipName} • HW: ${item.hardwareVersion.isEmpty ? 'N/A' : item.hardwareVersion} • FW: ${item.firmwareVersion.isEmpty ? 'N/A' : item.firmwareVersion} • Baud: ${item.ultrasonicBaudrate.isEmpty ? 'N/A' : item.ultrasonicBaudrate}',
                     style: TextStyle(fontSize: 10.5, color: subtleText),
                   ),
                   trailing: isCurrent

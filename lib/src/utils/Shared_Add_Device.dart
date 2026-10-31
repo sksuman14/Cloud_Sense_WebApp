@@ -1,3 +1,4 @@
+import 'package:cloud_sense_webapp/src/widgets/interactive_tour/interactive_app_tour.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -469,6 +470,12 @@ class DeviceUtils {
   ) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    AppTourGuide.onTriggerSelectTopic = () {
+      if (context.mounted && candidates.isNotEmpty) {
+        Navigator.pop(context, candidates.first);
+      }
+    };
+
     return showDialog<String>(
       context: context,
       builder: (context) {
@@ -495,84 +502,95 @@ class DeviceUtils {
               ),
             ],
           ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: candidates.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final id = candidates[index];
-                final displayId = toDisplayId(id);
-                final topic = DevicePrefixUtils.buildTopicFromSensorName(id).split('#').last;
+          content: TourTarget(
+            targetId: 'device_topic_choice',
+            child: SizedBox(
+              width: double.maxFinite,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: candidates.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final id = candidates[index];
+                  final displayId = toDisplayId(id);
+                  final topic = DevicePrefixUtils.buildTopicFromSensorName(id).split('#').last;
 
-                return InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => Navigator.pop(context, id),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isDark ? Colors.white12 : Colors.black.withOpacity(0.08),
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 7) {
+                        AppTourGuide.goToStep(context, 8);
+                      }
+                      Navigator.pop(context, id);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.black.withOpacity(0.08),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.alt_route,
+                              size: 18,
+                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayId,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  "Topic: $topic",
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'monospace',
+                                    color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.alt_route,
-                            size: 18,
-                            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                displayId,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                "Topic: $topic",
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'monospace',
-                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         );
       },
-    );
+    ).then((val) {
+      AppTourGuide.onTriggerSelectTopic = null;
+      return val;
+    });
   }
 
   static Future<void> showConfirmationDialog({
@@ -602,18 +620,37 @@ class DeviceUtils {
       );
     } else {
       String displayId = toDisplayId(deviceId);
+
+      AppTourGuide.onTriggerConfirmYes = () {
+        if (context.mounted) {
+          AppTourGuide.onTriggerConfirmYes = null;
+          Navigator.pop(context);
+          onConfirm();
+        }
+      };
+
       _showDialog(
         context: context,
         title: 'Confirm Device Addition',
         content: 'Do you want to add $displayId to your account?',
+        tourTargetId: 'confirm_addition_dialog',
         actions: [
           TextButton(
-            child: Text('No'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          TextButton(
-            child: Text('Yes'),
+            child: const Text('No'),
             onPressed: () {
+              AppTourGuide.onTriggerConfirmYes = null;
+              Navigator.pop(context);
+            },
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Yes'),
+            onPressed: () {
+              AppTourGuide.onTriggerConfirmYes = null;
               Navigator.pop(context);
               onConfirm();
             },
@@ -628,12 +665,14 @@ class DeviceUtils {
     required String title,
     required String content,
     List<Widget>? actions,
+    String? tourTargetId,
   }) {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
+        final dialog = AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(title),
           content: Text(content),
           actions: actions ??
@@ -644,6 +683,14 @@ class DeviceUtils {
                 ),
               ],
         );
+
+        if (tourTargetId != null) {
+          return TourTarget(
+            targetId: tourTargetId,
+            child: dialog,
+          );
+        }
+        return dialog;
       },
     );
   }

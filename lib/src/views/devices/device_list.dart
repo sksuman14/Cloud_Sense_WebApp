@@ -215,10 +215,19 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
         _hoverStates[sensor] = false;
       }
     });
+
+    AppTourGuide.onTriggerAddDeviceDialog = () {
+      if (mounted) {
+        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+        final strong = isDarkMode ? Colors.white : Colors.black;
+        _showAddDeviceDialog(context, strong);
+      }
+    };
   }
 
   @override
   void dispose() {
+    AppTourGuide.onTriggerAddDeviceDialog = null;
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -831,7 +840,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                 child: ElevatedButton.icon(
                                   onPressed: () {
                                     _showAddDeviceDialog(context, strong);
-                                    if (AppTourGuide.isTourActive && (AppTourGuide.currentStep == 2 || AppTourGuide.currentStep == 3)) {
+                                    if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 2) {
                                       AppTourGuide.nextStep(context);
                                     }
                                   },
@@ -1360,6 +1369,9 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                         },
                       );
                     } else {
+                      if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 9) {
+                        AppTourGuide.nextStep(context);
+                      }
                       NavigationUtils.navigateTo(
                         context,
                         '/devicegraph',
@@ -1479,7 +1491,33 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       ),
     );
 
-    if (index == 0) {
+    bool isTourTarget = false;
+    if (AppTourGuide.isTourActive) {
+      if (AppTourGuide.lastAddedDeviceId != null) {
+        final target = AppTourGuide.lastAddedDeviceId!.trim().toUpperCase();
+        final sName = sensorName.trim().toUpperCase();
+        final dName = displaySensorName.trim().toUpperCase();
+        final top = topic.trim().toUpperCase();
+
+        if (sName == target || dName == target) {
+          isTourTarget = true;
+        } else if (sName.split('#').first == target.split('#').first) {
+          isTourTarget = true;
+        } else {
+          final sNum = sName.replaceAll(RegExp(r'\D'), '');
+          final targetNum = target.replaceAll(RegExp(r'\D'), '');
+          if (sNum.isNotEmpty && sNum == targetNum) {
+            isTourTarget = true;
+          } else if (target.contains('#') && top.isNotEmpty && (top == target.split('#').last || top.contains(target.split('#').last))) {
+            isTourTarget = true;
+          }
+        }
+      } else if (index == 0) {
+        isTourTarget = true;
+      }
+    }
+
+    if (isTourTarget) {
       return TourTarget(
         targetId: 'device_card',
         child: cardWidget,
@@ -1489,6 +1527,15 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
   }
 
   void _showAddDeviceDialog(BuildContext context, Color strong) {
+    AppTourGuide.onTriggerManualEntry = () {
+      Navigator.pop(context);
+      showDialog(
+        context: context,
+        builder: (context) =>
+            ManualEntryPopup(devices: _deviceCategories),
+      );
+    };
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1511,32 +1558,31 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                 icon: const Icon(Icons.help_outline, color: Color(0xFF0284C7), size: 20),
                 tooltip: "Step-by-Step Pairing Guide",
                 onPressed: () {
-                  Navigator.pop(context);
                   AppTourGuide.startTour(context, initialStep: 3);
                 },
               ),
               */
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) =>
-                        QRScannerPopup(devices: _deviceCategories),
-                  );
-                },
-                child: const Text("Scan QR Code"),
-              ),
-              const SizedBox(height: 12),
-              TourTarget(
-                targetId: 'add_manually_btn',
-                child: ElevatedButton(
+          content: TourTarget(
+            targetId: 'pairing_choices',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) =>
+                          QRScannerPopup(devices: _deviceCategories),
+                    );
+                  },
+                  child: const Text("Scan QR Code"),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
                     showDialog(
@@ -1544,18 +1590,20 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                       builder: (context) =>
                           ManualEntryPopup(devices: _deviceCategories),
                     );
-                    if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 4) {
+                    if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 3) {
                       AppTourGuide.nextStep(context);
                     }
                   },
                   child: const Text("Add Manually"),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
-    );
+    ).then((_) {
+      AppTourGuide.onTriggerManualEntry = null;
+    });
   }
 
   Widget _buildAccountSecuritySection({
