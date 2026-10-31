@@ -413,10 +413,19 @@ class _DeviceSpecificationDialogWidgetState
   }
 
   String _resolveDeviceIdForImage(DeviceSpecification? currentSpec, String resolvedTopic) {
-    // Prefer widget's deviceId / sensorName, cleaned against the topic (e.g. 280)
+    // If currentSpec has deviceIdTopic containing '#', the part before '#' is the exact DynamoDB partition key
+    if (currentSpec != null && currentSpec.deviceIdTopic.contains('#')) {
+      final keyBeforeHash = currentSpec.deviceIdTopic.split('#').first.trim();
+      if (keyBeforeHash.isNotEmpty && keyBeforeHash.toLowerCase() != 'unknown') {
+        return DeviceImageService.cleanDeviceId(keyBeforeHash, topic: resolvedTopic);
+      }
+    }
+    if (currentSpec != null && currentSpec.deviceId.isNotEmpty && currentSpec.deviceId.toLowerCase() != 'unknown') {
+      return DeviceImageService.cleanDeviceId(currentSpec.deviceId, topic: resolvedTopic);
+    }
     String rawDev = widget.deviceId.trim();
     if (rawDev.isEmpty || rawDev.toLowerCase() == 'unknown') {
-      rawDev = widget.sensorName ?? (currentSpec?.deviceId ?? '');
+      rawDev = widget.sensorName ?? '';
     }
     return DeviceImageService.cleanDeviceId(rawDev, topic: resolvedTopic);
   }
@@ -1013,6 +1022,8 @@ class _DeviceSpecificationDialogWidgetState
     Color strongText,
     Color subtleText,
   ) {
+    final screenW = MediaQuery.of(context).size.width;
+    final isMobile = screenW <= 650;
     final top = _resolveTopicForImage(spec);
     final devId = _resolveDeviceIdForImage(spec, top);
     final bool canUpload = _isEffectiveAdmin;
@@ -1064,92 +1075,150 @@ class _DeviceSpecificationDialogWidgetState
             // Image Header
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
-                  const Icon(Icons.photo_camera_back_outlined,
-                      size: 16, color: Colors.cyan),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Installation Photo',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: strongText,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Slot selector if multiple images
-                  if (images.length > 1)
-                    Row(
-                      children: images.map((img) {
-                        final isSelected = img.slot == _selectedImageSlot;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: InkWell(
-                            onTap: () => setState(() => _selectedImageSlot = img.slot),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Colors.cyan.withOpacity(0.2)
-                                    : (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isSelected ? Colors.cyan : borderColor,
-                                ),
-                              ),
-                              child: Text(
-                                'Slot ${img.slot}',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? Colors.cyan : subtleText,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-
-                  const Spacer(),
-
-                  // Admin Upload / Replace Button
-                  if (canUpload)
-                    InkWell(
-                      onTap: () {
-                        showUploadDeviceImageDialog(
-                          context: context,
-                          deviceId: devId,
-                          topic: top,
-                          sensorName: widget.sensorName,
-                          displayName: widget.displayName,
-                          isDark: isDark,
-                          onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.photo_camera_back_outlined,
+                          size: 16, color: Colors.cyan),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Installation Photo',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: strongText,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.withOpacity(0.4)),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Icon(Icons.add_a_photo, size: 14, color: Colors.indigoAccent),
+                            Icon(Icons.check_circle_rounded, size: 11, color: Colors.greenAccent),
                             SizedBox(width: 4),
                             Text(
-                              'Update Photo',
+                              'First Slot Image Uploaded',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.indigoAccent,
+                                color: Colors.greenAccent,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                      if (images.length > 1) ...[
+                        const SizedBox(width: 10),
+                        ...images.map((img) {
+                          final isSelected = img.slot == _selectedImageSlot;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedImageSlot = img.slot),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Colors.cyan.withOpacity(0.2)
+                                      : (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isSelected ? Colors.cyan : borderColor,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Slot ' + img.slot.toString(),
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? Colors.cyan : subtleText,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Reload Photo Button
+                      InkWell(
+                        onTap: () => _loadImagesForSpec(spec, forceRefresh: true),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.refresh_rounded, size: 14, color: Colors.cyan),
+                              SizedBox(width: 4),
+                              Text(
+                                'Reload',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.cyan,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (canUpload && !images.any((img) => img.slot == 2)) ...[
+                        const SizedBox(width: 8),
+                        // Upload Secondary Slot (Slot 2) Button
+                        InkWell(
+                          onTap: () {
+                            showUploadDeviceImageDialog(
+                              context: context,
+                              deviceId: devId,
+                              topic: top,
+                              sensorName: widget.sensorName,
+                              displayName: widget.displayName,
+                              initialSlot: 2,
+                              isDark: isDark,
+                              onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.add_photo_alternate_outlined, size: 14, color: Colors.indigoAccent),
+                                SizedBox(width: 4),
+                                Text(
+                                  '+ Slot 2',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigoAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -1258,57 +1327,84 @@ class _DeviceSpecificationDialogWidgetState
             style: BorderStyle.solid,
           ),
         ),
-        child: Row(
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.indigoAccent.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add_a_photo_outlined,
-                  size: 18, color: Colors.indigoAccent),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'No installation photo uploaded yet',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: strongText,
-                    ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.indigoAccent.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
-                  Text(
-                    'As an admin, you can upload GPS-tagged photos to S3.',
-                    style: TextStyle(fontSize: 10.5, color: subtleText),
+                  child: const Icon(Icons.add_a_photo_outlined,
+                      size: 18, color: Colors.indigoAccent),
+                ),
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isMobile ? (screenW - 140).clamp(180.0, 320.0) : 320),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No installation photo uploaded yet',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: strongText,
+                        ),
+                      ),
+                      Text(
+                        'As an admin, you can upload GPS-tagged photos to S3.',
+                        style: TextStyle(fontSize: 10.5, color: subtleText),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            ElevatedButton.icon(
-              onPressed: () {
-                showUploadDeviceImageDialog(
-                  context: context,
-                  deviceId: devId,
-                  topic: top,
-                  sensorName: widget.sensorName,
-                  displayName: widget.displayName,
-                  isDark: isDark,
-                  onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
-                );
-              },
-              icon: const Icon(Icons.upload, size: 13),
-              label: const Text('Upload Photo', style: TextStyle(fontSize: 11)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigoAccent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _loadImagesForSpec(spec, forceRefresh: true),
+                  icon: const Icon(Icons.refresh, size: 13),
+                  label: const Text('Reload', style: TextStyle(fontSize: 11)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.cyan,
+                    side: const BorderSide(color: Colors.cyan, width: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    showUploadDeviceImageDialog(
+                      context: context,
+                      deviceId: devId,
+                      topic: top,
+                      sensorName: widget.sensorName,
+                      displayName: widget.displayName,
+                      isDark: isDark,
+                      onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
+                    );
+                  },
+                  icon: const Icon(Icons.upload, size: 13),
+                  label: const Text('Upload Photo', style: TextStyle(fontSize: 11)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigoAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

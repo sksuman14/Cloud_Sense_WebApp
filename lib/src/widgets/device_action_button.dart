@@ -584,7 +584,7 @@ class DeviceActionButton extends StatelessWidget {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Upload Device Image',
+                    'Device Photo',
                     style: TextStyle(fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
