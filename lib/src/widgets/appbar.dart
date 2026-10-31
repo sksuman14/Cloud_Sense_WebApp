@@ -546,34 +546,34 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                   ),
                   SizedBox(width: screenWidth <= 1024 ? 8 : 16),
 
-                  /// App Tour Interactive Guide Button
-                  Tooltip(
-                    message: "Interactive Step-by-Step Guide for Normal Users",
-                    child: TextButton.icon(
-                      onPressed: () => AppTourGuide.startTour(context),
-                      icon: Icon(
-                        Icons.explore_outlined,
-                        color: const Color(0xFF38BDF8),
-                        size: isTablet ? 18 : 20,
-                      ),
-                      label: Text(
-                        'App Tour',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: isTablet ? 14 : 16,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
-                    ),
-                  ),
+                  // /// App Tour Interactive Guide Button
+                  // Tooltip(
+                  //   message: "Interactive Step-by-Step Guide for Normal Users",
+                  //   child: TextButton.icon(
+                  //     onPressed: () => AppTourGuide.startTour(context),
+                  //     icon: Icon(
+                  //       Icons.explore_outlined,
+                  //       color: const Color(0xFF38BDF8),
+                  //       size: isTablet ? 18 : 20,
+                  //     ),
+                  //     label: Text(
+                  //       'App Tour',
+                  //       style: TextStyle(
+                  //         color: Colors.white,
+                  //         fontWeight: FontWeight.bold,
+                  //         fontSize: isTablet ? 14 : 16,
+                  //       ),
+                  //     ),
+                  //     style: TextButton.styleFrom(
+                  //       backgroundColor: Colors.white.withOpacity(0.12),
+                  //       shape: RoundedRectangleBorder(
+                  //         borderRadius: BorderRadius.circular(18),
+                  //       ),
+                  //       padding: const EdgeInsets.symmetric(
+                  //           horizontal: 12, vertical: 8),
+                  //     ),
+                  //   ),
+                  // ),
                   SizedBox(width: screenWidth <= 1024 ? 12 : 20),
 
                   PopupMenuButton<String>(
@@ -613,24 +613,24 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
-                      PopupMenuItem<String>(
-                        value: 'interactive_tour',
-                        child: Row(
-                          children: const [
-                            Icon(Icons.explore_outlined,
-                                color: Color(0xFF0284C7), size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Interactive App Tour ✨',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0284C7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
+                      // PopupMenuItem<String>(
+                      //   value: 'interactive_tour',
+                      //   child: Row(
+                      //     children: const [
+                      //       Icon(Icons.explore_outlined,
+                      //           color: Color(0xFF0284C7), size: 20),
+                      //       SizedBox(width: 8),
+                      //       Text(
+                      //         'Interactive App Tour ✨',
+                      //         style: TextStyle(
+                      //           fontWeight: FontWeight.bold,
+                      //           color: Color(0xFF0284C7),
+                      //         ),
+                      //       ),
+                      //     ],
+                      //   ),
+                      // ),
+                      // const PopupMenuDivider(),
                       const PopupMenuItem<String>(
                         value: 'app_manual',
                         child: Row(
