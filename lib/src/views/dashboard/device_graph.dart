@@ -1470,13 +1470,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
             value = value * 100.0;
           }
 
+          // If battery voltage is reported as 0 V, show as 3.0 V so it is identifiable without distorting graph scale
           if ((key.toLowerCase() == 'batteryvoltage' ||
                   key.toLowerCase() == 'battery_voltage') &&
               value == 0.0) {
-            if (parametersData[key] != null &&
-                parametersData[key]!.isNotEmpty) {
-              value = parametersData[key]!.last.value;
-            }
+            value = 3.0;
           }
 
           String? gustTime;
@@ -1577,9 +1575,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               item['Battery_Voltage'] ??
               item['battery_voltage'];
           if (batVal != null) {
-            final bat = double.tryParse(batVal.toString()) ?? 0.0;
-            if (bat != 0.0) {
-              onBatteryUpdate(bat);
+            final bat = double.tryParse(batVal.toString());
+            if (bat != null) {
+              onBatteryUpdate(bat == 0.0 ? 3.0 : bat);
               break;
             }
           }
@@ -1862,15 +1860,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
         // ✅ FIX: Allow 0 values (don't skip them)
         if (numValue != null) {
+          // If battery voltage is reported as 0 V, show as 3.0 V so it is identifiable without distorting graph scale
           if ((key.toLowerCase() == 'batteryvoltage' ||
                   key.toLowerCase() == 'battery_voltage') &&
               numValue == 0.0) {
-            if (result[key] != null && result[key]!.isNotEmpty) {
-              numValue = result[key]!.last.value;
-            }
+            numValue = 3.0;
           }
 
-          if (key == 'BatteryVoltage') {
+          if (key == 'BatteryVoltage' || key == 'Battery_Voltage') {
             _lastBatteries[widget.deviceName] = numValue;
           }
           if (key == 'SignalStrength') {
