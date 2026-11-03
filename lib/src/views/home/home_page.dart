@@ -2526,7 +2526,7 @@ class HeroSection extends StatefulWidget {
 }
 
 class _HeroSectionState extends State<HeroSection> {
-  static const String _heroImagePath = "assets/images/6#WS_Annam_0426_6_03.jpeg";
+  static const String _heroImagePath = "assets/images/hero.jpeg";
 
   @override
   void didChangeDependencies() {
