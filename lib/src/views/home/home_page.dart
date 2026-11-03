@@ -2526,540 +2526,321 @@ class HeroSection extends StatefulWidget {
 }
 
 class _HeroSectionState extends State<HeroSection> {
-  late PageController _pageController;
-  int _currentIndex = 0;
-  bool _showArrows = false;       // show nav arrows on hover
-  Timer? _timer;                  // single auto-scroll timer
-
-  final List<Map<String, String>> _slides = [
-    {"path": "assets/images/site9.jpg", "location": ""},
-    {"path": "assets/images/site1.jpg", "location": "Udhampur"},
-    {"path": "assets/images/site2.jpg", "location": "Machhiwara, Punjab"},
-    {"path": "assets/images/site3.jpg", "location": "Khanna, Punjab"},
-    {"path": "assets/images/site4.jpg", "location": "Jandiala, Punjab"},
-    {"path": "assets/images/site5.jpg", "location": "Nehon, Punjab"},
-    {"path": "assets/images/site6.jpg", "location": "Maur, Punjab"},
-    {"path": "assets/images/site7.jpg", "location": "Bhagta Bhai Ka, Punjab"},
-    {"path": "assets/images/site8.jpg", "location": "Abohar, Punjab"},
-  ];
-
-  static const int _initialVirtualMultiplier = 1000;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(
-      initialPage: _initialVirtualMultiplier * _slides.length,
-    );
-    _resetAutoScrollTimer();
-  }
+  static const String _heroImagePath = "assets/images/6#WS_Annam_0426_6_03.jpeg";
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Preload all hero slide images so they appear instantly
-    for (final slide in _slides) {
-      precacheImage(AssetImage(slide['path']!), context);
-    }
+    // Preload the static hero image so it appears instantly
+    precacheImage(const AssetImage(_heroImagePath), context);
   }
 
-  void _resetAutoScrollTimer() {
-    _timer?.cancel();
-    _timer = Timer(const Duration(seconds: 5), _autoScrollNext);
-  }
+  Widget _buildHeroButton({
+    required Widget icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isMobile,
+    bool isPrimary = false,
+  }) {
+    final bool isDark = widget.isDarkMode;
+    final Color bgColor = isPrimary
+        ? const Color(0xFF1976D2)
+        : (isDark ? const Color(0xFF0A1724).withOpacity(0.85) : Colors.white);
+    final Color borderColor = isPrimary
+        ? (isDark ? const Color(0xFF38BDF8).withOpacity(0.6) : const Color(0xFF1976D2))
+        : (isDark ? Colors.white.withOpacity(0.18) : const Color(0xFFCBD5E1));
+    final Color textColor = isPrimary
+        ? Colors.white
+        : (isDark ? Colors.white : const Color(0xFF0F172A));
 
-  void _autoScrollNext() {
-    if (!mounted || !_pageController.hasClients) return;
-    final currentVirtual = _pageController.page?.round() ??
-        (_initialVirtualMultiplier * _slides.length + _currentIndex);
-    final nextVirtual = currentVirtual + 1;
-    _pageController.animateToPage(
-      nextVirtual,
-      duration: const Duration(milliseconds: 1000),
-      curve: Curves.easeInOut,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05),
+        child: Ink(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 14 : 18,
+            vertical: isMobile ? 11 : 13,
+          ),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withOpacity(0.25)
+                    : const Color(0xFF0F172A).withOpacity(0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: isMobile ? 12.5 : 13.5,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
-  }
-
-  // Called when user clicks arrows
-  void _onManualNav(int virtualPage) {
-    _timer?.cancel();
-    _pageController.animateToPage(
-      virtualPage,
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeInOut,
-    );
-    _resetAutoScrollTimer();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
     bool isMobile = width < 800;
-    bool isTablet = width >= 800 && width < 1200;
-    
-    // Responsive Button Styling
-    double btnPaddingHorizontal = isMobile ? 16.0 : (isTablet ? 18.0 : 28.0);
-    double btnPaddingVertical = isMobile ? 12.0 : (isTablet ? 14.0 : 18.0);
-    double btnFontSize = isMobile ? 12.0 : (isTablet ? 13.0 : 14.0);
-    double iconSize = isMobile ? 16.0 : (isTablet ? 18.0 : 20.0);
+    bool isTablet = width >= 800 && width < 1050;
+    bool isWide = width >= 1440;
+    final bool isDark = widget.isDarkMode;
 
     final userProvider = Provider.of<UserProvider>(context);
     final bool isSuperAdmin = DeviceUtils.isSuperAdmin(userProvider.userEmail);
 
-    return Container(
-      width: double.infinity,
-      height: isMobile ? 650 : 750,
-      color: Colors.black,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _showArrows = true),
-        onExit: (_) => setState(() => _showArrows = false),
-        child: Stack(
-        children: [
-          // 1. Full-Screen Slideshow — physics: NeverScrollableScrollPhysics disables drag/swipe
-          PageView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            controller: _pageController,
-            onPageChanged: (virtualIdx) {
-              setState(() => _currentIndex = virtualIdx % _slides.length);
-              _resetAutoScrollTimer();
-            },
-            itemBuilder: (context, virtualIndex) {
-              final slideIndex = virtualIndex % _slides.length;
-              final slidePath = _slides[slideIndex]["path"]!;
-              return Stack(
-                children: [
-                  // Background image covering full space — no frameBuilder,
-                  // renders immediately so blurred bg appears instantly.
-                  // Dark overlay (BackdropFilter below) hides any pop-in.
-                  Positioned.fill(
-                    child: Image.asset(
-                      slidePath,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                    ),
-                  ),
-                  // Blurred overlay to create matching blurry space filler (clean & bright)
-                  Positioned.fill(
-                    child: ClipRRect(
-                      child: BackdropFilter(
-                        filter: ui.ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                        child: Container(
-                          color: Colors.black.withOpacity(0.05),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Fully uncropped contained image aligned to the right on desktop, center on mobile
-                  Positioned.fill(
-                    child: Align(
-                      alignment: isMobile ? Alignment.center : Alignment.centerRight,
-                      child: Padding(
-                        padding: isMobile 
-                            ? const EdgeInsets.only(bottom: 20.0, left: 16.0, right: 16.0) 
-                            : const EdgeInsets.only(right: 60.0, top: 40.0, bottom: 40.0),
-                        child: ShaderMask(
-                          shaderCallback: (Rect bounds) {
-                            return LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: const [
-                                Colors.transparent,
-                                Colors.black,
-                                Colors.black,
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.08, 0.92, 1.0],
-                            ).createShader(bounds);
-                          },
-                          blendMode: BlendMode.dstIn,
-                          child: ShaderMask(
-                            shaderCallback: (Rect bounds) {
-                              return LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: const [
-                                  Colors.transparent,
-                                  Colors.black,
-                                  Colors.black,
-                                  Colors.transparent,
-                                ],
-                                stops: const [0.0, 0.08, 0.92, 1.0],
-                              ).createShader(bounds);
-                            },
-                            blendMode: BlendMode.dstIn,
-                            child: Image.asset(
-                              slidePath,
-                              fit: BoxFit.contain,
-                              alignment: isMobile ? Alignment.center : Alignment.centerRight,
-                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                                if (wasSynchronouslyLoaded || frame != null) return child;
-                                return AnimatedOpacity(
-                                  opacity: frame == null ? 0.0 : 1.0,
-                                  duration: const Duration(milliseconds: 400),
-                                  curve: Curves.easeIn,
-                                  child: child,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+    final Color defaultIconColor = isDark ? Colors.white : const Color(0xFF334155);
+    final Color liveMonitorIconColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+
+    // Left Column: Weather Intelligence Title, Subtitle, and 3-row CTA Grid
+    final leftColumn = Column(
+      crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Main Title
+        Text(
+          "Weather\nIntelligence",
+          textAlign: isMobile ? TextAlign.center : TextAlign.left,
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            fontFamily: 'OpenSans',
+            fontSize: isMobile ? 34 : (isTablet ? 42 : (width < 1250 ? 48 : (isWide ? 62 : 54))),
+            fontWeight: FontWeight.w900,
+            height: 1.06,
+            letterSpacing: -0.5,
           ),
-          // 2. Bright Edge-only Gradient: subtle top shadow for AppBar, smooth bottom blend, 100% bright in the middle
-          IgnorePointer(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.35),
-                    Colors.transparent,
-                    Colors.transparent,
-                    widget.isDarkMode ? const Color(0xFF0B141D) : const Color(0xFFFFFFFF),
-                  ],
-                  stops: const [0.0, 0.12, 0.88, 1.0],
-                ),
-              ),
-            ),
-          ),
-          // 3. Localized Left-Side Scrim for Text Contrast — keeps the center & right station image 100% natural & bright
-          IgnorePointer(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: isMobile ? Alignment.topCenter : Alignment.centerLeft,
-                  end: isMobile ? Alignment.bottomCenter : Alignment.centerRight,
-                  colors: [
-                    Colors.black.withOpacity(isMobile ? 0.30 : 0.40),
-                    Colors.black.withOpacity(isMobile ? 0.12 : 0.12),
-                    Colors.transparent,
-                  ],
-                  stops: [0.0, isMobile ? 0.50 : 0.35, isMobile ? 0.80 : 0.60],
-                ),
-              ),
-            ),
-          ),
-          // 4. Left-Aligned Content Overlay on Desktop (Tesla Style)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 64.0),
-            child: Align(
-              alignment: isMobile ? Alignment.center : Alignment.centerLeft,
-              child: SizedBox(
-                width: isMobile ? double.infinity : width * 0.5,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 140), // Spacing for glassmorphic AppBar
-                    // Main Title
-                    Text(
-                      "WEATHER INTELLIGENCE",
-                      textAlign: isMobile ? TextAlign.center : TextAlign.left,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'OpenSans',
-                        fontSize: isMobile ? 28 : 52,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 4.0,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.85),
-                            offset: const Offset(0, 2),
-                            blurRadius: 8,
-                          ),
-                          Shadow(
-                            color: Colors.black.withOpacity(0.60),
-                            offset: const Offset(0, 4),
-                            blurRadius: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Subtitle
-                    Text(
-                      "Industrial-grade telemetry. Real-time agricultural decision intelligence.",
-                      textAlign: isMobile ? TextAlign.center : TextAlign.left,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isMobile ? 14 : 18,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.85),
-                            offset: const Offset(0, 2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Spacer(flex: isMobile ? 3 : 1),
-                    // CTA Buttons
-                    Column(
-                      crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-                      children: [
-                        
-                        // Interactive Tour Pill for Normal Users (Commented out as requested)
-                        /*
-                        InkWell(
-                          onTap: () => AppTourGuide.startTour(context),
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withOpacity(0.85),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withOpacity(0.4)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.explore_outlined, color: Colors.white, size: 16),
-                                SizedBox(width: 8),
-                                Text(
-                                  "New User? Take Step-by-Step Interactive Tour ✨",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        */
-                        
-                        // Top Row: My Devices, Explore Hardware, Nationwide Map
-                        Wrap(
-                          spacing: isMobile ? 10 : 16,
-                          runSpacing: isMobile ? 10 : 16,
-                          alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
-                          children: [
-                            TourTarget(
-                              targetId: 'my_devices',
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 0) {
-                                    AppTourGuide.nextStep(context);
-                                  } else {
-                                    widget.onMyDevicesTap();
-                                  }
-                                },
-                                icon: Icon(Icons.devices, color: Colors.black, size: iconSize),
-                                label: const Text("My Devices"),
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.black,
-                                  backgroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                  textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                ),
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: widget.onProductsTap,
-                              icon: Icon(Icons.explore_outlined, color: Colors.white, size: iconSize),
-                              label: const Text("Explore Hardware"),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 2),
-                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: widget.onMapTap,
-                              icon: Icon(Icons.map_outlined, color: Colors.white, size: iconSize),
-                              label: const Text("Nationwide Map"),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 2),
-                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        // Bottom Row: Live Monitor, KSDMA Portal
-                        Wrap(
-                          spacing: isMobile ? 10 : 16,
-                          runSpacing: isMobile ? 10 : 16,
-                          alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: widget.onTelemetryTap,
-                              icon: Icon(Icons.analytics_outlined, color: Colors.white, size: iconSize),
-                              label: const Text("Live Monitor"),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 2),
-                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              ),
-                            ),
-                            if (isSuperAdmin)
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  NavigationUtils.navigateTo(context, '/compare');
-                                },
-                                icon: Icon(Icons.compare_arrows, color: Colors.white, size: iconSize),
-                                label: const Text("Device Comparison"),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white, width: 2),
-                                  padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                  textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                ),
-                              ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                NavigationUtils.navigateTo(context, '/ksdma');
-                              },
-                              icon: Icon(Icons.shield_outlined, color: Colors.white, size: iconSize),
-                              label: const Text("KSDMA Portal"),
-                              style: ElevatedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                backgroundColor: const Color(0xFF1976D2),
-                                padding: EdgeInsets.symmetric(horizontal: btnPaddingHorizontal, vertical: btnPaddingVertical),
-                                textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: btnFontSize),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                elevation: 4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    Spacer(flex: isMobile ? 1 : 1),
-                const SizedBox(height: 24),
-              ],
+        ),
+        const SizedBox(height: 18),
+        // Subtitle
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isWide ? 640 : 520),
+          child: Text(
+            "Industrial-grade telemetry. Real-time agricultural decision intelligence, straight from the field.",
+            textAlign: isMobile ? TextAlign.center : TextAlign.left,
+            style: TextStyle(
+              color: isDark ? Colors.white.withOpacity(0.74) : const Color(0xFF475569),
+              fontSize: isMobile ? 14 : (isWide ? 17.5 : 16),
+              fontWeight: FontWeight.w400,
+              height: 1.55,
             ),
           ),
         ),
-      ),
-          // 4. Location Badge Overlay at the bottom-left
-          Positioned(
-            bottom: 24,
-            left: 24,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.location_on, color: Colors.redAccent, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    _slides[_currentIndex]["location"]!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // 5. Slide Indicator Dots at the bottom-right
-          Positioned(
-            bottom: 24,
-            right: 24,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                _slides.length,
-                (index) => Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentIndex == index
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.4),
+        const SizedBox(height: 32),
+        // CTA Buttons
+        Column(
+          crossAxisAlignment: isMobile ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          children: [
+            // Row 1: My Devices, Live Monitor, Explore Hardware
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+              children: [
+                TourTarget(
+                  targetId: 'my_devices',
+                  child: _buildHeroButton(
+                    icon: Icon(Icons.devices, color: defaultIconColor, size: 16),
+                    label: "My Devices",
+                    isMobile: isMobile,
+                    onTap: () {
+                      if (AppTourGuide.isTourActive && AppTourGuide.currentStep == 0) {
+                        AppTourGuide.nextStep(context);
+                      } else {
+                        widget.onMyDevicesTap();
+                      }
+                    },
                   ),
                 ),
-              ),
-            ),
-          ),
-          // 6. Navigation Arrows — LAST in Stack so clickable on top
-          if (_showArrows || isMobile) ...[
-            Positioned(
-              left: isMobile ? 10 : 20,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () => _onManualNav((_pageController.page?.round() ?? 0) - 1),
-                  child: Container(
-                    width: isMobile ? 38 : 48,
-                    height: isMobile ? 38 : 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.5),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    child: Icon(Icons.chevron_left, color: Colors.white, size: isMobile ? 24 : 32),
-                  ),
+                _buildHeroButton(
+                  icon: Icon(Icons.show_chart, color: liveMonitorIconColor, size: 16),
+                  label: "Live Monitor",
+                  isMobile: isMobile,
+                  onTap: widget.onTelemetryTap,
                 ),
-              ),
-            ),
-            Positioned(
-              right: isMobile ? 10 : 20,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () => _onManualNav((_pageController.page?.round() ?? 0) + 1),
-                  child: Container(
-                    width: isMobile ? 38 : 48,
-                    height: isMobile ? 38 : 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.5),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    child: Icon(Icons.chevron_right, color: Colors.white, size: isMobile ? 24 : 32),
-                  ),
+                _buildHeroButton(
+                  icon: Icon(Icons.explore_outlined, color: defaultIconColor, size: 16),
+                  label: "Explore Hardware",
+                  isMobile: isMobile,
+                  onTap: widget.onProductsTap,
                 ),
-              ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Row 2: Nationwide Map, Device Comparison
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+              children: [
+                _buildHeroButton(
+                  icon: Icon(Icons.map_outlined, color: defaultIconColor, size: 16),
+                  label: "Nationwide Map",
+                  isMobile: isMobile,
+                  onTap: widget.onMapTap,
+                ),
+                if (isSuperAdmin)
+                  _buildHeroButton(
+                    icon: Icon(Icons.compare_arrows, color: defaultIconColor, size: 16),
+                    label: "Device Comparison",
+                    isMobile: isMobile,
+                    onTap: () => NavigationUtils.navigateTo(context, '/compare'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Row 3: KSDMA Portal
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+              children: [
+                _buildHeroButton(
+                  icon: const Icon(Icons.shield_outlined, color: Colors.white, size: 16),
+                  label: "KSDMA Portal",
+                  isMobile: isMobile,
+                  isPrimary: true,
+                  onTap: () => NavigationUtils.navigateTo(context, '/ksdma'),
+                ),
+              ],
             ),
           ],
+        ),
+      ],
+    );
+
+    // Right Column: Rounded Photo Card (Expands across available width)
+    final rightImageCard = Container(
+      height: isMobile ? 380 : (isTablet ? 480 : (isWide ? 580 : 520)),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.14) : Colors.white,
+          width: isDark ? 1.5 : 2.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.55)
+                : const Color(0xFF0F172A).withOpacity(0.12),
+            blurRadius: 32,
+            offset: const Offset(0, 16),
+          ),
         ],
       ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26.5),
+        child: Image.asset(
+          _heroImagePath,
+          fit: BoxFit.cover,
+          alignment: const Alignment(0.0, -0.2),
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return child;
+            return AnimatedOpacity(
+              opacity: frame == null ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeIn,
+              child: child,
+            );
+          },
+        ),
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF152F4A) : const Color(0xFFD6E6F5),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  const Color(0xFF102438),
+                  const Color(0xFF16324D),
+                  const Color(0xFF1D3F62),
+                ]
+              : [
+                  const Color(0xFFDFEDF8),
+                  const Color(0xFFD2E3F3),
+                  const Color(0xFFC3DAEE),
+                ],
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? const Color(0xFF38BDF8).withOpacity(0.35)
+                : const Color(0xFF90B4D6).withOpacity(0.60),
+            width: 1.5,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.only(
+        top: isMobile ? 90 : 120,
+        bottom: isMobile ? 40 : 60,
+      ),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1860),
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 18 : (isTablet ? 28 : (isWide ? 44 : 32)),
+          ),
+          child: (width >= 1050)
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      flex: isWide ? 9 : 10,
+                      child: leftColumn,
+                    ),
+                    SizedBox(width: isWide ? 44 : 32),
+                    Expanded(
+                      flex: isWide ? 15 : 14,
+                      child: rightImageCard,
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    leftColumn,
+                    const SizedBox(height: 40),
+                    rightImageCard,
+                  ],
+                ),
+        ),
       ),
     );
   }
