@@ -153,6 +153,7 @@ flutter:
     - assets/images/blegateway.png
     - assets/images/soil.png
     - assets/models/
+    - assets/images/hero.jpg
     - assets/images/weather.jpg
     - assets/images/site1.jpg
     - assets/images/site2.jpg
