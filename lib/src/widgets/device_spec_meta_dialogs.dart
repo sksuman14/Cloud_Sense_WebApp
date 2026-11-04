@@ -40,7 +40,7 @@ class DeviceSpecification {
 
   factory DeviceSpecification.fromJson(Map<String, dynamic> json) {
     return DeviceSpecification(
-      deviceId: json['deviceId']?.toString() ?? '',
+      deviceId: (json['deviceid'] ?? json['deviceId'])?.toString() ?? '',
       deviceIdTopic: json['deviceid#topic']?.toString() ??
           json['deviceId_topic']?.toString() ??
           json['deviceIdTopic']?.toString() ??
@@ -147,6 +147,97 @@ class DeviceSpecMetaService {
       return _cachedSpecs!;
     } else {
       throw Exception('Failed to load specifications (${response.statusCode})');
+    }
+  }
+
+  /// Invalidate specifications cache so fresh data is retrieved on next fetch
+  static void invalidateSpecsCache() {
+    _cachedSpecs = null;
+    _specsTimestamp = null;
+  }
+
+  /// Create or update device specification via POST API
+  static Future<Map<String, dynamic>> saveSpecification({
+    required String deviceId,
+    required String topic,
+    String? deviceIdTopic,
+    String? hardwareVersion,
+    String? firmwareVersion,
+    String? baudRate,
+    String? partnershipName,
+    String? simProvider,
+    String? atrhSensor,
+    String? rainSensor,
+    String? lastSyncedAt,
+  }) async {
+    final cleanDevId = deviceId.trim().contains('#')
+        ? deviceId.trim().split('#').first.trim()
+        : deviceId.trim();
+    var cleanT = topic.trim();
+    if (cleanT.contains('#')) cleanT = cleanT.split('#').last.trim();
+    while (cleanT.startsWith('/')) cleanT = cleanT.substring(1);
+    while (cleanT.endsWith('/')) cleanT = cleanT.substring(0, cleanT.length - 1);
+
+    if (cleanT.isEmpty) {
+      if (deviceIdTopic != null && deviceIdTopic.contains('#')) {
+        cleanT = deviceIdTopic.split('#').last.trim();
+      } else if (deviceId.contains('#')) {
+        cleanT = deviceId.split('#').last.trim();
+      }
+    }
+
+    final compositeKey = (deviceIdTopic != null &&
+            deviceIdTopic.trim().isNotEmpty &&
+            deviceIdTopic.contains('#'))
+        ? deviceIdTopic.trim()
+        : '$cleanDevId#$cleanT';
+
+    final now = DateTime.now();
+    final syncTime =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    final payload = <String, dynamic>{
+      'deviceid#topic': compositeKey,
+      'deviceid': cleanDevId,
+      'topic': cleanT,
+      'hardwareVersion': hardwareVersion?.trim() ?? '',
+      'firmwareVersion': firmwareVersion?.trim() ?? '',
+      'ultrasonicBaudrate': baudRate?.trim() ?? '',
+      'partnershipName': partnershipName?.trim() ?? '',
+      'simProvider': simProvider?.trim() ?? '',
+      'atrhSensor': atrhSensor?.trim() ?? '',
+      'rainSensor': rainSensor?.trim() ?? '',
+      'lastSyncedAt': syncTime,
+    };
+
+    final response = await http.post(
+      Uri.parse(specApiUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(payload),
+    );
+
+    invalidateSpecsCache();
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {'success': true, 'message': 'Device specification saved successfully'};
+      }
+    } else {
+      String errorMessage = 'Failed with status ${response.statusCode}';
+      try {
+        final decoded = json.decode(response.body);
+        if (decoded is Map && decoded['error'] != null) {
+          errorMessage = decoded['error'].toString();
+        } else if (decoded is Map && decoded['message'] != null) {
+          errorMessage = decoded['message'].toString();
+        }
+      } catch (_) {
+        errorMessage = response.body;
+      }
+      throw Exception(errorMessage);
     }
   }
 
@@ -532,7 +623,7 @@ class _DeviceSpecificationDialogWidgetState
     buffer.writeln('Firmware Specification: ${spec.firmwareVersion.isNotEmpty ? spec.firmwareVersion : "N/A"}');
     buffer.writeln('Baud Rate: ${spec.ultrasonicBaudrate.isNotEmpty ? spec.ultrasonicBaudrate : "N/A"}');
     buffer.writeln('SIM Provider: ${spec.simProvider.isNotEmpty ? spec.simProvider : "N/A"}');
-    buffer.writeln('AT/RH Sensor: ${spec.atrhSensor.isNotEmpty ? spec.atrhSensor : "N/A"}');
+    buffer.writeln('ATRH Sensor: ${spec.atrhSensor.isNotEmpty ? spec.atrhSensor : "N/A"}');
     buffer.writeln('Rain Sensor: ${spec.rainSensor.isNotEmpty ? spec.rainSensor : "N/A"}');
     buffer.writeln('Last Synced At: ${spec.lastSyncedAt.isNotEmpty ? spec.lastSyncedAt : "N/A"}');
     _copyToClipboard(buffer.toString(), 'All Specifications');
@@ -629,6 +720,13 @@ class _DeviceSpecificationDialogWidgetState
                         ],
                       ),
                     ),
+                    if (_isEffectiveAdmin) ...[
+                      IconButton(
+                        icon: const Icon(Icons.edit_note_rounded, color: Colors.cyan, size: 22),
+                        tooltip: _selectedSpec != null ? 'Edit Specifications' : 'Add Specifications',
+                        onPressed: () => _showEditSpecificationDialog(currentSpec: _selectedSpec),
+                      ),
+                    ],
                     IconButton(
                       icon: Icon(Icons.refresh, color: subtleText, size: 20),
                       tooltip: 'Refresh',
@@ -721,6 +819,23 @@ class _DeviceSpecificationDialogWidgetState
                                       ],
                                     ),
                                   ),
+                                  if (_isEffectiveAdmin) ...[
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _showEditSpecificationDialog(currentSpec: null),
+                                        icon: const Icon(Icons.edit_note_rounded, size: 18),
+                                        label: const Text('Enter Device Specifications', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.cyan.shade700,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 16),
                                   _buildSearchBar(isDark, cardBg, borderColor,
                                       strongText, subtleText),
@@ -873,6 +988,35 @@ class _DeviceSpecificationDialogWidgetState
                   ],
                 ),
               ),
+              if (_isEffectiveAdmin) ...[
+                Tooltip(
+                  message: 'Edit Specifications',
+                  child: InkWell(
+                    onTap: () => _showEditSpecificationDialog(currentSpec: spec),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.cyan.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.cyan.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.edit_outlined, size: 13, color: Colors.cyan),
+                          SizedBox(width: 4),
+                          Text(
+                            'Edit',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.cyan),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
               IconButton(
                 icon: const Icon(Icons.copy, size: 15, color: Colors.cyan),
                 tooltip: 'Copy Topic',
@@ -922,6 +1066,7 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'partnership') : null,
               ),
               _buildFieldCard(
                 width: itemW,
@@ -934,6 +1079,7 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'hardware') : null,
               ),
               _buildFieldCard(
                 width: itemW,
@@ -946,6 +1092,7 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'firmware') : null,
               ),
               _buildFieldCard(
                 width: itemW,
@@ -958,6 +1105,7 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'baudrate') : null,
               ),
               _buildFieldCard(
                 width: itemW,
@@ -970,10 +1118,11 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'sim') : null,
               ),
               _buildFieldCard(
                 width: itemW,
-                label: 'AT/RH Sensor Type',
+                label: 'ATRH Sensor Type',
                 value: spec.atrhSensor,
                 icon: Icons.thermostat,
                 badgeColor: Colors.teal,
@@ -982,6 +1131,7 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'atrh') : null,
               ),
               _buildFieldCard(
                 width: itemW,
@@ -994,6 +1144,7 @@ class _DeviceSpecificationDialogWidgetState
                 borderColor: borderColor,
                 strongText: strongText,
                 subtleText: subtleText,
+                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'rain') : null,
               ),
               _buildFieldCard(
                 width: constraints.maxWidth,
@@ -1425,6 +1576,7 @@ class _DeviceSpecificationDialogWidgetState
     required Color borderColor,
     required Color strongText,
     required Color subtleText,
+    VoidCallback? onEdit,
   }) {
     final displayValue = value.trim().isEmpty ? 'N/A' : value.trim();
 
@@ -1444,7 +1596,11 @@ class _DeviceSpecificationDialogWidgetState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 10.5, color: subtleText)),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 10.5, color: subtleText),
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   displayValue,
@@ -1458,16 +1614,83 @@ class _DeviceSpecificationDialogWidgetState
               ],
             ),
           ),
+          if (onEdit != null) ...[
+            Tooltip(
+              message: 'Edit $label',
+              child: InkWell(
+                onTap: onEdit,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: const Icon(Icons.edit, size: 14, color: Colors.cyan),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
           if (displayValue != 'N/A')
-            InkWell(
-              onTap: () => _copyToClipboard(displayValue, label),
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.copy, size: 14, color: subtleText.withOpacity(0.6)),
+            Tooltip(
+              message: 'Copy $label',
+              child: InkWell(
+                onTap: () => _copyToClipboard(displayValue, label),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Icon(Icons.copy, size: 14, color: subtleText.withOpacity(0.6)),
+                ),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  void _showEditSpecificationDialog({
+    DeviceSpecification? currentSpec,
+    String? focusField,
+  }) {
+    final cleanTopic = widget.topic.contains('#') ? widget.topic.split('#').last.trim() : widget.topic.trim();
+    final devId = (currentSpec != null && currentSpec.deviceId.isNotEmpty)
+        ? currentSpec.deviceId
+        : (widget.deviceId.isNotEmpty ? widget.deviceId : (widget.sensorName ?? ''));
+    final top = (currentSpec != null && currentSpec.deviceIdTopic.contains('#'))
+        ? currentSpec.deviceIdTopic.split('#').last.trim()
+        : (cleanTopic.isNotEmpty ? cleanTopic : widget.topic);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => _EditDeviceSpecificationDialog(
+        deviceId: devId,
+        topic: top,
+        currentSpec: currentSpec,
+        focusField: focusField,
+        isDark: widget.isDark,
+        onSaved: (updatedSpec, result) {
+          if (mounted) {
+            setState(() {
+              _selectedSpec = updatedSpec;
+              _allSpecs.removeWhere((s) => s.deviceId == devId || s.deviceIdTopic == '$devId#$top');
+              _allSpecs.insert(0, updatedSpec);
+            });
+            _loadImagesForSpec(updatedSpec);
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(result['message']?.toString() ?? 'Device specification saved to DB successfully!'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.teal.shade700,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2389,6 +2612,540 @@ class _DeviceMetadataDialogWidgetState
                 );
               },
             ),
+    );
+  }
+}
+
+// ==========================================
+// EDIT / ADD SPECIFICATION DIALOG
+// ==========================================
+
+class _EditDeviceSpecificationDialog extends StatefulWidget {
+  final String deviceId;
+  final String topic;
+  final DeviceSpecification? currentSpec;
+  final String? focusField;
+  final bool isDark;
+  final Function(DeviceSpecification updatedSpec, Map<String, dynamic> result) onSaved;
+
+  const _EditDeviceSpecificationDialog({
+    Key? key,
+    required this.deviceId,
+    required this.topic,
+    this.currentSpec,
+    this.focusField,
+    required this.isDark,
+    required this.onSaved,
+  }) : super(key: key);
+
+  @override
+  State<_EditDeviceSpecificationDialog> createState() =>
+      _EditDeviceSpecificationDialogState();
+}
+
+class _EditDeviceSpecificationDialogState
+    extends State<_EditDeviceSpecificationDialog> {
+  late final TextEditingController _hwCtrl;
+  late final TextEditingController _fwCtrl;
+  late final TextEditingController _baudCtrl;
+  late final TextEditingController _partnerCtrl;
+  late final TextEditingController _simCtrl;
+  late final TextEditingController _atrhCtrl;
+  late final TextEditingController _rainCtrl;
+
+  final FocusNode _hwFocus = FocusNode();
+  final FocusNode _fwFocus = FocusNode();
+  final FocusNode _baudFocus = FocusNode();
+  final FocusNode _partnerFocus = FocusNode();
+  final FocusNode _simFocus = FocusNode();
+  final FocusNode _atrhFocus = FocusNode();
+  final FocusNode _rainFocus = FocusNode();
+
+  bool _isSaving = false;
+
+  static const List<String> _commonBaudRates = [
+    '9600',
+    '19200',
+    '38400',
+    '57600',
+    '115200',
+    'RS232(9600)',
+    'RS485(9600)',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _hwCtrl = TextEditingController(text: widget.currentSpec?.hardwareVersion ?? '');
+    _fwCtrl = TextEditingController(text: widget.currentSpec?.firmwareVersion ?? '');
+    _baudCtrl = TextEditingController(text: widget.currentSpec?.ultrasonicBaudrate ?? '');
+    _partnerCtrl = TextEditingController(text: widget.currentSpec?.partnershipName ?? '');
+    _simCtrl = TextEditingController(text: widget.currentSpec?.simProvider ?? '');
+    _atrhCtrl = TextEditingController(text: widget.currentSpec?.atrhSensor ?? '');
+    _rainCtrl = TextEditingController(text: widget.currentSpec?.rainSensor ?? '');
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.focusField == 'hardware') {
+        _hwFocus.requestFocus();
+      } else if (widget.focusField == 'firmware') {
+        _fwFocus.requestFocus();
+      } else if (widget.focusField == 'partnership') {
+        _partnerFocus.requestFocus();
+      } else if (widget.focusField == 'sim') {
+        _simFocus.requestFocus();
+      } else if (widget.focusField == 'atrh') {
+        _atrhFocus.requestFocus();
+      } else if (widget.focusField == 'rain') {
+        _rainFocus.requestFocus();
+      } else {
+        _baudFocus.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _hwCtrl.dispose();
+    _fwCtrl.dispose();
+    _baudCtrl.dispose();
+    _partnerCtrl.dispose();
+    _simCtrl.dispose();
+    _atrhCtrl.dispose();
+    _rainCtrl.dispose();
+
+    _hwFocus.dispose();
+    _fwFocus.dispose();
+    _baudFocus.dispose();
+    _partnerFocus.dispose();
+    _simFocus.dispose();
+    _atrhFocus.dispose();
+    _rainFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
+    try {
+      final result = await DeviceSpecMetaService.saveSpecification(
+        deviceId: widget.deviceId,
+        topic: widget.topic,
+        deviceIdTopic: widget.currentSpec?.deviceIdTopic,
+        hardwareVersion: _hwCtrl.text,
+        firmwareVersion: _fwCtrl.text,
+        baudRate: _baudCtrl.text,
+        partnershipName: _partnerCtrl.text,
+        simProvider: _simCtrl.text,
+        atrhSensor: _atrhCtrl.text,
+        rainSensor: _rainCtrl.text,
+      );
+
+      final updated = DeviceSpecification(
+        deviceId: widget.deviceId,
+        deviceIdTopic: '${widget.deviceId}#${widget.topic}',
+        partnershipName: _partnerCtrl.text.trim(),
+        hardwareVersion: _hwCtrl.text.trim(),
+        firmwareVersion: _fwCtrl.text.trim(),
+        ultrasonicBaudrate: _baudCtrl.text.trim(),
+        simProvider: _simCtrl.text.trim(),
+        atrhSensor: _atrhCtrl.text.trim(),
+        rainSensor: _rainCtrl.text.trim(),
+        lastSyncedAt: DateTime.now().toString().split('.').first,
+      );
+
+      if (mounted) {
+        widget.onSaved(updated, result);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        final errorMsg = e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Error saving specification: $errorMsg'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.redAccent.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildFieldInput({
+    required String label,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required IconData icon,
+    required String hint,
+    required Color strongText,
+    required Color subtleText,
+    required Color cardBg,
+    required Color borderColor,
+    Widget? helperWidget,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: Colors.cyan),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: strongText,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          style: TextStyle(fontSize: 13, color: strongText),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(fontSize: 12, color: subtleText.withOpacity(0.55)),
+            isDense: true,
+            filled: true,
+            fillColor: cardBg,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.cyan, width: 1.5),
+            ),
+            suffixIcon: controller.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 14),
+                    onPressed: () {
+                      controller.clear();
+                      setState(() {});
+                    },
+                  )
+                : null,
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        if (helperWidget != null) ...[
+          const SizedBox(height: 6),
+          helperWidget,
+        ],
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final screenW = MediaQuery.of(context).size.width;
+    final screenH = MediaQuery.of(context).size.height;
+    final isMobile = screenW <= 650;
+    final editDialogW = isMobile ? screenW - 24 : 540.0;
+
+    final primaryBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? Colors.white12 : const Color(0xFFE2E8F0);
+    final strongText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subtleText = isDark ? Colors.white70 : const Color(0xFF64748B);
+
+    return BackdropFilter(
+      filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+      child: Dialog(
+        backgroundColor: primaryBg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: borderColor),
+        ),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 24,
+          vertical: 24,
+        ),
+        child: Container(
+          width: editDialogW,
+          constraints: BoxConstraints(maxHeight: screenH * 0.88),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 14),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: borderColor)),
+                  color: isDark
+                      ? const Color(0xFF0F172A).withOpacity(0.5)
+                      : const Color(0xFFF1F5F9).withOpacity(0.5),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: Colors.cyan.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.edit_note_rounded, color: Colors.cyan, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.currentSpec != null ? 'Edit Device Specification' : 'Add Device Specification',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: strongText,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.deviceId} • ${widget.topic}',
+                            style: TextStyle(fontSize: 11, color: subtleText),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: subtleText, size: 18),
+                      onPressed: _isSaving ? null : () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Form Body
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Info Banner
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.cyan.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.cyan.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Colors.cyan),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Saving specifications via POST API to database for ${widget.deviceId} (${widget.topic}).',
+                                style: TextStyle(fontSize: 11, color: strongText),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Baud Rate with quick selection chips
+                      _buildFieldInput(
+                        label: 'Baud Rate (Ultrasonic)',
+                        controller: _baudCtrl,
+                        focusNode: _baudFocus,
+                        icon: Icons.speed_rounded,
+                        hint: 'e.g. 9600, 115200, RS232(9600)',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                        helperWidget: Wrap(
+                          spacing: 6,
+                          runSpacing: 5,
+                          children: _commonBaudRates.map((rate) {
+                            final isSelected = _baudCtrl.text.trim() == rate;
+                            return InkWell(
+                              onTap: () {
+                                _baudCtrl.text = rate;
+                                setState(() {});
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Colors.cyan.withOpacity(0.22)
+                                      : (isDark ? Colors.white10 : Colors.black.withOpacity(0.04)),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isSelected ? Colors.cyan : borderColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  rate,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? Colors.cyan : subtleText,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
+                      // Hardware Specification
+                      _buildFieldInput(
+                        label: 'Hardware Specification',
+                        controller: _hwCtrl,
+                        focusNode: _hwFocus,
+                        icon: Icons.memory_rounded,
+                        hint: 'e.g. 1.2, v2.0, Rev B',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                      ),
+
+                      // Firmware Specification
+                      _buildFieldInput(
+                        label: 'Firmware Specification',
+                        controller: _fwCtrl,
+                        focusNode: _fwFocus,
+                        icon: Icons.system_update_alt_rounded,
+                        hint: 'e.g. AWS 2.2, FW_1.0.4',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                      ),
+
+                      // Partnership Name
+                      _buildFieldInput(
+                        label: 'Partnership Name',
+                        controller: _partnerCtrl,
+                        focusNode: _partnerFocus,
+                        icon: Icons.handshake_outlined,
+                        hint: 'e.g. SS-MET, Annam, KSDMA',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                      ),
+
+                      // SIM Provider
+                      _buildFieldInput(
+                        label: 'SIM Provider',
+                        controller: _simCtrl,
+                        focusNode: _simFocus,
+                        icon: Icons.sim_card_outlined,
+                        hint: 'e.g. Airtel, Jio, BSNL, NA',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                      ),
+
+                      // ATRH Sensor
+                      _buildFieldInput(
+                        label: 'ATRH Sensor Type',
+                        controller: _atrhCtrl,
+                        focusNode: _atrhFocus,
+                        icon: Icons.thermostat,
+                        hint: 'e.g. I2C, SHT30, RS485',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                      ),
+
+                      // Rain Sensor
+                      _buildFieldInput(
+                        label: 'Rain Sensor Type',
+                        controller: _rainCtrl,
+                        focusNode: _rainFocus,
+                        icon: Icons.water_drop_outlined,
+                        hint: 'e.g. ADC, Pulse, Tipping Bucket',
+                        strongText: strongText,
+                        subtleText: subtleText,
+                        cardBg: cardBg,
+                        borderColor: borderColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Footer Actions
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: borderColor)),
+                  color: isDark
+                      ? const Color(0xFF0F172A).withOpacity(0.5)
+                      : const Color(0xFFF8FAFC),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _isSaving ? null : () => Navigator.pop(context),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(color: subtleText, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _handleSave,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.save_rounded, size: 16),
+                      label: Text(
+                        _isSaving ? 'Saving...' : 'Save to DB',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyan.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
