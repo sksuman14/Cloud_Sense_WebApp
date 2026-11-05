@@ -521,7 +521,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
                               if (s.instrumentType == InstrumentType.rainGauge || isAws) {
                                 final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
-                                chips.add(_buildDetailChip('Rainfall [CUMULATIVE 24H]', rain, const Color(0xFF2563EB)));
+                                chips.add(_buildDetailChip('Rainfall [24H (8:30 AM - 8:30 AM)]', rain, const Color(0xFF2563EB)));
                               }
 
                               if (s.instrumentType == InstrumentType.maxMinThermometer || isAws) {
@@ -543,7 +543,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
 
                               if (chips.isEmpty) {
                                 final rain = obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—';
-                                chips.add(_buildDetailChip('Rainfall [CUMULATIVE 24H]', rain, const Color(0xFF2563EB)));
+                                chips.add(_buildDetailChip('Rainfall [24H (8:30 AM - 8:30 AM)]', rain, const Color(0xFF2563EB)));
                               }
 
                               String timeStr = 'Today 08:00 AM';
@@ -685,9 +685,9 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
           ? '${wsRaw!['Humidity']} %' 
           : (obs?.humidityPercent != null ? '${obs!.humidityPercent} %' : 'N/A');
           
-      final String rainStr = wsRaw?['Rainfall'] != null 
-          ? '${wsRaw!['Rainfall']} mm' 
-          : (obs?.rainfallMm != null ? '${obs!.rainfallMm} mm' : '—');
+      final String rainStr = obs?.rainfallMm != null 
+          ? '${obs!.rainfallMm} mm' 
+          : (wsRaw?['Rainfall'] != null ? '${wsRaw!['Rainfall']} mm' : '—');
           
       final String pressStr = wsRaw?['AtmPressure'] != null 
           ? '${wsRaw!['AtmPressure']} hPa' 
@@ -800,7 +800,7 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
                       spacing: spacing,
                       runSpacing: spacing,
                       children: [
-                        _buildLiveMetricTile('Rainfall', rainStr, Icons.water_drop, const Color(0xFF2563EB), const Color(0xFFEFF6FF), width: itemWidth),
+                        _buildLiveMetricTile('Rainfall (24h | 8:30 AM)', rainStr, Icons.water_drop, const Color(0xFF2563EB), const Color(0xFFEFF6FF), width: itemWidth),
                         _buildLiveMetricTile('Temperature', tempStr, Icons.thermostat, const Color(0xFFEA580C), const Color(0xFFFFEDD5), width: itemWidth),
                         _buildLiveMetricTile('Humidity', humStr, Icons.opacity, const Color(0xFF7C3AED), const Color(0xFFF3E8FF), width: itemWidth),
                         _buildLiveMetricTile('Atm. Pressure', pressStr, Icons.speed, const Color(0xFF0D9488), const Color(0xFFCCFBF1), width: itemWidth),

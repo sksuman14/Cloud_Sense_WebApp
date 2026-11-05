@@ -648,8 +648,76 @@ class KsdmaApiService {
     return double.tryParse(raw?.toString() ?? '');
   }
 
+  /// Calculate IMD/WMO standard 24h cumulative rainfall between winStart and winEnd.
+  /// Standard IMD Meteorological Day: Resets at 08:30:00 AM IST daily.
+  double calculateImdWindowRainfall(List<dynamic> items, DateTime winStart, DateTime winEnd) {
+    if (items.isEmpty) return 0.0;
+
+    final windowItems = <Map>[];
+    for (var it in items) {
+      if (it is! Map) continue;
+      final dt = _parseTimeStamp(it['TimeStamp']);
+      if (dt != null && !dt.isBefore(winStart) && !dt.isAfter(winEnd)) {
+        windowItems.add(it);
+      }
+    }
+
+    if (windowItems.isEmpty) return 0.0;
+
+    // 1. Sum incremental rainfall in window
+    double sumIncremental = 0.0;
+    bool hasIncremental = false;
+    for (var it in windowItems) {
+      final raw = it['rainfall'] ?? it['Rainfall'];
+      final r = double.tryParse(raw?.toString() ?? '');
+      if (r != null && r > 0) {
+        sumIncremental += r;
+        hasIncremental = true;
+      }
+    }
+
+    // 2. Sum cumulative delta grouped by calendar day (handles midnight 00:00 resets)
+    final Map<String, List<Map>> dateGroups = {};
+    for (var it in windowItems) {
+      final dt = _parseTimeStamp(it['TimeStamp']);
+      if (dt != null) {
+        final key = DateFormat('yyyy-MM-dd').format(dt);
+        dateGroups.putIfAbsent(key, () => []).add(it);
+      }
+    }
+
+    double sumCumDelta = 0.0;
+    bool hasCumulative = false;
+    dateGroups.forEach((dateKey, dayItems) {
+      double? minCum;
+      double? maxCum;
+      for (var it in dayItems) {
+        final raw = it['Rainfall_Cumulative'] ?? it['RainfallCumulative'] ?? it['Rainfall_Cumulative_mm'];
+        final c = double.tryParse(raw?.toString() ?? '');
+        if (c != null && c >= 0) {
+          if (minCum == null || c < minCum) minCum = c;
+          if (maxCum == null || c > maxCum) maxCum = c;
+          hasCumulative = true;
+        }
+      }
+      if (minCum != null && maxCum != null && maxCum >= minCum) {
+        sumCumDelta += (maxCum - minCum);
+      }
+    });
+
+    double finalRain = 0.0;
+    if (hasIncremental && sumIncremental > 0) {
+      finalRain = sumIncremental;
+    } else if (hasCumulative && sumCumDelta > 0) {
+      finalRain = sumCumDelta;
+    } else if (hasIncremental) {
+      finalRain = sumIncremental;
+    }
+    return double.parse(finalRain.toStringAsFixed(1));
+  }
+
   /// Fetch Today's and Yesterday's full AWS telemetry via new pre-calculated keraladata API
-  /// Uses server-calculated Maximum_Temperature, Minimum_Temperature, Average_Humidity, and Total_Rainfall
+  /// Uses IMD / WMO standard 24h rainfall reset (08:30 AM to next day 08:30 AM IST)
   Future<List<KsdmaObservation>> fetchTodayAndYesterdayAwsObservations(List<String> deviceIds) async {
     final List<KsdmaObservation> awsObsList = [];
     final now = DateTime.now();
@@ -677,14 +745,62 @@ class KsdmaApiService {
 
           final List<KsdmaObservation> devObs = [];
 
+          dynamic bodyYest;
+          dynamic bodyToday;
+          List rawItemsYest = [];
+          List rawItemsToday = [];
+
+          if (responses[0].statusCode == 200) {
+            try {
+              bodyYest = jsonDecode(responses[0].body);
+              rawItemsYest = bodyYest is List ? bodyYest : (bodyYest is Map && bodyYest['items'] is List ? bodyYest['items'] : []);
+            } catch (_) {}
+          }
+
+          if (responses[1].statusCode == 200) {
+            try {
+              bodyToday = jsonDecode(responses[1].body);
+              rawItemsToday = bodyToday is List ? bodyToday : (bodyToday is Map && bodyToday['items'] is List ? bodyToday['items'] : []);
+            } catch (_) {}
+          }
+
+          // Combine telemetry from yesterday & today to accurately evaluate IMD 08:30 AM boundaries
+          final allTelemetryItems = [...rawItemsYest, ...rawItemsToday];
+
+          // Compute IMD 08:30 AM Standard Windows
+          final today830 = DateTime(now.year, now.month, now.day, 8, 30, 0);
+          DateTime currentCycleStart;
+          DateTime currentCycleEnd;
+          DateTime prevCycleStart;
+          DateTime prevCycleEnd;
+
+          if (now.isBefore(today830)) {
+            // Before 08:30 AM today: current IMD day is from yesterday 08:30 AM to today 08:30 AM
+            currentCycleStart = today830.subtract(const Duration(days: 1));
+            currentCycleEnd = now;
+            prevCycleStart = currentCycleStart.subtract(const Duration(days: 1));
+            prevCycleEnd = currentCycleStart;
+          } else {
+            // At or after 08:30 AM today: current IMD day started at 08:30 AM today (resets at 08:30 AM!)
+            currentCycleStart = today830;
+            currentCycleEnd = now;
+            prevCycleStart = today830.subtract(const Duration(days: 1));
+            prevCycleEnd = today830;
+          }
+
+          final double? imdRainToday = allTelemetryItems.isNotEmpty
+              ? calculateImdWindowRainfall(allTelemetryItems, currentCycleStart, currentCycleEnd)
+              : null;
+          final double? imdRainYest = allTelemetryItems.isNotEmpty
+              ? calculateImdWindowRainfall(allTelemetryItems, prevCycleStart, prevCycleEnd)
+              : null;
+
           // Helper to extract observation from Calculated or items
-          void parseAndAddObservation(http.Response response, DateTime targetDate, String label) {
-            if (response.statusCode != 200) return;
-            final dynamic body = jsonDecode(response.body);
+          void parseAndAddObservation(http.Response response, dynamic body, List rawItems, DateTime targetDate, String label, double? imdRainfall) {
+            if (response.statusCode != 200 || body == null) return;
 
             double? maxTemp, minTemp, maxHum, avgHum, totalRain;
 
-            List rawItems = [];
             if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
               final calc = Map<String, dynamic>.from((body['Calculated'] as List).first);
               maxTemp = double.tryParse(calc['Maximum_Temperature']?.toString() ?? '');
@@ -692,40 +808,41 @@ class KsdmaApiService {
               maxHum = double.tryParse(calc['Maximum_Humidity']?.toString() ?? '');
               avgHum = double.tryParse(calc['Average_Humidity']?.toString() ?? '');
               totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
-            } else {
-              // Fallback to item-by-item parsing if Calculated field is missing
-              rawItems = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
-              if (rawItems.isNotEmpty) {
-                rawItems.sort((a, b) {
-                  final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-                  final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-                  return dtA.compareTo(dtB);
-                });
-                double totalH = 0;
-                int humCount = 0;
+            } else if (rawItems.isNotEmpty) {
+              rawItems.sort((a, b) {
+                final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                return dtA.compareTo(dtB);
+              });
+              double totalH = 0;
+              int humCount = 0;
 
-                for (var item in rawItems) {
-                  final t = _extractTemperature(item);
-                  if (t != null) {
-                    if (maxTemp == null || t > maxTemp) maxTemp = t;
-                    if (minTemp == null || t < minTemp) minTemp = t;
-                  }
-                  final h = _extractHumidity(item);
-                  if (h != null) {
-                    totalH += h;
-                    humCount++;
-                    if (maxHum == null || h > maxHum) maxHum = h;
-                  }
+              for (var item in rawItems) {
+                final t = _extractTemperature(item);
+                if (t != null) {
+                  if (maxTemp == null || t > maxTemp) maxTemp = t;
+                  if (minTemp == null || t < minTemp) minTemp = t;
                 }
-                if (humCount > 0) avgHum = double.parse((totalH / humCount).toStringAsFixed(1));
-                for (int idx = rawItems.length - 1; idx >= 0; idx--) {
-                  final r = _extractRainfall(rawItems[idx]);
-                  if (r != null) {
-                    totalRain = r;
-                    break;
-                  }
+                final h = _extractHumidity(item);
+                if (h != null) {
+                  totalH += h;
+                  humCount++;
+                  if (maxHum == null || h > maxHum) maxHum = h;
                 }
               }
+              if (humCount > 0) avgHum = double.parse((totalH / humCount).toStringAsFixed(1));
+              for (int idx = rawItems.length - 1; idx >= 0; idx--) {
+                final r = _extractRainfall(rawItems[idx]);
+                if (r != null) {
+                  totalRain = r;
+                  break;
+                }
+              }
+            }
+
+            // IMD Standard Override: Use the exact 08:30 AM to 08:30 AM cumulative rainfall
+            if (imdRainfall != null) {
+              totalRain = imdRainfall;
             }
 
             if (maxTemp != null || minTemp != null || maxHum != null || avgHum != null || totalRain != null) {
@@ -769,8 +886,8 @@ class KsdmaApiService {
             }
           }
 
-          parseAndAddObservation(responses[0], yesterday, 'yesterday');
-          parseAndAddObservation(responses[1], now, 'today');
+          parseAndAddObservation(responses[0], bodyYest, rawItemsYest, yesterday, 'yesterday', imdRainYest);
+          parseAndAddObservation(responses[1], bodyToday, rawItemsToday, now, 'today', imdRainToday);
 
           return devObs;
         } catch (e) {

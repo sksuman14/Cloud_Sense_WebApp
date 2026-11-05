@@ -953,6 +953,21 @@ class KsdmaStateService extends ChangeNotifier {
     return null;
   }
 
+  /// Returns IMD/WMO standard 24h cumulative rainfall (resets at 08:30 AM IST daily)
+  double? getImd24hRainfall(String stationId) {
+    final todayObs = getTodayObservation(stationId);
+    if (todayObs?.rainfallMm != null) {
+      return todayObs!.rainfallMm;
+    }
+    final latestObs = getLatestObservation(stationId);
+    if (latestObs?.rainfallMm != null) {
+      return latestObs!.rainfallMm;
+    }
+    final raw = getWsDeviceRaw(stationId);
+    final rawVal = raw?['Rainfall_Cumulative_mm'] ?? raw?['Rainfall_Cumulative'] ?? raw?['Rainfall'] ?? raw?['rainfall'];
+    return double.tryParse(rawVal?.toString() ?? '');
+  }
+
   KsdmaObservation? getTodayRemovedObservation(String stationId) {
     final now = DateTime.now();
     final list = _observations.where((o) {
