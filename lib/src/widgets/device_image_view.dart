@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:universal_html/html.dart' as html;
-import 'dart:ui_web' as ui_web;
+import 'device_image_web_helper.dart';
 
 /// A CORS-safe image view for Flutter Web that renders cross-origin images
 /// (like S3 pre-signed URLs) using native HTML <img> tags, bypassing XMLHttpRequest CORS restrictions.
@@ -55,28 +54,15 @@ class _DeviceImageViewState extends State<DeviceImageView> {
       _viewType = 's3-img-$_counter-${DateTime.now().microsecondsSinceEpoch}';
       final objectFit = widget.fit == BoxFit.contain ? 'contain' : 'cover';
 
-      ui_web.platformViewRegistry.registerViewFactory(
-        _viewType,
-        (int viewId) {
-          final img = html.ImageElement()
-            ..src = widget.imageUrl
-            ..style.width = '100%'
-            ..style.height = '100%'
-            ..style.objectFit = objectFit
-            ..style.objectPosition = 'center'
-            ..style.backgroundColor = 'transparent'
-            ..style.border = 'none'
-            ..style.display = 'block'
-            ..style.pointerEvents = 'none'; // Pass clicks to Flutter InkWell
-
-          img.onLoad.listen((_) {
-            if (mounted) setState(() => _isLoading = false);
-          });
-          img.onError.listen((_) {
-            if (mounted) setState(() => _hasError = true);
-          });
-
-          return img;
+      registerDeviceImageViewFactory(
+        viewType: _viewType,
+        imageUrl: widget.imageUrl,
+        objectFit: objectFit,
+        onLoaded: () {
+          if (mounted) setState(() => _isLoading = false);
+        },
+        onError: () {
+          if (mounted) setState(() => _hasError = true);
         },
       );
     }

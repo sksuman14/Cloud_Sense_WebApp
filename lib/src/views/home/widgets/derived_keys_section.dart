@@ -53,25 +53,28 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
         int crossAxisCount;
         double childAspectRatio;
 
-        if (screenWidth < 480) {
+        if (screenWidth < 420) {
           crossAxisCount = 2;
-          childAspectRatio = 1.05;
-        } else if (screenWidth < 720) {
+          childAspectRatio = 0.72;
+        } else if (screenWidth < 600) {
           crossAxisCount = 2;
-          childAspectRatio = 1.25;
-        } else if (screenWidth < 1100) {
+          childAspectRatio = 0.76;
+        } else if (screenWidth < 900) {
           crossAxisCount = 3;
-          childAspectRatio = 1.35;
-        } else if (screenWidth < 1440) {
-          crossAxisCount = 4;
-          childAspectRatio = 1.45;
+          childAspectRatio = 1.05;
+        } else if (screenWidth < 1200) {
+          crossAxisCount = 3;
+          childAspectRatio = 1.18;
         } else {
           crossAxisCount = 4;
-          childAspectRatio = 1.55;
+          childAspectRatio = 1.28;
         }
 
         return Container(
-          margin: const EdgeInsets.only(top: 24, bottom: 20),
+          margin: EdgeInsets.only(
+            top: isSmall ? 12 : 24,
+            bottom: isSmall ? 12 : 20,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
@@ -104,8 +107,8 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
             ],
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: isSmall ? 16 : 28,
-            vertical: isSmall ? 20 : 28,
+            horizontal: isSmall ? 12 : 28,
+            vertical: isSmall ? 14 : 28,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,31 +122,35 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Pill badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0284C7), Color(0xFF06B6D4)],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.auto_awesome,
-                                  color: Colors.white, size: 12),
-                              SizedBox(width: 6),
-                              Text(
-                                "DERIVED KEYS • PLUCK CARDS",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
-                                ),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0284C7), Color(0xFF06B6D4)],
                               ),
-                            ],
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome,
+                                    color: Colors.white, size: 12),
+                                SizedBox(width: 6),
+                                Text(
+                                  "DERIVED KEYS • PLUCK CARDS",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -172,15 +179,12 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // ── Filter Chips & Search Bar ──
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ...DerivedKeyCategory.values.where((cat) {
+              // ── Filter Chips ──
+              Builder(
+                builder: (context) {
+                  final categoryChips = DerivedKeyCategory.values.where((cat) {
                     if (cat == DerivedKeyCategory.all) return true;
                     return allItems.any((i) => i.category == cat);
                   }).map((cat) {
@@ -191,9 +195,11 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
 
                     return ChoiceChip(
                       selected: isSelected,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       avatar: Icon(
                         cat.icon,
-                        size: 14,
+                        size: 13,
                         color: isSelected
                             ? Colors.white
                             : (isDark ? Colors.white70 : Colors.black87),
@@ -201,7 +207,7 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                       label: Text(
                         "${cat.label} ($count)",
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: isSmall ? 11 : 11.5,
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                           color: isSelected
                               ? Colors.white
@@ -212,7 +218,7 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                       backgroundColor: isDark
                           ? const Color(0xFF132333)
                           : const Color(0xFFE2E8F0),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(
@@ -225,14 +231,36 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                         setState(() => _selectedCategory = cat);
                       },
                     );
-                  }).toList(),
-                ],
+                  }).toList();
+
+                  if (isSmall) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: categoryChips.map((chip) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: chip,
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  }
+
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: categoryChips,
+                  );
+                },
               ),
 
-              const SizedBox(height: 14),
-
-              // Search Input Row
-              if (!isSmall)
+              // ── Search & Spacing (Compact on Mobile) ──
+              if (!isSmall) ...[
+                const SizedBox(height: 14),
+                // Search Input Row
                 Row(
                   children: [
                     Expanded(
@@ -310,8 +338,10 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                     ),
                   ],
                 ),
-
-              const SizedBox(height: 18),
+                const SizedBox(height: 16),
+              ] else ...[
+                const SizedBox(height: 12),
+              ],
 
               // ── Pluck Cards Grid ──
               if (filteredItems.isEmpty)
@@ -358,8 +388,8 @@ class _DerivedKeysSectionState extends State<DerivedKeysSection> {
                   itemCount: filteredItems.length,
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
                     childAspectRatio: childAspectRatio,
                   ),
                   itemBuilder: (context, index) {

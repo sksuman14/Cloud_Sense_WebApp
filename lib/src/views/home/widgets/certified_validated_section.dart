@@ -25,7 +25,7 @@ class CertifiedValidatedSection extends StatelessWidget {
       color: Colors.transparent,
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 16 : 30,
-        vertical: isMobile ? 16 : 28,
+        vertical: isMobile ? 8 : 28,
       ),
       child: Center(
         child: ConstrainedBox(
@@ -45,52 +45,59 @@ class CertifiedValidatedSection extends StatelessWidget {
                 ),
               ],
             ),
-            padding: EdgeInsets.all(isMobile ? 20 : 32),
+            padding: EdgeInsets.all(isMobile ? 16 : 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Category Pill Tag matching CloudSense Theme
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isDarkMode
-                          ? [
-                              const Color(0xFF40C4FF).withValues(alpha: 0.16),
-                              const Color(0xFF00E676).withValues(alpha: 0.16),
-                            ]
-                          : [
-                              const Color(0xFFE3F2FD),
-                              const Color(0xFFE8F5E9),
-                            ],
+                // Top Category Pill Tag matching CloudSense Theme (scales down on small screens without overflowing)
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 10 : 12,
+                      vertical: isMobile ? 4 : 5,
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDarkMode
-                          ? const Color(0xFF40C4FF).withValues(alpha: 0.35)
-                          : const Color(0xFF1565C0).withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.verified_rounded,
-                        size: 13,
-                        color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isDarkMode
+                            ? [
+                                const Color(0xFF40C4FF).withValues(alpha: 0.16),
+                                const Color(0xFF00E676).withValues(alpha: 0.16),
+                              ]
+                            : [
+                                const Color(0xFFE3F2FD),
+                                const Color(0xFFE8F5E9),
+                              ],
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        "GOVERNMENT & ACCREDITATION VALIDATED",
-                        style: TextStyle(
-                          fontFamily: 'OpenSans',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDarkMode
+                            ? const Color(0xFF40C4FF).withValues(alpha: 0.35)
+                            : const Color(0xFF1565C0).withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.verified_rounded,
+                          size: isMobile ? 12 : 13,
                           color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0),
-                          letterSpacing: 1.8,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(
+                          "GOVERNMENT & ACCREDITATION VALIDATED",
+                          style: TextStyle(
+                            fontFamily: 'OpenSans',
+                            fontSize: isMobile ? 9 : 10,
+                            fontWeight: FontWeight.w800,
+                            color: isDarkMode ? const Color(0xFF40C4FF) : const Color(0xFF1565C0),
+                            letterSpacing: isMobile ? 0.8 : 1.8,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -154,23 +161,26 @@ class CertifiedValidatedSection extends StatelessWidget {
   }
 
   Widget _buildBadgeRow(bool isMobile) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildBadgeCard(
-          cardBase64: kImdCardBase64,
-          logoBase64: kImdLogoBase64,
-          label: 'IMD Certified',
-          isMobile: isMobile,
-        ),
-        SizedBox(width: isMobile ? 12 : 16),
-        _buildBadgeCard(
-          cardBase64: kNablCardBase64,
-          logoBase64: kNablLogoBase64,
-          label: 'NABL Accredited',
-          isMobile: isMobile,
-        ),
-      ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildBadgeCard(
+            cardBase64: kImdCardBase64,
+            logoBase64: kImdLogoBase64,
+            label: 'IMD Certified',
+            isMobile: isMobile,
+          ),
+          SizedBox(width: isMobile ? 12 : 16),
+          _buildBadgeCard(
+            cardBase64: kNablCardBase64,
+            logoBase64: kNablLogoBase64,
+            label: 'NABL Accredited',
+            isMobile: isMobile,
+          ),
+        ],
+      ),
     );
   }
 

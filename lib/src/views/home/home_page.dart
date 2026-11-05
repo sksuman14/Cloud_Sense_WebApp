@@ -1281,8 +1281,11 @@ class _HomePageState extends State<HomePage> {
                                             }
                                           }
 
-                                          Widget deviceSelector = Row(
-                                            mainAxisSize: MainAxisSize.min,
+                                          Widget deviceSelector = FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerRight,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
                                             children: [
                                               if (!showNearestDevice)
                                                 SizedBox(
@@ -1333,7 +1336,7 @@ class _HomePageState extends State<HomePage> {
                                                                 BoxConstraints(
                                                               maxWidth:
                                                                   isSmallScreen
-                                                                      ? 95
+                                                                      ? 85
                                                                       : 135,
                                                             ),
                                                             child: Text(
@@ -1436,7 +1439,7 @@ class _HomePageState extends State<HomePage> {
                                                     color: Colors.white,
                                                   ),
                                                 ),
-                                              const SizedBox(width: 12),
+                                              SizedBox(width: isSmallScreen ? 6 : 12),
                                               if (!showNearestDevice)
                                                 SizedBox(
                                                   height:
@@ -1496,7 +1499,7 @@ class _HomePageState extends State<HomePage> {
                                                       alignment:
                                                           Alignment.center,
                                                       child: Text(
-                                                        "Check Nearest Device",
+                                                        isSmallScreen ? "Nearest Device" : "Check Nearest Device",
                                                         style: TextStyle(
                                                           color: isDarkMode
                                                               ? Colors.white
@@ -1515,6 +1518,7 @@ class _HomePageState extends State<HomePage> {
                                                   ),
                                                 ),
                                             ],
+                                          ),
                                           );
 
                                           return Padding(
@@ -1569,7 +1573,7 @@ class _HomePageState extends State<HomePage> {
                                                               MainAxisAlignment
                                                                   .end,
                                                           children: [
-                                                            deviceSelector
+                                                            Flexible(child: deviceSelector),
                                                           ],
                                                         ),
                                                         const SizedBox(
@@ -2175,22 +2179,22 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 48),
+                        SizedBox(height: !isWideScreen ? 16 : 48),
                         // ── Tech Showcase Section (above Our Products) ──
                         KeyedSubtree(
                           key: _techKey,
                           child: TechShowcaseSection(isDarkMode: isDarkMode),
                         ),
-                        const SizedBox(height: 48),
+                        SizedBox(height: !isWideScreen ? 14 : 48),
                         // ── Certified & Validated Section ──
                         CertifiedValidatedSection(isDarkMode: isDarkMode),
-                        const SizedBox(height: 48),
+                        SizedBox(height: !isWideScreen ? 14 : 48),
                         // ── Our Products Carousel ──
                         KeyedSubtree(
                           key: _productSectionKey,
                           child: const ProductSectionV2(),
                         ),
-                        const SizedBox(height: 48),
+                        SizedBox(height: !isWideScreen ? 20 : 48),
                       ],
                     ),
                   ),
@@ -2884,7 +2888,10 @@ class TechShowcaseSection extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16.0 : 24.0,
+        vertical: isMobile ? 14.0 : 40.0,
+      ),
       child: Column(
         children: [
           Container(
@@ -3602,23 +3609,29 @@ class _HoverableGlassCardState extends State<_HoverableGlassCard> with SingleTic
                           ),
                         ),
                         if (widget.subtitle != null && widget.subtitle!.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: widget.glowColor.withValues(alpha: widget.isDarkMode ? 0.16 : 0.10),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: widget.glowColor.withValues(alpha: widget.isDarkMode ? 0.38 : 0.28),
-                                width: 0.9,
-                              ),
-                            ),
-                            child: Text(
-                              widget.subtitle!,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: (widget.isDarkMode ? Colors.white70 : Colors.black87),
-                                letterSpacing: 0.2,
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: widget.glowColor.withValues(alpha: widget.isDarkMode ? 0.16 : 0.10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: widget.glowColor.withValues(alpha: widget.isDarkMode ? 0.38 : 0.28),
+                                    width: 0.9,
+                                  ),
+                                ),
+                                child: Text(
+                                  widget.subtitle!,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: (widget.isDarkMode ? Colors.white70 : Colors.black87),
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
                               ),
                             ),
                           )
