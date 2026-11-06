@@ -178,7 +178,7 @@ class _ProductSectionV2State extends State<ProductSectionV2> {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-        vertical: screenWidth < 600 ? 32 : 56,
+        vertical: screenWidth < 600 ? 16 : 56,
         horizontal: screenWidth < 600 ? 16 : 32,
       ),
       child: Column(

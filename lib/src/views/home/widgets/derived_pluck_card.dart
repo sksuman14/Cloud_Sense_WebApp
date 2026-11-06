@@ -445,55 +445,58 @@ class _DerivedPluckCardState extends State<DerivedPluckCard>
 
                 // Card Main Content
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Top Row: Category icon & Pluck pill
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(7),
+                            padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
                               color: item.accentColor.withOpacity(isDark ? 0.18 : 0.12),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(item.icon, size: 18, color: item.accentColor),
+                            child: Icon(item.icon, size: 15, color: item.accentColor),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "PLUCK",
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
+                          const Spacer(),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "PLUCK",
+                                    style: TextStyle(
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                      color: isDark ? Colors.white60 : Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.open_in_new_rounded,
+                                    size: 9.5,
                                     color: isDark ? Colors.white60 : Colors.black54,
                                   ),
-                                ),
-                                const SizedBox(width: 2),
-                                Icon(
-                                  Icons.open_in_new_rounded,
-                                  size: 10,
-                                  color: isDark ? Colors.white60 : Colors.black54,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
 
                       // Label / Title
                       Text(
@@ -508,46 +511,47 @@ class _DerivedPluckCardState extends State<DerivedPluckCard>
                         overflow: TextOverflow.ellipsis,
                       ),
 
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
 
                       // Large Value + Unit
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Flexible(
-                            child: Text(
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
                               item.value,
                               style: TextStyle(
                                 fontFamily: 'OpenSans',
-                                fontSize: item.value.length > 5 ? 18 : 22,
+                                fontSize: item.value.length > 5 ? 17 : 20,
                                 fontWeight: FontWeight.w900,
                                 color: isDark ? Colors.white : const Color(0xFF0F172A),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          if (item.unit.isNotEmpty) ...[
-                            const SizedBox(width: 4),
-                            Text(
-                              item.unit,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                            if (item.unit.isNotEmpty) ...[
+                              const SizedBox(width: 3),
+                              Text(
+                                item.unit,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
 
                       // Status Badge Tag
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: item.statusColor.withOpacity(isDark ? 0.16 : 0.10),
                           borderRadius: BorderRadius.circular(6),
@@ -559,7 +563,7 @@ class _DerivedPluckCardState extends State<DerivedPluckCard>
                         child: Text(
                           item.statusBadge,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w700,
                             color: item.statusColor,
                           ),
