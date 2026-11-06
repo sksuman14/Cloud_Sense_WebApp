@@ -1024,18 +1024,31 @@ class KsdmaStateService extends ChangeNotifier {
     return null;
   }
 
-  /// Returns IMD/WMO standard 24h cumulative rainfall (resets at 08:30 AM IST daily)
-  double? getImd24hRainfall(String stationId) {
+  /// Returns standard 24h rainfall (recorded at 08:30 AM IST daily)
+  double? getStandard24hRainfall(String stationId) {
     final todayObs = getTodayObservation(stationId);
+    if (todayObs?.rainfall830Mm != null) {
+      return todayObs!.rainfall830Mm;
+    }
     if (todayObs?.rainfallMm != null) {
       return todayObs!.rainfallMm;
     }
-    final latestObs = getLatestObservation(stationId);
-    if (latestObs?.rainfallMm != null) {
-      return latestObs!.rainfallMm;
-    }
     final raw = getWsDeviceRaw(stationId);
     final rawVal = raw?['Rainfall_Cumulative_mm'] ?? raw?['Rainfall_Cumulative'] ?? raw?['Rainfall'] ?? raw?['rainfall'];
+    return double.tryParse(rawVal?.toString() ?? '');
+  }
+
+  /// Returns live rainfall accumulated since today 08:30 AM
+  double? getLiveRainfallSince830(String stationId) {
+    final todayObs = getTodayObservation(stationId);
+    if (todayObs?.rainfallSince830Mm != null) {
+      return todayObs!.rainfallSince830Mm;
+    }
+    if (todayObs?.rainfallMm != null) {
+      return todayObs!.rainfallMm;
+    }
+    final raw = getWsDeviceRaw(stationId);
+    final rawVal = raw?['Rainfall'] ?? raw?['rainfall'];
     return double.tryParse(rawVal?.toString() ?? '');
   }
 

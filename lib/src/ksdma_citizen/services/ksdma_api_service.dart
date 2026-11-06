@@ -769,6 +769,8 @@ class KsdmaApiService {
     final todayStr = DateFormat('dd-MM-yyyy').format(now);
     final yesterday = now.subtract(const Duration(days: 1));
     final yestStr = DateFormat('dd-MM-yyyy').format(yesterday);
+    final dayBeforeYest = now.subtract(const Duration(days: 2));
+    final dayBeforeYestStr = DateFormat('dd-MM-yyyy').format(dayBeforeYest);
 
     if (_cachedYesterdayDateStr != yestStr) {
       _cachedYesterdayAwsObs.clear();
@@ -787,82 +789,92 @@ class KsdmaApiService {
 
           final hasCachedYest = _cachedYesterdayAwsObs.containsKey(formattedDevId);
 
-          final String urlYest = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$yestStr&enddate=$yestStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
-          final String urlToday = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$todayStr&enddate=$todayStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
+          // Query 3-day window [dayBeforeYest to today] in a single fast call
+          final String urlRange =
+              'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$dayBeforeYestStr&enddate=$todayStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
 
-          final futureYest = hasCachedYest
-              ? Future.value(http.Response('{}', 304))
-              : http.get(Uri.parse(urlYest)).timeout(const Duration(seconds: 25)).catchError((_) => http.Response('{}', 500));
-          final futureToday = http.get(Uri.parse(urlToday)).timeout(const Duration(seconds: 25)).catchError((_) => http.Response('{}', 500));
-
-          final responses = await Future.wait([futureYest, futureToday]);
+          final response = await http
+              .get(Uri.parse(urlRange))
+              .timeout(const Duration(seconds: 25))
+              .catchError((_) => http.Response('{}', 500));
 
           final List<KsdmaObservation> devObs = [];
 
-          dynamic bodyYest;
-          dynamic bodyToday;
-          List rawItemsYest = [];
-          List rawItemsToday = [];
-
-          if (responses[0].statusCode == 200) {
+          dynamic body;
+          List allItems = [];
+          if (response.statusCode == 200) {
             try {
-              bodyYest = jsonDecode(responses[0].body);
-              rawItemsYest = bodyYest is List ? bodyYest : (bodyYest is Map && bodyYest['items'] is List ? bodyYest['items'] : []);
+              body = jsonDecode(response.body);
+              allItems = body is List ? body : (body is Map && body['items'] is List ? body['items'] : []);
             } catch (_) {}
           }
 
-          if (responses[1].statusCode == 200) {
-            try {
-              bodyToday = jsonDecode(responses[1].body);
-              rawItemsToday = bodyToday is List ? bodyToday : (bodyToday is Map && bodyToday['items'] is List ? bodyToday['items'] : []);
-            } catch (_) {}
-          }
+          final yestDateKey = DateFormat('yyyy-MM-dd').format(yesterday);
+          final todayDateKey = DateFormat('yyyy-MM-dd').format(now);
 
-          // Combine telemetry from yesterday & today to accurately evaluate IMD 08:30 AM boundaries
-          final allTelemetryItems = [...rawItemsYest, ...rawItemsToday];
+          final rawItemsYest = allItems.where((it) {
+            final ts = it is Map ? it['TimeStamp']?.toString() : null;
+            return ts != null && ts.startsWith(yestDateKey);
+          }).toList();
 
-          // Compute IMD 08:30 AM Standard Windows
+          final rawItemsToday = allItems.where((it) {
+            final ts = it is Map ? it['TimeStamp']?.toString() : null;
+            return ts != null && ts.startsWith(todayDateKey);
+          }).toList();
+
+          // Compute 08:30 AM Standard Windows:
+          // Today's 24h cycle: [Yesterday 8:30 AM to Today 8:30 AM]
+          // Yesterday's 24h cycle: [Day Before Yesterday 8:30 AM to Yesterday 8:30 AM]
+          // Live Rain: [Today 8:30 AM to Now]
           final today830 = DateTime(now.year, now.month, now.day, 8, 30, 0);
-          DateTime currentCycleStart;
-          DateTime currentCycleEnd;
-          DateTime prevCycleStart;
-          DateTime prevCycleEnd;
+          final yest830 = today830.subtract(const Duration(days: 1));
+          final dayBeforeYest830 = today830.subtract(const Duration(days: 2));
+          final threeDaysAgo830 = today830.subtract(const Duration(days: 3));
+
+          DateTime today24hStart;
+          DateTime today24hEnd;
+          DateTime yest24hStart;
+          DateTime yest24hEnd;
+          DateTime liveSince830Start;
+          DateTime liveSince830End;
 
           if (now.isBefore(today830)) {
-            // Before 08:30 AM today: current IMD day is from yesterday 08:30 AM to today 08:30 AM
-            currentCycleStart = today830.subtract(const Duration(days: 1));
-            currentCycleEnd = now;
-            prevCycleStart = currentCycleStart.subtract(const Duration(days: 1));
-            prevCycleEnd = currentCycleStart;
+            today24hStart = dayBeforeYest830;
+            today24hEnd = yest830;
+            yest24hStart = threeDaysAgo830;
+            yest24hEnd = dayBeforeYest830;
+            liveSince830Start = yest830;
+            liveSince830End = now;
           } else {
-            // At or after 08:30 AM today: current IMD day started at 08:30 AM today (resets at 08:30 AM!)
-            currentCycleStart = today830;
-            currentCycleEnd = now;
-            prevCycleStart = today830.subtract(const Duration(days: 1));
-            prevCycleEnd = today830;
+            today24hStart = yest830;
+            today24hEnd = today830;
+            yest24hStart = dayBeforeYest830;
+            yest24hEnd = yest830;
+            liveSince830Start = today830;
+            liveSince830End = now;
           }
 
-          final double? imdRainToday = allTelemetryItems.isNotEmpty
-              ? calculateImdWindowRainfall(allTelemetryItems, currentCycleStart, currentCycleEnd)
+          final double? rain24hToday = allItems.isNotEmpty
+              ? calculateImdWindowRainfall(allItems, today24hStart, today24hEnd)
               : null;
-          final double? imdRainYest = allTelemetryItems.isNotEmpty
-              ? calculateImdWindowRainfall(allTelemetryItems, prevCycleStart, prevCycleEnd)
+          final double? rain24hYest = allItems.isNotEmpty
+              ? calculateImdWindowRainfall(allItems, yest24hStart, yest24hEnd)
+              : null;
+          final double? liveSince830 = allItems.isNotEmpty
+              ? calculateImdWindowRainfall(allItems, liveSince830Start, liveSince830End)
               : null;
 
-          // Helper to extract observation from Calculated or items
-          void parseAndAddObservation(http.Response response, dynamic body, List rawItems, DateTime targetDate, String label, double? imdRainfall) {
-            if (response.statusCode != 200 || body == null) return;
-
+          // Helper to extract observation from items
+          void parseAndAddObservation(
+            List rawItems,
+            DateTime targetDate,
+            String label,
+            double? rain24h,
+            double? rainSince830,
+          ) {
             double? maxTemp, minTemp, maxHum, avgHum, totalRain;
 
-            if (body is Map && body['Calculated'] is List && (body['Calculated'] as List).isNotEmpty) {
-              final calc = Map<String, dynamic>.from((body['Calculated'] as List).first);
-              maxTemp = double.tryParse(calc['Maximum_Temperature']?.toString() ?? '');
-              minTemp = double.tryParse(calc['Minimum_Temperature']?.toString() ?? '');
-              maxHum = double.tryParse(calc['Maximum_Humidity']?.toString() ?? '');
-              avgHum = double.tryParse(calc['Average_Humidity']?.toString() ?? '');
-              totalRain = double.tryParse(calc['Total_Rainfall']?.toString() ?? '');
-            } else if (rawItems.isNotEmpty) {
+            if (rawItems.isNotEmpty) {
               rawItems.sort((a, b) {
                 final dtA = _parseTimeStamp(a['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
                 final dtB = _parseTimeStamp(b['TimeStamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -894,12 +906,19 @@ class KsdmaApiService {
               }
             }
 
-            // IMD Standard Override: Use the exact 08:30 AM to 08:30 AM cumulative rainfall
-            if (imdRainfall != null) {
-              totalRain = imdRainfall;
+            // Fallback for today from raw WS_Nearest_Sensors if rawItems is sparse
+            if (targetDate.day == now.day && targetDate.month == now.month && targetDate.year == now.year) {
+              final wsRaw = getWsDeviceRaw(formattedDevId) ?? getWsDeviceRaw(devId);
+              if (wsRaw != null) {
+                maxTemp ??= double.tryParse(wsRaw['Temperature']?.toString() ?? '');
+                minTemp ??= maxTemp;
+                maxHum ??= double.tryParse(wsRaw['Humidity']?.toString() ?? '');
+                avgHum ??= maxHum;
+                totalRain ??= double.tryParse(wsRaw['Rainfall']?.toString() ?? '');
+              }
             }
 
-            if (maxTemp != null || minTemp != null || maxHum != null || avgHum != null || totalRain != null) {
+            if (maxTemp != null || minTemp != null || maxHum != null || avgHum != null || totalRain != null || rain24h != null || rainSince830 != null) {
               TimeOfDay obsTime = const TimeOfDay(hour: 8, minute: 30);
               DateTime obsDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 8, 30);
               if (rawItems.isNotEmpty) {
@@ -908,19 +927,7 @@ class KsdmaApiService {
                 if (parsedTs != null) {
                   obsTime = TimeOfDay(hour: parsedTs.hour, minute: parsedTs.minute);
                   obsDt = parsedTs;
-                } else if (targetDate.year == DateTime.now().year &&
-                    targetDate.month == DateTime.now().month &&
-                    targetDate.day == DateTime.now().day) {
-                  final now = DateTime.now();
-                  obsTime = TimeOfDay(hour: now.hour, minute: now.minute);
-                  obsDt = now;
                 }
-              } else if (targetDate.year == DateTime.now().year &&
-                  targetDate.month == DateTime.now().month &&
-                  targetDate.day == DateTime.now().day) {
-                final now = DateTime.now();
-                obsTime = TimeOfDay(hour: now.hour, minute: now.minute);
-                obsDt = now;
               }
 
               devObs.add(KsdmaObservation(
@@ -930,7 +937,9 @@ class KsdmaApiService {
                 observationDate: targetDate,
                 observationTime: obsTime,
                 submissionTimestamp: obsDt,
-                rainfallMm: totalRain ?? 0.0,
+                rainfallMm: rain24h ?? totalRain ?? 0.0,
+                rainfall830Mm: rain24h ?? totalRain ?? 0.0,
+                rainfallSince830Mm: rainSince830 ?? (totalRain ?? 0.0),
                 maxTemperatureC: maxTemp,
                 minTemperatureC: minTemp,
                 humidityPercent: maxHum ?? avgHum,
@@ -943,13 +952,13 @@ class KsdmaApiService {
           if (hasCachedYest) {
             devObs.add(_cachedYesterdayAwsObs[formattedDevId]!);
           } else {
-            parseAndAddObservation(responses[0], bodyYest, rawItemsYest, yesterday, 'yesterday', imdRainYest);
+            parseAndAddObservation(rawItemsYest, yesterday, 'yesterday', rain24hYest, 0.0);
             final yestObs = devObs.where((o) => o.observationId.endsWith('_yesterday')).firstOrNull;
             if (yestObs != null) {
               _cachedYesterdayAwsObs[formattedDevId] = yestObs;
             }
           }
-          parseAndAddObservation(responses[1], bodyToday, rawItemsToday, now, 'today', imdRainToday);
+          parseAndAddObservation(rawItemsToday.isNotEmpty ? rawItemsToday : allItems, now, 'today', rain24hToday, liveSince830);
 
           return devObs;
         } catch (e) {
@@ -1395,6 +1404,7 @@ class KsdmaApiService {
   KsdmaObservation _mapRowToObservation(Map<String, dynamic> r) {
     final statusStr = r['status']?.toString().toLowerCase() ?? '';
     final bool isRemoved = r['is_removed'] == true || statusStr == 'removed' || statusStr == 'rejected';
+    final rain = r['rainfall_mm'] != null ? (r['rainfall_mm'] as num).toDouble() : null;
     return KsdmaObservation(
       observationId: r['observation_id'],
       stationId: r['station_id'],
@@ -1403,7 +1413,9 @@ class KsdmaApiService {
       observationTime: const TimeOfDay(hour: 8, minute: 0),
       submissionTimestamp: DateTime.parse(r['submission_timestamp'] ?? DateTime.now().toIso8601String()),
       source: r['source'] ?? 'WEB_PORTAL',
-      rainfallMm: r['rainfall_mm'] != null ? (r['rainfall_mm'] as num).toDouble() : null,
+      rainfallMm: rain,
+      rainfall830Mm: rain,
+      rainfallSince830Mm: rain,
       maxTemperatureC: r['max_temperature_c'] != null ? (r['max_temperature_c'] as num).toDouble() : null,
       minTemperatureC: r['min_temperature_c'] != null ? (r['min_temperature_c'] as num).toDouble() : null,
       riverWaterLevelM: r['river_water_level_m'] != null ? (r['river_water_level_m'] as num).toDouble() : null,

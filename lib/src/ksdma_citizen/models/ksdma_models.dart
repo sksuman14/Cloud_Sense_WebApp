@@ -198,6 +198,8 @@ class KsdmaObservation {
   final String source; // WEB_FORM, CSV_BULK_UPLOAD
 
   final double? rainfallMm;
+  final double? rainfall830Mm; // Standard 24h rainfall (08:30 AM to 08:30 AM)
+  final double? rainfallSince830Mm; // Live rain accumulated since today 08:30 AM
   final double? maxTemperatureC;
   final double? minTemperatureC;
   final double? riverWaterLevelM;
@@ -220,6 +222,8 @@ class KsdmaObservation {
     required this.submissionTimestamp,
     this.source = 'WEB_FORM',
     this.rainfallMm,
+    this.rainfall830Mm,
+    this.rainfallSince830Mm,
     this.maxTemperatureC,
     this.minTemperatureC,
     this.riverWaterLevelM,
