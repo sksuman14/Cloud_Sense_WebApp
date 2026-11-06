@@ -361,7 +361,26 @@ class KsdmaStateService extends ChangeNotifier {
     isLoggedIn = false;
     lastRefreshedAt = DateTime.now();
     _restoreAutoRefreshPrefs();
-    // Fetch stations, observations & champions on startup
+    // Instant fast paint: load live AWS stations & observations within ~300ms, then enrich
+    _initFastLiveData();
+  }
+
+  /// Progressive Fast Hydration:
+  /// 1. Paint live AWS telemetry immediately (< 400ms)
+  /// 2. Asynchronously load citizen stations, historical/yesterday AWS records, and metadata
+  Future<void> _initFastLiveData() async {
+    try {
+      final wsDevices = await apiService.fetchWsNearestSensors();
+      if (_stations.isEmpty && wsDevices.isNotEmpty) {
+        _stations.addAll(apiService.mapWsDevicesToStations(wsDevices));
+      }
+      if (_observations.isEmpty && wsDevices.isNotEmpty) {
+        _observations.addAll(apiService.mapWsDevicesToObservations(wsDevices));
+      }
+      notifyListeners();
+    } catch (_) {}
+
+    // In parallel, load full stations, observations, yesterday AWS telemetry & champions
     fetchStationsIfNeeded();
     fetchObservationsIfNeeded();
     fetchChampionsIfNeeded();
@@ -482,10 +501,17 @@ class KsdmaStateService extends ChangeNotifier {
     _stationsLoading = true;
     notifyListeners();
     try {
-      final apiStations = await apiService.fetchStations();
-      final pendingStations = await apiService.fetchPendingStations();
-      final apiBoundaries = await apiService.fetchBoundaries();
-      final dynamicHierarchy = await apiService.fetchAdminHierarchy();
+      final results = await Future.wait([
+        apiService.fetchStations(),
+        apiService.fetchPendingStations(),
+        apiService.fetchBoundaries(),
+        apiService.fetchAdminHierarchy(),
+      ]);
+
+      final apiStations = results[0] as List<KsdmaStation>;
+      final pendingStations = results[1] as List<KsdmaStation>;
+      final apiBoundaries = results[2] as List<Map<String, dynamic>>;
+      final dynamicHierarchy = results[3] as Map<String, Map<String, List<String>>>;
 
       if (apiBoundaries.isNotEmpty) {
         _boundaries.clear();
@@ -542,14 +568,56 @@ class KsdmaStateService extends ChangeNotifier {
           );
         }
       }
-      _stations.clear();
-      _stations.addAll(stationMap.values);
+      if (stationMap.isNotEmpty) {
+        _stations.clear();
+        _stations.addAll(stationMap.values);
+      }
       _stationsFetchedAt = DateTime.now();
     } catch (e) {
       print('Stations Fetch Notice: $e');
     } finally {
       _stationsLoading = false;
       notifyListeners();
+    }
+
+    // Trigger AWS background telemetry enrichment once stations are populated
+    _fetchAwsTelemetryInBackground();
+  }
+
+  bool _isEnrichingTelemetry = false;
+
+  /// Background progressive enrichment for yesterday comparisons and telemetry
+  Future<void> _fetchAwsTelemetryInBackground() async {
+    if (_isEnrichingTelemetry) return;
+    _isEnrichingTelemetry = true;
+    try {
+      List<String> awsDeviceIds = _stations
+          .where((s) => s.category == StationCategory.aws || s.stationId.startsWith('WS_'))
+          .map((s) => s.stationId)
+          .toList();
+
+      if (awsDeviceIds.isEmpty) {
+        final wsSensors = await apiService.fetchWsNearestSensors();
+        awsDeviceIds = wsSensors
+            .map((d) => d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList();
+      }
+      if (awsDeviceIds.isEmpty) return;
+
+      final fullAwsObs = await apiService.fetchTodayAndYesterdayAwsObservations(awsDeviceIds);
+      if (fullAwsObs.isNotEmpty) {
+        final fullStationIdsToday = fullAwsObs.where((o) => DateUtils.isSameDay(o.observationDate, DateTime.now())).map((o) => o.stationId).toSet();
+        if (fullStationIdsToday.isNotEmpty) {
+          _observations.removeWhere((o) => fullStationIdsToday.contains(o.stationId) && o.source == 'WS_NEAREST_SENSORS_API');
+        }
+        _observations.addAll(fullAwsObs);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Background AWS telemetry notice: $e');
+    } finally {
+      _isEnrichingTelemetry = false;
     }
   }
 
@@ -575,6 +643,9 @@ class KsdmaStateService extends ChangeNotifier {
       _observationsLoading = false;
       notifyListeners();
     }
+
+    // Trigger background telemetry enrichment without blocking initial dashboard load
+    _fetchAwsTelemetryInBackground();
   }
 
   /// Called ONLY by Champions / Leaderboard view

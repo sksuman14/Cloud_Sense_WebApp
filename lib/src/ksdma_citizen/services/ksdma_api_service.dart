@@ -259,6 +259,7 @@ class KsdmaApiService {
 
   List<Map<String, dynamic>>? _cachedWsDevices;
   DateTime? _cachedWsTime;
+  Future<List<Map<String, dynamic>>>? _inFlightWsRequest;
 
   /// Fetch live weather sensor devices from AWS WS_Nearest_Sensors API
   Future<List<Map<String, dynamic>>> fetchWsNearestSensors({bool forceRefresh = false}) async {
@@ -268,8 +269,23 @@ class KsdmaApiService {
         DateTime.now().difference(_cachedWsTime!) < const Duration(minutes: 1)) {
       return _cachedWsDevices!;
     }
+    if (!forceRefresh && _inFlightWsRequest != null) {
+      return _inFlightWsRequest!;
+    }
+    _inFlightWsRequest = _fetchWsNearestSensorsDirect();
     try {
-      final response = await http.get(Uri.parse('https://5mqwg03znl.execute-api.us-east-1.amazonaws.com/default/WS_Nearest_Sensors?state=Kerala'));
+      final res = await _inFlightWsRequest!;
+      return res;
+    } finally {
+      _inFlightWsRequest = null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchWsNearestSensorsDirect() async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://5mqwg03znl.execute-api.us-east-1.amazonaws.com/default/WS_Nearest_Sensors?state=Kerala'))
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['devices'] is List) {
@@ -295,55 +311,81 @@ class KsdmaApiService {
     return null;
   }
 
+  /// Map WS_Nearest_Sensors JSON objects into KsdmaStation model instances
+  List<KsdmaStation> mapWsDevicesToStations(List<Map<String, dynamic>> devices) {
+    final List<KsdmaStation> list = [];
+    for (var d in devices) {
+      final deviceId = d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? 'WS_UNKNOWN';
+      final rawDistrict = d['District']?.toString() ?? 'Kerala';
+      final cleanDistrict = rawDistrict.replaceAll(RegExp(r'\s+district', caseSensitive: false), '').trim();
+      final rawCity = d['City']?.toString() ?? cleanDistrict;
+
+      // Extract Taluk from parentheses e.g. "GGHSS Nedumangad (Nedumangad)" -> "Nedumangad"
+      String parsedTaluk = '';
+      final talukMatch = RegExp(r'\(([^)]+)\)').firstMatch(rawCity);
+      if (talukMatch != null) {
+        parsedTaluk = talukMatch.group(1)?.trim() ?? '';
+      }
+      final cleanPlace = rawCity.replaceAll(RegExp(r'\([^)]*\)'), '').trim();
+      if (parsedTaluk.isEmpty) {
+        parsedTaluk = cleanPlace.replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim();
+      }
+
+      final lat = double.tryParse(d['Latitude']?.toString() ?? '') ?? 10.5276;
+      final lng = double.tryParse(d['Longitude']?.toString() ?? '') ?? 76.2144;
+      final timeStr = d['TimeStamp']?.toString() ?? '';
+      final createdAt = DateTime.tryParse(timeStr) ?? DateTime.now();
+
+      list.add(KsdmaStation(
+        stationId: deviceId,
+        ownerUserId: 'aws_sensor_network',
+        ownerName: 'AWS Telemetry Network',
+        ownerCategory: UserCategory.districtOfficer,
+        category: StationCategory.aws,
+        instrumentType: InstrumentType.awsAutomaticStation,
+        deviceMake: 'Automatic Weather Station',
+        measurementLocation: '$cleanPlace, $cleanDistrict',
+        latitude: lat,
+        longitude: lng,
+        district: cleanDistrict,
+        taluk: parsedTaluk,
+        gramaPanchayat: cleanPlace,
+        village: cleanPlace,
+        approvalStatus: ApprovalStatus.approved,
+        createdAt: createdAt,
+      ));
+    }
+    return list;
+  }
+
+  /// Fast load of AWS telemetry stations only (~300ms)
+  Future<List<KsdmaStation>> fetchWsStations() async {
+    final devices = await fetchWsNearestSensors();
+    return mapWsDevicesToStations(devices);
+  }
+
   // 4. GET /api/stations - Fetch All Non-Rejected Stations (for map/public view)
   Future<List<KsdmaStation>> fetchStations() async {
     final List<KsdmaStation> stationsList = [];
 
-    // 1. Fetch live WS_Nearest_Sensors API stations (45 Kerala weather sensors)
     try {
-      final devices = await fetchWsNearestSensors();
-      for (var d in devices) {
-        final deviceId = d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? 'WS_UNKNOWN';
-        final rawDistrict = d['District']?.toString() ?? 'Kerala';
-        final cleanDistrict = rawDistrict.replaceAll(RegExp(r'\s+district', caseSensitive: false), '').trim();
-        final rawCity = d['City']?.toString() ?? cleanDistrict;
-        final cleanCity = rawCity.replaceAll(RegExp(r'\s+taluk', caseSensitive: false), '').trim();
+      final results = await Future.wait([
+        fetchWsNearestSensors(),
+        http
+            .get(Uri.parse('$apiBaseUrl/stations'), headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 25))
+            .then<http.Response?>((r) => r)
+            .catchError((_) => null),
+      ]);
 
-        final lat = double.tryParse(d['Latitude']?.toString() ?? '') ?? 10.5276;
-        final lng = double.tryParse(d['Longitude']?.toString() ?? '') ?? 76.2144;
-        final timeStr = d['TimeStamp']?.toString() ?? '';
-        final createdAt = DateTime.tryParse(timeStr) ?? DateTime.now();
+      final devices = results[0] as List<Map<String, dynamic>>;
+      final response = results[1] as http.Response?;
 
-        stationsList.add(KsdmaStation(
-          stationId: deviceId,
-          ownerUserId: 'aws_sensor_network',
-          ownerName: 'AWS Telemetry Network',
-          ownerCategory: UserCategory.districtOfficer,
-          category: StationCategory.aws,
-          instrumentType: InstrumentType.awsAutomaticStation,
-          deviceMake: 'Automatic Weather Station',
-          measurementLocation: '$cleanCity, $cleanDistrict',
-          latitude: lat,
-          longitude: lng,
-          district: cleanDistrict,
-          taluk: cleanCity,
-          gramaPanchayat: cleanCity,
-          village: cleanCity,
-          approvalStatus: ApprovalStatus.approved,
-          createdAt: createdAt,
-        ));
-      }
-    } catch (e) {
-      print('Error mapping WS_Nearest_Sensors stations: $e');
-    }
+      // 1. Map WS_Nearest_Sensors stations
+      stationsList.addAll(mapWsDevicesToStations(devices));
 
-    // 2. Fetch custom stations from backend Lambda API
-    try {
-      final response = await http.get(
-        Uri.parse('$apiBaseUrl/stations'),
-        headers: {'Accept': 'application/json'},
-      );
-      if (response.statusCode == 200) {
+      // 2. Map custom stations from backend Lambda API
+      if (response != null && response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['stations'] != null) {
           final List rows = body['stations'];
@@ -716,8 +758,11 @@ class KsdmaApiService {
     return double.parse(finalRain.toStringAsFixed(1));
   }
 
+  final Map<String, KsdmaObservation> _cachedYesterdayAwsObs = {};
+  String? _cachedYesterdayDateStr;
+
   /// Fetch Today's and Yesterday's full AWS telemetry via new pre-calculated keraladata API
-  /// Uses IMD / WMO standard 24h rainfall reset (08:30 AM to next day 08:30 AM IST)
+  /// Uses standard 24h rainfall reset (08:30 AM to next day 08:30 AM IST)
   Future<List<KsdmaObservation>> fetchTodayAndYesterdayAwsObservations(List<String> deviceIds) async {
     final List<KsdmaObservation> awsObsList = [];
     final now = DateTime.now();
@@ -725,7 +770,12 @@ class KsdmaApiService {
     final yesterday = now.subtract(const Duration(days: 1));
     final yestStr = DateFormat('dd-MM-yyyy').format(yesterday);
 
-    // Batch requests in chunks of 12 for fast parallel loading
+    if (_cachedYesterdayDateStr != yestStr) {
+      _cachedYesterdayAwsObs.clear();
+      _cachedYesterdayDateStr = yestStr;
+    }
+
+    // Process all devices in parallel chunks of 12 (avoids AWS Lambda cold-start/concurrency queue delay)
     const chunkSize = 12;
     for (int i = 0; i < deviceIds.length; i += chunkSize) {
       final chunk = deviceIds.sublist(i, i + chunkSize > deviceIds.length ? deviceIds.length : i + chunkSize);
@@ -735,13 +785,17 @@ class KsdmaApiService {
           final formattedDevId = 'WS_$cleanNum';
           final encodedKey = Uri.encodeComponent(ApiKeys.annamApiKey);
 
+          final hasCachedYest = _cachedYesterdayAwsObs.containsKey(formattedDevId);
+
           final String urlYest = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$yestStr&enddate=$yestStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
           final String urlToday = 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata?startdate=$todayStr&enddate=$todayStr&annam_id=$formattedDevId&key=$encodedKey&mode=view';
 
-          final responses = await Future.wait([
-            http.get(Uri.parse(urlYest)).timeout(const Duration(seconds: 25)),
-            http.get(Uri.parse(urlToday)).timeout(const Duration(seconds: 25)),
-          ]);
+          final futureYest = hasCachedYest
+              ? Future.value(http.Response('{}', 304))
+              : http.get(Uri.parse(urlYest)).timeout(const Duration(seconds: 25)).catchError((_) => http.Response('{}', 500));
+          final futureToday = http.get(Uri.parse(urlToday)).timeout(const Duration(seconds: 25)).catchError((_) => http.Response('{}', 500));
+
+          final responses = await Future.wait([futureYest, futureToday]);
 
           final List<KsdmaObservation> devObs = [];
 
@@ -886,7 +940,15 @@ class KsdmaApiService {
             }
           }
 
-          parseAndAddObservation(responses[0], bodyYest, rawItemsYest, yesterday, 'yesterday', imdRainYest);
+          if (hasCachedYest) {
+            devObs.add(_cachedYesterdayAwsObs[formattedDevId]!);
+          } else {
+            parseAndAddObservation(responses[0], bodyYest, rawItemsYest, yesterday, 'yesterday', imdRainYest);
+            final yestObs = devObs.where((o) => o.observationId.endsWith('_yesterday')).firstOrNull;
+            if (yestObs != null) {
+              _cachedYesterdayAwsObs[formattedDevId] = yestObs;
+            }
+          }
           parseAndAddObservation(responses[1], bodyToday, rawItemsToday, now, 'today', imdRainToday);
 
           return devObs;
@@ -1067,64 +1129,64 @@ class KsdmaApiService {
     return awsObsList;
   }
 
+  /// Map WS_Nearest_Sensors JSON objects into KsdmaObservation model instances
+  List<KsdmaObservation> mapWsDevicesToObservations(List<Map<String, dynamic>> devices) {
+    final List<KsdmaObservation> list = [];
+    for (var d in devices) {
+      final deviceId = d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? 'WS_UNKNOWN';
+      final temp = double.tryParse(d['Temperature']?.toString() ?? '');
+      final humidity = double.tryParse(d['Humidity']?.toString() ?? '');
+      final rainfall = double.tryParse(d['Rainfall']?.toString() ?? '');
+      final timeStr = d['TimeStamp']?.toString() ?? '';
+      final obsDt = DateTime.tryParse(timeStr) ?? DateTime.now();
+
+      list.add(KsdmaObservation(
+        observationId: 'obs_${deviceId}_${obsDt.millisecondsSinceEpoch}',
+        stationId: deviceId,
+        submittedByUserId: 'aws_sensor_network',
+        observationDate: obsDt,
+        observationTime: TimeOfDay(hour: obsDt.hour, minute: obsDt.minute),
+        submissionTimestamp: obsDt,
+        rainfallMm: rainfall,
+        maxTemperatureC: temp,
+        minTemperatureC: temp != null ? double.parse((temp - 3.5).toStringAsFixed(2)) : null,
+        humidityPercent: humidity,
+        riverWaterLevelM: null,
+        source: 'WS_NEAREST_SENSORS_API',
+      ));
+    }
+    return list;
+  }
+
+  /// Fast load of AWS telemetry observations only (~300ms)
+  Future<List<KsdmaObservation>> fetchWsObservations() async {
+    final devices = await fetchWsNearestSensors();
+    return mapWsDevicesToObservations(devices);
+  }
+
   // 12. GET /api/observations - Fetch All Live & Historical Observations
   Future<List<KsdmaObservation>> fetchObservations() async {
     final List<KsdmaObservation> obsList = [];
-    final List<String> awsDeviceIds = [];
 
-    // 1. Fetch snapshot observations from WS_Nearest_Sensors API as baseline
+    // Fast parallel fetch: WS_Nearest_Sensors (live baseline in ~300ms) + manual /observations
     try {
-      final devices = await fetchWsNearestSensors();
-      for (var d in devices) {
-        final deviceId = d['DeviceId']?.toString() ?? d['Annam_ID']?.toString() ?? 'WS_UNKNOWN';
-        if (deviceId != 'WS_UNKNOWN') awsDeviceIds.add(deviceId);
-        final temp = double.tryParse(d['Temperature']?.toString() ?? '');
-        final humidity = double.tryParse(d['Humidity']?.toString() ?? '');
-        final rainfall = double.tryParse(d['Rainfall']?.toString() ?? '');
-        final timeStr = d['TimeStamp']?.toString() ?? '';
-        final obsDt = DateTime.tryParse(timeStr) ?? DateTime.now();
+      final results = await Future.wait([
+        fetchWsNearestSensors(),
+        http
+            .get(Uri.parse('$apiBaseUrl/observations'), headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 25))
+            .then<http.Response?>((r) => r)
+            .catchError((_) => null),
+      ]);
 
-        obsList.add(KsdmaObservation(
-          observationId: 'obs_${deviceId}_${obsDt.millisecondsSinceEpoch}',
-          stationId: deviceId,
-          submittedByUserId: 'aws_sensor_network',
-          observationDate: obsDt,
-          observationTime: TimeOfDay(hour: obsDt.hour, minute: obsDt.minute),
-          submissionTimestamp: obsDt,
-          rainfallMm: rainfall,
-          maxTemperatureC: temp,
-          minTemperatureC: temp != null ? double.parse((temp - 3.5).toStringAsFixed(2)) : null,
-          humidityPercent: humidity,
-          riverWaterLevelM: null,
-          source: 'WS_NEAREST_SENSORS_API',
-        ));
-      }
-    } catch (e) {
-      print('Error mapping WS_Nearest_Sensors observations: $e');
-    }
+      final devices = results[0] as List<Map<String, dynamic>>;
+      final response = results[1] as http.Response?;
 
-    // 2. Fetch Today's & Yesterday's full AWS telemetry via WS_Kerala_API
-    if (awsDeviceIds.isNotEmpty) {
-      try {
-        final fullAwsObs = await fetchTodayAndYesterdayAwsObservations(awsDeviceIds);
-        // Update/Replace baseline snapshot with full API observations if present
-        final fullStationIdsToday = fullAwsObs.where((o) => DateUtils.isSameDay(o.observationDate, DateTime.now())).map((o) => o.stationId).toSet();
-        if (fullStationIdsToday.isNotEmpty) {
-          obsList.removeWhere((o) => fullStationIdsToday.contains(o.stationId) && o.source == 'WS_NEAREST_SENSORS_API');
-        }
-        obsList.addAll(fullAwsObs);
-      } catch (e) {
-        print('Error fetching full AWS observations via WS_Kerala_API: $e');
-      }
-    }
+      // 1. Map WS_Nearest_Sensors observations immediately
+      obsList.addAll(mapWsDevicesToObservations(devices));
 
-    // 3. Fetch custom observations from backend Lambda API
-    try {
-      final response = await http.get(
-        Uri.parse('$apiBaseUrl/observations'),
-        headers: {'Accept': 'application/json'},
-      );
-      if (response.statusCode == 200) {
+      // 2. Map custom observations from backend Lambda API
+      if (response != null && response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['observations'] != null) {
           final List rows = body['observations'];
@@ -1134,7 +1196,7 @@ class KsdmaApiService {
         }
       }
     } catch (e) {
-      print('Error fetching observations via API: $e');
+      print('Error mapping fast observations: $e');
     }
 
     return obsList;

@@ -1878,8 +1878,12 @@ class _KsdmaPublicDashboardViewState extends State<KsdmaPublicDashboardView> {
       if (_mapSelectedDistrict != 'All Districts' && !KeralaAdminData.matchDistrict(s.district, _mapSelectedDistrict)) {
         return false;
       }
-      if (_mapSelectedTaluk != 'All Taluks' && s.taluk.toLowerCase() != _mapSelectedTaluk.toLowerCase()) {
-        return false;
+      if (_mapSelectedTaluk != 'All Taluks') {
+        final stnTaluk = s.taluk.toLowerCase();
+        final selTaluk = _mapSelectedTaluk.toLowerCase();
+        if (stnTaluk != selTaluk && !stnTaluk.contains(selTaluk) && !selTaluk.contains(stnTaluk)) {
+          return false;
+        }
       }
       if (_mapSelectedPanchayat != 'All Panchayats' && s.gramaPanchayat.toLowerCase() != _mapSelectedPanchayat.toLowerCase()) {
         return false;
