@@ -964,6 +964,10 @@ class _KsdmaRegistrationViewState extends State<KsdmaRegistrationView> {
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         if (file.bytes != null) {
+          if (file.bytes!.length > 150 * 1024) {
+            _showError('⚠️ Selected photo is too large (${(file.bytes!.length / 1024).round()} KB). Please select an image under 150 KB to avoid upload issues.');
+            return;
+          }
           final base64Str = base64Encode(file.bytes!);
           final ext = (file.extension ?? 'jpg').toLowerCase();
           final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
