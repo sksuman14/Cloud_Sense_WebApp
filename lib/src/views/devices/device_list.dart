@@ -1,3 +1,5 @@
+import 'package:cloud_sense_webapp/src/widgets/complaints/raise_complaint_dialog.dart';
+import 'package:cloud_sense_webapp/src/widgets/complaints/user_complaints_sheet.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
@@ -557,75 +559,80 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       }).toList();
     }
 
-    int naturalCompare(String a, String b) {
-      final regExp = RegExp(r'(\d+|\D+)');
-      final matchesA = regExp.allMatches(a).map((m) => m.group(0)!).toList();
-      final matchesB = regExp.allMatches(b).map((m) => m.group(0)!).toList();
+    _sortDevicesList(devices);
+    return devices;
+  }
 
-      final len = matchesA.length < matchesB.length ? matchesA.length : matchesB.length;
-      for (int i = 0; i < len; i++) {
-        final partA = matchesA[i];
-        final partB = matchesB[i];
-        final numA = int.tryParse(partA);
-        final numB = int.tryParse(partB);
+  int _naturalCompare(String a, String b) {
+    final regExp = RegExp(r'(\d+|\D+)');
+    final matchesA = regExp.allMatches(a).map((m) => m.group(0)!).toList();
+    final matchesB = regExp.allMatches(b).map((m) => m.group(0)!).toList();
 
-        if (numA != null && numB != null) {
-          final cmp = numA.compareTo(numB);
-          if (cmp != 0) return cmp;
-        } else {
-          final cmp = partA.compareTo(partB);
-          if (cmp != 0) return cmp;
-        }
+    final len = matchesA.length < matchesB.length ? matchesA.length : matchesB.length;
+    for (int i = 0; i < len; i++) {
+      final partA = matchesA[i];
+      final partB = matchesB[i];
+      final numA = int.tryParse(partA);
+      final numB = int.tryParse(partB);
+
+      if (numA != null && numB != null) {
+        final cmp = numA.compareTo(numB);
+        if (cmp != 0) return cmp;
+      } else {
+        final cmp = partA.compareTo(partB);
+        if (cmp != 0) return cmp;
       }
-      return matchesA.length.compareTo(matchesB.length);
     }
+    return matchesA.length.compareTo(matchesB.length);
+  }
 
-    int getSortRank(Map<String, dynamic> d) {
-      final deviceId = (d['DeviceId'] ?? "").toString();
-      final topic = (d['Topic'] ?? "").toString();
-      final sn = DevicePrefixUtils.resolveSensorName(deviceId, topic);
-      final dn = _toAnnamDisplayName(sn).toUpperCase();
-      final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
-      final isActive = d['isActive'] == true;
+  int _getSortRank(Map<String, dynamic> d) {
+    final deviceId = (d['DeviceId'] ?? "").toString();
+    final topic = (d['Topic'] ?? "").toString();
+    final sn = DevicePrefixUtils.resolveSensorName(deviceId, topic);
+    final dn = _toAnnamDisplayName(sn).toUpperCase();
+    final mapped = DevicePrefixUtils.mapCategoryAndPrefix(topic);
+    final isActive = d['isActive'] == true;
 
-      final isKerala = mapped.prefix == 'KR' ||
-          sn.startsWith('KR') ||
-          topic.toLowerCase().contains('kerala');
-      final isPunjab = mapped.prefix == 'PJ' ||
-          sn.startsWith('PJ') ||
-          topic.toLowerCase().contains('punjab');
-      final isAnnam = DevicePrefixUtils.isAnnamCoreSensor(sn) || dn.startsWith('ANNAM');
+    final isKerala = mapped.prefix == 'KR' ||
+        sn.startsWith('KR') ||
+        topic.toLowerCase().contains('kerala');
+    final isPunjab = mapped.prefix == 'PJ' ||
+        sn.startsWith('PJ') ||
+        topic.toLowerCase().contains('punjab');
+    final isAnnam = DevicePrefixUtils.isAnnamCoreSensor(sn) || dn.startsWith('ANNAM');
 
-      // === ACTIVE SENSORS FIRST ===
-      // 1. Kerala ANNAM sensors (Active)
-      if (isAnnam && isKerala && isActive) return 0;
+    // === ACTIVE SENSORS FIRST ===
+    // 1. Kerala ANNAM sensors (Active)
+    if (isAnnam && isKerala && isActive) return 0;
 
-      // 2. Punjab ANNAM sensors (Active)
-      if (isAnnam && isPunjab && isActive) return 1;
+    // 2. Punjab ANNAM sensors (Active)
+    if (isAnnam && isPunjab && isActive) return 1;
 
-      // 3. Other ANNAM sensors (Active)
-      if (isAnnam && isActive) return 2;
+    // 3. Other ANNAM sensors (Active)
+    if (isAnnam && isActive) return 2;
 
-      // 4. Non-ANNAM sensors (Active)
-      if (!isAnnam && isActive) return 3;
+    // 4. Non-ANNAM sensors (Active)
+    if (!isAnnam && isActive) return 3;
 
-      // === INACTIVE SENSORS LAST ===
-      // 5. Kerala ANNAM sensors (Inactive)
-      if (isAnnam && isKerala && !isActive) return 4;
+    // === INACTIVE SENSORS LAST ===
+    // 5. Kerala ANNAM sensors (Inactive)
+    if (isAnnam && isKerala && !isActive) return 4;
 
-      // 6. Punjab ANNAM sensors (Inactive)
-      if (isAnnam && isPunjab && !isActive) return 5;
+    // 6. Punjab ANNAM sensors (Inactive)
+    if (isAnnam && isPunjab && !isActive) return 5;
 
-      // 7. Other ANNAM sensors (Inactive)
-      if (isAnnam && !isActive) return 6;
+    // 7. Other ANNAM sensors (Inactive)
+    if (isAnnam && !isActive) return 6;
 
-      // 8. Non-ANNAM sensors (Inactive)
-      return 7;
-    }
+    // 8. Non-ANNAM sensors (Inactive)
+    return 7;
+  }
 
+  void _sortDevicesList(List<Map<String, dynamic>> devices) {
     devices.sort((a, b) {
-      final rankA = getSortRank(a);
-      final rankB = getSortRank(b);
+      final rankA = _getSortRank(a);
+      final rankB = _getSortRank(b);
       if (rankA != rankB) {
         return rankA.compareTo(rankB);
       }
@@ -640,13 +647,23 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
       final snB = DevicePrefixUtils.resolveSensorName(deviceIdB, topicB);
       final dnB = _toAnnamDisplayName(snB);
 
-      final nameCmp = naturalCompare(dnA, dnB);
+      final nameCmp = _naturalCompare(dnA, dnB);
       if (nameCmp != 0) return nameCmp;
 
       return topicA.compareTo(topicB);
     });
+  }
 
-    return devices;
+  /// Returns device display names (e.g. ANNAM-01, ANNAM-02, ANNAM-201)
+  /// sorted in the exact same order as the UI device cards.
+  List<String> _getSortedDeviceDisplayNames() {
+    final devices = _getAllDevicesList();
+    _sortDevicesList(devices);
+    return devices.map((d) {
+      final sensorName = (d['DeviceId'] ?? '').toString();
+      final dn = _toAnnamDisplayName(sensorName);
+      return dn.isNotEmpty ? dn : sensorName;
+    }).where((s) => s.isNotEmpty).toSet().toList();
   }
 
 
@@ -803,6 +820,59 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                           ),
                           Row(
                             children: [
+                              // ── Report Issue & Tickets ──
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  final devNames = _getSortedDeviceDisplayNames();
+                                  RaiseComplaintDialog.show(
+                                    context,
+                                    availableDevices: devNames,
+                                  );
+                                },
+                                icon: const Icon(Icons.report_problem_rounded, size: 15),
+                                label: const Text("Report Issue"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0284C7),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  final devNames = _getSortedDeviceDisplayNames();
+                                  UserComplaintsSheet.show(
+                                    context,
+                                    availableDevices: devNames,
+                                  );
+                                },
+                                icon: Icon(Icons.receipt_long_rounded, size: 16, color: subtle),
+                                label: Text(
+                                  "Tickets",
+                                  style: TextStyle(
+                                    color: strong,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                      color: isDarkMode
+                                          ? Colors.white24
+                                          : Colors.black26),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
                               if (allDevs.isNotEmpty) ...[
                                 OutlinedButton.icon(
                                   onPressed: () {

@@ -1,3 +1,4 @@
+import 'package:cloud_sense_webapp/src/widgets/complaints/admin_complaints_section.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
@@ -78,6 +79,7 @@ class _AdminPageState extends State<AdminPage> {
   final GlobalKey _alertsSectionKey = GlobalKey();
   final GlobalKey _qualitySectionKey = GlobalKey();
   final GlobalKey _healthSectionKey = GlobalKey();
+  final GlobalKey _complaintsSectionKey = GlobalKey();
   int devicesToShow = 12;
   int usersToShow = 12;
   String? selectedCategory;
@@ -3296,6 +3298,19 @@ class _AdminPageState extends State<AdminPage> {
                         subtle: subtle,
                         isSelected: selectedBrand == "Testing",
                       ),
+                      _StatCard(
+                        onTap: () {
+                          _scrollToSection(_complaintsSectionKey);
+                        },
+                        title: "Support Tickets",
+                        value: "Complaints",
+                        icon: Icons.support_agent_rounded,
+                        iconBg: Colors.indigo,
+                        cardColor: card,
+                        strong: strong,
+                        subtle: subtle,
+                        isSelected: false,
+                      ),
                     ];
 
                     // ── Restricted admin layout ─────────────────────────────
@@ -4531,6 +4546,21 @@ class _AdminPageState extends State<AdminPage> {
                               ),
                       ),
                     ],
+                    const SizedBox(height: 24),
+                    // ── Customer Complaints & Support Section ─────────────────
+                    KeyedSubtree(
+                      key: _complaintsSectionKey,
+                      child: AdminComplaintsSection(
+                        isDarkMode: isDark,
+                        currentAdminEmail: _currentUserEmail,
+                        onInspectDevice: (devId) {
+                          setState(() {
+                            searchQuery = devId;
+                          });
+                          _scrollToSection(_devicesSectionKey);
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ],

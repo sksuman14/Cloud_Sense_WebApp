@@ -1,3 +1,4 @@
+import 'package:cloud_sense_webapp/src/widgets/complaints/raise_complaint_dialog.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -465,6 +466,14 @@ class DeviceActionButton extends StatelessWidget {
             );
             break;
 
+          case 'complaint':
+            RaiseComplaintDialog.show(
+              context,
+              initialDeviceId: dn.isNotEmpty ? dn : sn,
+              initialDeviceTopic: topic,
+            );
+            break;
+
           case 'quality':
             NavigationUtils.navigateTo(
               context,
@@ -574,6 +583,14 @@ class DeviceActionButton extends StatelessWidget {
               Icon(Icons.travel_explore_rounded, color: Colors.amber, size: 18),
               SizedBox(width: 10),
               Expanded(child: Text('Metadata', style: TextStyle(fontSize: 13))),
+            ]),
+          ),
+          const PopupMenuItem<String>(
+            value: 'complaint',
+            child: Row(children: [
+              Icon(Icons.report_problem_outlined, color: Colors.deepOrangeAccent, size: 18),
+              SizedBox(width: 10),
+              Expanded(child: Text('Report Issue', style: TextStyle(fontSize: 13))),
             ]),
           ),
           if (effectiveIsAdmin) ...[

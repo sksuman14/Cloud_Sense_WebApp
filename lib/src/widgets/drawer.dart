@@ -1,3 +1,4 @@
+import 'package:cloud_sense_webapp/src/widgets/complaints/user_complaints_sheet.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/data/datasheets_download.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
@@ -223,6 +224,23 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                 //   },
                 // ),
               ],
+
+              // // ── Help & Support ──
+              // ListTile(
+              //   leading: const Icon(Icons.support_agent_rounded, color: Color(0xFF0284C7)),
+              //   title: const Text(
+              //     'Help & Support',
+              //     style: TextStyle(fontWeight: FontWeight.bold),
+              //   ),
+              //   subtitle: const Text(
+              //     'Report an issue or view your tickets',
+              //     style: TextStyle(fontSize: 11),
+              //   ),
+              //   onTap: () {
+              //     Navigator.pop(context);
+              //     UserComplaintsSheet.show(context);
+              //   },
+              // ),
 
               ExpansionTile(
                 leading: Icon(Icons.help,
