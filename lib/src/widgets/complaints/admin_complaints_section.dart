@@ -31,24 +31,10 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
   String _priorityFilter = 'All';
   String _searchQuery = '';
   String? _loadError;
-  List<String> _cognitoGroups = [];
-  bool _isCognitoAdmin = false;
-  String? _userEmail;
-  Map<String, dynamic> _tokenClaims = {};
-
-  String get _groupsDisplay {
-    try {
-      if (_cognitoGroups.isEmpty) return 'None';
-      return _cognitoGroups.join(', ');
-    } catch (_) {
-      return 'None';
-    }
-  }
 
   @override
   void initState() {
     super.initState();
-    _cognitoGroups = [];
     _loadComplaints();
   }
 
@@ -59,26 +45,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
     });
 
     try {
-      // 1. Decode the JWT to check Cognito groups
-      final diag = await _complaintService.getCognitoDiagnostics();
-      _cognitoGroups = List<String>.from(diag['groups'] ?? []);
-      _isCognitoAdmin = diag['isAdminInCognito'] == true;
-      _userEmail = diag['email'];
-      _tokenClaims = Map<String, dynamic>.from(diag['rawClaims'] ?? {});
-
-      if (kDebugMode) {
-        debugPrint('[AdminComplaints] Cognito → '
-            'email=$_userEmail, groups=$_cognitoGroups, isAdmin=$_isCognitoAdmin');
-      }
-
-      // 2. Fetch tickets across all statuses
       final list = await _complaintService.getAllComplaints();
-
-      debugPrint('[AdminComplaints] Final tickets count: ${list.length}');
-      for (final t in list) {
-        debugPrint(
-            '  Ticket: ${t.ticketId} | ${t.status.apiValue} | ${t.userEmail} | ${t.subject}');
-      }
 
       if (mounted) {
         setState(() {
@@ -242,284 +209,6 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
               ),
             ],
           ),
-
-          // ── Diagnostic / Warning Banner when Cognito group 'Admin' is missing ──
-          if (!_isCognitoAdmin && !_isLoading) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFFEF4444).withOpacity(0.5),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.lock_outline_rounded,
-                          color: Color(0xFFEF4444), size: 18),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Your Current Token Does Not Have the "Admin" Group Claim Yet',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFEF4444),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Signed in as: ${_userEmail ?? widget.currentAdminEmail ?? "unknown"}\n'
-                    'Cognito Groups currently inside your active token: [$_groupsDisplay]',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.black26 : const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'You added this user to the "Admin" group in AWS Cognito, which is correct! '
-                          'However, AWS Cognito tokens are fixed once generated. Your current browser session was signed in '
-                          'BEFORE you added the group, so your current token does not contain the "Admin" claim yet.\n\n'
-                          'To get a fresh token with the "Admin" group claim, simply log out and log back in:',
-                          style: TextStyle(
-                              fontSize: 11.5, height: 1.45, color: Color(0xFFEF4444)),
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton.icon(
-                          onPressed: () => AuthUtils.handleLogout(context),
-                          icon: const Icon(Icons.logout, size: 14),
-                          label: const Text('Log Out & Sign Back In Now'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEF4444),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else if (_isCognitoAdmin && !_isLoading) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_user_rounded,
-                      size: 16, color: Color(0xFF10B981)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Cognito "Admin" Group Verified • $_userEmail • ${_allTickets.length} tickets loaded from AWS',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF10B981),
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _loadComplaints,
-                    icon: const Icon(Icons.refresh, size: 14),
-                    label: const Text('Reload', style: TextStyle(fontSize: 11)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF10B981),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Live AWS API Inspector (Visible whenever 0 tickets are returned) ──
-          if (_allTickets.isEmpty && !_isLoading) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark ? Colors.white24 : Colors.black12,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.bug_report_outlined,
-                          size: 16, color: Color(0xFF0284C7)),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Live AWS Response Inspector',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0284C7),
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _loadComplaints,
-                        icon: const Icon(Icons.refresh, size: 13),
-                        label:
-                            const Text('Re-fetch', style: TextStyle(fontSize: 11)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  SelectableText(
-                    'TOKEN CLAIMS:\n'
-                    'email: ${_tokenClaims['email']}\n'
-                    'sub: ${_tokenClaims['sub']}\n'
-                    'cognito:groups: ${_tokenClaims['cognito:groups']}\n'
-                    'iss: ${_tokenClaims['iss']}\n'
-                    'aud: ${_tokenClaims['aud']}\n\n'
-                    'HTTP RESPONSES:\n'
-                    '${ComplaintService.lastDebugInfo}',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Load Error Banner ──
-          if (_loadError != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFFEF4444).withOpacity(0.4),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline_rounded,
-                      color: Color(0xFFEF4444), size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Error loading tickets from AWS: $_loadError',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFFEF4444),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _loadComplaints,
-                    icon: const Icon(Icons.refresh, size: 14),
-                    label: const Text('Retry', style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Live AWS API Inspector (Visible whenever 0 tickets are returned) ──
-          if (_allTickets.isEmpty && !_isLoading) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark ? Colors.white24 : Colors.black12,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.bug_report_outlined,
-                          size: 16, color: Color(0xFF0284C7)),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Live AWS Response Inspector',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0284C7),
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _loadComplaints,
-                        icon: const Icon(Icons.refresh, size: 13),
-                        label:
-                            const Text('Re-fetch', style: TextStyle(fontSize: 11)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  SelectableText(
-                    'TOKEN CLAIMS:\n'
-                    'email: ${_tokenClaims['email']}\n'
-                    'sub: ${_tokenClaims['sub']}\n'
-                    'cognito:groups: ${_tokenClaims['cognito:groups']}\n'
-                    'iss: ${_tokenClaims['iss']}\n'
-                    'aud: ${_tokenClaims['aud']}\n\n'
-                    'HTTP RESPONSES:\n'
-                    '${ComplaintService.lastDebugInfo}',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
 
           const SizedBox(height: 20),
 
@@ -993,6 +682,35 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 42, color: Color(0xFFEF4444)),
+              const SizedBox(height: 10),
+              Text(
+                'Failed to load tickets: $_loadError',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _loadComplaints,
+                icon: const Icon(Icons.refresh, size: 14),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
