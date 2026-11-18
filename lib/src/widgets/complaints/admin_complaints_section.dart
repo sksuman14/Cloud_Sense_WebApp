@@ -182,7 +182,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Customer Complaints & Support Triage',
+                      'Customer Complaints & Support',
                       style: TextStyle(
                         fontFamily: 'OpenSans',
                         fontSize: isMobile ? 18 : 22,
@@ -244,9 +244,9 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     isCompact: isCompact,
                   ),
                   _buildMetricCard(
-                    title: 'Open / Triage',
+                    title: 'Pending / Open',
                     value: '$openCount',
-                    subtitle: 'Awaiting action',
+                    subtitle: 'Awaiting review',
                     icon: Icons.pending_actions_rounded,
                     color: const Color(0xFFF59E0B),
                     width: cardWidth,
@@ -282,109 +282,162 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
 
           // ── Filters & Search Bar ──
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 10 : 14,
+              vertical: 10,
+            ),
             decoration: BoxDecoration(
               color: cardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: borderColor),
             ),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                // Search field
-                SizedBox(
-                  width: isMobile ? double.infinity : 280,
-                  height: 38,
-                  child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search by ticket, device, user...',
-                      hintStyle: TextStyle(
-                        fontSize: 11.5,
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      contentPadding: EdgeInsets.zero,
-                      filled: true,
-                      fillColor: isDark
-                          ? const Color(0xFF0F1A24)
-                          : const Color(0xFFF1F5F9),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Status Chips
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
-                    final isSel = _statusFilter == s;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        selected: isSel,
-                        visualDensity: VisualDensity.compact,
-                        label: Text(
-                          s,
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Search field (full width)
+                      SizedBox(
+                        height: 38,
+                        child: TextField(
+                          onChanged: (val) => setState(() => _searchQuery = val),
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                            color: isSel
-                                ? Colors.white
-                                : (isDark ? Colors.white70 : Colors.black87),
+                            fontSize: 12.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search by ticket, device, user...',
+                            hintStyle: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? Colors.white38 : Colors.black38,
+                            ),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                            contentPadding: EdgeInsets.zero,
+                            filled: true,
+                            fillColor: isDark
+                                ? const Color(0xFF0F1A24)
+                                : const Color(0xFFF1F5F9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
-                        selectedColor: const Color(0xFF0284C7),
-                        backgroundColor: isDark
-                            ? const Color(0xFF0F1A24)
-                            : const Color(0xFFF1F5F9),
-                        onSelected: (_) => setState(() => _statusFilter = s),
                       ),
-                    );
-                  }).toList(),
-                ),
+                      const SizedBox(height: 10),
 
-                // Priority filter dropdown
-                Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF0F1A24)
-                        : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _priorityFilter,
-                      dropdownColor: isDark ? const Color(0xFF132230) : Colors.white,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: isDark ? Colors.white70 : Colors.black87,
+                      // Status Chips (horizontally scrollable without overflow)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
+                            final isSel = _statusFilter == s;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                selected: isSel,
+                                showCheckmark: false,
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                label: Text(
+                                  s,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                    color: isSel
+                                        ? Colors.white
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                                selectedColor: const Color(0xFF0284C7),
+                                backgroundColor: isDark
+                                    ? const Color(0xFF0F1A24)
+                                    : const Color(0xFFF1F5F9),
+                                onSelected: (_) => setState(() => _statusFilter = s),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
-                      items: ['All', 'Critical', 'High', 'Medium', 'Low']
-                          .map((p) => DropdownMenuItem(
-                                value: p,
-                                child: Text('Priority: $p'),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _priorityFilter = val);
-                      },
-                    ),
+                      const SizedBox(height: 10),
+
+                      // Priority filter dropdown
+                      _buildPriorityDropdown(isDark),
+                    ],
+                  )
+                : Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      // Search field
+                      SizedBox(
+                        width: 280,
+                        height: 38,
+                        child: TextField(
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search by ticket, device, user...',
+                            hintStyle: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? Colors.white38 : Colors.black38,
+                            ),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                            contentPadding: EdgeInsets.zero,
+                            filled: true,
+                            fillColor: isDark
+                                ? const Color(0xFF0F1A24)
+                                : const Color(0xFFF1F5F9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Status Chips
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
+                          final isSel = _statusFilter == s;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              selected: isSel,
+                              showCheckmark: false,
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                              label: Text(
+                                s,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                  color: isSel
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : Colors.black87),
+                                ),
+                              ),
+                              selectedColor: const Color(0xFF0284C7),
+                              backgroundColor: isDark
+                                  ? const Color(0xFF0F1A24)
+                                  : const Color(0xFFF1F5F9),
+                              onSelected: (_) => setState(() => _statusFilter = s),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      // Priority filter dropdown
+                      _buildPriorityDropdown(isDark),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
 
           const SizedBox(height: 16),
@@ -410,6 +463,36 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
               },
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPriorityDropdown(bool isDark) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F1A24) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _priorityFilter,
+          dropdownColor: isDark ? const Color(0xFF132230) : Colors.white,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+          items: ['All', 'Critical', 'High', 'Medium', 'Low']
+              .map((p) => DropdownMenuItem(
+                    value: p,
+                    child: Text('Priority: $p'),
+                  ))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _priorityFilter = val);
+          },
+        ),
       ),
     );
   }

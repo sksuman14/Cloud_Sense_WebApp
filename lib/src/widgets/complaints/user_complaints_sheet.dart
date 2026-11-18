@@ -888,7 +888,7 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Your complaint is queued for engineering triage. Responses will appear here.',
+                          'Your complaint has been received and is being reviewed by our team. Responses will appear here.',
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? Colors.white54 : Colors.black54,
