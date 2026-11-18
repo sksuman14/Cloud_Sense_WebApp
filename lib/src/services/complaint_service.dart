@@ -268,21 +268,34 @@ class ComplaintService {
 
     final bool urgent = priority == ComplaintPriority.critical;
     final String issueType = category.apiValue;
-    final String customIssue =
-        (category == ComplaintCategory.other || isCustomCategory)
-            ? (customCategoryText ?? '').trim()
-            : '';
+    final bool isCustom = category == ComplaintCategory.other &&
+        customCategoryText != null &&
+        customCategoryText.trim().isNotEmpty;
 
-    final body = jsonEncode({
+    final Map<String, dynamic> payload = {
       'deviceId': deviceId.trim(),
       'subject': subject.trim(),
       'issueType': issueType,
-      'customIssue': customIssue,
       'description': description.trim(),
       'urgent': urgent,
-    });
+    };
+
+    // Strict check: If user selected anything OTHER THAN "Other" from the dropdown,
+    // 'customIssue' is NEVER included in the payload sent to the backend.
+    if (category == ComplaintCategory.other &&
+        customCategoryText != null &&
+        customCategoryText.trim().isNotEmpty) {
+      payload['customIssue'] = customCategoryText.trim();
+    } else {
+      payload.remove('customIssue');
+    }
+
+    final body = jsonEncode(payload);
+
+    debugPrint('[ComplaintService] POST $uri payload: $body');
 
     final resp = await http.post(uri, headers: headers, body: body);
+    debugPrint('[ComplaintService] POST $uri response (${resp.statusCode}): ${resp.body}');
     if (resp.statusCode != 201) {
       final err = _extractErrorMessage(resp);
       throw Exception('Failed to create ticket: $err');
