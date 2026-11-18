@@ -284,6 +284,7 @@ class TicketAttachment {
   final String filename;
   final String contentType;
   final String? url;
+  final String? downloadUrl;
   final String? key;
   final int? size;
 
@@ -292,11 +293,13 @@ class TicketAttachment {
     required this.filename,
     required this.contentType,
     this.url,
+    this.downloadUrl,
     this.key,
     this.size,
   });
 
   String get displayUrl {
+    if (downloadUrl != null && downloadUrl!.trim().isNotEmpty) return downloadUrl!.trim();
     if (url != null && url!.trim().isNotEmpty) return url!.trim();
     if (key != null && key!.trim().isNotEmpty) {
       final k = key!.trim();
@@ -312,6 +315,7 @@ class TicketAttachment {
         'attachmentId': attachmentId,
         'filename': filename,
         'contentType': contentType,
+        if (downloadUrl != null) 'downloadUrl': downloadUrl,
         if (url != null) 'url': url,
         if (key != null) 'key': key,
         if (size != null) 'size': size,
@@ -322,14 +326,25 @@ class TicketAttachment {
         'key': key ?? '',
         'filename': filename,
         'contentType': contentType,
+        if (downloadUrl != null) 'downloadUrl': downloadUrl,
         if (displayUrl.isNotEmpty) 'url': displayUrl,
       };
 
   factory TicketAttachment.fromJson(Map<String, dynamic> json) {
-    String? resolvedUrl = json['url'] ??
-        json['downloadUrl'] ??
-        json['s3Url'] ??
-        json['imageUrl'];
+    final rawDownloadUrl = json['downloadUrl'] ??
+        json['download_url'] ??
+        json['presignedUrl'] ??
+        json['signedUrl'];
+    final rawUrl = json['url'] ?? json['s3Url'] ?? json['imageUrl'];
+
+    String? resolvedDownload = (rawDownloadUrl != null && rawDownloadUrl.toString().trim().isNotEmpty)
+        ? rawDownloadUrl.toString().trim()
+        : null;
+
+    String? resolvedUrl = resolvedDownload ??
+        ((rawUrl != null && rawUrl.toString().trim().isNotEmpty)
+            ? rawUrl.toString().trim()
+            : null);
 
     if ((resolvedUrl == null || resolvedUrl.isEmpty) && json['key'] != null) {
       final key = json['key'].toString();
@@ -345,6 +360,7 @@ class TicketAttachment {
       filename: json['filename'] ?? 'file',
       contentType: json['contentType'] ?? 'application/octet-stream',
       url: resolvedUrl,
+      downloadUrl: resolvedDownload,
       key: json['key'],
       size: json['size'] ?? json['maxBytes'],
     );
@@ -632,7 +648,7 @@ class ComplaintTicket {
         if (a is String && a.isNotEmpty) {
           allAttachments.add(a);
         } else if (a is Map) {
-          final u = a['url'] ?? a['downloadUrl'] ?? a['s3Url'] ?? a['imageUrl'];
+          final u = a['downloadUrl'] ?? a['download_url'] ?? a['url'] ?? a['s3Url'] ?? a['imageUrl'];
           if (u != null && u.toString().isNotEmpty) {
             allAttachments.add(u.toString());
           } else if (a['key'] != null) {

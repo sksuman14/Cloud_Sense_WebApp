@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_sense_webapp/src/models/complaint_model.dart';
 import 'package:cloud_sense_webapp/src/services/complaint_service.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
+import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/complaint_attachments_widget.dart';
 
 class AdminComplaintsSection extends StatefulWidget {
@@ -107,7 +108,20 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
         isDarkMode: widget.isDarkMode,
         adminEmail: widget.currentAdminEmail ?? 'admin@cloudsense.com',
         onUpdated: () => _loadComplaints(),
-        onInspectDevice: widget.onInspectDevice,
+        onInspectDevice: widget.onInspectDevice ??
+            (devId) {
+              final cleanId = devId.trim();
+              if (cleanId.isEmpty || cleanId == 'General / All Devices') return;
+              NavigationUtils.navigateTo(
+                context,
+                '/admin/devicegraph',
+                arguments: {
+                  'deviceName': cleanId,
+                  'sequentialName': cleanId,
+                  'backgroundImagePath': 'assets/backgroundd.jpg',
+                },
+              );
+            },
       ),
     );
   }
@@ -317,40 +331,35 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Status Chips (horizontally scrollable without overflow)
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
-                            final isSel = _statusFilter == s;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                selected: isSel,
-                                showCheckmark: false,
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                label: Text(
-                                  s,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                                    color: isSel
-                                        ? Colors.white
-                                        : (isDark ? Colors.white70 : Colors.black87),
-                                  ),
-                                ),
-                                selectedColor: const Color(0xFF0284C7),
-                                backgroundColor: isDark
-                                    ? const Color(0xFF0F1A24)
-                                    : const Color(0xFFF1F5F9),
-                                onSelected: (_) => setState(() => _statusFilter = s),
+                      // Status Chips (responsive Wrap)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
+                          final isSel = _statusFilter == s;
+                          return ChoiceChip(
+                            selected: isSel,
+                            showCheckmark: false,
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                            label: Text(
+                              s,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                color: isSel
+                                    ? Colors.white
+                                    : (isDark ? Colors.white70 : Colors.black87),
                               ),
-                            );
-                          }).toList(),
-                        ),
+                            ),
+                            selectedColor: const Color(0xFF0284C7),
+                            backgroundColor: isDark
+                                ? const Color(0xFF0F1A24)
+                                : const Color(0xFFF1F5F9),
+                            onSelected: (_) => setState(() => _statusFilter = s),
+                          );
+                        }).toList(),
                       ),
                     ],
                   )
@@ -529,48 +538,46 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
       Color borderColor) {
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: ticket.priority == ComplaintPriority.critical
-              ? const Color(0xFFEF4444).withOpacity(0.4)
-              : borderColor,
-          width: ticket.priority == ComplaintPriority.critical ? 1.5 : 1,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Category icon
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              color: ticket.category.color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(ticket.category.icon,
-                color: ticket.category.color, size: 20),
-          ),
-          const SizedBox(width: 14),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth;
+        final bool isCompact = cardWidth < 680;
 
-          // Main Info
-          Expanded(
+        if (isCompact) {
+          // ── Compact / Mobile Card Layout (Vertical Flow, Never Overflows) ──
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: ticket.priority == ComplaintPriority.critical
+                    ? const Color(0xFFEF4444).withOpacity(0.4)
+                    : borderColor,
+                width: ticket.priority == ComplaintPriority.critical ? 1.5 : 1,
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Top Row: Category Icon + Ticket ID + Status Badge
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white12
-                            : Colors.black.withOpacity(0.06),
+                        color: ticket.category.color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(ticket.category.icon,
+                          color: ticket.category.color, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white12 : Colors.black.withOpacity(0.06),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -583,68 +590,9 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Priority Pill
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: ticket.priority.color.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(ticket.priority.icon,
-                              size: 10, color: ticket.priority.color),
-                          const SizedBox(width: 3),
-                          Text(
-                            ticket.priority.label.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: ticket.priority.color,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Custom Category Highlight
-                    if (ticket.isCustomCategory) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: const Color(0xFF10B981).withOpacity(0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.edit_note,
-                                size: 11, color: Color(0xFF10B981)),
-                            const SizedBox(width: 3),
-                            Text(
-                              'CUSTOM: ${ticket.displayCategory}',
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF10B981),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                     const Spacer(),
-                    // Status Pill
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: ticket.status.color.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -655,8 +603,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(ticket.status.icon,
-                              size: 11, color: ticket.status.color),
+                          Icon(ticket.status.icon, size: 11, color: ticket.status.color),
                           const SizedBox(width: 4),
                           Text(
                             ticket.status.label,
@@ -671,7 +618,64 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+
+                // Tags: Priority & Custom Category (Wrapped)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ticket.priority.color.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(ticket.priority.icon, size: 10, color: ticket.priority.color),
+                          const SizedBox(width: 3),
+                          Text(
+                            ticket.priority.label.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: ticket.priority.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (ticket.isCustomCategory)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.edit_note, size: 11, color: Color(0xFF10B981)),
+                            const SizedBox(width: 3),
+                            Text(
+                              'CUSTOM: ${ticket.displayCategory}',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 6),
+
+                // Subject
                 Text(
                   ticket.subject,
                   style: TextStyle(
@@ -680,71 +684,327 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     color: isDark ? Colors.white : const Color(0xFF0F172A),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
+                const SizedBox(height: 8),
+
+                // Metadata: Device, Email, Date (Clean Wrap so it NEVER overflows)
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Icon(Icons.sensors_rounded,
-                        size: 13,
-                        color: isDark ? Colors.white54 : Colors.black45),
-                    const SizedBox(width: 4),
-                    Text(
-                      ticket.deviceId,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white70 : Colors.black87,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.sensors_rounded, size: 12, color: isDark ? Colors.white54 : Colors.black45),
+                        const SizedBox(width: 4),
+                        Text(
+                          ticket.deviceId,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.email_outlined,
-                        size: 13,
-                        color: isDark ? Colors.white54 : Colors.black45),
-                    const SizedBox(width: 4),
-                    Text(
-                      ticket.userEmail,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: isDark ? Colors.white60 : Colors.black54,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.email_outlined, size: 12, color: isDark ? Colors.white54 : Colors.black45),
+                        const SizedBox(width: 4),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: (cardWidth - 80).clamp(140.0, 320.0)),
+                          child: Text(
+                            ticket.userEmail,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.access_time_rounded,
-                        size: 12,
-                        color: isDark ? Colors.white38 : Colors.black38),
-                    const SizedBox(width: 4),
-                    Text(
-                      dateFormat.format(ticket.updatedAt),
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white38 : Colors.black38),
+                        const SizedBox(width: 4),
+                        Text(
+                          dateFormat.format(ticket.updatedAt),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+
+                // Full-width Respond Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openDetailModal(ticket),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.reply_rounded, size: 14),
+                    label: const Text(
+                      'Respond to Complaint',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 14),
+          );
+        }
 
-          // Action Button
-          ElevatedButton.icon(
-            onPressed: () => _openDetailModal(ticket),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: const Icon(Icons.reply_rounded, size: 14),
-            label: const Text(
-              'Respond',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        // ── Desktop / Wide Card Layout ──
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: ticket.priority == ComplaintPriority.critical
+                  ? const Color(0xFFEF4444).withOpacity(0.4)
+                  : borderColor,
+              width: ticket.priority == ComplaintPriority.critical ? 1.5 : 1,
             ),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Category icon
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: ticket.category.color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(ticket.category.icon,
+                    color: ticket.category.color, size: 20),
+              ),
+              const SizedBox(width: 14),
+
+              // Main Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white12
+                                : Colors.black.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            ticket.ticketId,
+                            style: TextStyle(
+                              fontFamily: 'OpenSans',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: ticket.priority.color.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(ticket.priority.icon,
+                                  size: 10, color: ticket.priority.color),
+                              const SizedBox(width: 3),
+                              Text(
+                                ticket.priority.label.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: ticket.priority.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (ticket.isCustomCategory) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xFF10B981).withOpacity(0.5),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.edit_note,
+                                    size: 11, color: Color(0xFF10B981)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'CUSTOM: ${ticket.displayCategory}',
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF10B981),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: ticket.status.color.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: ticket.status.color.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(ticket.status.icon,
+                                  size: 11, color: ticket.status.color),
+                              const SizedBox(width: 4),
+                              Text(
+                                ticket.status.label,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: ticket.status.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      ticket.subject,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.sensors_rounded,
+                                size: 13,
+                                color: isDark ? Colors.white54 : Colors.black45),
+                            const SizedBox(width: 4),
+                            Text(
+                              ticket.deviceId,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.email_outlined,
+                                size: 13,
+                                color: isDark ? Colors.white54 : Colors.black45),
+                            const SizedBox(width: 4),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 240),
+                              child: Text(
+                                ticket.userEmail,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white60 : Colors.black54,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time_rounded,
+                                size: 12,
+                                color: isDark ? Colors.white38 : Colors.black38),
+                            const SizedBox(width: 4),
+                            Text(
+                              dateFormat.format(ticket.updatedAt),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+
+              // Action Button
+              ElevatedButton.icon(
+                onPressed: () => _openDetailModal(ticket),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.reply_rounded, size: 14),
+                label: const Text(
+                  'Respond',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1035,11 +1295,14 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                             Icon(Icons.person_outline, size: 13,
                                 color: isDark ? Colors.white54 : Colors.black45),
                             const SizedBox(width: 4),
-                            Text(
-                              '${_ticket.userName} (${_ticket.userEmail})',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: isDark ? Colors.white60 : Colors.black54,
+                            Expanded(
+                              child: Text(
+                                '${_ticket.userName} (${_ticket.userEmail})',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white60 : Colors.black54,
+                                ),
                               ),
                             ),
                           ],
@@ -1070,7 +1333,10 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                               const SizedBox(height: 10),
                               Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
                               const SizedBox(height: 8),
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   // Category chip
                                   Container(
@@ -1097,7 +1363,6 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   // Device chip
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1123,27 +1388,55 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                       ],
                                     ),
                                   ),
-                                  const Spacer(),
-                                  if (widget.onInspectDevice != null) ...[
-                                    InkWell(
-                                      onTap: () {
-                                        Navigator.of(context).pop();
-                                        widget.onInspectDevice!(_ticket.deviceId);
-                                      },
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.analytics_outlined,
-                                              size: 13, color: Color(0xFF0284C7)),
-                                          const SizedBox(width: 4),
-                                          const Text(
-                                            'Inspect',
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF0284C7),
+                                  if (_ticket.deviceId.trim().isNotEmpty &&
+                                      _ticket.deviceId != 'General / All Devices') ...[
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(6),
+                                        onTap: () {
+                                          final devId = _ticket.deviceId.trim();
+                                          Navigator.of(context).pop();
+                                          if (widget.onInspectDevice != null) {
+                                            widget.onInspectDevice!(devId);
+                                          } else {
+                                            NavigationUtils.navigateTo(
+                                              context,
+                                              '/admin/devicegraph',
+                                              arguments: {
+                                                'deviceName': devId,
+                                                'sequentialName': devId,
+                                                'backgroundImagePath': 'assets/backgroundd.jpg',
+                                              },
+                                            );
+                                          }
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0284C7).withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color(0xFF0284C7).withOpacity(0.35),
                                             ),
                                           ),
-                                        ],
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: const [
+                                              Icon(Icons.analytics_outlined,
+                                                  size: 13, color: Color(0xFF0284C7)),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Inspect',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF0284C7),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1219,7 +1512,9 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                     const SizedBox(height: 6),
                                     ComplaintAttachmentsWidget(
                                       attachments: r.attachments
-                                          .map((a) => a.displayUrl.isNotEmpty ? a.displayUrl : (a.url ?? ''))
+                                          .map((a) => a.displayUrl.isNotEmpty
+                                              ? a.displayUrl
+                                              : (a.downloadUrl ?? a.url ?? ''))
                                           .where((u) => u.isNotEmpty)
                                           .toList(),
                                       isDark: isDark,

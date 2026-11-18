@@ -856,39 +856,39 @@ class _DeviceSpecificationDialogWidgetState
                                   const SizedBox(height: 16),
 
                                   // Search or switch device
-                                  Theme(
-                                    data: Theme.of(context).copyWith(
-                                        dividerColor: Colors.transparent),
-                                    child: ExpansionTile(
-                                      tilePadding: EdgeInsets.zero,
-                                      leading: const Icon(Icons.swap_horiz,
-                                          size: 18, color: Colors.cyan),
-                                      title: Text(
-                                        'View other devices (${_allSpecs.length} total)',
-                                        style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: isDark
-                                                ? Colors.cyanAccent
-                                                : Colors.cyan.shade800),
-                                      ),
-                                      children: [
-                                        _buildSearchBar(
-                                            isDark,
-                                            cardBg,
-                                            borderColor,
-                                            strongText,
-                                            subtleText),
-                                        const SizedBox(height: 10),
-                                        _buildSpecPicker(
-                                            isDark,
-                                            cardBg,
-                                            borderColor,
-                                            strongText,
-                                            subtleText),
-                                      ],
-                                    ),
-                                  ),
+                                  // Theme(
+                                  //   data: Theme.of(context).copyWith(
+                                  //       dividerColor: Colors.transparent),
+                                  //   child: ExpansionTile(
+                                  //     tilePadding: EdgeInsets.zero,
+                                  //     leading: const Icon(Icons.swap_horiz,
+                                  //         size: 18, color: Colors.cyan),
+                                  //     title: Text(
+                                  //       'View other devices (${_allSpecs.length} total)',
+                                  //       style: TextStyle(
+                                  //           fontSize: 12.5,
+                                  //           fontWeight: FontWeight.w600,
+                                  //           color: isDark
+                                  //               ? Colors.cyanAccent
+                                  //               : Colors.cyan.shade800),
+                                  //     ),
+                                  //     children: [
+                                  //       _buildSearchBar(
+                                  //           isDark,
+                                  //           cardBg,
+                                  //           borderColor,
+                                  //           strongText,
+                                  //           subtleText),
+                                  //       const SizedBox(height: 10),
+                                  //       _buildSpecPicker(
+                                  //           isDark,
+                                  //           cardBg,
+                                  //           borderColor,
+                                  //           strongText,
+                                  //           subtleText),
+                                  //     ],
+                                  //   ),
+                                  // ),
                                 ],
                               ],
                             ),
@@ -1055,19 +1055,19 @@ class _DeviceSpecificationDialogWidgetState
                 strongText: strongText,
                 subtleText: subtleText,
               ),
-              _buildFieldCard(
-                width: itemW,
-                label: 'Partnership Name',
-                value: spec.partnershipName,
-                icon: Icons.handshake_outlined,
-                badgeColor: Colors.blueAccent,
-                isDark: isDark,
-                cardBg: cardBg,
-                borderColor: borderColor,
-                strongText: strongText,
-                subtleText: subtleText,
-                onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'partnership') : null,
-              ),
+              // _buildFieldCard(
+              //   width: itemW,
+              //   label: 'Partnership Name',
+              //   value: spec.partnershipName,
+              //   icon: Icons.handshake_outlined,
+              //   badgeColor: Colors.blueAccent,
+              //   isDark: isDark,
+              //   cardBg: cardBg,
+              //   borderColor: borderColor,
+              //   strongText: strongText,
+              //   subtleText: subtleText,
+              //   onEdit: _isEffectiveAdmin ? () => _showEditSpecificationDialog(currentSpec: spec, focusField: 'partnership') : null,
+              // ),
               _buildFieldCard(
                 width: itemW,
                 label: 'Hardware Specification',
@@ -2151,39 +2151,39 @@ class _DeviceMetadataDialogWidgetState
                                   const SizedBox(height: 16),
 
                                   // Search or switch sensor
-                                  Theme(
-                                    data: Theme.of(context).copyWith(
-                                        dividerColor: Colors.transparent),
-                                    child: ExpansionTile(
-                                      tilePadding: EdgeInsets.zero,
-                                      leading: const Icon(Icons.swap_horiz,
-                                          size: 18, color: Colors.amber),
-                                      title: Text(
-                                        'View other sensors (${_allMetadata.length} total)',
-                                        style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: isDark
-                                                ? Colors.amberAccent
-                                                : Colors.amber.shade800),
-                                      ),
-                                      children: [
-                                        _buildSearchBar(
-                                            isDark,
-                                            cardBg,
-                                            borderColor,
-                                            strongText,
-                                            subtleText),
-                                        const SizedBox(height: 10),
-                                        _buildMetaPicker(
-                                            isDark,
-                                            cardBg,
-                                            borderColor,
-                                            strongText,
-                                            subtleText),
-                                      ],
-                                    ),
-                                  ),
+                                  // Theme(
+                                  //   data: Theme.of(context).copyWith(
+                                  //       dividerColor: Colors.transparent),
+                                  //   child: ExpansionTile(
+                                  //     tilePadding: EdgeInsets.zero,
+                                  //     leading: const Icon(Icons.swap_horiz,
+                                  //         size: 18, color: Colors.amber),
+                                  //     title: Text(
+                                  //       'View other sensors (${_allMetadata.length} total)',
+                                  //       style: TextStyle(
+                                  //           fontSize: 12.5,
+                                  //           fontWeight: FontWeight.w600,
+                                  //           color: isDark
+                                  //               ? Colors.amberAccent
+                                  //               : Colors.amber.shade800),
+                                  //     ),
+                                  //     children: [
+                                  //       _buildSearchBar(
+                                  //           isDark,
+                                  //           cardBg,
+                                  //           borderColor,
+                                  //           strongText,
+                                  //           subtleText),
+                                  //       const SizedBox(height: 10),
+                                  //       _buildMetaPicker(
+                                  //           isDark,
+                                  //           cardBg,
+                                  //           borderColor,
+                                  //           strongText,
+                                  //           subtleText),
+                                  //     ],
+                                  //   ),
+                                  // ),
                                 ],
                               ],
                             ),
@@ -3042,18 +3042,18 @@ class _EditDeviceSpecificationDialogState
                         borderColor: borderColor,
                       ),
 
-                      // Partnership Name
-                      _buildFieldInput(
-                        label: 'Partnership Name',
-                        controller: _partnerCtrl,
-                        focusNode: _partnerFocus,
-                        icon: Icons.handshake_outlined,
-                        hint: 'e.g. SS-MET, Annam, KSDMA',
-                        strongText: strongText,
-                        subtleText: subtleText,
-                        cardBg: cardBg,
-                        borderColor: borderColor,
-                      ),
+                      // // Partnership Name
+                      // _buildFieldInput(
+                      //   label: 'Partnership Name',
+                      //   controller: _partnerCtrl,
+                      //   focusNode: _partnerFocus,
+                      //   icon: Icons.handshake_outlined,
+                      //   hint: 'e.g. SS-MET, Annam, KSDMA',
+                      //   strongText: strongText,
+                      //   subtleText: subtleText,
+                      //   cardBg: cardBg,
+                      //   borderColor: borderColor,
+                      // ),
 
                       // SIM Provider
                       _buildFieldInput(

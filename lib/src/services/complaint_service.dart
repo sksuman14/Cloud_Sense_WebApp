@@ -344,6 +344,9 @@ class ComplaintService {
         presignData['url'] ??
         uploadUrl.split('?').first;
     attachmentMeta['url'] = derivedUrl;
+    if (presignData['downloadUrl'] != null) {
+      attachmentMeta['downloadUrl'] = presignData['downloadUrl'];
+    }
 
     // In AWS SigV4, the presigned URL requires Content-Type and x-amz-server-side-encryption: AES256
     final Map<String, String> primaryHeaders = {
@@ -467,6 +470,7 @@ class ComplaintService {
             'key': meta['key'],
             'filename': meta['filename'],
             'contentType': meta['contentType'],
+            if (meta['downloadUrl'] != null) 'downloadUrl': meta['downloadUrl'],
             if (meta['url'] != null) 'url': meta['url'],
             if (meta['maxBytes'] != null) 'maxBytes': meta['maxBytes'],
           });
@@ -838,6 +842,7 @@ class ComplaintService {
         'key': meta['key'],
         'filename': meta['filename'],
         'contentType': meta['contentType'],
+        if (meta['downloadUrl'] != null) 'downloadUrl': meta['downloadUrl'],
         if (meta['url'] != null) 'url': meta['url'],
         if (meta['maxBytes'] != null) 'maxBytes': meta['maxBytes'],
       });
@@ -887,6 +892,7 @@ class ComplaintService {
         'key': meta['key'],
         'filename': meta['filename'],
         'contentType': meta['contentType'],
+        if (meta['downloadUrl'] != null) 'downloadUrl': meta['downloadUrl'],
         if (meta['url'] != null) 'url': meta['url'],
         if (meta['maxBytes'] != null) 'maxBytes': meta['maxBytes'],
       });

@@ -677,29 +677,35 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 5,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 // Device badge
-                Icon(Icons.sensors_rounded,
-                    size: 13,
-                    color: isDark ? Colors.white54 : Colors.black45),
-                const SizedBox(width: 3),
-                Text(
-                  ticket.deviceId,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.sensors_rounded,
+                        size: 13,
+                        color: isDark ? Colors.white54 : Colors.black45),
+                    const SizedBox(width: 3),
+                    Text(
+                      ticket.deviceId,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
                 Text(
                   '•',
                   style: TextStyle(
                     color: isDark ? Colors.white38 : Colors.black26,
                   ),
                 ),
-                const SizedBox(width: 8),
                 // Category badge (highlights custom issue if manual)
                 if (ticket.isCustomCategory) ...[
                   Container(
@@ -742,7 +748,6 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                     ),
                   ),
                 ],
-                const Spacer(),
                 // Status pill
                 Container(
                   padding:
@@ -935,7 +940,9 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                         const SizedBox(height: 6),
                         ComplaintAttachmentsWidget(
                           attachments: r.attachments
-                              .map((a) => a.displayUrl.isNotEmpty ? a.displayUrl : (a.url ?? ''))
+                              .map((a) => a.displayUrl.isNotEmpty
+                                  ? a.displayUrl
+                                  : (a.downloadUrl ?? a.url ?? ''))
                               .where((u) => u.isNotEmpty)
                               .toList(),
                           isDark: isDark,

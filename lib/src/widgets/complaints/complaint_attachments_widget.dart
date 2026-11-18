@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_image_view.dart';
 
 /// Reusable widget for displaying photo attachments / evidence on complaints
@@ -187,76 +188,177 @@ class ComplaintAttachmentsWidget extends StatelessWidget {
   ) {
     showDialog(
       context: context,
-      builder: (ctx) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(16),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                constraints: const BoxConstraints(
-                  maxWidth: 900,
-                  maxHeight: 700,
+      builder: (ctx) => _PhotoPreviewDialog(
+        item: item,
+        index: index,
+        imageBytes: imageBytes,
+        isDark: isDark,
+      ),
+    );
+  }
+}
+
+class _PhotoPreviewDialog extends StatefulWidget {
+  final String item;
+  final int index;
+  final Uint8List? imageBytes;
+  final bool isDark;
+
+  const _PhotoPreviewDialog({
+    required this.item,
+    required this.index,
+    required this.imageBytes,
+    required this.isDark,
+  });
+
+  @override
+  State<_PhotoPreviewDialog> createState() => _PhotoPreviewDialogState();
+}
+
+class _PhotoPreviewDialogState extends State<_PhotoPreviewDialog> {
+  final TransformationController _transController = TransformationController();
+
+  @override
+  void dispose() {
+    _transController.dispose();
+    super.dispose();
+  }
+
+  void _zoomIn() {
+    final matrix = _transController.value.clone()..scale(1.25);
+    setState(() => _transController.value = matrix);
+  }
+
+  void _zoomOut() {
+    final matrix = _transController.value.clone()..scale(0.8);
+    setState(() => _transController.value = matrix);
+  }
+
+  void _resetZoom() {
+    setState(() => _transController.value = Matrix4.identity());
+  }
+
+  Future<void> _openExternal() async {
+    if (widget.item.startsWith('http')) {
+      final uri = Uri.parse(widget.item);
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final dialogWidth = (size.width * 0.94).clamp(320.0, 1400.0);
+    final dialogHeight = (size.height * 0.92).clamp(420.0, 950.0);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      child: Container(
+        width: dialogWidth,
+        height: dialogHeight,
+        decoration: BoxDecoration(
+          color: widget.isDark ? const Color(0xFF0B131B) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.65),
+              blurRadius: 32,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            // Top Bar
+            Row(
+              children: [
+                const Icon(
+                  Icons.image_outlined,
+                  color: Color(0xFF38BDF8),
+                  size: 20,
                 ),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0B131B) : Colors.black87,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.6),
-                      blurRadius: 30,
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                Text(
+                  'Photo Attachment #${widget.index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Top Bar
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.image_outlined,
-                          color: Color(0xFF38BDF8),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Photo Attachment #${index + 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded,
-                              color: Colors.white70),
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          tooltip: 'Close',
-                        ),
-                      ],
-                    ),
-                    const Divider(color: Colors.white12, height: 16),
-                    // Zoomable Image
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: InteractiveViewer(
-                          panEnabled: true,
-                          minScale: 0.5,
-                          maxScale: 4.0,
+                const Spacer(),
+                // Zoom Controls
+                IconButton(
+                  icon: const Icon(Icons.zoom_in_rounded, color: Colors.white70, size: 20),
+                  tooltip: 'Zoom In',
+                  onPressed: _zoomIn,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.zoom_out_rounded, color: Colors.white70, size: 20),
+                  tooltip: 'Zoom Out',
+                  onPressed: _zoomOut,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.restart_alt_rounded, color: Colors.white70, size: 20),
+                  tooltip: 'Reset Zoom',
+                  onPressed: _resetZoom,
+                ),
+                if (widget.item.startsWith('http')) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.white70, size: 19),
+                    tooltip: 'Open in new tab',
+                    onPressed: _openExternal,
+                  ),
+                ],
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Close',
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white12, height: 16),
+
+            // Zoomable and Large Image Viewport
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: Colors.black.withOpacity(0.4),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final w = constraints.maxWidth;
+                      final h = constraints.maxHeight;
+
+                      return InteractiveViewer(
+                        transformationController: _transController,
+                        panEnabled: true,
+                        minScale: 0.5,
+                        maxScale: 6.0,
+                        child: SizedBox(
+                          width: w,
+                          height: h,
                           child: Center(
-                            child: imageBytes != null
+                            child: widget.imageBytes != null
                                 ? Image.memory(
-                                    imageBytes,
+                                    widget.imageBytes!,
+                                    width: w,
+                                    height: h,
                                     fit: BoxFit.contain,
                                   )
-                                : item.startsWith('http')
+                                : widget.item.startsWith('http')
                                     ? DeviceImageView(
-                                        imageUrl: item,
+                                        imageUrl: widget.item,
+                                        width: w,
+                                        height: h,
                                         fit: BoxFit.contain,
                                       )
                                     : const Icon(
@@ -266,23 +368,31 @@ class ComplaintAttachmentsWidget extends StatelessWidget {
                                       ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Pinch / Scroll to zoom • Drag to pan',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
               ),
-            ],
-          ),
-        );
-      },
+            ),
+
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.touch_app_outlined, size: 13, color: Colors.white54),
+                SizedBox(width: 6),
+                Text(
+                  'Scroll / Pinch to zoom • Drag to pan • Use buttons above to zoom or reset',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.white54,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

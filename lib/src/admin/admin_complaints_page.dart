@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_theme.dart';
+import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/admin_complaints_section.dart';
 
 /// Dedicated full-screen page for the Complaint Raise & Support Ticket Platform.
@@ -105,8 +106,17 @@ class _AdminComplaintsPageState extends State<AdminComplaintsPage> {
             isDarkMode: isDark,
             currentAdminEmail: email,
             onInspectDevice: (devId) {
-              // Navigate back to admin and inspect device if needed
-              Navigator.pop(context);
+              final cleanId = devId.trim();
+              if (cleanId.isEmpty || cleanId == 'General / All Devices') return;
+              NavigationUtils.navigateTo(
+                context,
+                '/admin/devicegraph',
+                arguments: {
+                  'deviceName': cleanId,
+                  'sequentialName': cleanId,
+                  'backgroundImagePath': 'assets/backgroundd.jpg',
+                },
+              );
             },
           ),
         ),
