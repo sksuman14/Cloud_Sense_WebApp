@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:cloud_sense_webapp/src/models/complaint_model.dart';
 import 'package:cloud_sense_webapp/src/services/complaint_service.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
-import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/complaint_attachments_widget.dart';
 
 class AdminComplaintsSection extends StatefulWidget {
@@ -108,20 +107,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
         isDarkMode: widget.isDarkMode,
         adminEmail: widget.currentAdminEmail ?? 'admin@cloudsense.com',
         onUpdated: () => _loadComplaints(),
-        onInspectDevice: widget.onInspectDevice ??
-            (devId) {
-              final cleanId = devId.trim();
-              if (cleanId.isEmpty || cleanId == 'General / All Devices') return;
-              NavigationUtils.navigateTo(
-                context,
-                '/admin/devicegraph',
-                arguments: {
-                  'deviceName': cleanId,
-                  'sequentialName': cleanId,
-                  'backgroundImagePath': 'assets/backgroundd.jpg',
-                },
-              );
-            },
+        onInspectDevice: widget.onInspectDevice,
       ),
     );
   }
@@ -1388,58 +1374,6 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                       ],
                                     ),
                                   ),
-                                  if (_ticket.deviceId.trim().isNotEmpty &&
-                                      _ticket.deviceId != 'General / All Devices') ...[
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(6),
-                                        onTap: () {
-                                          final devId = _ticket.deviceId.trim();
-                                          Navigator.of(context).pop();
-                                          if (widget.onInspectDevice != null) {
-                                            widget.onInspectDevice!(devId);
-                                          } else {
-                                            NavigationUtils.navigateTo(
-                                              context,
-                                              '/admin/devicegraph',
-                                              arguments: {
-                                                'deviceName': devId,
-                                                'sequentialName': devId,
-                                                'backgroundImagePath': 'assets/backgroundd.jpg',
-                                              },
-                                            );
-                                          }
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF0284C7).withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: const Color(0xFF0284C7).withOpacity(0.35),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: const [
-                                              Icon(Icons.analytics_outlined,
-                                                  size: 13, color: Color(0xFF0284C7)),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'Inspect',
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF0284C7),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               ),
                             ],
