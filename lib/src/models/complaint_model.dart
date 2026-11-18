@@ -315,7 +315,7 @@ class TicketAttachment {
         attachmentId: json['attachmentId'] ?? '',
         filename: json['filename'] ?? 'file',
         contentType: json['contentType'] ?? 'application/octet-stream',
-        url: json['url'],
+        url: json['url'] ?? json['downloadUrl'] ?? json['s3Url'] ?? json['imageUrl'],
         key: json['key'],
         size: json['size'] ?? json['maxBytes'],
       );
@@ -558,18 +558,20 @@ class ComplaintTicket {
         .map((e) => TicketEvent.fromJson(e as Map<String, dynamic>))
         .toList();
 
-    // Map events to admin responses for backward compatibility
+    // Map events to admin responses (only actual chat messages, excluding status changes)
     final List<AdminResponse> mappedResponses = parsedEvents
-        .where((e) => e.eventType == 'MESSAGE' || e.isStatusChange)
+        .where((e) =>
+            e.eventType == 'MESSAGE' &&
+            e.message != null &&
+            e.message!.trim().isNotEmpty &&
+            !e.isStatusChange)
         .map((e) => AdminResponse(
               id: e.eventId,
               responderName: e.isAdmin
                   ? 'Admin Support'
                   : (e.isUser ? (json['userName'] ?? 'User') : 'System'),
               responderEmail: e.isAdmin ? 'admin@cloudsense.com' : rawEmail,
-              message: e.isStatusChange
-                  ? 'Status changed from ${e.oldStatus} to ${e.newStatus}${e.note != null && e.note!.isNotEmpty ? ': ${e.note}' : ''}'
-                  : (e.message ?? ''),
+              message: e.message ?? '',
               timestamp: e.timestamp,
               isInternal: false,
               attachments: e.attachments,
@@ -586,8 +588,27 @@ class ComplaintTicket {
       desc = first.message ?? '';
     }
 
-    // Attachment URLs extracted from all events
-    final List<String> allAttachments = [];
+    // Attachment URLs extracted from all sources (events, attachments, attachmentUrls)
+    final Set<String> allAttachments = {};
+    if (json['attachmentUrls'] is List) {
+      for (final u in json['attachmentUrls']) {
+        if (u != null && u.toString().isNotEmpty) {
+          allAttachments.add(u.toString());
+        }
+      }
+    }
+    if (json['attachments'] is List) {
+      for (final a in json['attachments']) {
+        if (a is String && a.isNotEmpty) {
+          allAttachments.add(a);
+        } else if (a is Map) {
+          final u = a['url'] ?? a['downloadUrl'] ?? a['s3Url'] ?? a['imageUrl'];
+          if (u != null && u.toString().isNotEmpty) {
+            allAttachments.add(u.toString());
+          }
+        }
+      }
+    }
     for (final ev in parsedEvents) {
       for (final att in ev.attachments) {
         if (att.url != null && att.url!.isNotEmpty) {
@@ -610,9 +631,7 @@ class ComplaintTicket {
       urgent: urgent,
       subject: rawSubject,
       description: desc,
-      attachmentUrls: allAttachments.isNotEmpty
-          ? allAttachments
-          : List<String>.from(json['attachmentUrls'] ?? []),
+      attachmentUrls: allAttachments.toList(),
       telemetrySnapshot:
           Map<String, dynamic>.from(json['telemetrySnapshot'] ?? {}),
       status: status,

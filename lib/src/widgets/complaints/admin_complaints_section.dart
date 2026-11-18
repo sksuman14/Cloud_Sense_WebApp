@@ -28,7 +28,6 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
   bool _isLoading = true;
   List<ComplaintTicket> _allTickets = [];
   String _statusFilter = 'All';
-  String _priorityFilter = 'All';
   String _searchQuery = '';
   String? _loadError;
 
@@ -81,13 +80,6 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
         if (_statusFilter == 'Resolved' &&
             !(t.status == ComplaintStatus.resolved ||
                 t.status == ComplaintStatus.closed)) {
-          return false;
-        }
-      }
-
-      // Priority filter
-      if (_priorityFilter != 'All') {
-        if (t.priority.label.toLowerCase() != _priorityFilter.toLowerCase()) {
           return false;
         }
       }
@@ -217,13 +209,13 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
             builder: (context, constraints) {
               final double maxW = constraints.maxWidth;
               // Responsive column count based on available width:
-              // ≥ 750px: 4 cards in 1 row (4 columns)
-              // 320px - 749px: 2 cards in each row (2 columns, 2 rows)
-              // < 320px: 1 card per row (1 column)
-              final int columns = maxW >= 750
+              // ≥ 720px: 4 cards in 1 row (4 columns)
+              // 260px - 719px: 2 cards in each row (2x2 grid for mobile)
+              // < 260px: 1 card per row
+              final int columns = maxW >= 720
                   ? 4
-                  : (maxW >= 320 ? 2 : 1);
-              final double spacing = columns == 4 ? 12.0 : 10.0;
+                  : (maxW >= 260 ? 2 : 1);
+              final double spacing = columns == 4 ? 12.0 : 8.0;
               final double totalSpacing = spacing * (columns - 1);
               final double cardWidth =
                   ((maxW - totalSpacing) / columns).floorToDouble();
@@ -360,10 +352,6 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                           }).toList(),
                         ),
                       ),
-                      const SizedBox(height: 10),
-
-                      // Priority filter dropdown
-                      _buildPriorityDropdown(isDark),
                     ],
                   )
                 : Wrap(
@@ -402,40 +390,40 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                       ),
 
                       // Status Chips
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
-                          final isSel = _statusFilter == s;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
-                              selected: isSel,
-                              showCheckmark: false,
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                              label: Text(
-                                s,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                                  color: isSel
-                                      ? Colors.white
-                                      : (isDark ? Colors.white70 : Colors.black87),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: ['All', 'Open', 'In Progress', 'Resolved'].map((s) {
+                            final isSel = _statusFilter == s;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                selected: isSel,
+                                showCheckmark: false,
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                label: Text(
+                                  s,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                    color: isSel
+                                        ? Colors.white
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
                                 ),
+                                selectedColor: const Color(0xFF0284C7),
+                                backgroundColor: isDark
+                                    ? const Color(0xFF0F1A24)
+                                    : const Color(0xFFF1F5F9),
+                                onSelected: (_) => setState(() => _statusFilter = s),
                               ),
-                              selectedColor: const Color(0xFF0284C7),
-                              backgroundColor: isDark
-                                  ? const Color(0xFF0F1A24)
-                                  : const Color(0xFFF1F5F9),
-                              onSelected: (_) => setState(() => _statusFilter = s),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }).toList(),
+                        ),
                       ),
-
-                      // Priority filter dropdown
-                      _buildPriorityDropdown(isDark),
                     ],
                   ),
           ),
@@ -467,36 +455,6 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
     );
   }
 
-  Widget _buildPriorityDropdown(bool isDark) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F1A24) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _priorityFilter,
-          dropdownColor: isDark ? const Color(0xFF132230) : Colors.white,
-          style: TextStyle(
-            fontSize: 11.5,
-            color: isDark ? Colors.white70 : Colors.black87,
-          ),
-          items: ['All', 'Critical', 'High', 'Medium', 'Low']
-              .map((p) => DropdownMenuItem(
-                    value: p,
-                    child: Text('Priority: $p'),
-                  ))
-              .toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _priorityFilter = val);
-          },
-        ),
-      ),
-    );
-  }
-
   Widget _buildMetricCard({
     required String title,
     required String value,
@@ -509,16 +467,20 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
   }) {
     return Container(
       width: width,
-      padding: EdgeInsets.all(isCompact ? 12 : 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 16,
+        vertical: isCompact ? 10 : 14,
+      ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF132230) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: color.withOpacity(isDark ? 0.35 : 0.25),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -529,21 +491,21 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: isCompact ? 11.5 : 12,
+                    fontSize: isCompact ? 11 : 12,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white70 : const Color(0xFF64748B),
                   ),
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(icon, size: isCompact ? 16 : 18, color: color),
+              Icon(icon, size: isCompact ? 15 : 18, color: color),
             ],
           ),
-          SizedBox(height: isCompact ? 6 : 8),
+          SizedBox(height: isCompact ? 4 : 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: isCompact ? 20 : 24,
+              fontSize: isCompact ? 19 : 24,
               fontWeight: FontWeight.w900,
               color: isDark ? Colors.white : const Color(0xFF0F172A),
             ),
@@ -554,7 +516,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: isCompact ? 10 : 10.5,
+              fontSize: isCompact ? 9.5 : 10.5,
               color: isDark ? Colors.white38 : Colors.black45,
             ),
           ),
@@ -871,7 +833,9 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
   void initState() {
     super.initState();
     _ticket = widget.ticket;
-    _selectedStatus = widget.ticket.status;
+    _selectedStatus = widget.ticket.status == ComplaintStatus.waitingForUser
+        ? ComplaintStatus.open
+        : widget.ticket.status;
     _loadTicketDetails();
   }
 
@@ -883,7 +847,9 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
       if (detailed != null && mounted) {
         setState(() {
           _ticket = detailed;
-          _selectedStatus = detailed.status;
+          _selectedStatus = detailed.status == ComplaintStatus.waitingForUser
+              ? ComplaintStatus.open
+              : detailed.status;
           _isLoadingDetails = false;
         });
       }
@@ -1249,6 +1215,17 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                       color: isDark ? Colors.white : Colors.black87,
                                     ),
                                   ),
+                                  if (r.attachments.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    ComplaintAttachmentsWidget(
+                                      attachments: r.attachments
+                                          .map((a) => a.url ?? '')
+                                          .where((u) => u.isNotEmpty)
+                                          .toList(),
+                                      isDark: isDark,
+                                      isCompact: true,
+                                    ),
+                                  ],
                                 ],
                               ),
                             );
@@ -1282,7 +1259,9 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                   value: _selectedStatus,
                                   isExpanded: true,
                                   dropdownColor: isDark ? const Color(0xFF0F1E2E) : Colors.white,
-                                  items: ComplaintStatus.values.map((s) => DropdownMenuItem(
+                                  items: ComplaintStatus.values
+                                      .where((s) => s != ComplaintStatus.waitingForUser)
+                                      .map((s) => DropdownMenuItem(
                                     value: s,
                                     child: Row(
                                       children: [

@@ -220,6 +220,13 @@ class ComplaintService {
     final attachmentMeta =
         Map<String, dynamic>.from(presignData['attachment'] ?? {});
 
+    // Derive accessible URL for image viewing
+    final derivedUrl = presignData['downloadUrl'] ??
+        presignData['url'] ??
+        attachmentMeta['url'] ??
+        uploadUrl.split('?').first;
+    attachmentMeta['url'] = derivedUrl;
+
     // Upload raw bytes to S3 using PUT.
     // NOTE: S3 bucket policy requires AES256 server-side encryption.
     // NOTE: Presigned URL is self-authenticated; do NOT include Bearer token.
@@ -320,6 +327,7 @@ class ComplaintService {
             'key': meta['key'],
             'filename': meta['filename'],
             'contentType': meta['contentType'],
+            if (meta['url'] != null) 'url': meta['url'],
           });
         }
 
@@ -686,6 +694,7 @@ class ComplaintService {
         'key': meta['key'],
         'filename': meta['filename'],
         'contentType': meta['contentType'],
+        if (meta['url'] != null) 'url': meta['url'],
       });
     }
 
@@ -733,6 +742,7 @@ class ComplaintService {
         'key': meta['key'],
         'filename': meta['filename'],
         'contentType': meta['contentType'],
+        if (meta['url'] != null) 'url': meta['url'],
       });
     }
 

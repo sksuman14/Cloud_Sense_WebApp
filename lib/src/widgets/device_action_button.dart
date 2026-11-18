@@ -585,14 +585,15 @@ class DeviceActionButton extends StatelessWidget {
               Expanded(child: Text('Metadata', style: TextStyle(fontSize: 13))),
             ]),
           ),
-          const PopupMenuItem<String>(
-            value: 'complaint',
-            child: Row(children: [
-              Icon(Icons.report_problem_outlined, color: Colors.deepOrangeAccent, size: 18),
-              SizedBox(width: 10),
-              Expanded(child: Text('Report Issue', style: TextStyle(fontSize: 13))),
-            ]),
-          ),
+          if (!effectiveIsAdmin)
+            const PopupMenuItem<String>(
+              value: 'complaint',
+              child: Row(children: [
+                Icon(Icons.report_problem_outlined, color: Colors.deepOrangeAccent, size: 18),
+                SizedBox(width: 10),
+                Expanded(child: Text('Report Issue', style: TextStyle(fontSize: 13))),
+              ]),
+            ),
           if (effectiveIsAdmin) ...[
             const PopupMenuItem<String>(
               value: 'upload_image',

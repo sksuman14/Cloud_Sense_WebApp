@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_sense_webapp/main.dart';
@@ -35,6 +36,8 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
   String _statusFilter = 'All';
 
   final Map<String, TextEditingController> _replyControllers = {};
+  final Map<String, List<PlatformFile>> _replyAttachedFiles = {};
+  final Map<String, bool> _isSendingReply = {};
 
   @override
   void initState() {
@@ -86,36 +89,90 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
     } catch (_) {}
   }
 
+  Future<void> _pickReplyPhoto(String ticketId) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+        withData: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _replyAttachedFiles.putIfAbsent(ticketId, () => []);
+          _replyAttachedFiles[ticketId]!.addAll(result.files);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text('Could not attach photo: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _removeReplyPhoto(String ticketId, int index) {
+    setState(() {
+      _replyAttachedFiles[ticketId]?.removeAt(index);
+    });
+  }
+
   Future<void> _sendFollowUp(ComplaintTicket ticket) async {
     final controller = _replyControllers[ticket.ticketId];
-    if (controller == null || controller.text.trim().isEmpty) return;
+    final text = controller?.text.trim() ?? '';
+    final attached = _replyAttachedFiles[ticket.ticketId] ?? [];
+    if (text.isEmpty && attached.isEmpty) return;
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final email = userProvider.userEmail ?? 'user@cloudsense.com';
     final name = userProvider.userName ?? email.split('@').first;
 
+    setState(() {
+      _isSendingReply[ticket.ticketId] = true;
+    });
+
     try {
-      await _complaintService.addUserFollowUp(
+      final payloads = attached
+          .map((f) => AttachmentUploadPayload.fromPlatformFile(f))
+          .toList();
+
+      final updatedTicket = await _complaintService.addUserFollowUp(
         ticketId: ticket.ticketId,
         userEmail: email,
         userName: name,
-        message: controller.text.trim(),
+        message: text.isNotEmpty ? text : 'Attached photo(s)',
+        files: payloads,
       );
 
-      controller.clear();
-      await _loadUserTickets();
+      controller?.clear();
+      _replyAttachedFiles[ticket.ticketId]?.clear();
 
       if (mounted) {
+        setState(() {
+          final idx = _tickets.indexWhere((t) => t.ticketId == ticket.ticketId);
+          if (idx != -1) {
+            _tickets[idx] = updatedTicket;
+          }
+          _isSendingReply[ticket.ticketId] = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: Color(0xFF10B981),
-            content: Text('Follow-up message sent to support team!'),
+            content: Text('Reply and photo sent to support team!'),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isSendingReply[ticket.ticketId] = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFEF4444),
@@ -534,7 +591,11 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
   Widget _buildTicketCard(
       ComplaintTicket ticket, bool isDark, Color cardBg) {
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
-    final hasReplies = ticket.adminResponses.isNotEmpty;
+    final filteredReplies = ticket.adminResponses.where((r) {
+      final msg = r.message.trim().toLowerCase();
+      return !msg.startsWith('status changed');
+    }).toList();
+    final hasReplies = filteredReplies.isNotEmpty;
     final isResolved = ticket.status == ComplaintStatus.resolved ||
         ticket.status == ComplaintStatus.closed;
     final resolvedTime = ticket.resolvedAt ?? ticket.updatedAt;
@@ -804,7 +865,7 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...ticket.adminResponses.map((r) {
+              ...filteredReplies.map((r) {
                 final isUserMsg = r.id.startsWith('USER-');
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -868,6 +929,17 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                           height: 1.35,
                         ),
                       ),
+                      if (r.attachments.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        ComplaintAttachmentsWidget(
+                          attachments: r.attachments
+                              .map((a) => a.url ?? '')
+                              .where((u) => u.isNotEmpty)
+                              .toList(),
+                          isDark: isDark,
+                          isCompact: true,
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -1042,58 +1114,172 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                   ),
                 ),
             ] else ...[
-              // Active ticket reply input bar
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: replyController,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Add follow-up notes or update for support...',
-                        hintStyle: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? const Color(0xFF0F1E2E)
-                            : Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.black12,
+              // Attached photos preview strip (if any selected for this ticket)
+              Builder(
+                builder: (context) {
+                  final attachedPhotos = _replyAttachedFiles[ticket.ticketId] ?? [];
+                  final isSending = _isSendingReply[ticket.ticketId] == true;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (attachedPhotos.isNotEmpty) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF0F1E2E) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: attachedPhotos.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final file = entry.value;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.35)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (file.bytes != null)
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Image.memory(
+                                          file.bytes!,
+                                          width: 24,
+                                          height: 24,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(Icons.image_outlined, size: 16, color: Color(0xFF0284C7)),
+                                    const SizedBox(width: 6),
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 110),
+                                      child: Text(
+                                        file.name,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? Colors.white70 : Colors.black87,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      onTap: () => _removeReplyPhoto(ticket.ticketId, idx),
+                                      child: const Icon(Icons.close_rounded, size: 14, color: Colors.redAccent),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.black12,
+                      ],
+
+                      // Reply input row with camera/photo upload icon button
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: replyController,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Add follow-up notes or update for support...',
+                                hintStyle: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white38 : Colors.black38,
+                                ),
+                                filled: true,
+                                fillColor: isDark
+                                    ? const Color(0xFF0F1E2E)
+                                    : Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: isDark ? Colors.white12 : Colors.black12,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: isDark ? Colors.white12 : Colors.black12,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 6),
+
+                          // Upload photo button
+                          Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F1E2E) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: attachedPhotos.isNotEmpty
+                                    ? const Color(0xFF10B981)
+                                    : (isDark ? Colors.white12 : Colors.black12),
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: isSending ? null : () => _pickReplyPhoto(ticket.ticketId),
+                              tooltip: 'Upload photo / screenshot',
+                              icon: Icon(
+                                Icons.add_photo_alternate_rounded,
+                                color: attachedPhotos.isNotEmpty
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF0284C7),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 6),
+
+                          // Send button
+                          ElevatedButton(
+                            onPressed: isSending ? null : () => _sendFollowUp(ticket),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: isSending
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.send_rounded, size: 14),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => _sendFollowUp(ticket),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Icon(Icons.send_rounded, size: 14),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ],
           ],

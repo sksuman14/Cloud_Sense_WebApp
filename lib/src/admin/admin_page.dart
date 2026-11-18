@@ -1,4 +1,3 @@
-import 'package:cloud_sense_webapp/src/widgets/complaints/admin_complaints_section.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
@@ -79,8 +78,7 @@ class _AdminPageState extends State<AdminPage> {
   final GlobalKey _alertsSectionKey = GlobalKey();
   final GlobalKey _qualitySectionKey = GlobalKey();
   final GlobalKey _healthSectionKey = GlobalKey();
-  final GlobalKey _complaintsSectionKey = GlobalKey();
-  int devicesToShow = 12;
+int devicesToShow = 12;
   int usersToShow = 12;
   String? selectedCategory;
   String selectedBrand = "All"; // ← Default to All initially
@@ -3197,6 +3195,13 @@ class _AdminPageState extends State<AdminPage> {
                 NavigationUtils.navigateTo(context, '/admin/health'),
           ),
           IconButton(
+            tooltip: 'Support & Complaints',
+            icon: Icon(Icons.support_agent_rounded,
+                color: isDark ? strong : Colors.white),
+            onPressed: () =>
+                NavigationUtils.navigateTo(context, '/admin/complaints'),
+          ),
+          IconButton(
             tooltip: 'Refresh devices',
             padding: const EdgeInsets.only(left: 4, right: 12),
             constraints: const BoxConstraints(),
@@ -4533,21 +4538,6 @@ class _AdminPageState extends State<AdminPage> {
                               ),
                       ),
                     ],
-                    const SizedBox(height: 24),
-                    // ── Customer Complaints & Support Section ─────────────────
-                    KeyedSubtree(
-                      key: _complaintsSectionKey,
-                      child: AdminComplaintsSection(
-                        isDarkMode: isDark,
-                        currentAdminEmail: _currentUserEmail,
-                        onInspectDevice: (devId) {
-                          setState(() {
-                            searchQuery = devId;
-                          });
-                          _scrollToSection(_devicesSectionKey);
-                        },
-                      ),
-                    ),
                   ],
                 ),
               ],
