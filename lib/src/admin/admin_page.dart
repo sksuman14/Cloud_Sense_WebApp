@@ -3298,19 +3298,6 @@ class _AdminPageState extends State<AdminPage> {
                         subtle: subtle,
                         isSelected: selectedBrand == "Testing",
                       ),
-                      _StatCard(
-                        onTap: () {
-                          _scrollToSection(_complaintsSectionKey);
-                        },
-                        title: "Support Tickets",
-                        value: "Complaints",
-                        icon: Icons.support_agent_rounded,
-                        iconBg: Colors.indigo,
-                        cardColor: card,
-                        strong: strong,
-                        subtle: subtle,
-                        isSelected: false,
-                      ),
                     ];
 
                     // ── Restricted admin layout ─────────────────────────────

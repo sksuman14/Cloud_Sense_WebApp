@@ -215,13 +215,23 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
           // ── Metric Summary Cards ──
           LayoutBuilder(
             builder: (context, constraints) {
-              final double cardWidth = isMobile
-                  ? (constraints.maxWidth - 10) / 2
-                  : (constraints.maxWidth - 36) / 4;
+              final double maxW = constraints.maxWidth;
+              // Responsive column count based on available width:
+              // ≥ 750px: 4 cards in 1 row (4 columns)
+              // 320px - 749px: 2 cards in each row (2 columns, 2 rows)
+              // < 320px: 1 card per row (1 column)
+              final int columns = maxW >= 750
+                  ? 4
+                  : (maxW >= 320 ? 2 : 1);
+              final double spacing = columns == 4 ? 12.0 : 10.0;
+              final double totalSpacing = spacing * (columns - 1);
+              final double cardWidth =
+                  ((maxW - totalSpacing) / columns).floorToDouble();
+              final bool isCompact = columns != 4;
 
               return Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: spacing,
+                runSpacing: spacing,
                 children: [
                   _buildMetricCard(
                     title: 'Total Tickets',
@@ -231,6 +241,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     color: const Color(0xFF0284C7),
                     width: cardWidth,
                     isDark: isDark,
+                    isCompact: isCompact,
                   ),
                   _buildMetricCard(
                     title: 'Open / Triage',
@@ -240,6 +251,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     color: const Color(0xFFF59E0B),
                     width: cardWidth,
                     isDark: isDark,
+                    isCompact: isCompact,
                   ),
                   _buildMetricCard(
                     title: 'Critical Urgency',
@@ -249,6 +261,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     color: const Color(0xFFEF4444),
                     width: cardWidth,
                     isDark: isDark,
+                    isCompact: isCompact,
                   ),
                   _buildMetricCard(
                     title: 'Resolved',
@@ -258,6 +271,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                     color: const Color(0xFF10B981),
                     width: cardWidth,
                     isDark: isDark,
+                    isCompact: isCompact,
                   ),
                 ],
               );
@@ -408,10 +422,11 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
     required Color color,
     required double width,
     required bool isDark,
+    bool isCompact = false,
   }) {
     return Container(
       width: width,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isCompact ? 12 : 16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF132230) : Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -425,22 +440,27 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : const Color(0xFF64748B),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isCompact ? 11.5 : 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                  ),
                 ),
               ),
-              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 4),
+              Icon(icon, size: isCompact ? 16 : 18, color: color),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isCompact ? 6 : 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: isCompact ? 20 : 24,
               fontWeight: FontWeight.w900,
               color: isDark ? Colors.white : const Color(0xFF0F172A),
             ),
@@ -448,8 +468,10 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
           const SizedBox(height: 2),
           Text(
             subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: isCompact ? 10 : 10.5,
               color: isDark ? Colors.white38 : Colors.black45,
             ),
           ),
