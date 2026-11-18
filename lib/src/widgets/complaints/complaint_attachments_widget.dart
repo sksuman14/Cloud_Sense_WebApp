@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:cloud_sense_webapp/src/widgets/device_image_view.dart';
 
 /// Reusable widget for displaying photo attachments / evidence on complaints
 /// with thumbnail previews and full-screen inspection dialogs.
@@ -102,10 +103,11 @@ class ComplaintAttachmentsWidget extends StatelessWidget {
                   errorBuilder: (_, __, ___) => _buildFallback(item),
                 )
               else if (isNetworkUrl)
-                Image.network(
-                  item,
+                DeviceImageView(
+                  imageUrl: item,
+                  width: thumbSize,
+                  height: thumbSize,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildFallback(item),
                 )
               else
                 _buildFallback(item),
@@ -253,8 +255,8 @@ class ComplaintAttachmentsWidget extends StatelessWidget {
                                     fit: BoxFit.contain,
                                   )
                                 : item.startsWith('http')
-                                    ? Image.network(
-                                        item,
+                                    ? DeviceImageView(
+                                        imageUrl: item,
                                         fit: BoxFit.contain,
                                       )
                                     : const Icon(

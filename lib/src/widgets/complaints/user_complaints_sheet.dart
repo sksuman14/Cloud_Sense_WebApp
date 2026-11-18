@@ -618,9 +618,11 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
           width: 1.2,
         ),
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
+      child: Material(
+        color: Colors.transparent,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
           initiallyExpanded: ticket.status == ComplaintStatus.open ||
               ticket.status == ComplaintStatus.inProgress,
           onExpansionChanged: (expanded) {
@@ -933,7 +935,7 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                         const SizedBox(height: 6),
                         ComplaintAttachmentsWidget(
                           attachments: r.attachments
-                              .map((a) => a.url ?? '')
+                              .map((a) => a.displayUrl.isNotEmpty ? a.displayUrl : (a.url ?? ''))
                               .where((u) => u.isNotEmpty)
                               .toList(),
                           isDark: isDark,
@@ -1285,7 +1287,8 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildEmptyState(bool isDark) {

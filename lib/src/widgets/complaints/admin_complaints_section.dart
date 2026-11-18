@@ -1219,7 +1219,7 @@ class _AdminTicketDetailDialogState extends State<_AdminTicketDetailDialog> {
                                     const SizedBox(height: 6),
                                     ComplaintAttachmentsWidget(
                                       attachments: r.attachments
-                                          .map((a) => a.url ?? '')
+                                          .map((a) => a.displayUrl.isNotEmpty ? a.displayUrl : (a.url ?? ''))
                                           .where((u) => u.isNotEmpty)
                                           .toList(),
                                       isDark: isDark,

@@ -4237,17 +4237,19 @@ int devicesToShow = 12;
                                               filteredDevices.length) ...[
                                         // Divider(
                                         //     color: subtle.withOpacity(0.12)),
-                                        InkWell(
-                                          hoverColor: isDark
-                                              ? const Color(0xFF2C3E50)
-                                                  .withOpacity(0.6)
-                                              : const Color(0xFF5BAA9D)
-                                                  .withOpacity(0.9),
-                                          onTap: () {
-                                            NavigationUtils.navigateTo(
-                                                context, '/deviceinfo');
-                                          },
-                                          child: ListTile(
+                                        Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            hoverColor: isDark
+                                                ? const Color(0xFF2C3E50)
+                                                    .withOpacity(0.6)
+                                                : const Color(0xFF5BAA9D)
+                                                    .withOpacity(0.9),
+                                            onTap: () {
+                                              NavigationUtils.navigateTo(
+                                                  context, '/deviceinfo');
+                                            },
+                                            child: ListTile(
                                             leading: _StatusDot(
                                               color: _isRestrictedAdmin
                                                   ? Colors.grey
@@ -4280,8 +4282,9 @@ int devicesToShow = 12;
                                             ),
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ],
+                                  ],
                                   ),
                               ],
                             ),

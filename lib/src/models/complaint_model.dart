@@ -278,6 +278,8 @@ extension ComplaintStatusExtension on ComplaintStatus {
 
 /// Attachment model for file uploads/downloads
 class TicketAttachment {
+  static String? s3BucketBaseUrl = 'https://ws-support-tickets.s3.amazonaws.com';
+
   final String attachmentId;
   final String filename;
   final String contentType;
@@ -294,6 +296,18 @@ class TicketAttachment {
     this.size,
   });
 
+  String get displayUrl {
+    if (url != null && url!.trim().isNotEmpty) return url!.trim();
+    if (key != null && key!.trim().isNotEmpty) {
+      final k = key!.trim();
+      if (k.startsWith('http://') || k.startsWith('https://')) return k;
+      if (s3BucketBaseUrl != null && s3BucketBaseUrl!.isNotEmpty) {
+        return '$s3BucketBaseUrl/$k';
+      }
+    }
+    return '';
+  }
+
   Map<String, dynamic> toJson() => {
         'attachmentId': attachmentId,
         'filename': filename,
@@ -308,17 +322,33 @@ class TicketAttachment {
         'key': key ?? '',
         'filename': filename,
         'contentType': contentType,
+        if (displayUrl.isNotEmpty) 'url': displayUrl,
       };
 
-  factory TicketAttachment.fromJson(Map<String, dynamic> json) =>
-      TicketAttachment(
-        attachmentId: json['attachmentId'] ?? '',
-        filename: json['filename'] ?? 'file',
-        contentType: json['contentType'] ?? 'application/octet-stream',
-        url: json['url'] ?? json['downloadUrl'] ?? json['s3Url'] ?? json['imageUrl'],
-        key: json['key'],
-        size: json['size'] ?? json['maxBytes'],
-      );
+  factory TicketAttachment.fromJson(Map<String, dynamic> json) {
+    String? resolvedUrl = json['url'] ??
+        json['downloadUrl'] ??
+        json['s3Url'] ??
+        json['imageUrl'];
+
+    if ((resolvedUrl == null || resolvedUrl.isEmpty) && json['key'] != null) {
+      final key = json['key'].toString();
+      if (key.startsWith('http://') || key.startsWith('https://')) {
+        resolvedUrl = key;
+      } else if (s3BucketBaseUrl != null && s3BucketBaseUrl!.isNotEmpty) {
+        resolvedUrl = '$s3BucketBaseUrl/$key';
+      }
+    }
+
+    return TicketAttachment(
+      attachmentId: json['attachmentId'] ?? '',
+      filename: json['filename'] ?? 'file',
+      contentType: json['contentType'] ?? 'application/octet-stream',
+      url: resolvedUrl,
+      key: json['key'],
+      size: json['size'] ?? json['maxBytes'],
+    );
+  }
 }
 
 /// Represents an event in the ticket's history (message, creation, status change)
@@ -605,14 +635,23 @@ class ComplaintTicket {
           final u = a['url'] ?? a['downloadUrl'] ?? a['s3Url'] ?? a['imageUrl'];
           if (u != null && u.toString().isNotEmpty) {
             allAttachments.add(u.toString());
+          } else if (a['key'] != null) {
+            final k = a['key'].toString();
+            if (k.startsWith('http://') || k.startsWith('https://')) {
+              allAttachments.add(k);
+            } else if (TicketAttachment.s3BucketBaseUrl != null &&
+                TicketAttachment.s3BucketBaseUrl!.isNotEmpty) {
+              allAttachments.add('${TicketAttachment.s3BucketBaseUrl}/$k');
+            }
           }
         }
       }
     }
     for (final ev in parsedEvents) {
       for (final att in ev.attachments) {
-        if (att.url != null && att.url!.isNotEmpty) {
-          allAttachments.add(att.url!);
+        final u = att.displayUrl;
+        if (u.isNotEmpty) {
+          allAttachments.add(u);
         }
       }
     }

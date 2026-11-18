@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:cloud_sense_webapp/src/models/complaint_model.dart';
@@ -22,22 +25,21 @@ class AttachmentUploadPayload {
 
   factory AttachmentUploadPayload.fromPlatformFile(PlatformFile file) {
     final bytes = file.bytes ?? Uint8List(0);
-    final ext = (file.extension ?? '').toLowerCase();
-    String mime = 'application/octet-stream';
-    if (ext == 'jpg' || ext == 'jpeg') {
-      mime = 'image/jpeg';
-    } else if (ext == 'png') {
+    String ext = (file.extension ?? '').toLowerCase();
+    if (ext.isEmpty && file.name.contains('.')) {
+      ext = file.name.split('.').last.toLowerCase();
+    }
+
+    // Default allowlist per AWS documentation: image/jpeg, image/png, image/webp, application/pdf
+    String mime = 'image/jpeg';
+    if (ext == 'png') {
       mime = 'image/png';
     } else if (ext == 'webp') {
       mime = 'image/webp';
-    } else if (ext == 'gif') {
-      mime = 'image/gif';
     } else if (ext == 'pdf') {
       mime = 'application/pdf';
-    } else if (ext == 'txt') {
-      mime = 'text/plain';
-    } else if (ext == 'csv') {
-      mime = 'text/csv';
+    } else if (ext == 'jpg' || ext == 'jpeg') {
+      mime = 'image/jpeg';
     }
 
     return AttachmentUploadPayload(
@@ -55,7 +57,36 @@ class AttachmentUploadPayload {
 class ComplaintService {
   static final ComplaintService _instance = ComplaintService._internal();
   factory ComplaintService() => _instance;
-  ComplaintService._internal();
+  ComplaintService._internal() {
+    _loadSavedBucketOrigin();
+  }
+
+  void _loadSavedBucketOrigin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('ticket_s3_bucket_origin');
+      if (saved != null && saved.isNotEmpty) {
+        s3BucketOrigin = saved;
+        TicketAttachment.s3BucketBaseUrl = saved;
+      }
+    } catch (_) {}
+  }
+
+  /// Live log entries for real-time diagnostic viewing
+  static final List<String> uploadLogs = [];
+
+  static void log(String message) {
+    final timestamp = DateTime.now().toIso8601String().substring(11, 19);
+    final line = '[$timestamp] $message';
+    uploadLogs.add(line);
+    if (uploadLogs.length > 250) {
+      uploadLogs.removeAt(0);
+    }
+    lastDebugInfo += '\n$line';
+    debugPrint('[ComplaintService] $message');
+  }
+
+  static String get formattedLogs => uploadLogs.join('\n');
 
   /// Holds the last raw HTTP call and response for live diagnostics
   static String lastDebugInfo = 'No API call made yet';
@@ -63,6 +94,9 @@ class ComplaintService {
   /// Production AWS API Gateway Base URL
   static const String apiBaseUrl =
       'https://hd20svxcbh.execute-api.us-east-1.amazonaws.com';
+
+  /// Known S3 bucket origin dynamically learned from uploadUrl
+  static String? s3BucketOrigin;
 
   /// Helper to get the Cognito ID Token from active Amplify Auth session
   Future<String?> getIdToken() async {
@@ -188,6 +222,66 @@ class ComplaintService {
   // S3 PRESIGNED ATTACHMENT UPLOAD FLOW
   // ─────────────────────────────────────────────────────────────
 
+  /// Executes raw PUT of binary bytes to S3 using native browser XHR on Web
+  /// to capture precise HTTP status codes, error bodies, and CORS preflight blocks.
+  Future<int> _executeS3Upload({
+    required String uploadUrl,
+    required Map<String, String> headers,
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    if (kIsWeb) {
+      final completer = Completer<int>();
+      try {
+        final xhr = html.HttpRequest();
+        xhr.open('PUT', uploadUrl, async: true);
+        headers.forEach((key, val) {
+          try {
+            xhr.setRequestHeader(key, val);
+          } catch (e) {
+            log('Header warning ($key: $val): $e');
+          }
+        });
+
+        xhr.onLoad.listen((_) {
+          final status = xhr.status ?? 0;
+          final respText = xhr.responseText ?? '';
+          log('S3 response HTTP $status');
+          if (respText.isNotEmpty) {
+            log('S3 response body: $respText');
+          }
+          if (!completer.isCompleted) completer.complete(status);
+        });
+
+        xhr.onError.listen((e) {
+          final status = xhr.status ?? 0;
+          log('S3 XHR error: status=$status, statusText=${xhr.statusText}');
+          if (!completer.isCompleted) completer.complete(status);
+        });
+
+        final blob = html.Blob([bytes], contentType);
+        xhr.send(blob);
+        return await completer.future;
+      } catch (e) {
+        log('S3 XHR exception: $e');
+        return 0;
+      }
+    }
+
+    try {
+      final resp = await http.put(
+        Uri.parse(uploadUrl),
+        headers: headers,
+        body: bytes,
+      );
+      log('HTTP Client response: status=${resp.statusCode}, body=${resp.body}');
+      return resp.statusCode;
+    } catch (e) {
+      log('HTTP Client exception: $e');
+      return 0;
+    }
+  }
+
   /// Requests a presigned S3 PUT URL and uploads raw bytes directly to S3.
   /// Returns the attachment metadata map to include in POST /tickets/{id}/messages.
   Future<Map<String, dynamic>> uploadAttachment({
@@ -196,9 +290,19 @@ class ComplaintService {
     required String contentType,
     required Uint8List bytes,
   }) async {
+    log('=== START ATTACHMENT UPLOAD ===');
+    log('Ticket: $ticketId | File: $filename | Type: $contentType | Size: ${bytes.length} bytes');
+
+    if (bytes.isEmpty) {
+      log('ERROR: Attachment has 0 bytes. Aborting.');
+      throw Exception('Attachment has 0 bytes. Cannot upload empty file.');
+    }
+
     final headers = await _getHeaders();
     final presignUri =
         Uri.parse('$apiBaseUrl/tickets/$ticketId/attachments/presign');
+
+    log('Step 1: Requesting presigned URL -> POST $presignUri');
 
     final presignResp = await http.post(
       presignUri,
@@ -210,8 +314,10 @@ class ComplaintService {
       }),
     );
 
+    log('Step 1 result: HTTP ${presignResp.statusCode}');
     if (presignResp.statusCode != 200) {
       final err = _extractErrorMessage(presignResp);
+      log('Presign failed: $err');
       throw Exception('Failed to get upload URL: $err');
     }
 
@@ -220,30 +326,64 @@ class ComplaintService {
     final attachmentMeta =
         Map<String, dynamic>.from(presignData['attachment'] ?? {});
 
+    log('Presign success! S3 Key: ${attachmentMeta['key']}');
+    log('Presigned PUT URL: ${uploadUrl.split('?').first}');
+
+    // Save bucket origin for building absolute image URLs
+    try {
+      final origin = Uri.parse(uploadUrl).origin;
+      s3BucketOrigin = origin;
+      TicketAttachment.s3BucketBaseUrl = origin;
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('ticket_s3_bucket_origin', origin);
+      });
+    } catch (_) {}
+
     // Derive accessible URL for image viewing
     final derivedUrl = presignData['downloadUrl'] ??
         presignData['url'] ??
-        attachmentMeta['url'] ??
         uploadUrl.split('?').first;
     attachmentMeta['url'] = derivedUrl;
 
-    // Upload raw bytes to S3 using PUT.
-    // NOTE: S3 bucket policy requires AES256 server-side encryption.
-    // NOTE: Presigned URL is self-authenticated; do NOT include Bearer token.
-    final s3Resp = await http.put(
-      Uri.parse(uploadUrl),
-      headers: {
-        'Content-Type': contentType,
-        'x-amz-server-side-encryption': 'AES256',
-      },
-      body: bytes,
+    // In AWS SigV4, the presigned URL requires Content-Type and x-amz-server-side-encryption: AES256
+    final Map<String, String> primaryHeaders = {
+      'Content-Type': contentType,
+      'x-amz-server-side-encryption': 'AES256',
+    };
+
+    debugPrint('[ComplaintService] Uploading ${bytes.length} bytes to S3 with headers: $primaryHeaders');
+
+    int statusCode = await _executeS3Upload(
+      uploadUrl: uploadUrl,
+      headers: primaryHeaders,
+      bytes: bytes,
+      contentType: contentType,
     );
 
-    if (s3Resp.statusCode != 200 && s3Resp.statusCode != 204) {
-      throw Exception(
-          'Failed to upload file to S3 (Status ${s3Resp.statusCode})');
+    // If first attempt was rejected, fallback to Content-Type only
+    if (statusCode != 200 && statusCode != 204) {
+      final Map<String, String> retryHeaders = {
+        'Content-Type': contentType,
+      };
+      debugPrint('[ComplaintService] Retrying S3 PUT with fallback headers: $retryHeaders');
+      statusCode = await _executeS3Upload(
+        uploadUrl: uploadUrl,
+        headers: retryHeaders,
+        bytes: bytes,
+        contentType: contentType,
+      );
     }
 
+    if (statusCode != 200 && statusCode != 204) {
+      final msg = statusCode == 0
+          ? 'S3 upload failed with Status 0: Browser CORS preflight (OPTIONS) was rejected by S3 bucket ws-support-tickets.'
+          : 'S3 upload rejected with HTTP $statusCode.';
+      log('🚨 $msg');
+      throw Exception(msg);
+    }
+
+    log('✅ S3 upload successful! (HTTP $statusCode)');
+    log('=== END ATTACHMENT UPLOAD ===');
     return attachmentMeta;
   }
 
@@ -328,18 +468,22 @@ class ComplaintService {
             'filename': meta['filename'],
             'contentType': meta['contentType'],
             if (meta['url'] != null) 'url': meta['url'],
+            if (meta['maxBytes'] != null) 'maxBytes': meta['maxBytes'],
           });
         }
 
         if (uploaded.isNotEmpty) {
+          debugPrint('[ComplaintService] Adding message with ${uploaded.length} attachments to ticket $ticketId');
           await addMessage(
             ticketId: ticketId,
             message: 'Attached files from ticket creation',
             attachments: uploaded,
           );
+          debugPrint('[ComplaintService] Attachments successfully posted to ticket $ticketId');
         }
-      } catch (e) {
-        if (kDebugMode) debugPrint('Warning: Attachment upload failed: $e');
+      } catch (e, stack) {
+        log('❌ ATTACHMENT UPLOAD/POST FAILED: $e\n$stack');
+        throw Exception('Ticket #$ticketId was created, but uploading photo to S3 failed:\n$e');
       }
     }
 
@@ -695,6 +839,7 @@ class ComplaintService {
         'filename': meta['filename'],
         'contentType': meta['contentType'],
         if (meta['url'] != null) 'url': meta['url'],
+        if (meta['maxBytes'] != null) 'maxBytes': meta['maxBytes'],
       });
     }
 
@@ -743,6 +888,7 @@ class ComplaintService {
         'filename': meta['filename'],
         'contentType': meta['contentType'],
         if (meta['url'] != null) 'url': meta['url'],
+        if (meta['maxBytes'] != null) 'maxBytes': meta['maxBytes'],
       });
     }
 
