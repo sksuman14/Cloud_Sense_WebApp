@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/models/complaint_model.dart';
 import 'package:cloud_sense_webapp/src/services/complaint_service.dart';
+import 'package:cloud_sense_webapp/src/services/complaint_notification_service.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/raise_complaint_dialog.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/complaint_attachments_widget.dart';
 
@@ -53,8 +54,41 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
     super.dispose();
   }
 
+  Widget _buildNotificationBadge(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFEF4444).withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.mark_chat_unread_rounded, size: 11, color: Colors.white),
+          const SizedBox(width: 3.5),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _loadUserTickets() async {
     setState(() => _isLoading = true);
+    await ComplaintNotificationService().init();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final email = userProvider.userEmail ?? '';
 
@@ -68,10 +102,22 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
         _tickets = tickets;
         _isLoading = false;
       });
-      // Fetch details for initial active tickets in background
-      for (final t in tickets.take(3)) {
-        _fetchTicketDetails(t.ticketId);
-      }
+
+      // Prefetch details for all tickets to load full events and count unread admin replies
+      Future.wait(tickets.map((t) async {
+        try {
+          final det = await _complaintService.getComplaintById(t.ticketId);
+          if (det != null && mounted) {
+            final idx = _tickets.indexWhere((x) => x.ticketId == t.ticketId);
+            if (idx != -1) {
+              setState(() => _tickets[idx] = det);
+            }
+          }
+        } catch (_) {}
+      })).then((_) {
+        ComplaintNotificationService().getTotalUnreadForUser(_tickets);
+        if (mounted) setState(() {});
+      });
     }
   }
 
@@ -150,6 +196,7 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
 
       controller?.clear();
       _replyAttachedFiles[ticket.ticketId]?.clear();
+      ComplaintNotificationService().markAsSeenByUser(ticket.ticketId);
 
       if (mounted) {
         setState(() {
@@ -608,6 +655,9 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
         ticket.ticketId, () => TextEditingController());
     final replyController = _replyControllers[ticket.ticketId]!;
 
+    final unreadCount =
+        ComplaintNotificationService().getUnreadCountForUser(ticket);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -627,7 +677,9 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
               ticket.status == ComplaintStatus.inProgress,
           onExpansionChanged: (expanded) {
             if (expanded) {
+              ComplaintNotificationService().markAsSeenByUser(ticket.ticketId);
               _fetchTicketDetails(ticket.ticketId);
+              setState(() {});
             }
           },
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -660,6 +712,10 @@ class _UserComplaintsSheetState extends State<UserComplaintsSheet> {
                   ),
                 ),
               ),
+              if (unreadCount > 0) ...[
+                const SizedBox(width: 6),
+                _buildNotificationBadge(unreadCount),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

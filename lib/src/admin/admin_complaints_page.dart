@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_theme.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/admin_complaints_section.dart';
+import 'package:cloud_sense_webapp/src/services/complaint_notification_service.dart';
 
 /// Dedicated full-screen page for the Complaint Raise & Support Ticket Platform.
 /// Opened via the Support icon in the Admin Dashboard AppBar.
@@ -85,6 +86,31 @@ class _AdminComplaintsPageState extends State<AdminComplaintsPage> {
                 letterSpacing: 0.2,
                 fontSize: isMobile ? 16 : 19,
               ),
+            ),
+            AnimatedBuilder(
+              animation: ComplaintNotificationService(),
+              builder: (context, _) {
+                final count = ComplaintNotificationService().cachedAdminUnreadTotal;
+                if (count <= 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

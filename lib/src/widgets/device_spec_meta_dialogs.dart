@@ -295,6 +295,37 @@ class DeviceSpecMetaService {
     final cleanSn = sensorName != null ? _cleanId(sensorName) : cleanDevId;
     final cleanDn = displayName != null ? _cleanId(displayName) : cleanDevId;
 
+    // Region conflict detector: prevents matching devices across different states/projects
+    bool regionsConflict(String topicA, String topicB) {
+      if (topicA.isEmpty || topicB.isEmpty) return false;
+      const regions = [
+        'kerala',
+        'annam',
+        '0426',
+        'ssmet',
+        '0126',
+        'punjab',
+        'aws',
+        'shobha',
+        'chloritrone',
+        'weather',
+        'water'
+      ];
+      for (final r1 in regions) {
+        if (topicA.contains(r1)) {
+          for (final r2 in regions) {
+            // Group aliases as the same region
+            if ((r1 == 'annam' || r1 == '0426') && (r2 == 'annam' || r2 == '0426')) continue;
+            if ((r1 == 'ssmet' || r1 == '0126') && (r2 == 'ssmet' || r2 == '0126')) continue;
+            if (r1 != r2 && topicB.contains(r2)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
     // Flexible helper: matches 'aws_216' with 'aws-216', 'aws 216', or '216'
     bool looseMatch(String a, String b) {
       if (a.isEmpty || b.isEmpty) return false;
@@ -327,8 +358,11 @@ class DeviceSpecMetaService {
       }
     }
 
-    // 3. Match on deviceId
+    // 3. Match on deviceId (ensuring no regional conflict)
     for (final item in list) {
+      final itemTopic = _normalizeTopic(item.deviceIdTopic);
+      if (regionsConflict(cleanT, itemTopic)) continue;
+
       final id = item.deviceId.toLowerCase().trim();
       if (id.isNotEmpty &&
           (id == cleanDevId ||
@@ -341,7 +375,7 @@ class DeviceSpecMetaService {
       }
     }
 
-    // 4. Match numeric suffix if topic or deviceId ends with number
+    // 4. Match numeric suffix with MATCHING region only
     final numMatch = RegExp(r'\d+$').firstMatch(cleanT)?.group(0) ??
         RegExp(r'\d+$').firstMatch(cleanDevId)?.group(0);
     if (numMatch != null && numMatch.isNotEmpty) {
@@ -351,13 +385,40 @@ class DeviceSpecMetaService {
         final itemNum = RegExp(r'\d+$').firstMatch(itemTopic)?.group(0) ??
             RegExp(r'\d+$').firstMatch(itemDevId)?.group(0);
         if (itemNum == numMatch) {
-          // Check prefix similarity
-          if (cleanT.contains('kerala') && (itemTopic.contains('kerala') || itemDevId.contains('kerala'))) return item;
-          if (cleanT.contains('annam') && (itemTopic.contains('annam') || itemDevId.contains('annam'))) return item;
-          if (cleanT.contains('ssmet') && (itemTopic.contains('ssmet') || itemDevId.contains('ssmet') || item.partnershipName.toLowerCase().contains('ss-met') || item.partnershipName.toLowerCase().contains('ssmet'))) return item;
-          if (cleanT.contains('punjab') && (itemTopic.contains('punjab') || itemDevId.contains('punjab'))) return item;
-          if (cleanT.contains('aws') && (itemTopic.contains('aws') || itemDevId.contains('aws'))) return item;
-          return item;
+          // Check prefix/region similarity (only return if region actually matches!)
+          if (cleanT.contains('kerala') && (itemTopic.contains('kerala') || itemDevId.contains('kerala'))) {
+            return item;
+          }
+          if ((cleanT.contains('annam') || cleanT.contains('0426')) &&
+              (itemTopic.contains('annam') || itemTopic.contains('0426') || itemDevId.contains('annam'))) {
+            return item;
+          }
+          if ((cleanT.contains('ssmet') || cleanT.contains('0126')) &&
+              (itemTopic.contains('ssmet') ||
+                  itemTopic.contains('0126') ||
+                  itemDevId.contains('ssmet') ||
+                  item.partnershipName.toLowerCase().contains('ss-met') ||
+                  item.partnershipName.toLowerCase().contains('ssmet'))) {
+            return item;
+          }
+          if (cleanT.contains('punjab') && (itemTopic.contains('punjab') || itemDevId.contains('punjab'))) {
+            return item;
+          }
+          if (cleanT.contains('aws') && (itemTopic.contains('aws') || itemDevId.contains('aws'))) {
+            return item;
+          }
+          if (cleanT.contains('shobha') && (itemTopic.contains('shobha') || itemDevId.contains('shobha'))) {
+            return item;
+          }
+          if (cleanT.contains('chloritrone') && (itemTopic.contains('chloritrone') || itemDevId.contains('chloritrone'))) {
+            return item;
+          }
+          if (cleanT.contains('weather') && (itemTopic.contains('weather') || itemDevId.contains('weather'))) {
+            return item;
+          }
+          if (cleanT.contains('water') && (itemTopic.contains('water') || itemDevId.contains('water'))) {
+            return item;
+          }
         }
       }
     }
@@ -378,6 +439,35 @@ class DeviceSpecMetaService {
     final cleanSn = sensorName != null ? _cleanId(sensorName) : cleanDevId;
     final cleanDn = displayName != null ? _cleanId(displayName) : cleanDevId;
 
+    bool regionsConflict(String topicA, String topicB) {
+      if (topicA.isEmpty || topicB.isEmpty) return false;
+      const regions = [
+        'kerala',
+        'annam',
+        '0426',
+        'ssmet',
+        '0126',
+        'punjab',
+        'aws',
+        'shobha',
+        'chloritrone',
+        'weather',
+        'water'
+      ];
+      for (final r1 in regions) {
+        if (topicA.contains(r1)) {
+          for (final r2 in regions) {
+            if ((r1 == 'annam' || r1 == '0426') && (r2 == 'annam' || r2 == '0426')) continue;
+            if ((r1 == 'ssmet' || r1 == '0126') && (r2 == 'ssmet' || r2 == '0126')) continue;
+            if (r1 != r2 && topicB.contains(r2)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
     // 1. Match by topic segment in deviceId_topic
     for (final item in list) {
       final itemTopic = _normalizeTopic(item.deviceIdTopic);
@@ -394,8 +484,11 @@ class DeviceSpecMetaService {
       }
     }
 
-    // 3. Match on device ID prefix before #
+    // 3. Match on device ID prefix before # (ensuring no regional conflict)
     for (final item in list) {
+      final itemTopic = _normalizeTopic(item.deviceIdTopic);
+      if (regionsConflict(cleanT, itemTopic)) continue;
+
       final id = _cleanId(item.deviceIdTopic);
       if (id.isNotEmpty && (id == cleanDevId || id == cleanSn || id == cleanDn)) {
         return item;
@@ -410,9 +503,16 @@ class DeviceSpecMetaService {
         final itemNum = RegExp(r'\d+$').firstMatch(itemTopic)?.group(0);
         if (itemNum == numMatch) {
           if (cleanT.contains('kerala') && itemTopic.contains('kerala')) return item;
-          if (cleanT.contains('annam') && itemTopic.contains('annam')) return item;
-          if (cleanT.contains('ssmet') && itemTopic.contains('ssmet')) return item;
+          if ((cleanT.contains('annam') || cleanT.contains('0426')) &&
+              (itemTopic.contains('annam') || itemTopic.contains('0426'))) return item;
+          if ((cleanT.contains('ssmet') || cleanT.contains('0126')) &&
+              (itemTopic.contains('ssmet') || itemTopic.contains('0126'))) return item;
           if (cleanT.contains('punjab') && itemTopic.contains('punjab')) return item;
+          if (cleanT.contains('aws') && itemTopic.contains('aws')) return item;
+          if (cleanT.contains('shobha') && itemTopic.contains('shobha')) return item;
+          if (cleanT.contains('chloritrone') && itemTopic.contains('chloritrone')) return item;
+          if (cleanT.contains('weather') && itemTopic.contains('weather')) return item;
+          if (cleanT.contains('water') && itemTopic.contains('water')) return item;
         }
       }
     }
@@ -808,7 +908,7 @@ class _DeviceSpecificationDialogWidgetState
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
-                                            'No matching specification found for $cleanTopic ($widget.deviceId). You can search from all available records below.',
+                                            'No matching specification found for $cleanTopic (${widget.deviceId}). You can search from all available records below.',
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: isDark
@@ -2120,7 +2220,7 @@ class _DeviceMetadataDialogWidgetState
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
-                                            'No matching metadata found for $cleanTopic ($widget.deviceId). You can search from all available sensor records below.',
+                                            'No matching metadata found for $cleanTopic (${widget.deviceId}). You can search from all available sensor records below.',
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: isDark

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_sense_webapp/src/models/complaint_model.dart';
 import 'package:cloud_sense_webapp/src/services/complaint_service.dart';
+import 'package:cloud_sense_webapp/src/services/complaint_notification_service.dart';
 import 'package:cloud_sense_webapp/src/utils/auth_utils.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/complaint_attachments_widget.dart';
 
@@ -44,12 +45,29 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
     });
 
     try {
+      await ComplaintNotificationService().init();
       final list = await _complaintService.getAllComplaints();
 
       if (mounted) {
         setState(() {
           _allTickets = list;
           _isLoading = false;
+        });
+
+        // Prefetch ticket details in background to load events and calculate unread counts
+        Future.wait(list.map((t) async {
+          try {
+            final det = await _complaintService.getComplaintById(t.ticketId);
+            if (det != null && mounted) {
+              final idx = _allTickets.indexWhere((x) => x.ticketId == t.ticketId);
+              if (idx != -1) {
+                setState(() => _allTickets[idx] = det);
+              }
+            }
+          } catch (_) {}
+        })).then((_) {
+          ComplaintNotificationService().getTotalUnreadForAdmin(_allTickets);
+          if (mounted) setState(() {});
         });
       }
     } catch (e) {
@@ -100,6 +118,8 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
   }
 
   void _openDetailModal(ComplaintTicket ticket) {
+    ComplaintNotificationService().markAsSeenByAdmin(ticket.ticketId);
+    setState(() {});
     showDialog(
       context: context,
       builder: (ctx) => _AdminTicketDetailDialog(
@@ -108,6 +128,40 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
         adminEmail: widget.currentAdminEmail ?? 'admin@cloudsense.com',
         onUpdated: () => _loadComplaints(),
         onInspectDevice: widget.onInspectDevice,
+      ),
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Widget _buildNotificationBadge(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFEF4444).withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.mark_chat_unread_rounded, size: 11, color: Colors.white),
+          const SizedBox(width: 3.5),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -173,14 +227,31 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Customer Complaints & Support',
-                      style: TextStyle(
-                        fontFamily: 'OpenSans',
-                        fontSize: isMobile ? 18 : 22,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Customer Complaints & Support',
+                            style: TextStyle(
+                              fontFamily: 'OpenSans',
+                              fontSize: isMobile ? 18 : 22,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        Builder(
+                          builder: (context) {
+                            final totalUnread = ComplaintNotificationService()
+                                .getTotalUnreadForAdmin(_allTickets);
+                            if (totalUnread <= 0) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: _buildNotificationBadge(totalUnread),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -523,11 +594,12 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
   Widget _buildTicketRow(ComplaintTicket ticket, bool isDark, Color cardBg,
       Color borderColor) {
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+    final unreadCount = ComplaintNotificationService().getUnreadCountForAdmin(ticket);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth;
-        final bool isCompact = cardWidth < 680;
+        final bool isCompact = cardWidth < 850;
 
         if (isCompact) {
           // ── Compact / Mobile Card Layout (Vertical Flow, Never Overflows) ──
@@ -547,7 +619,7 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Category Icon + Ticket ID + Status Badge
+                // Top Row: Category Icon + Ticket ID + Unread Badge + Status Badge
                 Row(
                   children: [
                     Container(
@@ -560,23 +632,34 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                           color: ticket.category.color, size: 16),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white12 : Colors.black.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        ticket.ticketId,
-                        style: TextStyle(
-                          fontFamily: 'OpenSans',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white70 : Colors.black87,
-                        ),
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white12 : Colors.black.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              ticket.ticketId,
+                              style: TextStyle(
+                                fontFamily: 'OpenSans',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ),
+                          if (unreadCount > 0)
+                            _buildNotificationBadge(unreadCount),
+                        ],
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -789,83 +872,91 @@ class _AdminComplaintsSectionState extends State<AdminComplaintsSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white12
-                                : Colors.black.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            ticket.ticketId,
-                            style: TextStyle(
-                              fontFamily: 'OpenSans',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: ticket.priority.color.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        Expanded(
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
-                              Icon(ticket.priority.icon,
-                                  size: 10, color: ticket.priority.color),
-                              const SizedBox(width: 3),
-                              Text(
-                                ticket.priority.label.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: ticket.priority.color,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white12
+                                      : Colors.black.withOpacity(0.06),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  ticket.ticketId,
+                                  style: TextStyle(
+                                    fontFamily: 'OpenSans',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? Colors.white70 : Colors.black87,
+                                  ),
                                 ),
                               ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: ticket.priority.color.withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(ticket.priority.icon,
+                                        size: 10, color: ticket.priority.color),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      ticket.priority.label.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: ticket.priority.color,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (unreadCount > 0)
+                                _buildNotificationBadge(unreadCount),
+                              if (ticket.isCustomCategory)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: const Color(0xFF10B981).withOpacity(0.5),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.edit_note,
+                                          size: 11, color: Color(0xFF10B981)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'CUSTOM: ${ticket.displayCategory}',
+                                        style: const TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF10B981),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        if (ticket.isCustomCategory) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.18),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: const Color(0xFF10B981).withOpacity(0.5),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.edit_note,
-                                    size: 11, color: Color(0xFF10B981)),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'CUSTOM: ${ticket.displayCategory}',
-                                  style: const TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF10B981),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        const Spacer(),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),

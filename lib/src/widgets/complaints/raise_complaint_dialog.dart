@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/models/complaint_model.dart';
 import 'package:cloud_sense_webapp/src/services/complaint_service.dart';
+import 'package:cloud_sense_webapp/src/services/complaint_notification_service.dart';
 import 'package:cloud_sense_webapp/src/utils/prefix_mapping.dart';
 
 /// Clean, simple, and user-friendly issue reporting dialog for CloudSense WebApp.
@@ -179,6 +180,8 @@ class _RaiseComplaintDialogState extends State<RaiseComplaintDialog> {
         description: _descriptionController.text.trim(),
         files: uploadPayloads,
       );
+
+      ComplaintNotificationService().markAsSeenByUser(ticket.ticketId);
 
       if (mounted) {
         widget.onSubmitted?.call(ticket);

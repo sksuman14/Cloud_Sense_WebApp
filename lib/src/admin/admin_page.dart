@@ -10,6 +10,7 @@ import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
 import 'package:cloud_sense_webapp/src/views/devices/qr_scan_add_device.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_action_button.dart';
+import 'package:cloud_sense_webapp/src/services/complaint_notification_service.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1487,6 +1488,7 @@ int devicesToShow = 12;
     _loadTimestampMapFromApi();
     _fetchQualitySummary();
     _fetchHealthSummary();
+    ComplaintNotificationService().refreshAdminUnread();
   }
 
   Future<void> _fetchHealthSummary() async {
@@ -3194,12 +3196,48 @@ int devicesToShow = 12;
             onPressed: () =>
                 NavigationUtils.navigateTo(context, '/admin/health'),
           ),
-          IconButton(
-            tooltip: 'Support & Complaints',
-            icon: Icon(Icons.support_agent_rounded,
-                color: isDark ? strong : Colors.white),
-            onPressed: () =>
-                NavigationUtils.navigateTo(context, '/admin/complaints'),
+          AnimatedBuilder(
+            animation: ComplaintNotificationService(),
+            builder: (context, _) {
+              final unread = ComplaintNotificationService().cachedAdminUnreadTotal;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    tooltip: 'Support & Complaints',
+                    icon: Icon(Icons.support_agent_rounded,
+                        color: isDark ? strong : Colors.white),
+                    onPressed: () =>
+                        NavigationUtils.navigateTo(context, '/admin/complaints').then((_) {
+                          ComplaintNotificationService().refreshAdminUnread();
+                        }),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Center(
+                          child: Text(
+                            '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           IconButton(
             tooltip: 'Refresh devices',

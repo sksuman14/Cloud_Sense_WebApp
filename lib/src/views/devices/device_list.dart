@@ -1,5 +1,6 @@
 import 'package:cloud_sense_webapp/src/widgets/complaints/raise_complaint_dialog.dart';
 import 'package:cloud_sense_webapp/src/widgets/complaints/user_complaints_sheet.dart';
+import 'package:cloud_sense_webapp/src/services/complaint_notification_service.dart';
 import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/navigation_utils.dart';
 import 'package:cloud_sense_webapp/src/views/devices/manually_add_device.dart';
@@ -250,6 +251,9 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
         _email = savedEmail ?? currentUser.username;
       });
       _fetchData();
+      if (_email != null && _email!.isNotEmpty) {
+        ComplaintNotificationService().refreshUserUnread(_email!);
+      }
     } catch (e) {
       if (savedEmail != null && savedEmail.isNotEmpty) {
         if (savedEmail.trim().toLowerCase() == "05agriculture.05@gmail.com") {
@@ -261,6 +265,9 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
           _email = savedEmail;
         });
         _fetchData();
+        if (_email != null && _email!.isNotEmpty) {
+          ComplaintNotificationService().refreshUserUnread(_email!);
+        }
       } else {
         await Amplify.Auth.signOut();
         await prefs.clear();
@@ -842,34 +849,63 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  final devNames = _getSortedDeviceDisplayNames();
-                                  UserComplaintsSheet.show(
-                                    context,
-                                    availableDevices: devNames,
+                              AnimatedBuilder(
+                                animation: ComplaintNotificationService(),
+                                builder: (context, _) {
+                                  final unread = ComplaintNotificationService().cachedUserUnreadTotal;
+                                  return OutlinedButton.icon(
+                                    onPressed: () {
+                                      final devNames = _getSortedDeviceDisplayNames();
+                                      UserComplaintsSheet.show(
+                                        context,
+                                        availableDevices: devNames,
+                                      );
+                                    },
+                                    icon: Icon(Icons.receipt_long_rounded, size: 16, color: subtle),
+                                    label: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          "Tickets",
+                                          style: TextStyle(
+                                            color: strong,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                        if (unread > 0) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEF4444),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              '$unread',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(
+                                          color: isDarkMode
+                                              ? Colors.white24
+                                              : Colors.black26),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 8),
+                                    ),
                                   );
                                 },
-                                icon: Icon(Icons.receipt_long_rounded, size: 16, color: subtle),
-                                label: Text(
-                                  "Tickets",
-                                  style: TextStyle(
-                                    color: strong,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                      color: isDarkMode
-                                          ? Colors.white24
-                                          : Colors.black26),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 8),
-                                ),
                               ),
                               const SizedBox(width: 8),
 
