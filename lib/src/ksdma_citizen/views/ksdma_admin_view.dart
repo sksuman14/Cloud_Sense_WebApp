@@ -105,7 +105,19 @@ class _KsdmaAdminViewState extends State<KsdmaAdminView> {
     final pending = state.pendingStations;
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
-    final activeObsCount = state.observations.where((o) => !o.isRemoved && !o.observationDate.isBefore(todayStart)).length;
+    final approvedStationIds = state.stations.where((s) => s.approvalStatus == ApprovalStatus.approved).map((s) => s.stationId).toSet();
+    final activeObsCount = state.observations
+        .where((o) {
+          if (o.isRemoved) return false;
+          final d = o.observationDate.toLocal();
+          if (d.year != todayStart.year || d.month != todayStart.month || d.day != todayStart.day) {
+            return false;
+          }
+          return approvedStationIds.contains(o.stationId);
+        })
+        .map((o) => o.stationId)
+        .toSet()
+        .length;
 
     final activeStationsCount = state.stations.where((s) => s.approvalStatus == ApprovalStatus.approved).length;
     final rejectedStationsCount = state.stations.where((s) => s.approvalStatus == ApprovalStatus.rejected).length;
