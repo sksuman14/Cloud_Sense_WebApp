@@ -373,7 +373,7 @@ class KsdmaApiService {
         fetchWsNearestSensors(),
         http
             .get(Uri.parse('$apiBaseUrl/stations'), headers: {'Accept': 'application/json'})
-            .timeout(const Duration(seconds: 7))
+            .timeout(const Duration(seconds: 12))
             .then<http.Response?>((r) => r)
             .catchError((_) => null),
       ]);
@@ -385,7 +385,6 @@ class KsdmaApiService {
       stationsList.addAll(mapWsDevicesToStations(devices));
 
       // 2. Map custom stations from backend Lambda API
-      bool loadedFromMain = false;
       if (response != null && response.statusCode == 200) {
         try {
           final Map<String, dynamic> body = jsonDecode(response.body);
@@ -396,46 +395,12 @@ class KsdmaApiService {
               final st = _mapRowToStation(r);
               if (!existingIds.contains(st.stationId)) {
                 stationsList.add(st);
+                existingIds.add(st.stationId);
               }
             }
-            loadedFromMain = true;
           }
         } catch (e) {
           print('Notice parsing /api/stations: $e');
-        }
-      }
-
-      // 3. Resilient Fallback: If monolithic /api/stations returned 502 / failed (e.g. AWS Lambda 6MB payload limit),
-      // fetch all 14 Kerala districts concurrently so available stations across Kerala still load smoothly!
-      if (!loadedFromMain) {
-        print('⚡ Notice: Main /api/stations unavailable (${response?.statusCode}). Activating fast parallel district fallback...');
-        final districtResults = await Future.wait(
-          KeralaAdminData.districts.map((dist) async {
-            try {
-              final res = await http.get(
-                Uri.parse('$apiBaseUrl/stations?district=${Uri.encodeComponent(dist)}'),
-                headers: {'Accept': 'application/json'},
-              ).timeout(const Duration(seconds: 8));
-              if (res.statusCode == 200) {
-                final Map<String, dynamic> b = jsonDecode(res.body);
-                if (b['success'] == true && b['stations'] is List) {
-                  return b['stations'] as List;
-                }
-              }
-            } catch (_) {}
-            return [];
-          }),
-        );
-
-        final existingIds = stationsList.map((s) => s.stationId).toSet();
-        for (var rows in districtResults) {
-          for (var r in rows) {
-            final st = _mapRowToStation(r);
-            if (!existingIds.contains(st.stationId)) {
-              stationsList.add(st);
-              existingIds.add(st.stationId);
-            }
-          }
         }
       }
     } catch (e) {
@@ -493,7 +458,7 @@ class KsdmaApiService {
     try {
       final response = await http
           .get(Uri.parse('$apiBaseUrl/stations/pending'), headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 7))
+          .timeout(const Duration(seconds: 12))
           .then<http.Response?>((r) => r)
           .catchError((_) => null);
 
@@ -504,38 +469,6 @@ class KsdmaApiService {
           return rows.map((r) => _mapRowToStation(r)).toList();
         }
       }
-
-      // Fallback: Concurrent district query if monolithic /pending fails (e.g. 502 Bad Gateway)
-      final districtResults = await Future.wait(
-        KeralaAdminData.districts.map((dist) async {
-          try {
-            final res = await http.get(
-              Uri.parse('$apiBaseUrl/stations/pending?district=${Uri.encodeComponent(dist)}'),
-              headers: {'Accept': 'application/json'},
-            ).timeout(const Duration(seconds: 8));
-            if (res.statusCode == 200) {
-              final Map<String, dynamic> b = jsonDecode(res.body);
-              if (b['success'] == true && b['stations'] is List) {
-                return b['stations'] as List;
-              }
-            }
-          } catch (_) {}
-          return [];
-        }),
-      );
-
-      final List<KsdmaStation> list = [];
-      final Set<String> ids = {};
-      for (var rows in districtResults) {
-        for (var r in rows) {
-          final st = _mapRowToStation(r);
-          if (!ids.contains(st.stationId)) {
-            list.add(st);
-            ids.add(st.stationId);
-          }
-        }
-      }
-      return list;
     } catch (e) {
       print('Error fetching pending stations via API: $e');
     }
