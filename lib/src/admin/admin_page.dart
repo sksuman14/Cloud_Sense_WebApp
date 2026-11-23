@@ -308,8 +308,8 @@ int devicesToShow = 12;
                                 padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
                                 child: Icon(
                                   Icons.more_vert,
-                                  color: isDark ? Colors.white54 : Colors.black54,
-                                  size: 16,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                  size: 24,
                                 ),
                               ),
                             ),
