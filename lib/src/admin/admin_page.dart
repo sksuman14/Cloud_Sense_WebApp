@@ -3190,6 +3190,13 @@ int devicesToShow = 12;
         actions: [
 
           IconButton(
+            tooltip: 'Master Maintenance Sheet',
+            icon: Icon(Icons.table_chart_rounded,
+                color: isDark ? strong : Colors.white),
+            onPressed: () =>
+                NavigationUtils.navigateTo(context, '/admin/master-sheet'),
+          ),
+          IconButton(
             tooltip: 'Device Health Status',
             icon: Icon(Icons.health_and_safety_outlined,
                 color: isDark ? strong : Colors.white),

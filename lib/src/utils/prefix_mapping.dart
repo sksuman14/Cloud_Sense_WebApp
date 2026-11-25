@@ -977,7 +977,9 @@ class DevicePrefixUtils {
     if (topic.contains('WS/GPC')) {
       return (category: 'ANNAM Sensors', prefix: 'GP');
     }
-    if (topic.contains('WS/ANNAM_CP')) {
+    if (topic.contains('WS/ANNAM_CP') ||
+        topic.toUpperCase().contains('ANNAM_CP') ||
+        topic.toUpperCase().contains('ANNAM-CP')) {
       return (category: 'ANNAM Sensors', prefix: 'AM');
     }
     if (topic.contains('WS/Punjab') || topic.contains('Punjab')) {
@@ -1082,6 +1084,15 @@ class DevicePrefixUtils {
 
   /// Returns the appropriate OTA (Data Fetch) API URL for a given device.
   static String? getOtaApiUrl(String prefix, {String sensorName = ''}) {
+    final snUpper = sensorName.toUpperCase();
+    if (snUpper.startsWith('AM') ||
+        snUpper.startsWith('ANNAM_CP') ||
+        (snUpper.startsWith('ANNAM-CP') && !snUpper.startsWith('ANNAM-CPS')) ||
+        snUpper.startsWith('CP001') ||
+        snUpper.startsWith('ANNAM_CP01')) {
+      return 'https://jqg191rx86.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Annam_CP';
+    }
+
     switch (prefix.toUpperCase()) {
       case 'KR':
         return 'https://f1hgmtzq6h.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Kerala';
@@ -1107,13 +1118,11 @@ class DevicePrefixUtils {
       case 'IT':
         return 'https://hg6lmrdyee.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Awadh_IITB';
       case 'AM':
-        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata';
+        return 'https://jqg191rx86.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Annam_CP';
       case 'PJ':
         return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/punjabdata';
       case 'WT':
         return 'https://uqevvzptx7.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_API_Weather_Sensor';
-      case 'KR':
-        return 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/keraladata';
       case 'AW':
       case 'AT':
         return 'https://p8aytf5ev5.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_AWS';

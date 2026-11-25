@@ -367,7 +367,7 @@ class DeviceActionButton extends StatelessWidget {
               final prefix = mapped.prefix.isNotEmpty ? mapped.prefix : 'WJ';
               final apiUrl = DevicePrefixUtils.getOtaApiUrl(prefix, sensorName: sn) ??
                   (isAnnamCp01
-                      ? 'https://ae0i1o0fo4.execute-api.us-east-1.amazonaws.com/annamcpdata'
+                      ? 'https://jqg191rx86.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_Annam_CP'
                       : 'https://2jajsh64sd.execute-api.us-east-1.amazonaws.com/default/Data_Fetch_SSMet0126');
               AdvancedDataSendDialog.show(
                 context,

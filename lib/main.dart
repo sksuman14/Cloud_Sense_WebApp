@@ -4,6 +4,7 @@ import 'package:cloud_sense_webapp/src/admin/admin_page.dart';
 import 'package:cloud_sense_webapp/src/admin/device_health_status.dart';
 import 'package:cloud_sense_webapp/src/admin/quality_diagnostics_page.dart';
 import 'package:cloud_sense_webapp/src/admin/admin_complaints_page.dart';
+import 'package:cloud_sense_webapp/src/admin/master_maintenance_page.dart';
 
 import 'package:cloud_sense_webapp/src/auth/login_page.dart';
 import 'package:cloud_sense_webapp/src/services/push_notifications.dart';
@@ -944,6 +945,21 @@ class MyApp extends StatelessWidget {
                   final userProvider = Provider.of<UserProvider>(context, listen: false);
                   final isDark = themeProvider.isDarkMode;
                   return AdminComplaintsPage(
+                    adminEmail: userProvider.userEmail,
+                    isDarkMode: isDark,
+                  );
+                },
+              ),
+            );
+            break;
+          case '/admin/master-sheet':
+            pageContent = RouteGuard(
+              requirement: GuardRequirement.superAdmin,
+              child: Builder(
+                builder: (context) {
+                  final userProvider = Provider.of<UserProvider>(context, listen: false);
+                  final isDark = themeProvider.isDarkMode;
+                  return MasterMaintenanceSheetPage(
                     adminEmail: userProvider.userEmail,
                     isDarkMode: isDark,
                   );

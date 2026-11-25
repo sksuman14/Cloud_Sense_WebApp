@@ -101,6 +101,20 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
   bool get _isKRDevice => widget.deviceId.toUpperCase().startsWith('KR');
   bool get _isAWDevice => widget.deviceId.toUpperCase().startsWith('AW');
 
+  /// Returns true when the device is an AM (ANNAM_CP) sensor.
+  bool get _isAMDevice {
+    final dev = widget.deviceId.toUpperCase();
+    final disp = (widget.displayDeviceId ?? '').toUpperCase();
+    return dev.startsWith('AM') ||
+        dev.startsWith('ANNAM_CP') ||
+        (dev.startsWith('ANNAM-CP') && !dev.startsWith('ANNAM-CPS')) ||
+        (dev.startsWith('CP') && !dev.startsWith('CPS')) ||
+        disp.startsWith('AM') ||
+        disp.startsWith('ANNAM_CP') ||
+        (disp.startsWith('ANNAM-CP') && !disp.startsWith('ANNAM-CPS')) ||
+        (disp.startsWith('CP') && !disp.startsWith('CPS'));
+  }
+
   /// Returns true when the device is a SH (Shobha) sensor.
   bool get _isSHDevice => widget.deviceId.toUpperCase().startsWith('SH');
 
@@ -120,6 +134,10 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
     } else if (_isKRDevice || _isAWDevice) {
       // Kerala / AWS API expects  WS_N
       krDisplayId = 'WS_$numericInt';
+    } else if (_isAMDevice) {
+      // AM (ANNAM_CP) expects ANNAM_CP01 format
+      final padded = numericInt.toString().padLeft(2, '0');
+      krDisplayId = 'ANNAM_CP$padded';
     } else {
       krDisplayId = numericId;
     }
@@ -190,9 +208,11 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                               ? "AWS Device Configuration"
                               : _isSHDevice
                                   ? "Sobha Device Configuration"
-                                  : _isWTDevice
-                                      ? "WT Device Configuration"
-                                      : "Device Configuration",
+                                  : _isAMDevice
+                                      ? "ANNAM CP Device Configuration"
+                                      : _isWTDevice
+                                          ? "WT Device Configuration"
+                                          : "Device Configuration",
                   style: TextStyle(
                   color: textColor,
                   fontSize: isMobile ? 22 : 24,
@@ -255,8 +275,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
                 _buildTextField("HTTP Upload API", _httpUploadApiController, Icons.cloud_upload),
                 const SizedBox(height: 12),
                 _buildSwitch("Restart Device", _jwRestart, (v) => setState(() => _jwRestart = v)),
-              ] else if (_isKRDevice || _isAWDevice || _isSHDevice) ...[
-                // KR / AW / SH devices specific fields
+              ] else if (_isKRDevice || _isAWDevice || _isSHDevice || _isAMDevice) ...[
+                // KR / AW / SH / AM devices specific fields
                 _buildTextField("Device ID", _krDeviceIdController, Icons.device_hub),
                 const SizedBox(height: 12),
                 _buildTextField("Fix Latitude", _krFixLatController, Icons.location_on),
@@ -410,8 +430,8 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
 
               const SizedBox(height: 24),
 
-              // ── Sensors, Calibration, Resets — hidden for WT/JW/KR devices ──
-              if (!_isWTDevice && !_isJWDevice && !_isKRDevice && !_isAWDevice && !_isSHDevice) ...[
+              // ── Sensors, Calibration, Resets — hidden for WT/JW/KR/AW/SH/AM devices ──
+              if (!_isWTDevice && !_isJWDevice && !_isKRDevice && !_isAWDevice && !_isSHDevice && !_isAMDevice) ...[
                 // Sensors
                 _buildSectionTitle("Select Sensor"),
                 _buildSwitch("BME(Temp + Humidity + Pressure)", bme,
@@ -689,7 +709,7 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
         "config": true,
         "data": dataPayload
       };
-    } else if (_isKRDevice || _isAWDevice) {
+    } else if (_isKRDevice || _isAWDevice || _isAMDevice) {
       final Map<String, dynamic> dataPayload = {};
       
       if (_krDeviceIdController.text.isNotEmpty) {
