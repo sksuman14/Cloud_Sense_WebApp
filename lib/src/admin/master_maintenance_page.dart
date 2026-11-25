@@ -38,6 +38,9 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
   String _searchQuery = '';
   String _issueFilter = 'All'; // 'All', 'Has Issues', 'Pending Verification', 'Verified', 'No Issues'
 
+  // View Mode: 'table' or 'cards'
+  bool? _isTableView; // null = auto-detect by screen width
+
   // Pagination
   int _rowsPerPage = 50;
   int _currentPage = 0;
@@ -73,7 +76,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
 
       setState(() {
         _states = states;
-        // Prefer Punjab or Kerala if present, else first state
         if (_states.contains('Punjab')) {
           _selectedState = 'Punjab';
         } else if (_states.contains('Kerala')) {
@@ -102,7 +104,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     });
 
     try {
-      // 1. Load districts
       List<String> districts = [];
       try {
         districts = await WsMaintenanceApiService.fetchDistricts(state);
@@ -110,7 +111,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         districts = [];
       }
 
-      // 2. Load sensors for state
       final sensors = await WsMaintenanceApiService.fetchSensors(
         state: state,
         district: _selectedDistrict == 'All Districts' ? null : _selectedDistrict,
@@ -181,15 +181,24 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFF10B981),
-          content: Text(
-            '✓ $message${inventory != '' ? ' ($inventory sensors, $statesCount states)' : ''}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '✓ $message${inventory != '' ? ' ($inventory sensors, $statesCount states)' : ''}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
           ),
           duration: const Duration(seconds: 4),
         ),
       );
 
-      // Refresh current sensor list
       if (_selectedState != null) {
         await _loadDistrictsAndSensors(_selectedState!);
       }
@@ -198,6 +207,8 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           content: Text('Sync failed: $e'),
           duration: const Duration(seconds: 5),
         ),
@@ -217,7 +228,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       final resolvedBy = (s['Resolved By'] ?? '').toString().toLowerCase();
       final verificationStatus = (s['Verification Status'] ?? '').toString().trim().toLowerCase();
 
-      // Search query check
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final matches = sensorId.contains(q) ||
@@ -229,7 +239,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         if (!matches) return false;
       }
 
-      // Filter check
       switch (_issueFilter) {
         case 'Has Issues':
           return detectedIssues.trim().isNotEmpty;
@@ -272,7 +281,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     }
 
     final buffer = StringBuffer();
-    // Headers
     buffer.writeln(
       'Sensor ID,City,District,State,Detected Issues,Resolved Parameters,Verification Status,Last Resolution Date,Resolved By',
     );
@@ -341,12 +349,18 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       isDark = themeProvider.isDarkMode;
     } catch (_) {}
 
-    final bgColor = isDark ? const Color(0xFF0D1520) : const Color(0xFFF1F5F9);
-    final cardBg = isDark ? const Color(0xFF162232) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF26394E) : const Color(0xFFE2E8F0);
+    final bgColor = isDark ? const Color(0xFF0A1017) : const Color(0xFFF4F6F9);
+    final cardBg = isDark ? const Color(0xFF131D28) : Colors.white;
+    final surfaceBg = isDark ? const Color(0xFF182433) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF24364A) : const Color(0xFFE2E8F0);
     final textStrong = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
     final textSubtle = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     final primaryColor = const Color(0xFF0284C7);
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+    final isTablet = screenWidth >= 768 && screenWidth < 1100;
+    final effectiveIsTableView = _isTableView ?? (!isMobile);
 
     final filtered = _filteredSensors;
     final totalCount = _allSensors.length;
@@ -371,7 +385,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: isDark ? const Color(0xFF132230) : const Color(0xFF0284C7),
+        backgroundColor: isDark ? const Color(0xFF101B26) : const Color(0xFF0284C7),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
           tooltip: 'Back to Admin Dashboard',
@@ -381,10 +395,11 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: Colors.white.withOpacity(0.25)),
               ),
               child: const Icon(
                 Icons.table_chart_rounded,
@@ -392,84 +407,87 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                 size: 20,
               ),
             ),
-            const SizedBox(width: 10),
-            const Column(
+            const SizedBox(width: 12),
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Master Maintenance Sheet',
+                  isMobile ? 'Master Sheet' : 'Master Maintenance Sheet',
                   style: TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    fontSize: isMobile ? 16 : 19,
                   ),
                 ),
-                Text(
-                  'Weather Station Hardware & Sensor QC Maintenance',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
+                if (!isMobile)
+                  const Text(
+                    'Weather Station Hardware QC, Issue Resolution & Verification',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
               ],
             ),
           ],
         ),
         actions: [
-          // Audit Log Button
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.white.withOpacity(0.15),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          // Table / Card view toggle on smaller screens
+          IconButton(
+            tooltip: effectiveIsTableView ? 'Switch to Card View' : 'Switch to Table View',
+            icon: Icon(
+              effectiveIsTableView ? Icons.grid_view_rounded : Icons.table_rows_rounded,
+              color: Colors.white,
             ),
-            icon: const Icon(Icons.history_edu_rounded, size: 18),
-            label: const Text('Audit History', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            onPressed: () {
+              setState(() {
+                _isTableView = !effectiveIsTableView;
+              });
+            },
+          ),
+
+          // Audit History Button
+          IconButton(
+            tooltip: 'Audit History Logs',
+            icon: const Icon(Icons.history_edu_rounded, color: Colors.white),
             onPressed: () => _openHistoryDialog(),
           ),
-          const SizedBox(width: 8),
 
-          // Export CSV
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.white.withOpacity(0.15),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: const Text('Export CSV', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          // Export CSV Button
+          IconButton(
+            tooltip: 'Export CSV',
+            icon: const Icon(Icons.file_download_outlined, color: Colors.white),
             onPressed: _exportCsv,
           ),
-          const SizedBox(width: 8),
 
           // Sync Button
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              elevation: 0,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+              icon: _isSyncing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.sync_rounded, size: 16),
+              label: Text(
+                _isSyncing ? 'Syncing' : (isMobile ? 'Sync' : 'Sync Now'),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+              onPressed: _isSyncing ? null : _handleSync,
             ),
-            icon: _isSyncing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.sync_rounded, size: 18),
-            label: Text(
-              _isSyncing ? 'Syncing...' : 'Sync Now',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-            ),
-            onPressed: _isSyncing ? null : _handleSync,
           ),
-          const SizedBox(width: 8),
 
           // Refresh Button
           IconButton(
@@ -481,155 +499,185 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               }
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Top Controls & Stats
+            // Top Controls & Stats Section
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              padding: EdgeInsets.all(isMobile ? 12 : 16),
               decoration: BoxDecoration(
                 color: cardBg,
                 border: Border(bottom: BorderSide(color: borderColor)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: State / District / Search Bar
+                  // KPI Metric Cards Row
+                  _buildKpiCardsRow(
+                    totalCount: totalCount,
+                    issuesCount: issuesCount,
+                    pendingCount: pendingCount,
+                    verifiedCount: verifiedCount,
+                    isDark: isDark,
+                    isMobile: isMobile,
+                    surfaceBg: surfaceBg,
+                    borderColor: borderColor,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Search & Dropdown Filter Bar
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final isWide = constraints.maxWidth > 800;
-                      return Wrap(
-                        spacing: 12,
-                        runSpacing: 10,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          // State Dropdown
-                          SizedBox(
-                            width: 200,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedState,
-                              decoration: InputDecoration(
-                                labelText: 'State',
-                                labelStyle: TextStyle(color: textSubtle, fontSize: 12),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                filled: true,
-                                fillColor: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
-                              ),
-                              dropdownColor: isDark ? const Color(0xFF162232) : Colors.white,
-                              items: _states.map((st) {
-                                return DropdownMenuItem<String>(
-                                  value: st,
-                                  child: Text(
-                                    st.replaceAll('_', ' '),
-                                    style: TextStyle(color: textStrong, fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: _onStateChanged,
+                      final width = constraints.maxWidth;
+                      if (width >= 850) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 190,
+                              child: _buildStateDropdown(surfaceBg, borderColor, cardBg, textStrong, textSubtle),
                             ),
-                          ),
-
-                          // District Dropdown
-                          SizedBox(
-                            width: 230,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedDistrict,
-                              decoration: InputDecoration(
-                                labelText: 'District',
-                                labelStyle: TextStyle(color: textSubtle, fontSize: 12),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                filled: true,
-                                fillColor: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
-                              ),
-                              dropdownColor: isDark ? const Color(0xFF162232) : Colors.white,
-                              items: [
-                                const DropdownMenuItem<String>(
-                                  value: 'All Districts',
-                                  child: Text('All Districts (Statewide)', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 220,
+                              child: _buildDistrictDropdown(surfaceBg, borderColor, cardBg, textStrong, textSubtle),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildSearchField(surfaceBg, borderColor, textStrong, textSubtle),
+                            ),
+                          ],
+                        );
+                      } else if (width >= 550) {
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStateDropdown(surfaceBg, borderColor, cardBg, textStrong, textSubtle),
                                 ),
-                                ..._districts.map((d) {
-                                  return DropdownMenuItem<String>(
-                                    value: d,
-                                    child: Text(
-                                      d.replaceAll('_', ' '),
-                                      style: TextStyle(color: textStrong, fontSize: 13),
-                                    ),
-                                  );
-                                }),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildDistrictDropdown(surfaceBg, borderColor, cardBg, textStrong, textSubtle),
+                                ),
                               ],
-                              onChanged: _onDistrictChanged,
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            _buildSearchField(surfaceBg, borderColor, textStrong, textSubtle),
+                          ],
+                        );
+                      } else {
+                        return Column(
+                          children: [
+                            _buildStateDropdown(surfaceBg, borderColor, cardBg, textStrong, textSubtle),
+                            const SizedBox(height: 8),
+                            _buildDistrictDropdown(surfaceBg, borderColor, cardBg, textStrong, textSubtle),
+                            const SizedBox(height: 8),
+                            _buildSearchField(surfaceBg, borderColor, textStrong, textSubtle),
+                          ],
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
 
-                          // Search Box
-                          SizedBox(
-                            width: isWide ? 300 : double.infinity,
-                            child: TextField(
-                              controller: _searchController,
-                              style: TextStyle(color: textStrong, fontSize: 13),
-                              decoration: InputDecoration(
-                                hintText: 'Search by ID, city, district, issue...',
-                                hintStyle: TextStyle(color: textSubtle, fontSize: 12),
-                                prefixIcon: Icon(Icons.search, size: 18, color: textSubtle),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 16),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() => _searchQuery = '');
-                                        },
-                                      )
-                                    : null,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                filled: true,
-                                fillColor: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                  // Quick Filter Chips Row (Scrollable horizontally)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterPill('All', 'All ($totalCount)', Icons.apps_rounded, isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'Has Issues',
+                          'Issues ($issuesCount)',
+                          Icons.warning_amber_rounded,
+                          isDark,
+                          accentColor: const Color(0xFFEF4444),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'Pending Verification',
+                          'Pending Verify ($pendingCount)',
+                          Icons.hourglass_top_rounded,
+                          isDark,
+                          accentColor: const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'Verified',
+                          'Verified ($verifiedCount)',
+                          Icons.check_circle_rounded,
+                          isDark,
+                          accentColor: const Color(0xFF10B981),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'No Issues',
+                          'Clean / Healthy',
+                          Icons.verified_outlined,
+                          isDark,
+                          accentColor: const Color(0xFF06B6D4),
+                        ),
+                        if (_searchQuery.isNotEmpty || _issueFilter != 'All') ...[
+                          const SizedBox(width: 10),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _issueFilter = 'All';
+                                _currentPage = 0;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              onChanged: (val) {
-                                setState(() {
-                                  _searchQuery = val.trim();
-                                  _currentPage = 0;
-                                });
-                              },
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.close, size: 13, color: Color(0xFFEF4444)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Clear filters',
+                                    style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Row 2: KPI Stats & Quick Filter Chips
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _buildFilterChip('All', 'All ($totalCount)', isDark),
-                      _buildFilterChip('Has Issues', '⚠ Issues Detected ($issuesCount)', isDark, color: const Color(0xFFEF4444)),
-                      _buildFilterChip('Pending Verification', '⏳ Pending Verification ($pendingCount)', isDark, color: const Color(0xFFF59E0B)),
-                      _buildFilterChip('Verified', '✓ Fully Verified ($verifiedCount)', isDark, color: const Color(0xFF10B981)),
-                      _buildFilterChip('No Issues', '✓ Clean / No Issues', isDark, color: const Color(0xFF38BDF8)),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Main Content Table Area
+            // Main Content Area
             Expanded(
               child: _isLoading
                   ? const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(),
+                          CircularProgressIndicator(strokeWidth: 3),
                           SizedBox(height: 16),
-                          Text('Loading sensor maintenance records...'),
+                          Text('Loading sensor maintenance records...', style: TextStyle(fontWeight: FontWeight.w600)),
                         ],
                       ),
                     )
@@ -640,18 +688,30 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.error_outline, size: 48, color: Color(0xFFEF4444)),
-                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEF4444).withOpacity(0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.cloud_off_rounded, size: 40, color: Color(0xFFEF4444)),
+                                ),
+                                const SizedBox(height: 14),
                                 Text(
                                   _errorMessage!,
-                                  style: TextStyle(color: textStrong, fontSize: 15),
+                                  style: TextStyle(color: textStrong, fontSize: 14, fontWeight: FontWeight.w600),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0284C7),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
                                   onPressed: () => _loadDistrictsAndSensors(_selectedState ?? 'Punjab'),
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Try Again'),
+                                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                                  label: const Text('Retry'),
                                 ),
                               ],
                             ),
@@ -659,23 +719,54 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                         )
                       : filtered.isEmpty
                           ? Center(
-                              child: Text(
-                                'No sensor records found for the current filters.',
-                                style: TextStyle(color: textSubtle, fontSize: 14),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.filter_alt_off_rounded, size: 48, color: textSubtle.withOpacity(0.5)),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No sensor records match your filter criteria.',
+                                    style: TextStyle(color: textSubtle, fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                  if (_searchQuery.isNotEmpty || _issueFilter != 'All') ...[
+                                    const SizedBox(height: 10),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _searchController.clear();
+                                          _searchQuery = '';
+                                          _issueFilter = 'All';
+                                        });
+                                      },
+                                      child: const Text('Reset All Filters'),
+                                    ),
+                                  ],
+                                ],
                               ),
                             )
-                          : _buildExcelDataTable(
-                              items: pageItems,
-                              startIndex: startIndex,
-                              isDark: isDark,
-                              cardBg: cardBg,
-                              borderColor: borderColor,
-                              textStrong: textStrong,
-                              textSubtle: textSubtle,
-                            ),
+                          : effectiveIsTableView
+                              ? _buildExcelDataTable(
+                                  items: pageItems,
+                                  startIndex: startIndex,
+                                  isDark: isDark,
+                                  cardBg: cardBg,
+                                  borderColor: borderColor,
+                                  textStrong: textStrong,
+                                  textSubtle: textSubtle,
+                                )
+                              : _buildCardsView(
+                                  items: pageItems,
+                                  startIndex: startIndex,
+                                  isDark: isDark,
+                                  cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
+                                  borderColor: borderColor,
+                                  textStrong: textStrong,
+                                  textSubtle: textSubtle,
+                                ),
             ),
 
-            // Pagination Footer Bar
+            // Pagination Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -686,42 +777,50 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Showing ${filtered.isEmpty ? 0 : startIndex + 1} to $endIndex of ${filtered.length} entries',
-                    style: TextStyle(color: textSubtle, fontSize: 12),
+                    'Showing ${filtered.isEmpty ? 0 : startIndex + 1}–$endIndex of ${filtered.length}',
+                    style: TextStyle(color: textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                   Row(
                     children: [
-                      Text('Rows per page: ', style: TextStyle(color: textSubtle, fontSize: 12)),
-                      DropdownButton<int>(
-                        value: _rowsPerPage,
-                        underline: const SizedBox(),
-                        style: TextStyle(color: textStrong, fontSize: 12),
-                        dropdownColor: cardBg,
-                        items: const [
-                          DropdownMenuItem(value: 25, child: Text('25')),
-                          DropdownMenuItem(value: 50, child: Text('50')),
-                          DropdownMenuItem(value: 100, child: Text('100')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _rowsPerPage = val;
-                              _currentPage = 0;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 16),
+                      if (!isMobile) ...[
+                        Text('Rows: ', style: TextStyle(color: textSubtle, fontSize: 12)),
+                        DropdownButton<int>(
+                          value: _rowsPerPage,
+                          underline: const SizedBox(),
+                          style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
+                          dropdownColor: cardBg,
+                          items: const [
+                            DropdownMenuItem(value: 25, child: Text('25')),
+                            DropdownMenuItem(value: 50, child: Text('50')),
+                            DropdownMenuItem(value: 100, child: Text('100')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _rowsPerPage = val;
+                                _currentPage = 0;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                      ],
                       IconButton(
-                        icon: const Icon(Icons.chevron_left),
+                        icon: const Icon(Icons.chevron_left_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
                       ),
+                      const SizedBox(width: 6),
                       Text(
-                        'Page ${effectivePage + 1} of $totalPages',
-                        style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.w600),
+                        '${effectivePage + 1}/$totalPages',
+                        style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.w700),
                       ),
+                      const SizedBox(width: 6),
                       IconButton(
-                        icon: const Icon(Icons.chevron_right),
+                        icon: const Icon(Icons.chevron_right_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
                       ),
                     ],
@@ -735,12 +834,218 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     );
   }
 
-  Widget _buildFilterChip(String filterKey, String label, bool isDark, {Color? color}) {
+  /// Builds the 4 KPI stat cards at the top of the page.
+  Widget _buildKpiCardsRow({
+    required int totalCount,
+    required int issuesCount,
+    required int pendingCount,
+    required int verifiedCount,
+    required bool isDark,
+    required bool isMobile,
+    required Color surfaceBg,
+    required Color borderColor,
+  }) {
+    final cards = [
+      _KpiStatCard(
+        label: 'Total Stations',
+        value: '$totalCount',
+        icon: Icons.sensors_rounded,
+        color: const Color(0xFF0284C7),
+        isSelected: _issueFilter == 'All',
+        onTap: () => setState(() => _issueFilter = 'All'),
+        isDark: isDark,
+      ),
+      _KpiStatCard(
+        label: 'Issues Detected',
+        value: '$issuesCount',
+        icon: Icons.warning_amber_rounded,
+        color: const Color(0xFFEF4444),
+        isSelected: _issueFilter == 'Has Issues',
+        onTap: () => setState(() => _issueFilter = 'Has Issues'),
+        isDark: isDark,
+      ),
+      _KpiStatCard(
+        label: 'Pending Verify',
+        value: '$pendingCount',
+        icon: Icons.hourglass_top_rounded,
+        color: const Color(0xFFF59E0B),
+        isSelected: _issueFilter == 'Pending Verification',
+        onTap: () => setState(() => _issueFilter = 'Pending Verification'),
+        isDark: isDark,
+      ),
+      _KpiStatCard(
+        label: 'Fully Verified',
+        value: '$verifiedCount',
+        icon: Icons.check_circle_rounded,
+        color: const Color(0xFF10B981),
+        isSelected: _issueFilter == 'Verified',
+        onTap: () => setState(() => _issueFilter = 'Verified'),
+        isDark: isDark,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        if (w >= 780) {
+          return Row(
+            children: cards
+                .map((c) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: c,
+                      ),
+                    ))
+                .toList(),
+          );
+        } else {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 8),
+                  Expanded(child: cards[1]),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: cards[2]),
+                  const SizedBox(width: 8),
+                  Expanded(child: cards[3]),
+                ],
+              ),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildStateDropdown(Color surfaceBg, Color borderColor, Color cardBg, Color textStrong, Color textSubtle) {
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      value: _selectedState,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.map_rounded, size: 16, color: Color(0xFF0284C7)),
+        labelText: 'State',
+        labelStyle: TextStyle(color: textSubtle, fontSize: 11),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        filled: true,
+        fillColor: surfaceBg,
+      ),
+      dropdownColor: cardBg,
+      items: _states.map((st) {
+        return DropdownMenuItem<String>(
+          value: st,
+          child: Text(
+            st.replaceAll('_', ' '),
+            style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        );
+      }).toList(),
+      onChanged: _onStateChanged,
+    );
+  }
+
+  Widget _buildDistrictDropdown(Color surfaceBg, Color borderColor, Color cardBg, Color textStrong, Color textSubtle) {
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      value: _selectedDistrict,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.location_city_rounded, size: 16, color: Color(0xFF0284C7)),
+        labelText: 'District',
+        labelStyle: TextStyle(color: textSubtle, fontSize: 11),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        filled: true,
+        fillColor: surfaceBg,
+      ),
+      dropdownColor: cardBg,
+      items: [
+        const DropdownMenuItem<String>(
+          value: 'All Districts',
+          child: Text(
+            'All Districts (Statewide)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+        ..._districts.map((d) {
+          return DropdownMenuItem<String>(
+            value: d,
+            child: Text(
+              d.replaceAll('_', ' '),
+              style: TextStyle(color: textStrong, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          );
+        }),
+      ],
+      onChanged: _onDistrictChanged,
+    );
+  }
+
+  Widget _buildSearchField(Color surfaceBg, Color borderColor, Color textStrong, Color textSubtle) {
+    return TextField(
+      controller: _searchController,
+      style: TextStyle(color: textStrong, fontSize: 12.5),
+      decoration: InputDecoration(
+        hintText: 'Search by ID, city, district, issues, or admin...',
+        hintStyle: TextStyle(color: textSubtle, fontSize: 11.5),
+        prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSubtle),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded, size: 15),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
+              )
+            : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        filled: true,
+        fillColor: surfaceBg,
+      ),
+      onChanged: (val) {
+        setState(() {
+          _searchQuery = val.trim();
+          _currentPage = 0;
+        });
+      },
+    );
+  }
+
+  Widget _buildFilterPill(String filterKey, String label, IconData icon, bool isDark, {Color? accentColor}) {
     final isSelected = _issueFilter == filterKey;
-    final activeColor = color ?? const Color(0xFF0284C7);
+    final color = accentColor ?? const Color(0xFF0284C7);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       onTap: () {
         setState(() {
           _issueFilter = filterKey;
@@ -752,26 +1057,306 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected
-              ? activeColor.withOpacity(isDark ? 0.25 : 0.15)
-              : (isDark ? const Color(0xFF0F1722) : const Color(0xFFF1F5F9)),
-          borderRadius: BorderRadius.circular(16),
+              ? color.withOpacity(isDark ? 0.22 : 0.14)
+              : (isDark ? const Color(0xFF131D28) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? activeColor : (isDark ? const Color(0xFF26394E) : const Color(0xFFE2E8F0)),
+            color: isSelected ? color : (isDark ? const Color(0xFF24364A) : const Color(0xFFE2E8F0)),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? activeColor : (isDark ? Colors.white70 : Colors.black87),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? color : (isDark ? Colors.white60 : Colors.black54)),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? color : (isDark ? Colors.white70 : Colors.black87),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  /// Modern Touch-Friendly Card View for Mobile/Tablet Screens.
+  Widget _buildCardsView({
+    required List<Map<String, dynamic>> items,
+    required int startIndex,
+    required bool isDark,
+    required Color cardBg,
+    required Color surfaceBg,
+    required Color borderColor,
+    required Color textStrong,
+    required Color textSubtle,
+  }) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final s = items[index];
+        final sensorId = (s['Sensor ID'] ?? '').toString();
+        final city = (s['City'] ?? '').toString();
+        final district = (s['District'] ?? '').toString();
+        final state = (s['State'] ?? '').toString();
+        final issuesStr = (s['Detected Issues'] ?? '').toString();
+        final resolvedStr = (s['Resolved Parameters'] ?? '').toString();
+        final status = (s['Verification Status'] ?? 'No').toString().trim();
+        final isVerified = status.toLowerCase() == 'yes';
+        final lastDate = (s['Last Resolution Date'] ?? '').toString();
+        final resolvedBy = (s['Resolved By'] ?? '').toString();
+
+        final issuesList = issuesStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        final resolvedList = resolvedStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isVerified
+                  ? const Color(0xFF10B981).withOpacity(0.3)
+                  : (issuesList.isNotEmpty ? const Color(0xFFEF4444).withOpacity(0.3) : borderColor),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Card Header: Index, Sensor ID & Status Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF162332) : const Color(0xFFF1F5F9),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '#${startIndex + index + 1}',
+                        style: TextStyle(color: textSubtle, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SelectableText(
+                        sensorId,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 15),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Copy Sensor ID',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: sensorId));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Copied $sensorId'), duration: const Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isVerified
+                            ? const Color(0xFF10B981).withOpacity(0.2)
+                            : const Color(0xFFF59E0B).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
+                            size: 11,
+                            color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isVerified ? 'Verified' : 'Pending',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Card Body
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Location
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 15, color: Color(0xFF0284C7)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '$city, $district ($state)',
+                            style: TextStyle(color: textStrong, fontSize: 12.5, fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Detected Issues
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Issues: ', style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: issuesList.isEmpty
+                              ? const Text('None (Clean)', style: TextStyle(color: Color(0xFF10B981), fontSize: 11.5, fontWeight: FontWeight.bold))
+                              : Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: issuesList.map((issue) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444).withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(5),
+                                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                                      ),
+                                      child: Text(
+                                        issue,
+                                        style: const TextStyle(
+                                          color: Color(0xFFF87171),
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Resolved Parameters
+                    if (resolvedList.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Resolved: ', style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: resolvedList.map((param) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                                  ),
+                                  child: Text(
+                                    param,
+                                    style: const TextStyle(
+                                      color: Color(0xFF34D399),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Resolution Meta (Date & By)
+                    if (lastDate.isNotEmpty || resolvedBy.isNotEmpty) ...[
+                      Text(
+                        'Last Action: ${lastDate.isNotEmpty ? lastDate : '-'} ${resolvedBy.isNotEmpty ? "by $resolvedBy" : ""}',
+                        style: TextStyle(color: textSubtle, fontSize: 10.5, fontStyle: FontStyle.italic),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    const Divider(height: 16),
+
+                    // Actions Footer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.history_rounded, size: 15),
+                          label: const Text('History', style: TextStyle(fontSize: 11)),
+                          onPressed: () => _openHistoryDialog(sensorId: sensorId),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                          icon: const Icon(Icons.build_circle_outlined, size: 15),
+                          label: const Text('Update Maintenance', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          onPressed: () => _openUpdateDialog(s),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Modern Desktop Excel Data Table with Sticky Headers & Sorting.
   Widget _buildExcelDataTable({
     required List<Map<String, dynamic>> items,
     required int startIndex,
@@ -786,28 +1371,32 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 1200),
+          constraints: const BoxConstraints(minWidth: 1280),
           child: DataTable(
+            headingRowHeight: 46,
+            dataRowMinHeight: 52,
+            dataRowMaxHeight: 64,
             headingRowColor: WidgetStateProperty.all(
-              isDark ? const Color(0xFF1E2E42) : const Color(0xFFE2E8F0),
+              isDark ? const Color(0xFF14202D) : const Color(0xFFE2E8F0),
             ),
             headingTextStyle: TextStyle(
               color: textStrong,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
               fontSize: 12.5,
             ),
             dataRowColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return isDark ? const Color(0xFF1B2C3F) : const Color(0xFFF1F5F9);
+                return isDark ? const Color(0xFF1C2B3C) : const Color(0xFFF1F5F9);
               }
-              return isDark ? const Color(0xFF162232) : Colors.white;
+              return isDark ? const Color(0xFF111A24) : Colors.white;
             }),
             dataTextStyle: TextStyle(
               color: textStrong,
               fontSize: 12,
             ),
-            horizontalMargin: 12,
-            columnSpacing: 16,
+            horizontalMargin: 16,
+            columnSpacing: 18,
             columns: [
               const DataColumn(label: Text('#')),
               DataColumn(
@@ -829,11 +1418,11 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               const DataColumn(label: Text('Detected Issues')),
               const DataColumn(label: Text('Resolved Parameters')),
               DataColumn(
-                label: const Text('Verification'),
+                label: const Text('Status'),
                 onSort: (_, __) => _onSort('Verification Status'),
               ),
               DataColumn(
-                label: const Text('Last Resolution'),
+                label: const Text('Last Date'),
                 onSort: (_, __) => _onSort('Last Resolution Date'),
               ),
               const DataColumn(label: Text('Resolved By')),
@@ -858,9 +1447,14 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               return DataRow(
                 cells: [
                   // #
-                  DataCell(Text('${startIndex + index + 1}')),
+                  DataCell(
+                    Text(
+                      '${startIndex + index + 1}',
+                      style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
 
-                  // Sensor ID (with copy)
+                  // Sensor ID (with 1-click copy)
                   DataCell(
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -869,9 +1463,9 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                           sensorId,
                           style: TextStyle(
                             fontFamily: 'monospace',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                            fontSize: 11.5,
+                            fontSize: 12,
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -886,6 +1480,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                               SnackBar(
                                 content: Text('Copied $sensorId'),
                                 duration: const Duration(seconds: 1),
+                                behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
@@ -895,10 +1490,10 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                   ),
 
                   // City
-                  DataCell(Text(city.isEmpty ? '-' : city)),
+                  DataCell(Text(city.isEmpty ? '-' : city, overflow: TextOverflow.ellipsis)),
 
                   // District
-                  DataCell(Text(district.isEmpty ? '-' : district)),
+                  DataCell(Text(district.isEmpty ? '-' : district, overflow: TextOverflow.ellipsis)),
 
                   // State
                   DataCell(Text(state.isEmpty ? '-' : state)),
@@ -906,16 +1501,16 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                   // Detected Issues Chips
                   DataCell(
                     issuesList.isEmpty
-                        ? Text('None', style: TextStyle(color: textSubtle, fontStyle: FontStyle.italic))
+                        ? const Text('None', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11.5))
                         : Wrap(
                             spacing: 4,
                             runSpacing: 4,
                             children: issuesList.map((issue) {
                               return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEF4444).withOpacity(0.18),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(5),
                                   border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
                                 ),
                                 child: Text(
@@ -923,7 +1518,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                                   style: const TextStyle(
                                     color: Color(0xFFF87171),
                                     fontSize: 10.5,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               );
@@ -940,10 +1535,10 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                             runSpacing: 4,
                             children: resolvedList.map((param) {
                               return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF10B981).withOpacity(0.18),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(5),
                                   border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
                                 ),
                                 child: Text(
@@ -951,7 +1546,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                                   style: const TextStyle(
                                     color: Color(0xFF34D399),
                                     fontSize: 10.5,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               );
@@ -962,7 +1557,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                   // Verification Status Badge
                   DataCell(
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                       decoration: BoxDecoration(
                         color: isVerified
                             ? const Color(0xFF10B981).withOpacity(0.2)
@@ -977,14 +1572,14 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                         children: [
                           Icon(
                             isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
-                            size: 12,
+                            size: 11,
                             color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             isVerified ? 'Verified' : 'Pending',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.w700,
                               color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
                             ),
@@ -995,10 +1590,10 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                   ),
 
                   // Last Resolution Date
-                  DataCell(Text(lastDate.isEmpty ? '-' : lastDate)),
+                  DataCell(Text(lastDate.isEmpty ? '-' : lastDate, style: const TextStyle(fontSize: 11))),
 
                   // Resolved By
-                  DataCell(Text(resolvedBy.isEmpty ? '-' : resolvedBy)),
+                  DataCell(Text(resolvedBy.isEmpty ? '-' : resolvedBy, overflow: TextOverflow.ellipsis)),
 
                   // Actions
                   DataCell(
@@ -1020,7 +1615,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                         const SizedBox(width: 4),
                         IconButton(
                           icon: const Icon(Icons.history_rounded, size: 16),
-                          tooltip: 'View History for this sensor',
+                          tooltip: 'History',
                           onPressed: () => _openHistoryDialog(sensorId: sensorId),
                         ),
                       ],
@@ -1030,6 +1625,88 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               );
             }),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A single interactive KPI card at the top of the Master Maintenance Sheet.
+class _KpiStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _KpiStatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withOpacity(isDark ? 0.22 : 0.12)
+              : (isDark ? const Color(0xFF162332) : const Color(0xFFF8FAFC)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? color : (isDark ? const Color(0xFF24364A) : const Color(0xFFE2E8F0)),
+            width: isSelected ? 1.6 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 16),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1056,17 +1733,19 @@ class _UpdateMaintenanceDialog extends StatefulWidget {
   State<_UpdateMaintenanceDialog> createState() => _UpdateMaintenanceDialogState();
 }
 
-class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
+class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with SingleTickerProviderStateMixin {
   late final TextEditingController _fixedByController;
   final Set<String> _selectedFixParams = {};
   final Set<String> _selectedVerifyParams = {};
   bool _isSubmitting = false;
   String? _dialogError;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _fixedByController = TextEditingController(text: widget.adminEmail ?? 'Admin');
+    _tabController = TabController(length: 2, vsync: this);
 
     // Pre-select all detected issues by default for convenience
     final issuesStr = (widget.sensor['Detected Issues'] ?? '').toString();
@@ -1082,6 +1761,7 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
   @override
   void dispose() {
     _fixedByController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -1124,6 +1804,8 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           content: Text('✓ Successfully recorded $action for $sensorId'),
         ),
       );
@@ -1139,10 +1821,10 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final cardBg = isDark ? const Color(0xFF162232) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF162332) : Colors.white;
     final textStrong = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
     final textSubtle = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0xFF26394E) : const Color(0xFFE2E8F0);
+    final borderColor = isDark ? const Color(0xFF24364A) : const Color(0xFFE2E8F0);
 
     final sensorId = (widget.sensor['Sensor ID'] ?? '').toString();
     final city = (widget.sensor['City'] ?? '').toString();
@@ -1158,10 +1840,10 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
 
     return Dialog(
       backgroundColor: cardBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 650, maxHeight: 750),
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 720),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -1169,41 +1851,41 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
             children: [
               // Header
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(8),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.build_circle_outlined, color: Color(0xFF0284C7), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Update Maintenance Record',
+                          style: TextStyle(color: textStrong, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        child: const Icon(Icons.build_circle_outlined, color: Color(0xFF0284C7), size: 20),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Update Maintenance Record',
-                            style: TextStyle(color: textStrong, fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          Text(
-                            '$city, $district ($state)',
-                            style: TextStyle(color: textSubtle, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
+                        Text(
+                          '$city, $district ($state)',
+                          style: TextStyle(color: textSubtle, fontSize: 11.5),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close_rounded),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: _isSubmitting ? null : () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: 20),
 
               // Error Banner if any
               if (_dialogError != null) ...[
@@ -1212,9 +1894,9 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
                   padding: const EdgeInsets.all(10),
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444).withOpacity(0.15),
+                    color: const Color(0xFFEF4444).withOpacity(0.14),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFEF4444)),
+                    border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.5)),
                   ),
                   child: Row(
                     children: [
@@ -1223,7 +1905,7 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
                       Expanded(
                         child: Text(
                           _dialogError!,
-                          style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12),
+                          style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -1231,279 +1913,314 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> {
                 ),
               ],
 
-              // Content Body
+              // Sensor Identification & Verification Status Banner
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('SENSOR ID', style: TextStyle(color: textSubtle, fontSize: 10, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          SelectableText(
+                            sensorId,
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'monospace',
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isVerified
+                            ? const Color(0xFF10B981).withOpacity(0.2)
+                            : const Color(0xFFF59E0B).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
+                            size: 12,
+                            color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isVerified ? 'Fully Verified' : 'Not Verified',
+                            style: TextStyle(
+                              color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Action Tabs (FIX vs VERIFY)
+              TabBar(
+                controller: _tabController,
+                indicatorColor: const Color(0xFF0284C7),
+                indicatorWeight: 2.5,
+                labelColor: textStrong,
+                unselectedLabelColor: textSubtle,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                tabs: const [
+                  Tab(icon: Icon(Icons.build_rounded, size: 16), text: '1. Record FIX'),
+                  Tab(icon: Icon(Icons.verified_rounded, size: 16), text: '2. Record VERIFY'),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Performed By Input Field
+              TextField(
+                controller: _fixedByController,
+                style: TextStyle(color: textStrong, fontSize: 12.5),
+                decoration: InputDecoration(
+                  labelText: 'Action Performed By (Required)',
+                  labelStyle: TextStyle(color: textSubtle, fontSize: 11.5),
+                  prefixIcon: const Icon(Icons.person_outline_rounded, size: 17),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Tab Views
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Sensor ID block
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text('Sensor ID: ', style: TextStyle(color: textSubtle, fontSize: 12)),
-                                Expanded(
-                                  child: SelectableText(
-                                    sensorId,
-                                    style: TextStyle(
-                                      color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'monospace',
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Text('Verification Status: ', style: TextStyle(color: textSubtle, fontSize: 12)),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isVerified
-                                        ? const Color(0xFF10B981).withOpacity(0.2)
-                                        : const Color(0xFFF59E0B).withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Tab 1: FIX
+                    SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Detected Issues to Fix:',
+                                style: TextStyle(color: textStrong, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              if (issuesList.isNotEmpty)
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_selectedFixParams.length == issuesList.length) {
+                                        _selectedFixParams.clear();
+                                      } else {
+                                        _selectedFixParams.addAll(issuesList);
+                                      }
+                                    });
+                                  },
                                   child: Text(
-                                    isVerified ? 'Fully Verified (Yes)' : 'Not Verified (No)',
-                                    style: TextStyle(
-                                      color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
+                                    _selectedFixParams.length == issuesList.length ? 'Clear Selection' : 'Select All',
+                                    style: const TextStyle(fontSize: 11),
                                   ),
                                 ),
-                              ],
+                            ],
+                          ),
+                          const Text(
+                            'Marking issues as fixed will add them to Resolved Parameters and set status to Not Verified pending review.',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                          const SizedBox(height: 10),
+                          if (issuesList.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'No active detected issues for this station.',
+                                    style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: issuesList.map((issue) {
+                                final isChecked = _selectedFixParams.contains(issue);
+                                return FilterChip(
+                                  label: Text(issue),
+                                  selected: isChecked,
+                                  onSelected: (val) {
+                                    setState(() {
+                                      if (val) {
+                                        _selectedFixParams.add(issue);
+                                      } else {
+                                        _selectedFixParams.remove(issue);
+                                      }
+                                    });
+                                  },
+                                  selectedColor: const Color(0xFFF97316).withOpacity(0.25),
+                                  checkmarkColor: const Color(0xFFF97316),
+                                );
+                              }).toList(),
                             ),
-                          ],
-                        ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF97316),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: _isSubmitting
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Icon(Icons.build_rounded, size: 16),
+                              label: const Text('Record FIX Action', style: TextStyle(fontWeight: FontWeight.bold)),
+                              onPressed: (_isSubmitting || issuesList.isEmpty) ? null : () => _submitAction('FIX'),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
+                    ),
 
-                      // Fixed / Performed By input
-                      TextField(
-                        controller: _fixedByController,
-                        style: TextStyle(color: textStrong, fontSize: 13),
-                        decoration: InputDecoration(
-                          labelText: 'Action Performed By (Required)',
-                          labelStyle: TextStyle(color: textSubtle, fontSize: 12),
-                          hintText: 'Enter admin email or name',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          filled: true,
-                          fillColor: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Action Section 1: Record FIX
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1C1917) : const Color(0xFFFFF7ED),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFF97316).withOpacity(0.4)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.build_rounded, size: 16, color: Color(0xFFF97316)),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'Action: Record FIX',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFF97316), fontSize: 14),
+                    // Tab 2: VERIFY
+                    SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Resolved Parameters to Verify:',
+                                style: TextStyle(color: textStrong, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              if (resolvedList.isNotEmpty)
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_selectedVerifyParams.length == resolvedList.length) {
+                                        _selectedVerifyParams.clear();
+                                      } else {
+                                        _selectedVerifyParams.addAll(resolvedList);
+                                      }
+                                    });
+                                  },
+                                  child: Text(
+                                    _selectedVerifyParams.length == resolvedList.length ? 'Clear Selection' : 'Select All',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
                                 ),
-                                const Spacer(),
-                                if (issuesList.isNotEmpty)
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        if (_selectedFixParams.length == issuesList.length) {
-                                          _selectedFixParams.clear();
-                                        } else {
-                                          _selectedFixParams.addAll(issuesList);
-                                        }
-                                      });
-                                    },
+                            ],
+                          ),
+                          const Text(
+                            'To set status to Verified (Yes), verify all current detected issues in one request.',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                          const SizedBox(height: 10),
+                          if (resolvedList.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B), size: 18),
+                                  SizedBox(width: 8),
+                                  Expanded(
                                     child: Text(
-                                      _selectedFixParams.length == issuesList.length ? 'Deselect All' : 'Select All',
-                                      style: const TextStyle(fontSize: 11),
+                                      'No resolved parameters available to verify. First record a FIX.',
+                                      style: TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
                                   ),
-                              ],
-                            ),
-                            const Text(
-                              'Fixing parameters moves them into Resolved Parameters and sets Verification Status to No.',
-                              style: TextStyle(fontSize: 11.5, color: Colors.grey),
-                            ),
-                            const SizedBox(height: 10),
-                            if (issuesList.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Text('No detected issues to fix.', style: TextStyle(fontStyle: FontStyle.italic)),
-                              )
-                            else
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: issuesList.map((issue) {
-                                  final isChecked = _selectedFixParams.contains(issue);
-                                  return FilterChip(
-                                    label: Text(issue),
-                                    selected: isChecked,
-                                    onSelected: (val) {
-                                      setState(() {
-                                        if (val) {
-                                          _selectedFixParams.add(issue);
-                                        } else {
-                                          _selectedFixParams.remove(issue);
-                                        }
-                                      });
-                                    },
-                                    selectedColor: const Color(0xFFF97316).withOpacity(0.3),
-                                    checkmarkColor: const Color(0xFFF97316),
-                                  );
-                                }).toList(),
+                                ],
                               ),
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFF97316),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                ),
-                                icon: const Icon(Icons.check, size: 16),
-                                label: const Text('Record FIX Action'),
-                                onPressed: (_isSubmitting || issuesList.isEmpty) ? null : () => _submitAction('FIX'),
-                              ),
+                            )
+                          else
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: resolvedList.map((param) {
+                                final isChecked = _selectedVerifyParams.contains(param);
+                                return FilterChip(
+                                  label: Text(param),
+                                  selected: isChecked,
+                                  onSelected: (val) {
+                                    setState(() {
+                                      if (val) {
+                                        _selectedVerifyParams.add(param);
+                                      } else {
+                                        _selectedVerifyParams.remove(param);
+                                      }
+                                    });
+                                  },
+                                  selectedColor: const Color(0xFF10B981).withOpacity(0.25),
+                                  checkmarkColor: const Color(0xFF10B981),
+                                );
+                              }).toList(),
                             ),
-                          ],
-                        ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: _isSubmitting
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Icon(Icons.verified_rounded, size: 16),
+                              label: const Text('Record VERIFY Action', style: TextStyle(fontWeight: FontWeight.bold)),
+                              onPressed: (_isSubmitting || resolvedList.isEmpty) ? null : () => _submitAction('VERIFY'),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 18),
-
-                      // Action Section 2: Record VERIFY
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF062D24) : const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF10B981)),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'Action: Record VERIFY',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 14),
-                                ),
-                                const Spacer(),
-                                if (resolvedList.isNotEmpty)
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        if (_selectedVerifyParams.length == resolvedList.length) {
-                                          _selectedVerifyParams.clear();
-                                        } else {
-                                          _selectedVerifyParams.addAll(resolvedList);
-                                        }
-                                      });
-                                    },
-                                    child: Text(
-                                      _selectedVerifyParams.length == resolvedList.length ? 'Deselect All' : 'Select All',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const Text(
-                              'VERIFY is accepted only for parameters already in Resolved Parameters. To mark Verification Status as YES, verify all current issues.',
-                              style: TextStyle(fontSize: 11.5, color: Colors.grey),
-                            ),
-                            const SizedBox(height: 10),
-                            if (resolvedList.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Text('No resolved parameters available to verify yet.', style: TextStyle(fontStyle: FontStyle.italic)),
-                              )
-                            else
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: resolvedList.map((param) {
-                                  final isChecked = _selectedVerifyParams.contains(param);
-                                  return FilterChip(
-                                    label: Text(param),
-                                    selected: isChecked,
-                                    onSelected: (val) {
-                                      setState(() {
-                                        if (val) {
-                                          _selectedVerifyParams.add(param);
-                                        } else {
-                                          _selectedVerifyParams.remove(param);
-                                        }
-                                      });
-                                    },
-                                    selectedColor: const Color(0xFF10B981).withOpacity(0.3),
-                                    checkmarkColor: const Color(0xFF10B981),
-                                  );
-                                }).toList(),
-                              ),
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF10B981),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                ),
-                                icon: const Icon(Icons.verified, size: 16),
-                                label: const Text('Record VERIFY Action'),
-                                onPressed: (_isSubmitting || resolvedList.isEmpty) ? null : () => _submitAction('VERIFY'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
 
-              // Bottom Cancel Button
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
+              // Close Button
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
               ),
             ],
           ),
@@ -1533,6 +2250,7 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _reports = [];
   String? _error;
+  String _historyFilter = 'ALL'; // 'ALL', 'FIX', 'VERIFY'
 
   @override
   void initState() {
@@ -1568,49 +2286,79 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final cardBg = isDark ? const Color(0xFF162232) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF162332) : Colors.white;
     final textStrong = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
     final textSubtle = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
+    final filteredReports = _reports.where((r) {
+      if (_historyFilter == 'ALL') return true;
+      final a = (r['Action'] ?? '').toString().toUpperCase();
+      return a == _historyFilter;
+    }).toList();
+
     return Dialog(
       backgroundColor: cardBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 620),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.history_edu_rounded, color: Color(0xFF0284C7), size: 22),
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7).withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.history_edu_rounded, color: Color(0xFF0284C7), size: 20),
+                      ),
                       const SizedBox(width: 10),
                       Text(
                         widget.sensorId != null
-                            ? 'Maintenance History (${widget.sensorId})'
+                            ? 'History: ${widget.sensorId}'
                             : 'Maintenance History (${widget.state})',
                         style: TextStyle(color: textStrong, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close_rounded),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+
+              // Filter Tabs (All / FIX / VERIFY)
+              Row(
+                children: [
+                  _buildTabPill('ALL', 'All (${_reports.length})', isDark),
+                  const SizedBox(width: 6),
+                  _buildTabPill('FIX', 'FIX Actions', isDark, color: const Color(0xFFF97316)),
+                  const SizedBox(width: 6),
+                  _buildTabPill('VERIFY', 'VERIFY Actions', isDark, color: const Color(0xFF10B981)),
+                ],
+              ),
               const Divider(height: 20),
+
+              // List of reports
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _error != null
                         ? Center(child: Text(_error!, style: const TextStyle(color: Color(0xFFEF4444))))
-                        : _reports.isEmpty
+                        : filteredReports.isEmpty
                             ? Center(
                                 child: Text(
                                   'No maintenance history records found.',
@@ -1618,10 +2366,10 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
                                 ),
                               )
                             : ListView.separated(
-                                itemCount: _reports.length,
+                                itemCount: filteredReports.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
                                 itemBuilder: (context, idx) {
-                                  final r = _reports[idx];
+                                  final r = filteredReports[idx];
                                   final sid = (r['Sensor ID'] ?? '').toString();
                                   final param = (r['Affected Parameter'] ?? '').toString();
                                   final action = (r['Action'] ?? '').toString().toUpperCase();
@@ -1631,11 +2379,12 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
 
                                   return ListTile(
                                     dense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     leading: Container(
-                                      padding: const EdgeInsets.all(6),
+                                      padding: const EdgeInsets.all(7),
                                       decoration: BoxDecoration(
-                                        color: (isFix ? const Color(0xFFF97316) : const Color(0xFF10B981)).withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(6),
+                                        color: (isFix ? const Color(0xFFF97316) : const Color(0xFF10B981)).withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Icon(
                                         isFix ? Icons.build_rounded : Icons.verified_rounded,
@@ -1648,6 +2397,7 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: isFix ? const Color(0xFFF97316) : const Color(0xFF10B981),
+                                        fontSize: 13,
                                       ),
                                     ),
                                     subtitle: Text(
@@ -1662,7 +2412,7 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
                                 },
                               ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Align(
                 alignment: Alignment.centerRight,
                 child: OutlinedButton(
@@ -1671,6 +2421,37 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabPill(String key, String title, bool isDark, {Color? color}) {
+    final isSelected = _historyFilter == key;
+    final activeColor = color ?? const Color(0xFF0284C7);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => setState(() => _historyFilter = key),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withOpacity(isDark ? 0.25 : 0.15)
+              : (isDark ? const Color(0xFF0F1722) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.transparent,
+            width: 1.2,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? activeColor : (isDark ? Colors.white70 : Colors.black87),
           ),
         ),
       ),
