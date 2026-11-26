@@ -728,6 +728,102 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     }
   }
 
+  /// Builds clean, uncongested chips for Detected Issues & Resolved Parameters.
+  /// Shows the first chip + a "+N" counter with an informative tooltip when multiple.
+  Widget _buildIssueChipsSummary(
+    List<String> items, {
+    required bool isResolved,
+    required Color textSubtle,
+  }) {
+    if (items.isEmpty) {
+      if (isResolved) {
+        return Text('-', style: TextStyle(color: textSubtle));
+      }
+      return const Text(
+        'None',
+        style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11.5),
+      );
+    }
+
+    final Color badgeColor = isResolved ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final Color textColor = isResolved ? const Color(0xFF34D399) : const Color(0xFFF87171);
+
+    if (items.length == 1) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: badgeColor.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: badgeColor.withOpacity(0.4)),
+        ),
+        child: Text(
+          items.first,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    final firstItem = items.first;
+    final remainingCount = items.length - 1;
+    final tooltipText = '${isResolved ? "Resolved Parameters" : "Detected Issues"} (${items.length}):\n• ${items.join("\n• ")}';
+
+    return Tooltip(
+      message: tooltipText,
+      waitDuration: const Duration(milliseconds: 150),
+      showDuration: const Duration(seconds: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: badgeColor.withOpacity(0.5)),
+        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2))],
+      ),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600, height: 1.3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: badgeColor.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: badgeColor.withOpacity(0.4)),
+            ),
+            child: Text(
+              firstItem,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 2),
+            decoration: BoxDecoration(
+              color: badgeColor.withOpacity(0.25),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: badgeColor.withOpacity(0.55)),
+            ),
+            child: Text(
+              '+$remainingCount',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isDark = widget.isDarkMode;
@@ -1974,30 +2070,11 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                       children: [
                         Text('Issues: ', style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.w600)),
                         Expanded(
-                          child: issuesList.isEmpty
-                              ? const Text('None (Clean)', style: TextStyle(color: Color(0xFF10B981), fontSize: 11.5, fontWeight: FontWeight.bold))
-                              : Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: issuesList.map((issue) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444).withOpacity(0.18),
-                                        borderRadius: BorderRadius.circular(5),
-                                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
-                                      ),
-                                      child: Text(
-                                        issue,
-                                        style: const TextStyle(
-                                          color: Color(0xFFF87171),
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
+                          child: _buildIssueChipsSummary(
+                            issuesList,
+                            isResolved: false,
+                            textSubtle: textSubtle,
+                          ),
                         ),
                       ],
                     ),
@@ -2010,27 +2087,10 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                         children: [
                           Text('Resolved: ', style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.w600)),
                           Expanded(
-                            child: Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
-                              children: resolvedList.map((param) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981).withOpacity(0.18),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                                  ),
-                                  child: Text(
-                                    param,
-                                    style: const TextStyle(
-                                      color: Color(0xFF34D399),
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                            child: _buildIssueChipsSummary(
+                              resolvedList,
+                              isResolved: true,
+                              textSubtle: textSubtle,
                             ),
                           ),
                         ],
@@ -2310,58 +2370,20 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
 
                         // Detected Issues Chips
                         DataCell(
-                          issuesList.isEmpty
-                              ? const Text('None', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11.5))
-                              : Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: issuesList.map((issue) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444).withOpacity(0.18),
-                                        borderRadius: BorderRadius.circular(5),
-                                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
-                                      ),
-                                      child: Text(
-                                        issue,
-                                        style: const TextStyle(
-                                          color: Color(0xFFF87171),
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
+                          _buildIssueChipsSummary(
+                            issuesList,
+                            isResolved: false,
+                            textSubtle: textSubtle,
+                          ),
                         ),
 
                         // Resolved Parameters Chips
                         DataCell(
-                          resolvedList.isEmpty
-                              ? Text('-', style: TextStyle(color: textSubtle))
-                              : Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: resolvedList.map((param) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981).withOpacity(0.18),
-                                        borderRadius: BorderRadius.circular(5),
-                                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                                      ),
-                                      child: Text(
-                                        param,
-                                        style: const TextStyle(
-                                          color: Color(0xFF34D399),
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
+                          _buildIssueChipsSummary(
+                            resolvedList,
+                            isResolved: true,
+                            textSubtle: textSubtle,
+                          ),
                         ),
 
                         // Verification Status Badge
