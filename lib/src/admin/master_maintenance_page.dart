@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:cloud_sense_webapp/src/views/home/home_theme.dart';
@@ -341,6 +343,22 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     );
   }
 
+  String _formatDateTime(String raw) {
+    if (raw.isEmpty || raw == '-' || raw == 'null') return '-';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+    } catch (_) {
+      try {
+        final clean = raw.replaceAll('T', ' ').split('+')[0];
+        final dt = DateTime.parse(clean);
+        return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+      } catch (_) {
+        return raw;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isDark = widget.isDarkMode;
@@ -503,14 +521,21 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Top Controls & Stats Section
-            Container(
-              padding: EdgeInsets.all(isMobile ? 12 : 16),
-              decoration: BoxDecoration(
-                color: cardBg,
-                border: Border(bottom: BorderSide(color: borderColor)),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 20,
+            vertical: isMobile ? 8 : 14,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Controls & Stats Card
+              Container(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
@@ -668,171 +693,295 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               ),
             ),
 
-            // Main Content Area
+            const SizedBox(height: 14),
+
+            // 2. Main Data Section Card (Table/Cards with integrated header and footer)
             Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 3),
-                          SizedBox(height: 16),
-                          Text('Loading sensor maintenance records...', style: TextStyle(fontWeight: FontWeight.w600)),
-                        ],
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Card Sub-Header Bar
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 12 : 16,
+                          vertical: isMobile ? 10 : 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF14202D) : const Color(0xFFF8FAFC),
+                          border: Border(bottom: BorderSide(color: borderColor)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0284C7).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(Icons.table_chart_rounded, size: 16, color: Color(0xFF0284C7)),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Stations Master Directory',
+                              style: TextStyle(
+                                color: textStrong,
+                                fontSize: isMobile ? 13 : 14.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1C2B3C) : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${filtered.length} Stations',
+                                style: TextStyle(
+                                  color: textSubtle,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            if (!isMobile) ...[
+                              Text('Rows: ', style: TextStyle(color: textSubtle, fontSize: 12)),
+                              const SizedBox(width: 4),
+                              Container(
+                                height: 28,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: surfaceBg,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<int>(
+                                    value: _rowsPerPage,
+                                    isDense: true,
+                                    dropdownColor: cardBg,
+                                    style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
+                                    items: const [
+                                      DropdownMenuItem(value: 25, child: Text('25')),
+                                      DropdownMenuItem(value: 50, child: Text('50')),
+                                      DropdownMenuItem(value: 100, child: Text('100')),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          _rowsPerPage = val;
+                                          _currentPage = 0;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            IconButton(
+                              tooltip: effectiveIsTableView ? 'Switch to Card View' : 'Switch to Table View',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(
+                                effectiveIsTableView ? Icons.grid_view_rounded : Icons.table_rows_rounded,
+                                size: 18,
+                                color: textSubtle,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isTableView = !effectiveIsTableView;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    )
-                  : _errorMessage != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+
+                      // Main Content Area
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(strokeWidth: 3),
+                                    SizedBox(height: 16),
+                                    Text('Loading sensor maintenance records...', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              )
+                            : _errorMessage != null
+                                ? Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEF4444).withOpacity(0.12),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.cloud_off_rounded, size: 40, color: Color(0xFFEF4444)),
+                                          ),
+                                          const SizedBox(height: 14),
+                                          Text(
+                                            _errorMessage!,
+                                            style: TextStyle(color: textStrong, fontSize: 14, fontWeight: FontWeight.w600),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF0284C7),
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            onPressed: () => _loadDistrictsAndSensors(_selectedState ?? 'Punjab'),
+                                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                                            label: const Text('Retry'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : filtered.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.filter_alt_off_rounded, size: 48, color: textSubtle.withOpacity(0.5)),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'No sensor records match your filter criteria.',
+                                              style: TextStyle(color: textSubtle, fontSize: 14, fontWeight: FontWeight.w500),
+                                            ),
+                                            if (_searchQuery.isNotEmpty || _issueFilter != 'All') ...[
+                                              const SizedBox(height: 10),
+                                              TextButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _searchController.clear();
+                                                    _searchQuery = '';
+                                                    _issueFilter = 'All';
+                                                  });
+                                                },
+                                                child: const Text('Reset All Filters'),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      )
+                                    : effectiveIsTableView
+                                        ? _buildExcelDataTable(
+                                            items: pageItems,
+                                            startIndex: startIndex,
+                                            isDark: isDark,
+                                            cardBg: cardBg,
+                                            borderColor: borderColor,
+                                            textStrong: textStrong,
+                                            textSubtle: textSubtle,
+                                          )
+                                        : _buildCardsView(
+                                            items: pageItems,
+                                            startIndex: startIndex,
+                                            isDark: isDark,
+                                            cardBg: cardBg,
+                                            surfaceBg: surfaceBg,
+                                            borderColor: borderColor,
+                                            textStrong: textStrong,
+                                            textSubtle: textSubtle,
+                                          ),
+                      ),
+
+                      // Integrated Footer Pagination Bar
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF14202D) : const Color(0xFFF8FAFC),
+                          border: Border(top: BorderSide(color: borderColor)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Showing ${filtered.isEmpty ? 0 : startIndex + 1}–$endIndex of ${filtered.length} records',
+                              style: TextStyle(color: textSubtle, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444).withOpacity(0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.cloud_off_rounded, size: 40, color: Color(0xFFEF4444)),
+                                IconButton(
+                                  icon: const Icon(Icons.first_page_rounded, size: 20),
+                                  tooltip: 'First Page',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: _currentPage > 0 ? () => setState(() => _currentPage = 0) : null,
                                 ),
-                                const SizedBox(height: 14),
-                                Text(
-                                  _errorMessage!,
-                                  style: TextStyle(color: textStrong, fontSize: 14, fontWeight: FontWeight.w600),
-                                  textAlign: TextAlign.center,
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_left_rounded, size: 22),
+                                  tooltip: 'Previous Page',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
                                 ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0284C7),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  child: Text(
+                                    'Page ${effectivePage + 1} of $totalPages',
+                                    style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
-                                  onPressed: () => _loadDistrictsAndSensors(_selectedState ?? 'Punjab'),
-                                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                                  label: const Text('Retry'),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_right_rounded, size: 22),
+                                  tooltip: 'Next Page',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  icon: const Icon(Icons.last_page_rounded, size: 20),
+                                  tooltip: 'Last Page',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage = totalPages - 1) : null,
                                 ),
                               ],
                             ),
-                          ),
-                        )
-                      : filtered.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.filter_alt_off_rounded, size: 48, color: textSubtle.withOpacity(0.5)),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No sensor records match your filter criteria.',
-                                    style: TextStyle(color: textSubtle, fontSize: 14, fontWeight: FontWeight.w500),
-                                  ),
-                                  if (_searchQuery.isNotEmpty || _issueFilter != 'All') ...[
-                                    const SizedBox(height: 10),
-                                    TextButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _searchController.clear();
-                                          _searchQuery = '';
-                                          _issueFilter = 'All';
-                                        });
-                                      },
-                                      child: const Text('Reset All Filters'),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            )
-                          : effectiveIsTableView
-                              ? _buildExcelDataTable(
-                                  items: pageItems,
-                                  startIndex: startIndex,
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  borderColor: borderColor,
-                                  textStrong: textStrong,
-                                  textSubtle: textSubtle,
-                                )
-                              : _buildCardsView(
-                                  items: pageItems,
-                                  startIndex: startIndex,
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textStrong: textStrong,
-                                  textSubtle: textSubtle,
-                                ),
-            ),
-
-            // Pagination Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: cardBg,
-                border: Border(top: BorderSide(color: borderColor)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Showing ${filtered.isEmpty ? 0 : startIndex + 1}–$endIndex of ${filtered.length}',
-                    style: TextStyle(color: textSubtle, fontSize: 12, fontWeight: FontWeight.w500),
-                  ),
-                  Row(
-                    children: [
-                      if (!isMobile) ...[
-                        Text('Rows: ', style: TextStyle(color: textSubtle, fontSize: 12)),
-                        DropdownButton<int>(
-                          value: _rowsPerPage,
-                          underline: const SizedBox(),
-                          style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
-                          dropdownColor: cardBg,
-                          items: const [
-                            DropdownMenuItem(value: 25, child: Text('25')),
-                            DropdownMenuItem(value: 50, child: Text('50')),
-                            DropdownMenuItem(value: 100, child: Text('100')),
                           ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                _rowsPerPage = val;
-                                _currentPage = 0;
-                              });
-                            }
-                          },
                         ),
-                        const SizedBox(width: 12),
-                      ],
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left_rounded),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${effectivePage + 1}/$totalPages',
-                        style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right_rounded),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   /// Builds the 4 KPI stat cards at the top of the page.
   Widget _buildKpiCardsRow({
@@ -1310,7 +1459,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                     // Resolution Meta (Date & By)
                     if (lastDate.isNotEmpty || resolvedBy.isNotEmpty) ...[
                       Text(
-                        'Last Action: ${lastDate.isNotEmpty ? lastDate : '-'} ${resolvedBy.isNotEmpty ? "by $resolvedBy" : ""}',
+                        'Last Action: ${lastDate.isNotEmpty ? _formatDateTime(lastDate) : '-'} ${resolvedBy.isNotEmpty ? "by $resolvedBy" : ""}',
                         style: TextStyle(color: textSubtle, fontSize: 10.5, fontStyle: FontStyle.italic),
                       ),
                       const SizedBox(height: 8),
@@ -1366,267 +1515,285 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     required Color textStrong,
     required Color textSubtle,
   }) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 1280),
-          child: DataTable(
-            headingRowHeight: 46,
-            dataRowMinHeight: 52,
-            dataRowMaxHeight: 64,
-            headingRowColor: WidgetStateProperty.all(
-              isDark ? const Color(0xFF14202D) : const Color(0xFFE2E8F0),
-            ),
-            headingTextStyle: TextStyle(
-              color: textStrong,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.2,
-              fontSize: 12.5,
-            ),
-            dataRowColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return isDark ? const Color(0xFF1C2B3C) : const Color(0xFFF1F5F9);
-              }
-              return isDark ? const Color(0xFF111A24) : Colors.white;
-            }),
-            dataTextStyle: TextStyle(
-              color: textStrong,
-              fontSize: 12,
-            ),
-            horizontalMargin: 16,
-            columnSpacing: 18,
-            columns: [
-              const DataColumn(label: Text('#')),
-              DataColumn(
-                label: const Text('Sensor ID'),
-                onSort: (_, __) => _onSort('Sensor ID'),
-              ),
-              DataColumn(
-                label: const Text('City'),
-                onSort: (_, __) => _onSort('City'),
-              ),
-              DataColumn(
-                label: const Text('District'),
-                onSort: (_, __) => _onSort('District'),
-              ),
-              DataColumn(
-                label: const Text('State'),
-                onSort: (_, __) => _onSort('State'),
-              ),
-              const DataColumn(label: Text('Detected Issues')),
-              const DataColumn(label: Text('Resolved Parameters')),
-              DataColumn(
-                label: const Text('Status'),
-                onSort: (_, __) => _onSort('Verification Status'),
-              ),
-              DataColumn(
-                label: const Text('Last Date'),
-                onSort: (_, __) => _onSort('Last Resolution Date'),
-              ),
-              const DataColumn(label: Text('Resolved By')),
-              const DataColumn(label: Text('Actions')),
-            ],
-            rows: List.generate(items.length, (index) {
-              final s = items[index];
-              final sensorId = (s['Sensor ID'] ?? '').toString();
-              final city = (s['City'] ?? '').toString();
-              final district = (s['District'] ?? '').toString();
-              final state = (s['State'] ?? '').toString();
-              final issuesStr = (s['Detected Issues'] ?? '').toString();
-              final resolvedStr = (s['Resolved Parameters'] ?? '').toString();
-              final status = (s['Verification Status'] ?? 'No').toString().trim();
-              final isVerified = status.toLowerCase() == 'yes';
-              final lastDate = (s['Last Resolution Date'] ?? '').toString();
-              final resolvedBy = (s['Resolved By'] ?? '').toString();
-
-              final issuesList = issuesStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-              final resolvedList = resolvedStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-
-              return DataRow(
-                cells: [
-                  // #
-                  DataCell(
-                    Text(
-                      '${startIndex + index + 1}',
-                      style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.bold),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableMinWidth = math.max(constraints.maxWidth, 1340.0);
+        return Scrollbar(
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: tableMinWidth),
+                child: DataTable(
+                  headingRowHeight: 46,
+                  dataRowMinHeight: 52,
+                  dataRowMaxHeight: 64,
+                  headingRowColor: WidgetStateProperty.all(
+                    isDark ? const Color(0xFF14202D) : const Color(0xFFE2E8F0),
+                  ),
+                  headingTextStyle: TextStyle(
+                    color: textStrong,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                    fontSize: 12.5,
+                  ),
+                  dataRowColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.hovered)) {
+                      return isDark ? const Color(0xFF1C2B3C) : const Color(0xFFF1F5F9);
+                    }
+                    return isDark ? const Color(0xFF111A24) : Colors.white;
+                  }),
+                  dataTextStyle: TextStyle(
+                    color: textStrong,
+                    fontSize: 12,
+                  ),
+                  horizontalMargin: 16,
+                  columnSpacing: 18,
+                  columns: [
+                    const DataColumn(label: Text('#')),
+                    DataColumn(
+                      label: const Text('Sensor ID'),
+                      onSort: (_, __) => _onSort('Sensor ID'),
                     ),
-                  ),
-
-                  // Sensor ID (with 1-click copy)
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SelectableText(
-                          sensorId,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 14),
-                          tooltip: 'Copy Sensor ID',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: sensorId));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Copied $sensorId'),
-                                duration: const Duration(seconds: 1),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                    DataColumn(
+                      label: const Text('City'),
+                      onSort: (_, __) => _onSort('City'),
                     ),
-                  ),
+                    DataColumn(
+                      label: const Text('District'),
+                      onSort: (_, __) => _onSort('District'),
+                    ),
+                    DataColumn(
+                      label: const Text('State'),
+                      onSort: (_, __) => _onSort('State'),
+                    ),
+                    const DataColumn(label: Text('Detected Issues')),
+                    const DataColumn(label: Text('Resolved Parameters')),
+                    DataColumn(
+                      label: const Text('Status'),
+                      onSort: (_, __) => _onSort('Verification Status'),
+                    ),
+                    DataColumn(
+                      label: const Text('Last Date'),
+                      onSort: (_, __) => _onSort('Last Resolution Date'),
+                    ),
+                    const DataColumn(label: Text('Resolved By')),
+                    const DataColumn(label: Text('Actions')),
+                  ],
+                  rows: List.generate(items.length, (index) {
+                    final s = items[index];
+                    final sensorId = (s['Sensor ID'] ?? '').toString();
+                    final city = (s['City'] ?? '').toString();
+                    final district = (s['District'] ?? '').toString();
+                    final state = (s['State'] ?? '').toString();
+                    final issuesStr = (s['Detected Issues'] ?? '').toString();
+                    final resolvedStr = (s['Resolved Parameters'] ?? '').toString();
+                    final status = (s['Verification Status'] ?? 'No').toString().trim();
+                    final isVerified = status.toLowerCase() == 'yes';
+                    final lastDate = (s['Last Resolution Date'] ?? '').toString();
+                    final resolvedBy = (s['Resolved By'] ?? '').toString();
 
-                  // City
-                  DataCell(Text(city.isEmpty ? '-' : city, overflow: TextOverflow.ellipsis)),
+                    final issuesList = issuesStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                    final resolvedList = resolvedStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
-                  // District
-                  DataCell(Text(district.isEmpty ? '-' : district, overflow: TextOverflow.ellipsis)),
-
-                  // State
-                  DataCell(Text(state.isEmpty ? '-' : state)),
-
-                  // Detected Issues Chips
-                  DataCell(
-                    issuesList.isEmpty
-                        ? const Text('None', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11.5))
-                        : Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: issuesList.map((issue) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444).withOpacity(0.18),
-                                  borderRadius: BorderRadius.circular(5),
-                                  border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
-                                ),
-                                child: Text(
-                                  issue,
-                                  style: const TextStyle(
-                                    color: Color(0xFFF87171),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                  ),
-
-                  // Resolved Parameters Chips
-                  DataCell(
-                    resolvedList.isEmpty
-                        ? Text('-', style: TextStyle(color: textSubtle))
-                        : Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: resolvedList.map((param) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withOpacity(0.18),
-                                  borderRadius: BorderRadius.circular(5),
-                                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                                ),
-                                child: Text(
-                                  param,
-                                  style: const TextStyle(
-                                    color: Color(0xFF34D399),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                  ),
-
-                  // Verification Status Badge
-                  DataCell(
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                      decoration: BoxDecoration(
-                        color: isVerified
-                            ? const Color(0xFF10B981).withOpacity(0.2)
-                            : const Color(0xFFF59E0B).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
-                            size: 11,
-                            color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                          ),
-                          const SizedBox(width: 4),
+                    return DataRow(
+                      cells: [
+                        // #
+                        DataCell(
                           Text(
-                            isVerified ? 'Verified' : 'Pending',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            '${startIndex + index + 1}',
+                            style: TextStyle(color: textSubtle, fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+
+                        // Sensor ID (with 1-click copy)
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SelectableText(
+                                sensorId,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 14),
+                                tooltip: 'Copy Sensor ID',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: sensorId));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Copied $sensorId'),
+                                      duration: const Duration(seconds: 1),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // City
+                        DataCell(Text(city.isEmpty ? '-' : city, overflow: TextOverflow.ellipsis)),
+
+                        // District
+                        DataCell(Text(district.isEmpty ? '-' : district, overflow: TextOverflow.ellipsis)),
+
+                        // State
+                        DataCell(Text(state.isEmpty ? '-' : state)),
+
+                        // Detected Issues Chips
+                        DataCell(
+                          issuesList.isEmpty
+                              ? const Text('None', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11.5))
+                              : Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: issuesList.map((issue) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444).withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(5),
+                                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                                      ),
+                                      child: Text(
+                                        issue,
+                                        style: const TextStyle(
+                                          color: Color(0xFFF87171),
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                        ),
+
+                        // Resolved Parameters Chips
+                        DataCell(
+                          resolvedList.isEmpty
+                              ? Text('-', style: TextStyle(color: textSubtle))
+                              : Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: resolvedList.map((param) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(5),
+                                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                                      ),
+                                      child: Text(
+                                        param,
+                                        style: const TextStyle(
+                                          color: Color(0xFF34D399),
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                        ),
+
+                        // Verification Status Badge
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isVerified
+                                  ? const Color(0xFF10B981).withOpacity(0.2)
+                                  : const Color(0xFFF59E0B).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
+                                  size: 11,
+                                  color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isVerified ? 'Verified' : 'Pending',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Last Resolution Date
-                  DataCell(Text(lastDate.isEmpty ? '-' : lastDate, style: const TextStyle(fontSize: 11))),
-
-                  // Resolved By
-                  DataCell(Text(resolvedBy.isEmpty ? '-' : resolvedBy, overflow: TextOverflow.ellipsis)),
-
-                  // Actions
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            elevation: 0,
-                          ),
-                          icon: const Icon(Icons.build_circle_outlined, size: 14),
-                          label: const Text('Update', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                          onPressed: () => _openUpdateDialog(s),
                         ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.history_rounded, size: 16),
-                          tooltip: 'History',
-                          onPressed: () => _openHistoryDialog(sensorId: sensorId),
+
+                        // Last Resolution Date
+                        DataCell(
+                          Text(
+                            _formatDateTime(lastDate),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textSubtle,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+
+                        // Resolved By
+                        DataCell(Text(resolvedBy.isEmpty ? '-' : resolvedBy, overflow: TextOverflow.ellipsis)),
+
+                        // Actions
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0284C7),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  elevation: 0,
+                                ),
+                                icon: const Icon(Icons.build_circle_outlined, size: 14),
+                                label: const Text('Update', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                onPressed: () => _openUpdateDialog(s),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.history_rounded, size: 16),
+                                tooltip: 'History',
+                                onPressed: () => _openHistoryDialog(sensorId: sensorId),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                ],
-              );
-            }),
+                    );
+                  }),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -1654,32 +1821,41 @@ class _KpiStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
               ? color.withOpacity(isDark ? 0.22 : 0.12)
               : (isDark ? const Color(0xFF162332) : const Color(0xFFF8FAFC)),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : (isDark ? const Color(0xFF24364A) : const Color(0xFFE2E8F0)),
             width: isSelected ? 1.6 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.18),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 16),
+              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1689,7 +1865,7 @@ class _KpiStatCard extends StatelessWidget {
                     value,
                     style: TextStyle(
                       color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1697,7 +1873,7 @@ class _KpiStatCard extends StatelessWidget {
                     label,
                     style: TextStyle(
                       color: isDark ? Colors.white70 : Colors.black54,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
