@@ -166,6 +166,53 @@ class WsMaintenanceApiService {
     }
   }
 
+  /// Updates the Deployment Date for a sensor via PATCH /{State}/{District}/deployment.
+  /// Send deploymentDate as "YYYY-MM-DD" or empty string "" to clear.
+  static Future<Map<String, dynamic>> updateDeploymentDate({
+    required String state,
+    required String district,
+    required String sensorId,
+    required String deploymentDate,
+  }) async {
+    try {
+      final encodedState = Uri.encodeComponent(state);
+      final encodedDistrict = Uri.encodeComponent(district);
+      final url = '$baseUrl/$encodedState/$encodedDistrict/deployment';
+
+      final body = jsonEncode({
+        'sensorId': sensorId,
+        'deploymentDate': deploymentDate,
+      });
+
+      final res = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 20));
+
+      final responseBody = res.body;
+      Map<String, dynamic> data = {};
+      try {
+        data = jsonDecode(responseBody) as Map<String, dynamic>;
+      } catch (_) {
+        data = {'raw': responseBody};
+      }
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return data;
+      } else {
+        final errMsg = data['message'] ?? data['error'] ?? 'HTTP ${res.statusCode}: $responseBody';
+        throw Exception(errMsg);
+      }
+    } catch (e) {
+      print('Error updating deployment date ($sensorId): $e');
+      rethrow;
+    }
+  }
+
   /// Manually triggers sensor and QC synchronization via POST /sync.
   static Future<Map<String, dynamic>> syncSensors() async {
     try {

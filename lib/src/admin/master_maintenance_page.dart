@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -43,8 +44,12 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
   // View Mode: 'table' or 'cards'
   bool? _isTableView; // null = auto-detect by screen width
 
+  // Table Scroll Controllers
+  final ScrollController _tableVerticalController = ScrollController();
+  final ScrollController _tableHorizontalController = ScrollController();
+
   // Pagination
-  int _rowsPerPage = 50;
+  int _rowsPerPage = 100;
   int _currentPage = 0;
 
   // Sort
@@ -63,6 +68,8 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
   @override
   void dispose() {
     _searchController.dispose();
+    _tableVerticalController.dispose();
+    _tableHorizontalController.dispose();
     super.dispose();
   }
 
@@ -225,19 +232,28 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       final sensorId = (s['Sensor ID'] ?? '').toString().toLowerCase();
       final city = (s['City'] ?? '').toString().toLowerCase();
       final district = (s['District'] ?? '').toString().toLowerCase();
+      final state = (s['State'] ?? '').toString().toLowerCase();
       final detectedIssues = (s['Detected Issues'] ?? '').toString().toLowerCase();
       final resolvedParams = (s['Resolved Parameters'] ?? '').toString().toLowerCase();
       final resolvedBy = (s['Resolved By'] ?? '').toString().toLowerCase();
       final verificationStatus = (s['Verification Status'] ?? '').toString().trim().toLowerCase();
+      final connectivity = (s['Connectivity Status'] ?? '').toString().toLowerCase();
+      final deploymentDate = (s['Deployment Date'] ?? '').toString().toLowerCase();
+      final qualityStatus = (s['Data Quality Status'] ?? '').toString().toLowerCase();
 
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final matches = sensorId.contains(q) ||
             city.contains(q) ||
             district.contains(q) ||
+            state.contains(q) ||
             detectedIssues.contains(q) ||
             resolvedParams.contains(q) ||
-            resolvedBy.contains(q);
+            resolvedBy.contains(q) ||
+            verificationStatus.contains(q) ||
+            connectivity.contains(q) ||
+            deploymentDate.contains(q) ||
+            qualityStatus.contains(q);
         if (!matches) return false;
       }
 
@@ -250,6 +266,12 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
           return verificationStatus == 'yes';
         case 'No Issues':
           return detectedIssues.trim().isEmpty;
+        case 'Online':
+          return connectivity == 'online';
+        case 'Offline':
+          return connectivity == 'offline';
+        case 'Deployed':
+          return deploymentDate.trim().isNotEmpty;
         default:
           return true;
       }
@@ -284,7 +306,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
 
     final buffer = StringBuffer();
     buffer.writeln(
-      'Sensor ID,City,District,State,Detected Issues,Resolved Parameters,Verification Status,Last Resolution Date,Resolved By',
+      'Sensor ID,City,District,State,Connectivity Status,Deployment Date,Data Quality Status,Detected Issues,Resolved Parameters,Verification Status,Last Resolution Date,Resolved By',
     );
 
     for (final s in list) {
@@ -292,13 +314,18 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       final city = _escapeCsv(s['City']);
       final district = _escapeCsv(s['District']);
       final state = _escapeCsv(s['State']);
+      final connectivity = _escapeCsv(s['Connectivity Status']);
+      final deploymentDate = _escapeCsv(s['Deployment Date']);
+      final qualityStatus = _escapeCsv(s['Data Quality Status']);
       final issues = _escapeCsv(s['Detected Issues']);
       final resolved = _escapeCsv(s['Resolved Parameters']);
       final status = _escapeCsv(s['Verification Status']);
       final lastDate = _escapeCsv(s['Last Resolution Date']);
       final resolvedBy = _escapeCsv(s['Resolved By']);
 
-      buffer.writeln('$sensorId,$city,$district,$state,$issues,$resolved,$status,$lastDate,$resolvedBy');
+      buffer.writeln(
+        '$sensorId,$city,$district,$state,$connectivity,$deploymentDate,$qualityStatus,$issues,$resolved,$status,$lastDate,$resolvedBy',
+      );
     }
 
     final filename = 'Maintenance_Records_${_selectedState ?? "All"}_${DateTime.now().millisecondsSinceEpoch}.csv';
@@ -359,6 +386,348 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     }
   }
 
+  /// Opens an interactive dialog to pick or clear a sensor's Deployment Date.
+  Future<void> _showDeploymentDateDialog(Map<String, dynamic> sensor) async {
+    final sensorId = (sensor['Sensor ID'] ?? '').toString();
+    final district = (sensor['District'] ?? '').toString();
+    final state = (sensor['State'] ?? _selectedState ?? 'Punjab').toString();
+    final currentDateStr = (sensor['Deployment Date'] ?? '').toString().trim();
+
+    DateTime initialDate = DateTime.now();
+    if (currentDateStr.isNotEmpty) {
+      try {
+        initialDate = DateTime.parse(currentDateStr);
+      } catch (_) {}
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF162332) : Colors.white;
+    final textStrong = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSubtle = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    DateTime? selectedDate = currentDateStr.isNotEmpty ? initialDate : null;
+
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final formattedDate = selectedDate != null
+                ? '${selectedDate!.year.toString().padLeft(4, '0')}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}'
+                : '';
+
+            return AlertDialog(
+              backgroundColor: cardBg,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.event_available_rounded, color: Color(0xFF0284C7), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Deployment Date', style: TextStyle(color: textStrong, fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text(sensorId, style: TextStyle(color: textSubtle, fontSize: 11.5, fontFamily: 'monospace')),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Set or update the field deployment date for this weather station.',
+                    style: TextStyle(color: textSubtle, fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? const Color(0xFF24364A) : const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFF0284C7)),
+                            const SizedBox(width: 10),
+                            Text(
+                              formattedDate.isNotEmpty ? formattedDate : 'Not Deployed / Not Set',
+                              style: TextStyle(
+                                color: formattedDate.isNotEmpty ? textStrong : textSubtle,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            if (selectedDate != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFFEF4444)),
+                                tooltip: 'Clear Date',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  setDialogState(() => selectedDate = null);
+                                },
+                              ),
+                            const SizedBox(width: 6),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.edit_calendar_rounded, size: 14),
+                              label: const Text('Pick Date', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: ctx,
+                                  initialDate: selectedDate ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => selectedDate = picked);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Cancel', style: TextStyle(color: textSubtle)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx, formattedDate);
+                  },
+                  child: const Text('Save Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    try {
+      await WsMaintenanceApiService.updateDeploymentDate(
+        state: state,
+        district: district,
+        sensorId: sensorId,
+        deploymentDate: result,
+      );
+
+      setState(() {
+        sensor['Deployment Date'] = result;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text(
+            result.isNotEmpty
+                ? '✓ Deployment date updated to $result for $sensorId'
+                : '✓ Deployment date cleared for $sensorId',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text('Failed to update deployment date: ${e.toString().replaceAll("Exception: ", "")}'),
+        ),
+      );
+    }
+  }
+
+  /// Builds a modern badge for Connectivity Status (Online / Offline / Unknown).
+  static Widget buildConnectivityBadge(String? status, bool isDark) {
+    final s = (status ?? '').trim().toLowerCase();
+    final isOnline = s == 'online';
+    final isOffline = s == 'offline';
+
+    final Color color;
+    final Color bgColor;
+    final String label;
+
+    if (isOnline) {
+      color = const Color(0xFF10B981);
+      bgColor = const Color(0xFF10B981).withOpacity(0.16);
+      label = 'Online';
+    } else if (isOffline) {
+      color = const Color(0xFFEF4444);
+      bgColor = const Color(0xFFEF4444).withOpacity(0.16);
+      label = 'Offline';
+    } else {
+      color = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+      bgColor = color.withOpacity(0.14);
+      label = status != null && status.isNotEmpty ? status : 'Unknown';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectivityBadge(String? status, bool isDark) => buildConnectivityBadge(status, isDark);
+
+  /// Builds a modern badge for Data Quality Status (Good / Corrected / blank).
+  static Widget buildDataQualityBadge(String? quality, bool isDark) {
+    final q = (quality ?? '').trim().toLowerCase();
+    if (q.isEmpty) {
+      return Text('-', style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontSize: 11));
+    }
+
+    final isGood = q == 'good';
+    final isCorrected = q == 'corrected';
+
+    final Color color = isGood
+        ? const Color(0xFF059669)
+        : (isCorrected ? const Color(0xFFD97706) : const Color(0xFF64748B));
+    final Color bgColor = color.withOpacity(0.15);
+    final String label = isGood ? '✓ Good' : (isCorrected ? '⟳ Corrected' : quality!);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataQualityBadge(String? quality, bool isDark) => buildDataQualityBadge(quality, isDark);
+
+  /// Builds an interactive Deployment Date table cell with 1-click date picker.
+  Widget _buildDeploymentDateCell(Map<String, dynamic> sensor, bool isDark, Color textStrong, Color textSubtle) {
+    final dateStr = (sensor['Deployment Date'] ?? '').toString().trim();
+    if (dateStr.isNotEmpty) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () => _showDeploymentDateDialog(sensor),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.event_available_rounded, size: 14, color: Color(0xFF0284C7)),
+              const SizedBox(width: 5),
+              Text(
+                dateStr,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.edit_calendar_rounded, size: 13, color: textSubtle),
+            ],
+          ),
+        ),
+      );
+    } else {
+      return InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () => _showDeploymentDateDialog(sensor),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0284C7).withOpacity(0.08),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.3), style: BorderStyle.solid),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF0284C7)),
+              SizedBox(width: 4),
+              Text(
+                'Set Date',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF0284C7)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isDark = widget.isDarkMode;
@@ -377,8 +746,10 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 768;
+    final isSmallScreen = screenWidth < 900;
     final isTablet = screenWidth >= 768 && screenWidth < 1100;
-    final effectiveIsTableView = _isTableView ?? (!isMobile);
+    // For smaller screens (<900px), always enforce responsive Card View
+    final effectiveIsTableView = isSmallScreen ? false : (_isTableView ?? true);
 
     final filtered = _filteredSensors;
     final totalCount = _allSensors.length;
@@ -389,6 +760,9 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       return hasResolved && !isVerified;
     }).length;
     final verifiedCount = _allSensors.where((s) => (s['Verification Status'] ?? '').toString().trim().toLowerCase() == 'yes').length;
+    final onlineCount = _allSensors.where((s) => (s['Connectivity Status'] ?? '').toString().toLowerCase() == 'online').length;
+    final offlineCount = _allSensors.where((s) => (s['Connectivity Status'] ?? '').toString().toLowerCase() == 'offline').length;
+    final deployedCount = _allSensors.where((s) => (s['Deployment Date'] ?? '').toString().trim().isNotEmpty).length;
 
     // Pagination calculations
     final totalPages = (_rowsPerPage == 0 || filtered.isEmpty) ? 1 : (filtered.length / _rowsPerPage).ceil();
@@ -409,114 +783,173 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
           tooltip: 'Back to Admin Dashboard',
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: Colors.white.withOpacity(0.25)),
-              ),
-              child: const Icon(
-                Icons.table_chart_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isMobile ? 'Master Sheet' : 'Master Maintenance Sheet',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    fontSize: isMobile ? 16 : 19,
-                  ),
+        title: isMobile
+            ? const Text(
+                'Master Sheet',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
                 ),
-                if (!isMobile)
-                  const Text(
-                    'Weather Station Hardware QC, Issue Resolution & Verification',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: Colors.white.withOpacity(0.25)),
+                    ),
+                    child: const Icon(
+                      Icons.table_chart_rounded,
+                      color: Colors.white,
+                      size: 20,
                     ),
                   ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          // Table / Card view toggle on smaller screens
-          IconButton(
-            tooltip: effectiveIsTableView ? 'Switch to Card View' : 'Switch to Table View',
-            icon: Icon(
-              effectiveIsTableView ? Icons.grid_view_rounded : Icons.table_rows_rounded,
-              color: Colors.white,
-            ),
-            onPressed: () {
-              setState(() {
-                _isTableView = !effectiveIsTableView;
-              });
-            },
-          ),
-
-          // Audit History Button
-          IconButton(
-            tooltip: 'Audit History Logs',
-            icon: const Icon(Icons.history_edu_rounded, color: Colors.white),
-            onPressed: () => _openHistoryDialog(),
-          ),
-
-          // Export CSV Button
-          IconButton(
-            tooltip: 'Export CSV',
-            icon: const Icon(Icons.file_download_outlined, color: Colors.white),
-            onPressed: _exportCsv,
-          ),
-
-          // Sync Button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                elevation: 0,
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Master Maintenance Sheet',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                          fontSize: 19,
+                        ),
+                      ),
+                      const Text(
+                        'Weather Station Hardware QC, Issue Resolution & Verification',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
+        actions: [
+          // Table / Card view toggle (Desktop only, smaller screens strictly use Card view)
+          if (!isSmallScreen)
+            IconButton(
+              tooltip: effectiveIsTableView ? 'Switch to Card View' : 'Switch to Table View',
+              icon: Icon(
+                effectiveIsTableView ? Icons.grid_view_rounded : Icons.table_rows_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isTableView = !effectiveIsTableView;
+                });
+              },
+            ),
+
+          if (isMobile) ...[
+            // Compact mobile action set
+            IconButton(
+              tooltip: 'Sync Now',
               icon: _isSyncing
                   ? const SizedBox(
-                      width: 14,
-                      height: 14,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.sync_rounded, size: 16),
-              label: Text(
-                _isSyncing ? 'Syncing' : (isMobile ? 'Sync' : 'Sync Now'),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-              ),
+                  : const Icon(Icons.sync_rounded, color: Colors.white),
               onPressed: _isSyncing ? null : _handleSync,
             ),
-          ),
-
-          // Refresh Button
-          IconButton(
-            tooltip: 'Refresh Current Sensors',
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            onPressed: () {
-              if (_selectedState != null) {
-                _loadDistrictsAndSensors(_selectedState!);
-              }
-            },
-          ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              color: cardBg,
+              onSelected: (val) {
+                if (val == 'history') _openHistoryDialog();
+                if (val == 'export') _exportCsv();
+                if (val == 'refresh' && _selectedState != null) _loadDistrictsAndSensors(_selectedState!);
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                  value: 'history',
+                  child: Row(
+                    children: [
+                      Icon(Icons.history_edu_rounded, size: 16),
+                      SizedBox(width: 8),
+                      Text('Audit History Logs'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'export',
+                  child: Row(
+                    children: [
+                      Icon(Icons.file_download_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('Export CSV'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'refresh',
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh_rounded, size: 16),
+                      SizedBox(width: 8),
+                      Text('Refresh Sensors'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Desktop action set
+            IconButton(
+              tooltip: 'Audit History Logs',
+              icon: const Icon(Icons.history_edu_rounded, color: Colors.white),
+              onPressed: () => _openHistoryDialog(),
+            ),
+            IconButton(
+              tooltip: 'Export CSV',
+              icon: const Icon(Icons.file_download_outlined, color: Colors.white),
+              onPressed: _exportCsv,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                icon: _isSyncing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.sync_rounded, size: 16),
+                label: Text(
+                  _isSyncing ? 'Syncing' : 'Sync Now',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                ),
+                onPressed: _isSyncing ? null : _handleSync,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Refresh Current Sensors',
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+              onPressed: () {
+                if (_selectedState != null) {
+                  _loadDistrictsAndSensors(_selectedState!);
+                }
+              },
+            ),
+          ],
           const SizedBox(width: 6),
         ],
       ),
@@ -654,6 +1087,30 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                           isDark,
                           accentColor: const Color(0xFF06B6D4),
                         ),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'Online',
+                          'Online ($onlineCount)',
+                          Icons.wifi_rounded,
+                          isDark,
+                          accentColor: const Color(0xFF10B981),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'Offline',
+                          'Offline ($offlineCount)',
+                          Icons.wifi_off_rounded,
+                          isDark,
+                          accentColor: const Color(0xFFEF4444),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterPill(
+                          'Deployed',
+                          'Deployed ($deployedCount)',
+                          Icons.event_available_rounded,
+                          isDark,
+                          accentColor: const Color(0xFF8B5CF6),
+                        ),
                         if (_searchQuery.isNotEmpty || _issueFilter != 'All') ...[
                           const SizedBox(width: 10),
                           InkWell(
@@ -760,6 +1217,71 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                                 ),
                               ),
                             ),
+                            if (effectiveIsTableView) ...[
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: 'Scroll table to start (Sensor ID)',
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () {
+                                    if (_tableHorizontalController.hasClients) {
+                                      _tableHorizontalController.animateTo(
+                                        0,
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.arrow_back_rounded, size: 13, color: textSubtle),
+                                        const SizedBox(width: 3),
+                                        Text('Start', style: TextStyle(color: textSubtle, fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Tooltip(
+                                message: 'Scroll table right to Actions column',
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () {
+                                    if (_tableHorizontalController.hasClients) {
+                                      _tableHorizontalController.animateTo(
+                                        _tableHorizontalController.position.maxScrollExtent,
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0284C7).withOpacity(0.18),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.4)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text('Actions', style: TextStyle(color: Color(0xFF0284C7), fontSize: 11, fontWeight: FontWeight.bold)),
+                                        SizedBox(width: 3),
+                                        Icon(Icons.arrow_forward_rounded, size: 13, color: Color(0xFF0284C7)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                             const Spacer(),
                             if (!isMobile) ...[
                               Text('Rows: ', style: TextStyle(color: textSubtle, fontSize: 12)),
@@ -778,10 +1300,12 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                                     isDense: true,
                                     dropdownColor: cardBg,
                                     style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
-                                    items: const [
-                                      DropdownMenuItem(value: 25, child: Text('25')),
-                                      DropdownMenuItem(value: 50, child: Text('50')),
-                                      DropdownMenuItem(value: 100, child: Text('100')),
+                                    items: [
+                                      const DropdownMenuItem(value: 25, child: Text('25')),
+                                      const DropdownMenuItem(value: 50, child: Text('50')),
+                                      const DropdownMenuItem(value: 100, child: Text('100')),
+                                      const DropdownMenuItem(value: 200, child: Text('200')),
+                                      DropdownMenuItem(value: 0, child: Text('All (${filtered.length})')),
                                     ],
                                     onChanged: (val) {
                                       if (val != null) {
@@ -796,21 +1320,22 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                               ),
                               const SizedBox(width: 10),
                             ],
-                            IconButton(
-                              tooltip: effectiveIsTableView ? 'Switch to Card View' : 'Switch to Table View',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              icon: Icon(
-                                effectiveIsTableView ? Icons.grid_view_rounded : Icons.table_rows_rounded,
-                                size: 18,
-                                color: textSubtle,
+                            if (!isSmallScreen)
+                              IconButton(
+                                tooltip: effectiveIsTableView ? 'Switch to Card View' : 'Switch to Table View',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: Icon(
+                                  effectiveIsTableView ? Icons.grid_view_rounded : Icons.table_rows_rounded,
+                                  size: 18,
+                                  color: textSubtle,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isTableView = !effectiveIsTableView;
+                                  });
+                                },
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _isTableView = !effectiveIsTableView;
-                                });
-                              },
-                            ),
                           ],
                         ),
                       ),
@@ -920,56 +1445,90 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                           color: isDark ? const Color(0xFF14202D) : const Color(0xFFF8FAFC),
                           border: Border(top: BorderSide(color: borderColor)),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Showing ${filtered.isEmpty ? 0 : startIndex + 1}–$endIndex of ${filtered.length} records',
-                              style: TextStyle(color: textSubtle, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.first_page_rounded, size: 20),
-                                  tooltip: 'First Page',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: _currentPage > 0 ? () => setState(() => _currentPage = 0) : null,
-                                ),
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  icon: const Icon(Icons.chevron_left_rounded, size: 22),
-                                  tooltip: 'Previous Page',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  child: Text(
-                                    'Page ${effectivePage + 1} of $totalPages',
-                                    style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
+                        child: isMobile
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${filtered.isEmpty ? 0 : startIndex + 1}–$endIndex / ${filtered.length}',
+                                    style: TextStyle(color: textSubtle, fontSize: 11, fontWeight: FontWeight.w600),
                                   ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.chevron_right_rounded, size: 22),
-                                  tooltip: 'Next Page',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
-                                ),
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  icon: const Icon(Icons.last_page_rounded, size: 20),
-                                  tooltip: 'Last Page',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage = totalPages - 1) : null,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                                        child: Text(
+                                          '${effectivePage + 1}/$totalPages',
+                                          style: TextStyle(color: textStrong, fontSize: 11.5, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Showing ${filtered.isEmpty ? 0 : startIndex + 1}–$endIndex of ${filtered.length} records',
+                                    style: TextStyle(color: textSubtle, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.first_page_rounded, size: 20),
+                                        tooltip: 'First Page',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: _currentPage > 0 ? () => setState(() => _currentPage = 0) : null,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_left_rounded, size: 22),
+                                        tooltip: 'Previous Page',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          'Page ${effectivePage + 1} of $totalPages',
+                                          style: TextStyle(color: textStrong, fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_right_rounded, size: 22),
+                                        tooltip: 'Next Page',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: const Icon(Icons.last_page_rounded, size: 20),
+                                        tooltip: 'Last Page',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage = totalPages - 1) : null,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                       ),
                     ],
                   ),
@@ -1259,6 +1818,9 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         final isVerified = status.toLowerCase() == 'yes';
         final lastDate = (s['Last Resolution Date'] ?? '').toString();
         final resolvedBy = (s['Resolved By'] ?? '').toString();
+        final connectivity = (s['Connectivity Status'] ?? '').toString();
+        final deploymentDate = (s['Deployment Date'] ?? '').toString().trim();
+        final qualityStatus = (s['Data Quality Status'] ?? '').toString();
 
         final issuesList = issuesStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
         final resolvedList = resolvedStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
@@ -1359,6 +1921,26 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+
+              // Card Sub-Header: Connectivity & Data Quality Pills + Deployment Date
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF131D28) : const Color(0xFFF8FAFC),
+                  border: Border(bottom: BorderSide(color: borderColor)),
+                ),
+                child: Row(
+                  children: [
+                    _buildConnectivityBadge(connectivity, isDark),
+                    if (qualityStatus.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      _buildDataQualityBadge(qualityStatus, isDark),
+                    ],
+                    const Spacer(),
+                    _buildDeploymentDateCell(s, isDark, textStrong, textSubtle),
                   ],
                 ),
               ),
@@ -1473,24 +2055,34 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                       children: [
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          icon: const Icon(Icons.history_rounded, size: 15),
+                          icon: const Icon(Icons.event_available_rounded, size: 14),
+                          label: const Text('Deploy Date', style: TextStyle(fontSize: 11)),
+                          onPressed: () => _showDeploymentDateDialog(s),
+                        ),
+                        const SizedBox(width: 6),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.history_rounded, size: 14),
                           label: const Text('History', style: TextStyle(fontSize: 11)),
                           onPressed: () => _openHistoryDialog(sensorId: sensorId),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0284C7),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             elevation: 0,
                           ),
-                          icon: const Icon(Icons.build_circle_outlined, size: 15),
-                          label: const Text('Update Maintenance', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          icon: const Icon(Icons.build_circle_outlined, size: 14),
+                          label: const Text('Update', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
                           onPressed: () => _openUpdateDialog(s),
                         ),
                       ],
@@ -1517,17 +2109,57 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tableMinWidth = math.max(constraints.maxWidth, 1340.0);
-        return Scrollbar(
-          thumbVisibility: true,
-          trackVisibility: true,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: tableMinWidth),
-                child: DataTable(
+        final tableMinWidth = math.max(constraints.maxWidth, 1750.0);
+        return ScrollConfiguration(
+          behavior: const MaterialScrollBehavior().copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+              PointerDeviceKind.unknown,
+            },
+            scrollbars: true,
+          ),
+          child: Listener(
+            onPointerSignal: (pointerSignal) {
+              if (pointerSignal is PointerScrollEvent) {
+                if (pointerSignal.scrollDelta.dy != 0 && _tableVerticalController.hasClients) {
+                  final newOffset = (_tableVerticalController.offset + pointerSignal.scrollDelta.dy)
+                      .clamp(0.0, _tableVerticalController.position.maxScrollExtent);
+                  _tableVerticalController.jumpTo(newOffset);
+                }
+                if (pointerSignal.scrollDelta.dx != 0 && _tableHorizontalController.hasClients) {
+                  final newOffset = (_tableHorizontalController.offset + pointerSignal.scrollDelta.dx)
+                      .clamp(0.0, _tableHorizontalController.position.maxScrollExtent);
+                  _tableHorizontalController.jumpTo(newOffset);
+                }
+              }
+            },
+            child: Scrollbar(
+              controller: _tableHorizontalController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              notificationPredicate: (notif) => notif.metrics.axis == Axis.horizontal,
+              child: Scrollbar(
+                controller: _tableVerticalController,
+                thumbVisibility: true,
+                trackVisibility: true,
+                notificationPredicate: (notif) => notif.metrics.axis == Axis.vertical,
+                child: SingleChildScrollView(
+                  controller: _tableHorizontalController,
+                  scrollDirection: Axis.horizontal,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: tableMinWidth,
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: SingleChildScrollView(
+                      controller: _tableVerticalController,
+                      scrollDirection: Axis.vertical,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: DataTable(
                   headingRowHeight: 46,
                   dataRowMinHeight: 52,
                   dataRowMaxHeight: 64,
@@ -1557,6 +2189,18 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                     DataColumn(
                       label: const Text('Sensor ID'),
                       onSort: (_, __) => _onSort('Sensor ID'),
+                    ),
+                    DataColumn(
+                      label: const Text('Connectivity'),
+                      onSort: (_, __) => _onSort('Connectivity Status'),
+                    ),
+                    DataColumn(
+                      label: const Text('Deployment Date'),
+                      onSort: (_, __) => _onSort('Deployment Date'),
+                    ),
+                    DataColumn(
+                      label: const Text('Data Quality'),
+                      onSort: (_, __) => _onSort('Data Quality Status'),
                     ),
                     DataColumn(
                       label: const Text('City'),
@@ -1589,6 +2233,8 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                     final city = (s['City'] ?? '').toString();
                     final district = (s['District'] ?? '').toString();
                     final state = (s['State'] ?? '').toString();
+                    final connectivity = (s['Connectivity Status'] ?? '').toString();
+                    final qualityStatus = (s['Data Quality Status'] ?? '').toString();
                     final issuesStr = (s['Detected Issues'] ?? '').toString();
                     final resolvedStr = (s['Resolved Parameters'] ?? '').toString();
                     final status = (s['Verification Status'] ?? 'No').toString().trim();
@@ -1643,6 +2289,15 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                             ],
                           ),
                         ),
+
+                        // Connectivity Status Badge
+                        DataCell(_buildConnectivityBadge(connectivity, isDark)),
+
+                        // Deployment Date (with interactive 1-click update)
+                        DataCell(_buildDeploymentDateCell(s, isDark, textStrong, textSubtle)),
+
+                        // Data Quality Status Badge
+                        DataCell(_buildDataQualityBadge(qualityStatus, isDark)),
 
                         // City
                         DataCell(Text(city.isEmpty ? '-' : city, overflow: TextOverflow.ellipsis)),
@@ -1778,6 +2433,12 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                               ),
                               const SizedBox(width: 4),
                               IconButton(
+                                icon: const Icon(Icons.event_available_rounded, size: 16),
+                                tooltip: 'Set Deployment Date',
+                                onPressed: () => _showDeploymentDateDialog(s),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
                                 icon: const Icon(Icons.history_rounded, size: 16),
                                 tooltip: 'History',
                                 onPressed: () => _openHistoryDialog(sensorId: sensorId),
@@ -1792,9 +2453,12 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               ),
             ),
           ),
-        );
-      },
-    );
+        ),
+      ),
+    ),
+  );
+  },
+);
   }
 }
 
@@ -1917,11 +2581,17 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
   String? _dialogError;
   late TabController _tabController;
 
+  String? _currentDeploymentDate;
+  bool _isUpdatingDate = false;
+
   @override
   void initState() {
     super.initState();
     _fixedByController = TextEditingController(text: widget.adminEmail ?? 'Admin');
     _tabController = TabController(length: 2, vsync: this);
+
+    final rawDate = (widget.sensor['Deployment Date'] ?? '').toString().trim();
+    _currentDeploymentDate = rawDate.isNotEmpty ? rawDate : null;
 
     // Pre-select all detected issues by default for convenience
     final issuesStr = (widget.sensor['Detected Issues'] ?? '').toString();
@@ -1939,6 +2609,51 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
     _fixedByController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _updateDeploymentDate(String? newDate) async {
+    setState(() => _isUpdatingDate = true);
+    try {
+      final sensorId = (widget.sensor['Sensor ID'] ?? '').toString();
+      final district = (widget.sensor['District'] ?? '').toString();
+      final state = (widget.sensor['State'] ?? widget.selectedState).toString();
+      final dateToSubmit = newDate ?? '';
+
+      await WsMaintenanceApiService.updateDeploymentDate(
+        state: state,
+        district: district,
+        sensorId: sensorId,
+        deploymentDate: dateToSubmit,
+      );
+
+      setState(() {
+        _currentDeploymentDate = dateToSubmit.isEmpty ? null : dateToSubmit;
+        widget.sensor['Deployment Date'] = dateToSubmit;
+      });
+
+      widget.onSuccess();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10B981),
+          content: Text(dateToSubmit.isEmpty
+              ? 'Deployment date cleared for $sensorId'
+              : 'Deployment date set to $dateToSubmit'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFEF4444),
+          content: Text('Failed to update deployment date: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingDate = false);
+    }
   }
 
   Future<void> _submitAction(String action) async {
@@ -2006,6 +2721,8 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
     final city = (widget.sensor['City'] ?? '').toString();
     final district = (widget.sensor['District'] ?? '').toString();
     final state = (widget.sensor['State'] ?? widget.selectedState).toString();
+    final connectivity = (widget.sensor['Connectivity Status'] ?? '').toString();
+    final qualityStatus = (widget.sensor['Data Quality Status'] ?? '').toString();
     final issuesStr = (widget.sensor['Detected Issues'] ?? '').toString();
     final resolvedStr = (widget.sensor['Resolved Parameters'] ?? '').toString();
     final status = (widget.sensor['Verification Status'] ?? 'No').toString().trim();
@@ -2090,63 +2807,197 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
               ],
 
               // Sensor Identification & Verification Status Banner
+              LayoutBuilder(
+                builder: (context, bannerConstraints) {
+                  final isDialogNarrow = bannerConstraints.maxWidth < 460;
+                  final sensorIdWidget = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('SENSOR ID', style: TextStyle(color: textSubtle, fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      SelectableText(
+                        sensorId,
+                        style: TextStyle(
+                          color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  );
+
+                  final badgesWidget = Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _MasterMaintenanceSheetPageState.buildConnectivityBadge(connectivity, isDark),
+                      if (qualityStatus.isNotEmpty)
+                        _MasterMaintenanceSheetPageState.buildDataQualityBadge(qualityStatus, isDark),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isVerified
+                              ? const Color(0xFF10B981).withOpacity(0.2)
+                              : const Color(0xFFF59E0B).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
+                              size: 12,
+                              color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isVerified ? 'Fully Verified' : 'Not Verified',
+                              style: TextStyle(
+                                color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: isDialogNarrow
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              sensorIdWidget,
+                              const SizedBox(height: 8),
+                              badgesWidget,
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: sensorIdWidget),
+                              badgesWidget,
+                            ],
+                          ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Interactive Deployment Date Panel
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                  color: isDark ? const Color(0xFF0B131D) : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
+                  border: Border.all(color: borderColor.withOpacity(0.7)),
                 ),
-                child: Row(
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  runAlignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('SENSOR ID', style: TextStyle(color: textSubtle, fontSize: 10, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 2),
-                          SelectableText(
-                            sensorId,
-                            style: TextStyle(
-                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                              fontSize: 12.5,
-                            ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.event_available_rounded,
+                          size: 16,
+                          color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Deployment Date: ',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textSubtle),
+                        ),
+                        Text(
+                          _currentDeploymentDate != null && _currentDeploymentDate!.isNotEmpty
+                              ? _currentDeploymentDate!
+                              : 'Not Deployed Yet',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _currentDeploymentDate != null && _currentDeploymentDate!.isNotEmpty
+                                ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
+                                : textSubtle,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isVerified
-                            ? const Color(0xFF10B981).withOpacity(0.2)
-                            : const Color(0xFFF59E0B).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
-                      ),
-                      child: Row(
+                    if (_isUpdatingDate)
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
-                            size: 12,
-                            color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isVerified ? 'Fully Verified' : 'Not Verified',
-                            style: TextStyle(
-                              color: isVerified ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                          if (_currentDeploymentDate != null && _currentDeploymentDate!.isNotEmpty)
+                            TextButton(
+                              onPressed: () => _updateDeploymentDate(null),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFFEF4444),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text('Clear', style: TextStyle(fontSize: 11)),
+                            ),
+                          TextButton.icon(
+                            onPressed: () async {
+                              DateTime initial = DateTime.now();
+                              if (_currentDeploymentDate != null && _currentDeploymentDate!.isNotEmpty) {
+                                try {
+                                  initial = DateTime.parse(_currentDeploymentDate!);
+                                } catch (_) {}
+                              }
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: initial,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) {
+                                final yyyy = picked.year.toString().padLeft(4, '0');
+                                final mm = picked.month.toString().padLeft(2, '0');
+                                final dd = picked.day.toString().padLeft(2, '0');
+                                await _updateDeploymentDate('$yyyy-$mm-$dd');
+                              }
+                            },
+                            icon: const Icon(Icons.edit_calendar_rounded, size: 13),
+                            label: Text(
+                              _currentDeploymentDate != null && _currentDeploymentDate!.isNotEmpty
+                                  ? 'Change'
+                                  : 'Set Date',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
                         ],
                       ),
-                    ),
                   ],
                 ),
               ),
