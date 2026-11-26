@@ -39,7 +39,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
   // Search & Filter
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _issueFilter = 'All'; // 'All', 'Has Issues', 'Pending Verification', 'Verified', 'No Issues'
+  String _issueFilter = 'Has Issues'; // 'All', 'Has Issues', 'Pending Verification', 'Verified', 'No Issues'
 
   // View Mode: 'table' or 'cards'
   bool? _isTableView; // null = auto-detect by screen width
@@ -55,9 +55,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
   // Sort
   String _sortColumn = 'Sensor ID';
   bool _sortAscending = true;
-
-  // Syncing state
-  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -177,56 +174,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     }
   }
 
-  Future<void> _handleSync() async {
-    setState(() => _isSyncing = true);
-    try {
-      final result = await WsMaintenanceApiService.syncSensors();
-      if (!mounted) return;
-
-      final message = result['message'] ?? 'Synchronization completed successfully';
-      final inventory = result['inventory_records'] ?? result['sensors_in_portal'] ?? '';
-      final statesCount = result['states_processed'] ?? '';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '✓ $message${inventory != '' ? ' ($inventory sensors, $statesCount states)' : ''}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-
-      if (_selectedState != null) {
-        await _loadDistrictsAndSensors(_selectedState!);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFFEF4444),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          content: Text('Sync failed: $e'),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSyncing = false);
-    }
-  }
-
   List<Map<String, dynamic>> get _filteredSensors {
     return _allSensors.where((s) {
       final sensorId = (s['Sensor ID'] ?? '').toString().toLowerCase();
@@ -240,6 +187,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       final connectivity = (s['Connectivity Status'] ?? '').toString().toLowerCase();
       final deploymentDate = (s['Deployment Date'] ?? '').toString().toLowerCase();
       final qualityStatus = (s['Data Quality Status'] ?? '').toString().toLowerCase();
+      final remarks = (s['Remarks'] ?? '').toString().toLowerCase();
 
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
@@ -253,7 +201,8 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
             verificationStatus.contains(q) ||
             connectivity.contains(q) ||
             deploymentDate.contains(q) ||
-            qualityStatus.contains(q);
+            qualityStatus.contains(q) ||
+            remarks.contains(q);
         if (!matches) return false;
       }
 
@@ -306,7 +255,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
 
     final buffer = StringBuffer();
     buffer.writeln(
-      'Sensor ID,City,District,State,Connectivity Status,Deployment Date,Data Quality Status,Detected Issues,Resolved Parameters,Verification Status,Last Resolution Date,Resolved By',
+      'Sensor ID,City,District,State,Connectivity Status,Deployment Date,Data Quality Status,Detected Issues,Resolved Parameters,Verification Status,Last Resolved Time,Resolved By,Remarks',
     );
 
     for (final s in list) {
@@ -320,11 +269,12 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       final issues = _escapeCsv(s['Detected Issues']);
       final resolved = _escapeCsv(s['Resolved Parameters']);
       final status = _escapeCsv(s['Verification Status']);
-      final lastDate = _escapeCsv(s['Last Resolution Date']);
+      final lastDate = _escapeCsv(s['Last Resolved Time'] ?? s['Last Resolution Date']);
       final resolvedBy = _escapeCsv(s['Resolved By']);
+      final remarks = _escapeCsv(s['Remarks']);
 
       buffer.writeln(
-        '$sensorId,$city,$district,$state,$connectivity,$deploymentDate,$qualityStatus,$issues,$resolved,$status,$lastDate,$resolvedBy',
+        '$sensorId,$city,$district,$state,$connectivity,$deploymentDate,$qualityStatus,$issues,$resolved,$status,$lastDate,$resolvedBy,$remarks',
       );
     }
 
@@ -343,7 +293,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
     return '"$str"';
   }
 
-  void _openUpdateDialog(Map<String, dynamic> sensor) {
+  void _openUpdateDialog(Map<String, dynamic> sensor, {bool focusRemarks = false}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -352,6 +302,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         selectedState: _selectedState ?? 'Punjab',
         adminEmail: widget.adminEmail,
         isDarkMode: widget.isDarkMode,
+        focusRemarks: focusRemarks,
         onSuccess: () {
           _loadDistrictsAndSensors(_selectedState!);
         },
@@ -948,17 +899,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
 
           if (isMobile) ...[
             // Compact mobile action set
-            IconButton(
-              tooltip: 'Sync Now',
-              icon: _isSyncing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.sync_rounded, color: Colors.white),
-              onPressed: _isSyncing ? null : _handleSync,
-            ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
               color: cardBg,
@@ -1011,30 +951,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
               tooltip: 'Export CSV',
               icon: const Icon(Icons.file_download_outlined, color: Colors.white),
               onPressed: _exportCsv,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                ),
-                icon: _isSyncing
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.sync_rounded, size: 16),
-                label: Text(
-                  _isSyncing ? 'Syncing' : 'Sync Now',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                ),
-                onPressed: _isSyncing ? null : _handleSync,
-              ),
             ),
             IconButton(
               tooltip: 'Refresh Current Sensors',
@@ -1150,8 +1066,6 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterPill('All', 'All ($totalCount)', Icons.apps_rounded, isDark),
-                        const SizedBox(width: 6),
                         _buildFilterPill(
                           'Has Issues',
                           'Issues ($issuesCount)',
@@ -1852,7 +1766,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
       borderRadius: BorderRadius.circular(20),
       onTap: () {
         setState(() {
-          _issueFilter = filterKey;
+          _issueFilter = isSelected ? 'All' : filterKey;
           _currentPage = 0;
         });
       },
@@ -1912,8 +1826,9 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
         final resolvedStr = (s['Resolved Parameters'] ?? '').toString();
         final status = (s['Verification Status'] ?? 'No').toString().trim();
         final isVerified = status.toLowerCase() == 'yes';
-        final lastDate = (s['Last Resolution Date'] ?? '').toString();
+        final lastDate = (s['Last Resolved Time'] ?? s['Last Resolution Date'] ?? '').toString();
         final resolvedBy = (s['Resolved By'] ?? '').toString();
+        final remarks = (s['Remarks'] ?? '').toString().trim();
         final connectivity = (s['Connectivity Status'] ?? '').toString();
         final deploymentDate = (s['Deployment Date'] ?? '').toString().trim();
         final qualityStatus = (s['Data Quality Status'] ?? '').toString();
@@ -2104,6 +2019,31 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                         'Last Action: ${lastDate.isNotEmpty ? _formatDateTime(lastDate) : '-'} ${resolvedBy.isNotEmpty ? "by $resolvedBy" : ""}',
                         style: TextStyle(color: textSubtle, fontSize: 10.5, fontStyle: FontStyle.italic),
                       ),
+                      const SizedBox(height: 6),
+                    ],
+                    if (remarks.isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: borderColor.withOpacity(0.8)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.notes_rounded, size: 14, color: textSubtle),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                remarks,
+                                style: TextStyle(color: textStrong, fontSize: 11.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 8),
                     ],
 
@@ -2282,7 +2222,7 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                     ),
                     DataColumn(
                       label: const Text('Last Date'),
-                      onSort: (_, __) => _onSort('Last Resolution Date'),
+                      onSort: (_, __) => _onSort('Last Resolved Time'),
                     ),
                     const DataColumn(label: Text('Resolved By')),
                     const DataColumn(label: Text('Actions')),
@@ -2299,8 +2239,9 @@ class _MasterMaintenanceSheetPageState extends State<MasterMaintenanceSheetPage>
                     final resolvedStr = (s['Resolved Parameters'] ?? '').toString();
                     final status = (s['Verification Status'] ?? 'No').toString().trim();
                     final isVerified = status.toLowerCase() == 'yes';
-                    final lastDate = (s['Last Resolution Date'] ?? '').toString();
+                    final lastDate = (s['Last Resolved Time'] ?? s['Last Resolution Date'] ?? '').toString();
                     final resolvedBy = (s['Resolved By'] ?? '').toString();
+                    final remarks = (s['Remarks'] ?? '').toString().trim();
 
                     final issuesList = issuesStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
                     final resolvedList = resolvedStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
@@ -2581,6 +2522,7 @@ class _UpdateMaintenanceDialog extends StatefulWidget {
   final String selectedState;
   final String? adminEmail;
   final bool isDarkMode;
+  final bool focusRemarks;
   final VoidCallback onSuccess;
 
   const _UpdateMaintenanceDialog({
@@ -2588,6 +2530,7 @@ class _UpdateMaintenanceDialog extends StatefulWidget {
     required this.selectedState,
     this.adminEmail,
     required this.isDarkMode,
+    this.focusRemarks = false,
     required this.onSuccess,
   });
 
@@ -2597,6 +2540,7 @@ class _UpdateMaintenanceDialog extends StatefulWidget {
 
 class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with SingleTickerProviderStateMixin {
   late final TextEditingController _fixedByController;
+  late final TextEditingController _remarksController;
   final Set<String> _selectedFixParams = {};
   final Set<String> _selectedVerifyParams = {};
   bool _isSubmitting = false;
@@ -2610,6 +2554,7 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
   void initState() {
     super.initState();
     _fixedByController = TextEditingController(text: widget.adminEmail ?? 'Admin');
+    _remarksController = TextEditingController(text: (widget.sensor['Remarks'] ?? '').toString());
     _tabController = TabController(length: 2, vsync: this);
 
     final rawDate = (widget.sensor['Deployment Date'] ?? '').toString().trim();
@@ -2629,6 +2574,7 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
   @override
   void dispose() {
     _fixedByController.dispose();
+    _remarksController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -2708,6 +2654,7 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
         parameters: params,
         action: action,
         fixedBy: fixedBy,
+        remarks: _remarksController.text.trim(),
       );
 
       if (!mounted) return;
@@ -3048,6 +2995,27 @@ class _UpdateMaintenanceDialogState extends State<_UpdateMaintenanceDialog> with
                   labelText: 'Action Performed By (Required)',
                   labelStyle: TextStyle(color: textSubtle, fontSize: 11.5),
                   prefixIcon: const Icon(Icons.person_outline_rounded, size: 17),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F1722) : const Color(0xFFF8FAFC),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Remarks Input Field (Optional)
+              TextField(
+                controller: _remarksController,
+                autofocus: widget.focusRemarks,
+                minLines: 1,
+                maxLines: 3,
+                style: TextStyle(color: textStrong, fontSize: 12.5),
+                decoration: InputDecoration(
+                  labelText: 'Remarks (Optional)',
+                  hintText: 'Write any maintenance notes or remarks...',
+                  hintStyle: TextStyle(color: textSubtle.withOpacity(0.7), fontSize: 11.5),
+                  labelStyle: TextStyle(color: textSubtle, fontSize: 11.5),
+                  prefixIcon: const Icon(Icons.notes_rounded, size: 17),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   filled: true,
@@ -3424,6 +3392,7 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
                                   final action = (r['Action'] ?? '').toString().toUpperCase();
                                   final by = (r['Performed By'] ?? '').toString();
                                   final timestamp = (r['Action Timestamp'] ?? '').toString();
+                                  final remarks = (r['Remarks'] ?? '').toString().trim();
                                   final isFix = action == 'FIX';
 
                                   return ListTile(
@@ -3449,9 +3418,27 @@ class _MaintenanceHistoryDialogState extends State<_MaintenanceHistoryDialog> {
                                         fontSize: 13,
                                       ),
                                     ),
-                                    subtitle: Text(
-                                      'Sensor: $sid • By: $by',
-                                      style: TextStyle(color: textSubtle, fontSize: 11),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Sensor: $sid • By: $by',
+                                          style: TextStyle(color: textSubtle, fontSize: 11),
+                                        ),
+                                        if (remarks.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              'Remarks: $remarks',
+                                              style: TextStyle(
+                                                color: textStrong,
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                     trailing: Text(
                                       timestamp,

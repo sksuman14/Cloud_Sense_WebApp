@@ -124,6 +124,7 @@ class WsMaintenanceApiService {
     required List<String> parameters,
     required String action, // "FIX" or "VERIFY"
     required String fixedBy,
+    String remarks = '',
   }) async {
     try {
       final encodedState = Uri.encodeComponent(state);
@@ -135,6 +136,7 @@ class WsMaintenanceApiService {
         'parameters': parameters,
         'action': action,
         'fixedBy': fixedBy,
+        'remarks': remarks,
       });
 
       final res = await http.patch(
