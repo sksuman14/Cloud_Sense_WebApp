@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:universal_html/html.dart' as html;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_sense_webapp/src/widgets/device_image_view.dart';
 export 'package:cloud_sense_webapp/src/widgets/device_image_view.dart';
@@ -425,6 +429,9 @@ void showUploadDeviceImageDialog({
   int initialSlot = 1,
   required bool isDark,
   VoidCallback? onUploadSuccess,
+  Uint8List? initialImageBytes,
+  String? initialFileName,
+  int? initialFileSize,
 }) {
   showDialog(
     context: context,
@@ -436,6 +443,9 @@ void showUploadDeviceImageDialog({
       initialSlot: initialSlot,
       isDark: isDark,
       onUploadSuccess: onUploadSuccess,
+      initialImageBytes: initialImageBytes,
+      initialFileName: initialFileName,
+      initialFileSize: initialFileSize,
     ),
   );
 }
@@ -448,6 +458,9 @@ class DeviceImageUploadDialog extends StatefulWidget {
   final int initialSlot;
   final bool isDark;
   final VoidCallback? onUploadSuccess;
+  final Uint8List? initialImageBytes;
+  final String? initialFileName;
+  final int? initialFileSize;
 
   const DeviceImageUploadDialog({
     Key? key,
@@ -458,6 +471,9 @@ class DeviceImageUploadDialog extends StatefulWidget {
     this.initialSlot = 1,
     required this.isDark,
     this.onUploadSuccess,
+    this.initialImageBytes,
+    this.initialFileName,
+    this.initialFileSize,
   }) : super(key: key);
 
   @override
@@ -472,6 +488,7 @@ class _DeviceImageUploadDialogState extends State<DeviceImageUploadDialog> {
   Uint8List? _selectedImageBytes;
   String? _selectedFileName;
   int? _selectedFileSize;
+  bool _isDragging = false;
 
   bool _isUploading = false;
   String? _errorMessage;
@@ -480,15 +497,43 @@ class _DeviceImageUploadDialogState extends State<DeviceImageUploadDialog> {
   DeviceImageResult? _existingImages;
   bool _isLoadingExisting = false;
 
+  StreamSubscription<html.MouseEvent>? _webDragOverSub;
+  StreamSubscription<html.MouseEvent>? _webDragLeaveSub;
+  StreamSubscription<html.MouseEvent>? _webDropSub;
+
   @override
   void initState() {
     super.initState();
     _selectedSlot = widget.initialSlot;
+    _selectedImageBytes = widget.initialImageBytes;
+    _selectedFileName = widget.initialFileName;
+    _selectedFileSize = widget.initialFileSize;
     final cTopic = DeviceImageService.cleanTopic(widget.topic);
     final cDev = DeviceImageService.cleanDeviceId(widget.deviceId, topic: cTopic);
     _deviceIdController = TextEditingController(text: cDev);
     _topicController = TextEditingController(text: cTopic);
     _checkExistingImage(cDev, cTopic);
+
+    if (kIsWeb) {
+      _webDragOverSub = html.window.onDragOver.listen((event) {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        event.preventDefault();
+        if (!_isDragging) setState(() => _isDragging = true);
+      });
+      _webDragLeaveSub = html.window.onDragLeave.listen((event) {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        if (_isDragging) setState(() => _isDragging = false);
+      });
+      _webDropSub = html.window.onDrop.listen((event) async {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        event.preventDefault();
+        if (_isDragging) setState(() => _isDragging = false);
+        final files = event.dataTransfer.files;
+        if (files != null && files.isNotEmpty) {
+          await _handleWebDroppedFile(files.first);
+        }
+      });
+    }
   }
 
   Future<void> _checkExistingImage(String devId, String topic, {bool forceRefresh = false}) async {
@@ -516,9 +561,63 @@ class _DeviceImageUploadDialogState extends State<DeviceImageUploadDialog> {
 
   @override
   void dispose() {
+    _webDragOverSub?.cancel();
+    _webDragLeaveSub?.cancel();
+    _webDropSub?.cancel();
     _deviceIdController.dispose();
     _topicController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleWebDroppedFile(html.File file) async {
+    final lowerName = file.name.toLowerCase();
+    final isImage = lowerName.endsWith('.jpg') ||
+        lowerName.endsWith('.jpeg') ||
+        lowerName.endsWith('.png') ||
+        lowerName.endsWith('.webp');
+
+    if (!isImage) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Unsupported file format. Please drop a JPEG, JPG, PNG, or WEBP image.';
+      });
+      return;
+    }
+
+    try {
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      await reader.onLoadEnd.first;
+      final result = reader.result;
+      Uint8List? bytes;
+      if (result is Uint8List) {
+        bytes = result;
+      } else if (result is ByteBuffer) {
+        bytes = result.asUint8List();
+      } else if (result is List<int>) {
+        bytes = Uint8List.fromList(result);
+      }
+
+      if (!mounted || bytes == null) return;
+      if (bytes.length > 10 * 1024 * 1024) {
+        setState(() {
+          _errorMessage = 'Image exceeds maximum size of 10MB.';
+        });
+        return;
+      }
+      setState(() {
+        _selectedImageBytes = bytes;
+        _selectedFileName = file.name;
+        _selectedFileSize = bytes!.length;
+        _errorMessage = null;
+        _successMessage = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Error reading dropped image: $e';
+      });
+    }
   }
 
   Future<void> _pickImage() async {
@@ -546,6 +645,50 @@ class _DeviceImageUploadDialogState extends State<DeviceImageUploadDialog> {
     } catch (e) {
       setState(() {
         _errorMessage = 'Error selecting image: $e';
+      });
+    }
+  }
+
+  Future<void> _handleDroppedFiles(DropDoneDetails details) async {
+    if (details.files.isEmpty) return;
+    final file = details.files.first;
+    final lowerName = file.name.toLowerCase();
+    final isImage = lowerName.endsWith('.jpg') ||
+        lowerName.endsWith('.jpeg') ||
+        lowerName.endsWith('.png') ||
+        lowerName.endsWith('.webp');
+
+    if (!isImage) {
+      setState(() {
+        _isDragging = false;
+        _errorMessage = 'Unsupported file format. Please drop a JPEG, JPG, PNG, or WEBP image.';
+      });
+      return;
+    }
+
+    try {
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      if (bytes.length > 10 * 1024 * 1024) {
+        setState(() {
+          _isDragging = false;
+          _errorMessage = 'Image exceeds maximum size of 10MB.';
+        });
+        return;
+      }
+      setState(() {
+        _isDragging = false;
+        _selectedImageBytes = bytes;
+        _selectedFileName = file.name;
+        _selectedFileSize = bytes.length;
+        _errorMessage = null;
+        _successMessage = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isDragging = false;
+        _errorMessage = 'Error reading dropped image: $e';
       });
     }
   }
@@ -1165,122 +1308,160 @@ class _DeviceImageUploadDialogState extends State<DeviceImageUploadDialog> {
                         ),
                         const SizedBox(height: 6),
                         if (_selectedImageBytes != null) ...[
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: borderColor),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(12)),
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                        maxHeight: 220),
-                                    child: Image.memory(
-                                      _selectedImageBytes!,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.image,
-                                          size: 16, color: Colors.indigoAccent),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _selectedFileName ?? 'image.jpg',
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: strongText),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (_selectedFileSize != null)
-                                              Text(
-                                                '${(_selectedFileSize! / 1024).toStringAsFixed(1)} KB',
-                                                style: TextStyle(
-                                                    fontSize: 10.5,
-                                                    color: subtleText),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      TextButton.icon(
-                                        onPressed: _pickImage,
-                                        icon: const Icon(Icons.refresh, size: 14),
-                                        label: const Text('Change',
-                                            style: TextStyle(fontSize: 11.5)),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: Colors.indigoAccent,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ] else ...[
-                          InkWell(
-                            onTap: _pickImage,
-                            borderRadius: BorderRadius.circular(12),
+                          DropTarget(
+                            onDragEntered: (_) => setState(() => _isDragging = true),
+                            onDragExited: (_) => setState(() => _isDragging = false),
+                            onDragDone: _handleDroppedFiles,
                             child: Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 28, horizontal: 16),
                               decoration: BoxDecoration(
-                                color: cardBg,
+                                color: _isDragging
+                                    ? Colors.cyan.withOpacity(0.1)
+                                    : cardBg,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.indigoAccent.withOpacity(0.4),
-                                  style: BorderStyle.solid,
+                                  color: _isDragging
+                                      ? Colors.cyanAccent
+                                      : borderColor,
+                                  width: _isDragging ? 2 : 1,
                                 ),
                               ),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.indigoAccent.withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.cloud_upload_outlined,
-                                        size: 32, color: Colors.indigoAccent),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    _selectedSlot == 1
-                                        ? 'Click to select primary device photo (Slot 1)'
-                                        : 'Click to select secondary device photo (Slot 2)',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: strongText,
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(12)),
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                          maxHeight: 220),
+                                      child: Image.memory(
+                                        _selectedImageBytes!,
+                                        fit: BoxFit.contain,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Supports JPEG, JPG, PNG (Max 10MB)',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: subtleText,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 10),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.image,
+                                            size: 16, color: Colors.indigoAccent),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _selectedFileName ?? 'image.jpg',
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: strongText),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              if (_selectedFileSize != null)
+                                                Text(
+                                                  '${(_selectedFileSize! / 1024).toStringAsFixed(1)} KB',
+                                                  style: TextStyle(
+                                                      fontSize: 10.5,
+                                                      color: subtleText),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        TextButton.icon(
+                                          onPressed: _pickImage,
+                                          icon: const Icon(Icons.refresh, size: 14),
+                                          label: const Text('Change',
+                                              style: TextStyle(fontSize: 11.5)),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.indigoAccent,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          DropTarget(
+                            onDragEntered: (_) => setState(() => _isDragging = true),
+                            onDragExited: (_) => setState(() => _isDragging = false),
+                            onDragDone: _handleDroppedFiles,
+                            child: InkWell(
+                              onTap: _pickImage,
+                              borderRadius: BorderRadius.circular(12),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 28, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: _isDragging
+                                      ? Colors.cyan.withOpacity(0.12)
+                                      : cardBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _isDragging
+                                        ? Colors.cyanAccent
+                                        : Colors.indigoAccent.withOpacity(0.4),
+                                    width: _isDragging ? 2 : 1,
+                                    style: BorderStyle.solid,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: (_isDragging
+                                                ? Colors.cyanAccent
+                                                : Colors.indigoAccent)
+                                            .withOpacity(0.12),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        _isDragging
+                                            ? Icons.file_download_outlined
+                                            : Icons.cloud_upload_outlined,
+                                        size: 32,
+                                        color: _isDragging
+                                            ? Colors.cyanAccent
+                                            : Colors.indigoAccent,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      _isDragging
+                                          ? 'Drop photo here for Slot $_selectedSlot'
+                                          : (_selectedSlot == 1
+                                              ? 'Drag & drop or click to select photo (Slot 1)'
+                                              : 'Drag & drop or click to select photo (Slot 2)'),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isDragging
+                                            ? Colors.cyanAccent
+                                            : strongText,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Supports JPEG, JPG, PNG (Max 10MB)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: subtleText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

@@ -149,6 +149,15 @@
       <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
   </picture> -->
   <script src="flutter_bootstrap.js" async=""></script>
+  <script>
+    // Prevent browser from navigating/opening dropped files in a new tab
+    window.addEventListener('dragover', function (e) {
+      e.preventDefault();
+    }, false);
+    window.addEventListener('drop', function (e) {
+      e.preventDefault();
+    }, false);
+  </script>
 
 
 

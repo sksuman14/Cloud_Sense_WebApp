@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:http/http.dart' as http;
+import 'package:universal_html/html.dart' as html;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_sense_webapp/main.dart';
@@ -582,6 +587,11 @@ class _DeviceSpecificationDialogWidgetState
   DeviceImageResult? _deviceImages;
   bool _isLoadingImages = true;
   int _selectedImageSlot = 1;
+  bool _isDraggingPhoto = false;
+
+  StreamSubscription<html.MouseEvent>? _webDragOverSub;
+  StreamSubscription<html.MouseEvent>? _webDragLeaveSub;
+  StreamSubscription<html.MouseEvent>? _webDropSub;
 
   bool get _isEffectiveAdmin {
     if (widget.isAdmin) return true;
@@ -653,14 +663,184 @@ class _DeviceSpecificationDialogWidgetState
     }
   }
 
+  Future<void> _handleDroppedPhoto(
+    DropDoneDetails details, {
+    required DeviceSpecification spec,
+    required String devId,
+    required String top,
+    required int targetSlot,
+    required bool isDark,
+  }) async {
+    setState(() => _isDraggingPhoto = false);
+    if (details.files.isEmpty) return;
+
+    final file = details.files.first;
+    final lowerName = file.name.toLowerCase();
+    final isImage = lowerName.endsWith('.jpg') ||
+        lowerName.endsWith('.jpeg') ||
+        lowerName.endsWith('.png') ||
+        lowerName.endsWith('.webp');
+
+    if (!isImage) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please drop a valid image file (JPEG, JPG, PNG, or WEBP).'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      if (bytes.length > 10 * 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image exceeds maximum size of 10MB.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      showUploadDeviceImageDialog(
+        context: context,
+        deviceId: devId,
+        topic: top,
+        sensorName: widget.sensorName,
+        displayName: widget.displayName,
+        initialSlot: targetSlot,
+        isDark: isDark,
+        initialImageBytes: bytes,
+        initialFileName: file.name,
+        initialFileSize: bytes.length,
+        onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error reading dropped image: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    if (kIsWeb) {
+      _webDragOverSub = html.window.onDragOver.listen((event) {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true || !_canAcceptWebPhotoDrop) return;
+        event.preventDefault();
+        if (!_isDraggingPhoto) setState(() => _isDraggingPhoto = true);
+      });
+      _webDragLeaveSub = html.window.onDragLeave.listen((event) {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        if (_isDraggingPhoto) setState(() => _isDraggingPhoto = false);
+      });
+      _webDropSub = html.window.onDrop.listen((event) async {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true || !_canAcceptWebPhotoDrop) return;
+        event.preventDefault();
+        if (_isDraggingPhoto) setState(() => _isDraggingPhoto = false);
+        final files = event.dataTransfer.files;
+        if (files != null && files.isNotEmpty) {
+          await _handleWebDroppedPhoto(files.first);
+        }
+      });
+    }
+  }
+
+  bool get _canAcceptWebPhotoDrop {
+    if (!_isEffectiveAdmin || _selectedSpec == null || _isLoadingImages) return false;
+    final images = _deviceImages?.images ?? [];
+    return !images.any((img) => img.slot == 1) || !images.any((img) => img.slot == 2);
+  }
+
+  Future<void> _handleWebDroppedPhoto(html.File file) async {
+    final spec = _selectedSpec;
+    if (spec == null) return;
+
+    final lowerName = file.name.toLowerCase();
+    final isImage = lowerName.endsWith('.jpg') ||
+        lowerName.endsWith('.jpeg') ||
+        lowerName.endsWith('.png') ||
+        lowerName.endsWith('.webp');
+
+    if (!isImage) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please drop a valid image file (JPEG, JPG, PNG, or WEBP).'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      await reader.onLoadEnd.first;
+      final result = reader.result;
+      Uint8List? bytes;
+      if (result is Uint8List) {
+        bytes = result;
+      } else if (result is ByteBuffer) {
+        bytes = result.asUint8List();
+      } else if (result is List<int>) {
+        bytes = Uint8List.fromList(result);
+      }
+
+      if (!mounted || bytes == null) return;
+      if (bytes.length > 10 * 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image exceeds maximum size of 10MB.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      final top = _resolveTopicForImage(spec);
+      final devId = _resolveDeviceIdForImage(spec, top);
+      final images = _deviceImages?.images ?? [];
+      final targetSlot = !images.any((img) => img.slot == 1) ? 1 : 2;
+
+      showUploadDeviceImageDialog(
+        context: context,
+        deviceId: devId,
+        topic: top,
+        sensorName: widget.sensorName,
+        displayName: widget.displayName,
+        initialSlot: targetSlot,
+        isDark: widget.isDark,
+        initialImageBytes: bytes,
+        initialFileName: file.name,
+        initialFileSize: bytes.length,
+        onUploadSuccess: () => _loadImagesForSpec(spec, forceRefresh: true),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error reading dropped image: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _webDragOverSub?.cancel();
+    _webDragLeaveSub?.cancel();
+    _webDropSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -1312,17 +1492,28 @@ class _DeviceSpecificationDialogWidgetState
         (img) => img.slot == _selectedImageSlot,
         orElse: () => images.first,
       );
+      final bool canDropSlot2 = canUpload && !images.any((img) => img.slot == 2);
 
-      return Container(
+      Widget photoCard = AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: cardBg,
+          color: _isDraggingPhoto && canDropSlot2
+              ? Colors.cyan.withOpacity(0.08)
+              : cardBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
+          border: Border.all(
+            color: _isDraggingPhoto && canDropSlot2
+                ? Colors.cyanAccent
+                : borderColor,
+            width: _isDraggingPhoto && canDropSlot2 ? 2 : 1,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
           children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
             // Image Header
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
@@ -1562,63 +1753,143 @@ class _DeviceSpecificationDialogWidgetState
             ),
           ],
         ),
+            if (_isDraggingPhoto && canDropSlot2)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A).withOpacity(0.78),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_photo_alternate_outlined,
+                              size: 36, color: Colors.cyanAccent),
+                          SizedBox(height: 8),
+                          Text(
+                            'Drop photo here to upload to Slot 2',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.cyanAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       );
+
+      if (canDropSlot2) {
+        return DropTarget(
+          onDragEntered: (_) => setState(() => _isDraggingPhoto = true),
+          onDragExited: (_) => setState(() => _isDraggingPhoto = false),
+          onDragDone: (details) => _handleDroppedPhoto(
+            details,
+            spec: spec,
+            devId: devId,
+            top: top,
+            targetSlot: 2,
+            isDark: isDark,
+          ),
+          child: photoCard,
+        );
+      }
+      return photoCard;
     }
 
     // No image available
     if (canUpload) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.indigoAccent.withOpacity(0.3),
-            style: BorderStyle.solid,
-          ),
+      return DropTarget(
+        onDragEntered: (_) => setState(() => _isDraggingPhoto = true),
+        onDragExited: (_) => setState(() => _isDraggingPhoto = false),
+        onDragDone: (details) => _handleDroppedPhoto(
+          details,
+          spec: spec,
+          devId: devId,
+          top: top,
+          targetSlot: 1,
+          isDark: isDark,
         ),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 10,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.indigoAccent.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.add_a_photo_outlined,
-                      size: 18, color: Colors.indigoAccent),
-                ),
-                const SizedBox(width: 12),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: isMobile ? (screenW - 140).clamp(180.0, 320.0) : 320),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'No installation photo uploaded yet',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: strongText,
-                        ),
-                      ),
-                      Text(
-                        'As an admin, you can upload GPS-tagged photos to S3.',
-                        style: TextStyle(fontSize: 10.5, color: subtleText),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+          decoration: BoxDecoration(
+            color: _isDraggingPhoto ? Colors.cyan.withOpacity(0.1) : cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _isDraggingPhoto
+                  ? Colors.cyanAccent
+                  : Colors.indigoAccent.withOpacity(0.3),
+              width: _isDraggingPhoto ? 2 : 1,
+              style: BorderStyle.solid,
             ),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (_isDraggingPhoto
+                              ? Colors.cyanAccent
+                              : Colors.indigoAccent)
+                          .withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isDraggingPhoto
+                          ? Icons.file_download_outlined
+                          : Icons.add_a_photo_outlined,
+                      size: 18,
+                      color: _isDraggingPhoto
+                          ? Colors.cyanAccent
+                          : Colors.indigoAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                        maxWidth: isMobile
+                            ? (screenW - 140).clamp(180.0, 320.0)
+                            : 320),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isDraggingPhoto
+                              ? 'Drop photo here to upload (Slot 1)'
+                              : 'No installation photo uploaded yet',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _isDraggingPhoto
+                                ? Colors.cyanAccent
+                                : strongText,
+                          ),
+                        ),
+                        Text(
+                          'Drag & drop a GPS-tagged photo here, or click Upload Photo.',
+                          style: TextStyle(fontSize: 10.5, color: subtleText),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             Wrap(
               spacing: 8,
               runSpacing: 6,
@@ -1658,6 +1929,7 @@ class _DeviceSpecificationDialogWidgetState
               ],
             ),
           ],
+        ),
         ),
       );
     }

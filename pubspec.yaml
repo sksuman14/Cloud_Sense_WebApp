@@ -90,6 +90,7 @@ dependencies:
   upgrader: ^11.3.0
   pdf: ^3.11.1
   printing: ^5.13.2
+  desktop_drop: ^0.8.4
 
  
  

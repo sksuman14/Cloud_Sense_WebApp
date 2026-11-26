@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   amplify_db_common
+  desktop_drop
   file_selector_windows
   firebase_core
   geolocator_windows
