@@ -131,8 +131,11 @@ class _AdvancedDataSendDialogState extends State<AdvancedDataSendDialog> {
     if (_isSHDevice) {
       // Shobha API expects  WS_Shobha_N
       krDisplayId = 'WS_Shobha_$numericInt';
-    } else if (_isKRDevice || _isAWDevice) {
-      // Kerala / AWS API expects  WS_N
+    } else if (_isAWDevice) {
+      // AWS API expects  AWS_N
+      krDisplayId = 'AWS_$numericInt';
+    } else if (_isKRDevice) {
+      // Kerala API expects  WS_N
       krDisplayId = 'WS_$numericInt';
     } else if (_isAMDevice) {
       // AM (ANNAM_CP) expects ANNAM_CP01 format

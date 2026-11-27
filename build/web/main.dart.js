@@ -122914,7 +122914,8 @@ p=A.cQ(q,null)
 if(p==null)p=0
 r=n.a.c
 if(B.e.u(r.toUpperCase(),"SH"))o="WS_Shobha_"+p
-else if(B.e.u(r.toUpperCase(),"KR")||B.e.u(r.toUpperCase(),"AW"))o="WS_"+p
+else if(B.e.u(r.toUpperCase(),"AW"))o="AWS_"+p
+else if(B.e.u(r.toUpperCase(),"KR"))o="WS_"+p
 else o=n.gJ8()?"ANNAM_CP"+B.e.aL(B.x.k(p),2,"0"):q
 n.go=new A.bQ(new A.dt(o,B.ce,B.bG),s)},
 p(){var s,r=this,q=r.ay
